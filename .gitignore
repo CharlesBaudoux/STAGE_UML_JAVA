@@ -1,0 +1,16 @@
+# Fichiers compilés par Maven
+target/
+*.class
+*.jar
+
+# Fichiers de l'IDE (IntelliJ, VS Code, Eclipse)
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+
+# Fichiers systèmes
+.DS_Store
+Thumbs.db

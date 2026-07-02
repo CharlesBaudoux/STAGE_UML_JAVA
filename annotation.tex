@@ -1,0 +1,419 @@
+\documentclass[12pt, a4paper]{article}
+
+% Encodage et langue
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+
+% Mise en page et couleurs
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{xcolor}
+\usepackage[hidelinks]{hyperref}
+
+\usepackage{comment}
+
+% Configuration pour l'affichage du code Java
+\usepackage{listings}
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.96,0.96,0.96}
+
+\lstdefinestyle{javastyle}{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{blue},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=4,
+    language=Java
+}
+\lstset{style=javastyle}
+
+% Informations du document
+\title{\textbf{Spécifications Définitives : Système d'Annotations UML} \\ \large Bibliothèque de Génération Java vers PlantUML}
+\author{Documentation Architecturale}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\tableofcontents
+\newpage
+
+\section{Introduction}
+Ce document référence le système d'annotations Java conçu pour la génération automatique de diagrammes PlantUML. L'outil a été pensé pour allier la simplicité de la déduction automatique du code Java avec la flexibilité requise pour modéliser des concepts métier complexes et maîtriser le rendu visuel. Il gère nativement les concepts standards (héritage via \texttt{extends}, implémentation via \texttt{implements}, classes abstraites et énumérations) grâce à l'analyse de l'Arbre Syntaxique (AST). Les annotations ci-dessous viennent enrichir et paramétrer cette analyse.
+
+% ---------------------------------------------------------
+\section{Le Déclencheur et le Seuil : \texttt{@UMLClass}}
+
+\subsection{Principe}
+Placée sur une classe, interface ou énumération, cette annotation indique que l'entité doit figurer sur le diagramme. Elle permet également de définir un seuil de visibilité par défaut pour ses attributs et méthodes, agissant comme un filtre d'inclusion.
+
+\subsection{Le paramètre de Stratégie (Visibilité)}
+Le paramètre \texttt{strategy} définit exactement quels niveaux d'encapsulation doivent être affichés automatiquement :
+\begin{itemize}
+    \item \textbf{Aucune stratégie (par défaut)} : La classe apparaît sur le diagramme comme une coquille vide (aucun attribut ni méthode n'est comptabilisé).
+    \item \textbf{\texttt{PUBLIC}} : Seuls les éléments \texttt{public} sont générés.
+    \item \textbf{\texttt{PROTECTED}} : Les éléments \texttt{public} et \texttt{protected} sont générés.
+    \item \textbf{\texttt{PACKAGE}} : Les éléments \texttt{public} et ceux sans modificateur (package-private) sont générés. Les éléments \texttt{protected} sont exclus par défaut.
+    \item \textbf{\texttt{PRIVATE}} : Tous les éléments de la classe sont générés, sans aucune restriction.
+\end{itemize}
+
+\subsection{Le Filtre Anti-Bruit Intelligent (Smart Default)}
+Pour éviter la surcharge visuelle du diagramme (le "bruit"), les méthodes bénéficient d'un traitement supplémentaire. Même si une méthode respecte le niveau de visibilité exigé par la \texttt{strategy}, le générateur ignore automatiquement :
+\begin{itemize}
+    \item Les accesseurs et mutateurs (\texttt{getters}, \texttt{setters}, \texttt{is...}).
+    \item Les constructeurs.
+    \item Les méthodes natives héritées de \texttt{Object} (ex: \texttt{toString()}, \texttt{hashCode()}).
+\end{itemize}
+Seules les véritables méthodes "métier" sont générées par défaut. Il reste possible de forcer l'affichage d'un élément masqué avec \texttt{@UMLInclude}, ou de cacher une méthode métier spécifique avec \texttt{@UMLExclude}.
+
+\subsection{Pourquoi c'est utile ?}
+Sans cette annotation, le générateur tenterait de dessiner toutes les classes du projet, y compris les classes utilitaires ou les dépendances externes. Elle permet au développeur de choisir exactement le périmètre de son architecture, tout en garantissant un rendu final lisible et centré sur la valeur ajoutée grâce au filtre intelligent.
+
+\subsection{Paramètres}
+\begin{itemize}
+    \item \texttt{name} (String) : Surcharge le nom affiché (utile pour raccourcir les noms à rallonge).
+    \item \texttt{color} (String) : Applique une couleur de fond.
+    \item \texttt{stereotype} (String) : Ajoute une étiquette métier (ex: \texttt{"<<Service>>"}).
+    \item \texttt{strategy} (Enum) : \texttt{PUBLIC}, \texttt{PROTECTED}, \texttt{PACKAGE}, \texttt{PRIVATE}.
+\end{itemize}
+
+\subsection{Exemple}
+\begin{lstlisting}
+// Affiche automatiquement les elements autorises, mais filtre le bruit
+@UMLClass(stereotype = "Entity", strategy = UMLVisibility.PACKAGE)
+public class Utilisateur {
+    public String pseudo;       // Sera affiche
+    String email;               // Sera affiche (package-private)
+    protected int age;          // Sera ignore (hors strategie)
+    private String motDePasse;  // Sera ignore (hors strategie)
+    
+    public Utilisateur() {}     // Sera ignore (Filtre anti-bruit : constructeur)
+    public String getPseudo() {}// Sera ignore (Filtre anti-bruit : getter)
+    
+    public void valider() {}    // Sera affiche (methode metier publique)
+}
+\end{lstlisting}
+
+% ---------------------------------------------------------
+\section{La Dérogation d'Exclusion : \texttt{@UMLExclude}}
+
+\subsection{Principe}
+Cette annotation est une exception négative. Elle force la dissimulation d'un attribut ou d'une méthode, même si la \texttt{strategy} de la classe l'autorisait à apparaître.
+
+\subsection{Pourquoi c'est utile ?}
+Dans le cas où une classe possède une \texttt{strategy = PRIVATE} (tout afficher), certaines variables techniques (loggers, constantes internes) n'ont aucune valeur architecturale ou doivent être cachées. Les exclure permet d'alléger le diagramme final.
+
+\subsection{Paramètres}
+Aucun.
+
+\subsection{Exemple}
+\begin{lstlisting}
+@UMLClass(strategy = UMLVisibility.PRIVATE)
+public class ConnexionBase {
+    private String url; // Affiche car strategie globale sur PRIVATE
+
+    @UMLExclude
+    private Logger log; // Ignore explicitement pour alleger le graphe
+}
+\end{lstlisting}
+
+% ---------------------------------------------------------
+\section{La Dérogation d'Inclusion : \texttt{@UMLInclude}}
+
+\subsection{Principe}
+Cette annotation agit comme une exception positive à la règle de visibilité dictée par \texttt{@UMLClass}. Elle force l'apparition d'un attribut ou d'une méthode sur le diagramme, même si son niveau d'encapsulation aurait dû le masquer.
+
+\subsection{Pourquoi c'est utile ?}
+Si une classe n'a aucune \texttt{strategy} définie (classe vide par défaut), ou une \texttt{strategy = PUBLIC}, le développeur peut cibler très précisément les éléments internes (privés) cruciaux pour la compréhension de l'architecture sans avoir à exposer le reste.
+
+\subsection{Paramètres}
+Aucun.
+
+\subsection{Exemple}
+\begin{lstlisting}
+@UMLClass(strategy = UMLVisibility.PUBLIC)
+public class MoteurDeRecherche {
+    
+    public void chercher() {} // Affiche car public
+    
+    private int compteur; // Ignore car private
+    
+    @UMLInclude
+    private void algorithmeSecret() {} // Force l'affichage grace a l'annotation
+}
+\end{lstlisting}
+
+% ---------------------------------------------------------
+\section{La Précision Métier : \texttt{@UMLAssociation}}
+
+\subsection{Principe}
+Surcharge la déduction automatique des relations portées par les attributs, en précisant la sémantique UML stricte, les cardinalités, les rôles et la classe ciblée.
+
+\subsection{Pourquoi c'est utile ?}
+Le code Java \texttt{List<Commande> commandes} indique qu'il y a plusieurs commandes. Mais seul le métier sait si c'est \texttt{0..*} ou \texttt{1..*}, et si c'est une simple association ou une composition forte. De plus, préciser explicitement la classe cible permet de pallier les limites de l'effacement de type (Type Erasure) sur les collections génériques.
+
+\subsection{Paramètres}
+\begin{itemize}
+    \item \texttt{target} (Class) : Pointe explicitement vers la classe cible de la relation.
+    \item \texttt{type} (Enum) : \texttt{ASSOCIATION}, \texttt{COMPOSITION}, \texttt{AGGREGATION}.
+    \item \texttt{sourceCardinality} (String) : Multiplicité côté source (ex: \texttt{"1"}, \texttt{"0..1"}).
+    \item \texttt{targetCardinality} (String) : Multiplicité côté cible (ex: \texttt{"0..*"}, \texttt{"*"}).
+    \item \texttt{sourceRole} et \texttt{targetRole} (String) : Noms des rôles affichés aux extrémités du lien.
+    \item \texttt{isOrdered} (boolean) : Si vrai, ajoute la contrainte de collection \texttt{\{ordered\}}.
+    \item \texttt{qualifier} (String) : Génère une association qualifiée (le petit carré contenant une clé d'identification).
+    \item \texttt{label} (String) : Texte sur la flèche (ex: \texttt{"possede"}).
+    \item \texttt{direction} (Enum) : \texttt{UP, DOWN, LEFT, RIGHT}.
+\end{itemize}
+
+\subsection{Exemple}
+\begin{lstlisting}
+public class Utilisateur {
+    @UMLAssociation(
+        target = Commande.class,
+        type = UMLRelationType.COMPOSITION, 
+        sourceCardinality = "1",
+        targetCardinality = "0..*", 
+        targetRole = "achats",
+        isOrdered = true,
+        label = "passe"
+    )
+    private List<Commande> commandes;
+}
+\end{lstlisting}
+
+% ---------------------------------------------------------
+\section{La Classe d'Association : \texttt{@UMLAssociationClass}}
+
+\subsection{Principe}
+Identifie une classe spécifique comme étant le porteur des attributs d'une relation entre deux autres classes (souvent utilisée pour modéliser des tables de jointure enrichies).
+
+\subsection{Pourquoi c'est utile ?}
+En Java, il est impossible de lier directement un objet à un lien. Il faut obligatoirement créer une classe intermédiaire. Cette annotation permet de signaler au générateur que cette classe intermédiaire doit être dessinée selon la norme UML stricte : une ligne en pointillés reliant le lien principal à la classe d'association.
+
+\subsection{Paramètres}
+\begin{itemize}
+    \item \texttt{source} (Class) : La classe de départ de la relation.
+    \item \texttt{target} (Class) : La classe d'arrivée de la relation.
+\end{itemize}
+
+\subsection{Exemple}
+\begin{lstlisting}
+@UMLAssociationClass(source = Etudiant.class, target = Cours.class)
+@UMLClass
+public class Inscription {
+    private LocalDate dateInscription;
+    private double noteObtenue;
+}
+\end{lstlisting}
+
+% ---------------------------------------------------------
+\section{Les Éléments Dérivés : \texttt{@UMLDerived}}
+
+\subsection{Principe}
+Indique qu'une classe, un attribut ou une association est "dérivé", c'est-à-dire qu'il n'est pas instancié ou stocké directement, mais qu'il est calculé dynamiquement à partir d'autres données.
+
+\subsection{Pourquoi c'est utile ?}
+En UML, un élément dérivé doit être précédé d'un slash (\texttt{/}). Comme ce slash n'est pas une syntaxe Java valide pour nommer une variable, l'annotation signale au générateur d'ajouter ce préfixe visuel lors du rendu PlantUML.
+
+\subsection{Paramètres}
+Aucun.
+
+\subsection{Exemple}
+\begin{lstlisting}
+public class Personne {
+    private LocalDate dateNaissance;
+
+    @UMLDerived
+    private int age; // Sera affiche en UML sous la forme : /age : int
+}
+\end{lstlisting}
+
+% ---------------------------------------------------------
+\section{Les Contraintes Métier : \texttt{@UMLConstraint}}
+
+\subsection{Principe}
+Permet d'ajouter une règle formelle, exprimée entre accolades \texttt{\{ \}}, applicable à un objet, un attribut ou un lien.
+
+\subsection{Pourquoi c'est utile ?}
+Pour conserver la validité sémantique du modèle, certaines règles métier ne peuvent être exprimées que par des contraintes textuelles (ex: s'assurer qu'un solde est positif, ou marquer un sous-ensemble \texttt{\{subset\}}).
+
+\subsection{Paramètres}
+\begin{itemize}
+    \item \texttt{rule} (String) : La règle à afficher. Les accolades sont ajoutées automatiquement par le générateur.
+\end{itemize}
+
+\subsection{Exemple}
+\begin{lstlisting}
+public class CompteBancaire {
+    
+    @UMLConstraint(rule = "solde >= decouverAutorise")
+    private double solde; // Affichera {solde >= decouverAutorise} a cote de l'attribut
+}
+\end{lstlisting}
+
+% ---------------------------------------------------------
+\section{Les Liens Transversaux : \texttt{@UMLDependency}}
+
+\subsection{Principe}
+Déclare une dépendance vers une autre classe qui n'est pas présente en tant qu'attribut de classe (ex: utilisée localement dans une méthode).
+
+\subsection{Pourquoi c'est utile ?}
+Cette annotation est la seule façon de révéler formellement sur le diagramme qu'une classe en utilise activement une autre, sans pour autant stocker son état de manière prolongée. 
+
+\subsection{Paramètres}
+\begin{itemize}
+    \item \texttt{targetClass} (Class) : Classe ciblée.
+    \item \texttt{label} (String) : Raison du lien (ex: \texttt{"utilise"}).
+\end{itemize}
+
+\subsection{Exemple}
+\begin{lstlisting}
+@UMLDependency(targetClass = ServiceBancaire.class, label = "facture via")
+public class Panier {
+    public void valider() {
+        ServiceBancaire sb = new ServiceBancaire();
+        sb.payer();
+    }
+}
+\end{lstlisting}
+
+% ---------------------------------------------------------
+\section{La Documentation Visuelle : \texttt{@UMLNote}}
+
+\subsection{Principe}
+Génère une bulle de commentaire (note jaune typique de l'UML) rattachée à une classe, un attribut ou une méthode.
+
+\subsection{Pourquoi c'est utile ?}
+Un diagramme explique le "Comment" (structure), la note explique le "Pourquoi". Elle est cruciale pour documenter un algorithme complexe ou avertir les autres développeurs d'une dette technique directement sur le schéma.
+
+\subsection{Paramètres}
+\begin{itemize}
+    \item \texttt{text} (String) : Contenu de la note.
+    \item \texttt{position} (Enum) : \texttt{TOP, BOTTOM, LEFT, RIGHT}.
+\end{itemize}
+
+\subsection{Exemple}
+\begin{lstlisting}
+public class MoteurDeRecherche {
+    @UMLNote(text = "Algorithme critique, ne pas modifier", position = UMLPosition.RIGHT)
+    public void indexer() {
+    }
+}
+\end{lstlisting}
+
+% ---------------------------------------------------------
+\section{Le Regroupement Logique : \texttt{@UMLPackage}}
+
+\subsection{Principe}
+Regroupe visuellement plusieurs classes au sein d'un espace nommé (un rectangle de \textit{package} ou de \textit{namespace} en PlantUML).
+
+\subsection{Pourquoi c'est utile ?}
+Sur un projet contenant 40 classes, le diagramme devient illisible. Regrouper les classes par domaine métier (ex: "Sécurité", "Facturation", "Catalogue") permet de diviser la complexité visuelle, sans forcer les développeurs à restructurer leurs vrais dossiers Java.
+
+\subsection{Paramètres}
+\begin{itemize}
+    \item \texttt{name} (String) : Nom du groupe.
+    \item \texttt{color} (String) : Couleur de fond du groupe.
+\end{itemize}
+
+\subsection{Exemple}
+\begin{lstlisting}
+@UMLPackage(name = "Module Paiement", color = "#EEEEEE")
+@UMLClass
+public class Facture {
+}
+\end{lstlisting}
+
+% ---------------------------------------------------------
+\section{Le Correcteur de Mise en Page : \texttt{@UMLLayout}}
+
+\subsection{Principe}
+Crée un lien invisible (\texttt{-[hidden]->}) entre deux classes dans le fichier PlantUML final pour forcer le moteur de rendu à les positionner l'une par rapport à l'autre.
+
+\subsection{Pourquoi c'est utile ?}
+Le moteur PlantUML calcule les positions automatiquement. Parfois, il croise des flèches inutilement ou aligne mal les boites. Cette annotation permet de forcer PlantUML a dessiner comment on veut pouvoir visualiser certaines boites ( ex : si on veut que la classe "Voiture" se situe juste au dessus de la classe "moteur" sur le graphique). Attention : C'est une annotation qui peut être dangereuse si utilisé trop souvent.
+
+\subsection{Paramètres}
+\begin{itemize}
+    \item \texttt{targetClass} (Class) : Classe cible du lien invisible.
+    \item \texttt{direction} (Enum) : Ex: \texttt{DOWN} (force la cible à être en dessous).
+\end{itemize}
+
+\subsection{Exemple}
+\begin{lstlisting}
+@UMLLayout(targetClass = BaseDeDonnees.class, direction = UMLDirection.DOWN)
+@UMLClass
+public class InterfaceUtilisateur {
+}
+\end{lstlisting}
+% ---------------------------------------------------------
+\begin{comment}
+
+\section{Architecture Technique et Bibliothèques Tierces}
+
+La création d'un générateur UML à partir de code source nécessite de séparer le programme en deux moteurs distincts : un moteur de lecture (analyse du code) et un moteur d'écriture (génération du fichier PlantUML). Pour garantir la robustesse, les performances et la maintenabilité de la bibliothèque, deux outils open-source de référence ont été sélectionnés pour accomplir ces tâches.
+
+
+
+\subsection{Le Moteur d'Analyse : Spoon (Inria)}
+
+\subsubsection{Justification du choix}
+Pour lire le code Java du développeur, l'API de Réflexion standard de Java présente des limites majeures : elle ne peut pas lire le contenu à l'intérieur des méthodes et gère difficilement la résolution des types génériques complexes (ex: \texttt{List<Map<String, Commande>>}). 
+
+C'est pourquoi nous utilisons \textbf{Spoon}, une bibliothèque d'analyse et de transformation de code source développée par l'Inria. Spoon lit les fichiers sources \texttt{.java} et construit un Arbre Syntaxique Abstrait (AST - \textit{Abstract Syntax Tree}). Cela permet de parcourir le code non pas comme du texte, mais comme un ensemble d'objets Java interconnectés, offrant une vue exhaustive sur la structure et le comportement du programme.
+
+\subsubsection{Implication dans les annotations}
+Spoon est le cœur de la détection fonctionnelle. Son utilisation est vitale pour traiter les annotations suivantes :
+
+\begin{itemize}
+    \item \textbf{\texttt{@UMLDependency} :} C'est le cas d'usage critique de Spoon. Puisque cette annotation permet de déclarer une dépendance basée sur l'utilisation locale d'une classe (à l'intérieur d'une méthode), Spoon est le seul outil capable de descendre dans le corps des méthodes (\textit{Method Body}) pour vérifier si la classe cible est effectivement instanciée ou appelée, validant ainsi la pertinence de l'annotation.
+    \item \textbf{\texttt{@UMLAssociation} :} Spoon excelle dans la résolution des types. Lorsqu'il rencontre un champ \texttt{List<Commande>}, son analyseur sémantique nous indique instantanément que le type fondamental est \texttt{Commande} et qu'il s'agit d'une collection. Cela nous permet d'appliquer la multiplicité \texttt{*} par défaut, avant même de lire les valeurs \texttt{cardinality} de l'annotation.
+    \item \textbf{\texttt{@UMLClass}, \texttt{@UMLExclude}, \texttt{@UMLInclude} :} Spoon agit ici comme un filtre puissant. Grâce à son API de requêtage (similaire à des requêtes de base de données sur le code), il permet d'isoler en une seule commande toutes les classes possédant \texttt{@UMLClass}, puis de filtrer leurs membres en fonction de la présence de \texttt{@UMLExclude} ou \texttt{@UMLInclude}, selon la stratégie définie.
+\end{itemize}
+
+\subsection{Le Moteur de Génération : Apache FreeMarker}
+
+\subsubsection{Justification du choix}
+Une fois le code analysé et les données extraites par Spoon, la génération du fichier \texttt{.puml} final requiert la production de texte structuré. Utiliser la concaténation de chaînes de caractères (\texttt{String} ou \texttt{StringBuilder}) directement dans le code Java rendrait la maintenance impossible face à la syntaxe complexe de PlantUML.
+
+\textbf{Apache FreeMarker} est un moteur de \textit{templates} (gabarits). Il permet de séparer totalement la logique d'analyse (Java) de la logique d'affichage (PlantUML). Nous fournissons à FreeMarker un fichier modèle "à trous" et un ensemble de données, et il se charge d'injecter les données de manière sécurisée et formatée.
+
+\subsubsection{Implication dans les annotations}
+FreeMarker gère la traduction visuelle des concepts sémantiques. Il interagit particulièrement avec les données issues des annotations suivantes :
+
+\begin{itemize}
+    \item \textbf{\texttt{@UMLPackage} et \texttt{@UMLNote} :} FreeMarker gère les structures conditionnelles directement dans le template. Il traduira ces annotations par des blocs spécifiques uniquement si elles sont présentes, par exemple :
+    \begin{lstlisting}[language=HTML, caption=Exemple de logique FreeMarker pour les Notes]
+<#if element.hasNote()>
+  note ${element.note.position} of ${element.name}
+    ${element.note.text}
+  end note
+</#if>
+    \end{lstlisting}
+    
+    \item \textbf{\texttt{@UMLLayout} :} L'annotation ordonne une contrainte de placement géographique. FreeMarker traduit cette instruction en générant une ligne spécifique de mise en page PlantUML avec une flèche invisible, par exemple : \texttt{ClasseA -[hidden]DOWN-> ClasseB}.
+    
+    \item \textbf{\texttt{@UMLClass} (Paramètres \texttt{color} et \texttt{stereotype}) :} Le moteur de template récupère les métadonnées esthétiques de l'annotation et les formate directement à côté de la déclaration de la classe (ex: \texttt{class Utilisateur <<Entity>> \#LightBlue}).
+    
+    \item \textbf{\texttt{@UMLAssociation} (Traduction des symboles) :} FreeMarker utilise les valeurs de l'énumération \texttt{UMLRelationType} extraites par l'annotation pour imprimer le bon symbole PlantUML. Si le type est \texttt{COMPOSITION}, le template générera un losange plein (\texttt{*--}). Si l'attribut \texttt{label} est renseigné, il l'ajoutera après un deux-points (\texttt{: possede >}).
+\end{itemize}
+
+\subsection{Conclusion sur l'Architecture}
+En combinant \textbf{Spoon} pour sa profondeur d'analyse structurelle et \textbf{Apache FreeMarker} pour sa flexibilité de génération de texte, la bibliothèque garantit une séparation stricte des responsabilités (MVC). Le code Java reste propre, dédié uniquement au "mapping" entre les concepts du code source annoté et les abstractions visuelles de l'UML.
+
+\end{comment}
+\end{document}
