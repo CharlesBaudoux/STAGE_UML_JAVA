@@ -5,7 +5,7 @@ public class Main {
         System.out.println("Test de l'arborescence complexe...");
         UmlGenerator.builder()
             .sourceDirectory("target/classes")
-            .outputFile("architecture_complexe.png")
+            .outputFile("architecture_complexe.svg")
             .build()
             .generate();
     }

@@ -28,7 +28,7 @@ final class PlantUmlWriter {
 
         String codePlantUml = syntax.build();
 
-        // Détection intelligente du format demandé par l'utilisateur
+        
         FileFormat format = outputFileName.toLowerCase().endsWith(".svg") 
             ? FileFormat.SVG 
             : FileFormat.PNG;
@@ -36,7 +36,7 @@ final class PlantUmlWriter {
         try (OutputStream os = new FileOutputStream(outputFileName)) {
             SourceStringReader reader = new SourceStringReader(codePlantUml);
             
-            // On force PlantUML à utiliser le format détecté
+            
             reader.generateImage(os, new FileFormatOption(format));
             
             System.out.println("Succès : Diagramme généré -> " + outputFileName);

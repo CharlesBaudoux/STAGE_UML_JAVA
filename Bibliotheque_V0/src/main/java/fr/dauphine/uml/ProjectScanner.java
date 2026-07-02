@@ -13,12 +13,12 @@ import java.util.stream.Stream;
 
 final class ProjectScanner {
 
-    private ProjectScanner() {} // Empêche l'instanciation
+    private ProjectScanner() {} 
 
     static UmlProject scan(Path rootPath) throws Exception {
         checkNotNull(rootPath);
         checkArgument(Files.exists(rootPath) && Files.isDirectory(rootPath), 
-            "Le dossier source spécifié n'est pas valide : %s", rootPath);
+            "Le dossier source n'est pas valide : %s", rootPath);
 
         ImmutableSet.Builder<UmlEntity> projectBuilder = ImmutableSet.builder();
 
@@ -40,7 +40,7 @@ final class ProjectScanner {
                                  projectBuilder.add(UmlEntity.from(clazz));
                              }
                          } catch (ClassNotFoundException | NoClassDefFoundError e) {
-                             // Silencieux : on ignore les classes non chargeables
+                             
                          }
                      });
             }

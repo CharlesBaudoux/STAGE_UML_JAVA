@@ -7,15 +7,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-/**
- * Point d'entrée principal de la bibliothèque de génération UML.
- */
+
 public final class UmlGenerator {
 
     private final Path sourceDirectory;
     private final String outputFileName;
 
-    // Constructeur privé : l'utilisateur DOIT passer par le Builder
+    
     private UmlGenerator(Builder builder) {
         this.sourceDirectory = builder.sourceDirectory;
         this.outputFileName = builder.outputFileName;
@@ -25,12 +23,10 @@ public final class UmlGenerator {
         return new Builder();
     }
 
-    /**
-     * Déclenche l'analyse statique et la création du fichier image.
-     */
+    
     public void generate() {
         try {
-            // La complexité est déléguée aux classes internes "package-private"
+            
             UmlProject project = ProjectScanner.scan(sourceDirectory);
             PlantUmlWriter.write(project, outputFileName);
         } catch (Exception e) {
@@ -38,7 +34,7 @@ public final class UmlGenerator {
         }
     }
 
-    // --- Le Builder (Interface Fluide) ---
+    
     public static final class Builder {
         private Path sourceDirectory;
         private String outputFileName = "diagramme_architecture.svg"; // Smart Default

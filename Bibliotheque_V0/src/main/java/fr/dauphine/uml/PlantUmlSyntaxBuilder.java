@@ -6,7 +6,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import java.util.Optional;
 
 /**
- * Encapsule strictement la logique de formatage textuel de PlantUML.
+ * La logique de formatage textuel de PlantUML.
  */
 final class PlantUmlSyntaxBuilder {
 
@@ -27,7 +27,7 @@ final class PlantUmlSyntaxBuilder {
 
         builder.append("class ").append(className);
         
-        // Si un stéréotype est présent, on l'ajoute proprement
+        
         checkNotNull(stereotype).ifPresent(s -> builder.append(" <<").append(s).append(">>"));
         
         builder.append(" {\n");
@@ -45,7 +45,7 @@ final class PlantUmlSyntaxBuilder {
     }
 
     /**
-     * @return Le code source PlantUML finalisé.
+     * @return 
      */
     String build() {
         return builder.toString();
