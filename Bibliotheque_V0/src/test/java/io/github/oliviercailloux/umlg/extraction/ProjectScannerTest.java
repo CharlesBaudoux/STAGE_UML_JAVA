@@ -1,9 +1,11 @@
-package fr.dauphine.uml;
+package io.github.oliviercailloux.umlg.extraction;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.github.oliviercailloux.umlg.annotation.UMLClass;
+import io.github.oliviercailloux.umlg.model.UmlProject;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;

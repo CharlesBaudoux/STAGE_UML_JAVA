@@ -1,8 +1,12 @@
-package fr.dauphine.uml;
+package io.github.oliviercailloux.umlg.rendering;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.github.oliviercailloux.umlg.annotation.UMLClass;
+import io.github.oliviercailloux.umlg.extraction.EntityExtractor;
+import io.github.oliviercailloux.umlg.model.UmlEntity;
+import io.github.oliviercailloux.umlg.model.UmlProject;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Set;
@@ -17,7 +21,7 @@ class PlantUmlWriterTest {
 
     @Test
     void testGenerationFichierSvg(@TempDir Path dossierTemporaire) throws Exception {
-        UmlEntity fausseEntite = UmlEntity.from(ClasseCobaye.class);
+        UmlEntity fausseEntite = EntityExtractor.extract(ClasseCobaye.class);
         UmlProject projet = UmlProject.given(Set.of(fausseEntite));
         
         Path cheminFichierSortie = dossierTemporaire.resolve("diagramme_test.svg");
@@ -29,7 +33,7 @@ class PlantUmlWriterTest {
 
     @Test
     void testGenerationFichierPng(@TempDir Path dossierTemporaire) throws Exception {
-        UmlEntity fausseEntite = UmlEntity.from(ClasseCobaye.class);
+        UmlEntity fausseEntite = EntityExtractor.extract(ClasseCobaye.class);
         UmlProject projet = UmlProject.given(Set.of(fausseEntite));
         
         Path cheminFichierSortie = dossierTemporaire.resolve("diagramme_test.png");
@@ -46,7 +50,7 @@ class PlantUmlWriterTest {
         });
 
         assertThrows(NullPointerException.class, () -> {
-            UmlEntity fausseEntite = UmlEntity.from(ClasseCobaye.class);
+            UmlEntity fausseEntite = EntityExtractor.extract(ClasseCobaye.class);
             UmlProject projetValide = UmlProject.given(Set.of(fausseEntite));
             PlantUmlWriter.write(projetValide, null);
         });

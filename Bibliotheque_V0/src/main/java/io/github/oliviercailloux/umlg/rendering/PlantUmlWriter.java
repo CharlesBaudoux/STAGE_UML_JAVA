@@ -1,19 +1,20 @@
-package fr.dauphine.uml;
+package io.github.oliviercailloux.umlg.rendering;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import io.github.oliviercailloux.umlg.model.UmlEntity;
+import io.github.oliviercailloux.umlg.model.UmlProject;
 import java.io.FileOutputStream;
 import java.io.OutputStream;
-import java.util.Optional;
 import net.sourceforge.plantuml.FileFormat;
 import net.sourceforge.plantuml.FileFormatOption;
 import net.sourceforge.plantuml.SourceStringReader;
 
-final class PlantUmlWriter {
+public final class PlantUmlWriter {
 
     private PlantUmlWriter() {}
 
-    static void write(UmlProject project, String outputFileName) throws Exception {
+    public static void write(UmlProject project, String outputFileName) throws Exception {
         checkNotNull(project);
         checkNotNull(outputFileName);
 
@@ -21,8 +22,7 @@ final class PlantUmlWriter {
         
         syntax.startDocument();
         for (UmlEntity entity : project.entities()) {
-            syntax.addClass(entity.name(), Optional.empty())
-                  .endClass();
+            syntax.addClass(entity); 
         }
         syntax.endDocument();
 
@@ -37,7 +37,7 @@ final class PlantUmlWriter {
             SourceStringReader reader = new SourceStringReader(codePlantUml);
             
             
-            reader.generateImage(os, new FileFormatOption(format));
+            reader.outputImage(os, new FileFormatOption(format));
             
             System.out.println("Succès : Diagramme généré -> " + outputFileName);
         }
