@@ -72,8 +72,8 @@ public final class UMLGenerator {
 
         public Builder outputFile(String fileName) {
             checkNotNull(fileName, "Le nom du fichier ne peut pas être null.");
-            checkArgument(fileName.endsWith(".png") || fileName.endsWith(".svg"),
-                "Le format de sortie doit être .png ou .svg");
+            checkArgument(PlantUmlWriter.supporte(fileName),
+                "Le format de sortie doit être .png ou .svg (reçu : %s)", fileName);
 
             this.outputFileName = fileName;
             return this;

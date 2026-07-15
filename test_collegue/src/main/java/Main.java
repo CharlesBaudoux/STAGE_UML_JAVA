@@ -1,11 +1,10 @@
-import fr.dauphine.uml.UmlGenerator;
+import io.github.oliviercailloux.umlg.UMLGenerator;
 
 public class Main {
     public static void main(String[] args) {
-        System.out.println("Test de l'arborescence complexe...");
-        UmlGenerator.builder()
+        UMLGenerator.builder()
             .sourceDirectory("target/classes")
-            .outputFile("architecture_complexe.svg")
+            .outputFile("architecture_banque.svg")
             .build()
             .generate();
     }

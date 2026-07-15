@@ -6,13 +6,30 @@ import io.github.oliviercailloux.umlg.model.UmlEntity;
 import io.github.oliviercailloux.umlg.model.UmlProject;
 import java.io.FileOutputStream;
 import java.io.OutputStream;
+import java.util.Locale;
 import net.sourceforge.plantuml.FileFormat;
 import net.sourceforge.plantuml.FileFormatOption;
 import net.sourceforge.plantuml.SourceStringReader;
 
-public final class PlantUmlWriter {
+public class PlantUmlWriter {
+
+    private static final String EXTENSION_SVG = ".svg";
+    private static final String EXTENSION_PNG = ".png";
 
     private PlantUmlWriter() {}
+
+
+    public static boolean supporte(String outputFileName) {
+        checkNotNull(outputFileName);
+        String normalise = outputFileName.toLowerCase(Locale.ROOT);
+        return normalise.endsWith(EXTENSION_SVG) || normalise.endsWith(EXTENSION_PNG);
+    }
+
+    private static FileFormat formatPour(String outputFileName) {
+        return outputFileName.toLowerCase(Locale.ROOT).endsWith(EXTENSION_SVG)
+            ? FileFormat.SVG
+            : FileFormat.PNG;
+    }
 
     public static void write(UmlProject project, String outputFileName) throws Exception {
         checkNotNull(project);
@@ -28,10 +45,7 @@ public final class PlantUmlWriter {
 
         String codePlantUml = syntax.build();
 
-        
-        FileFormat format = outputFileName.toLowerCase().endsWith(".svg") 
-            ? FileFormat.SVG 
-            : FileFormat.PNG;
+        FileFormat format = formatPour(outputFileName);
 
         try (OutputStream os = new FileOutputStream(outputFileName)) {
             SourceStringReader reader = new SourceStringReader(codePlantUml);

@@ -362,58 +362,5 @@ public class InterfaceUtilisateur {
 \end{lstlisting}
 % ---------------------------------------------------------
 \begin{comment}
-
-\section{Architecture Technique et Bibliothèques Tierces}
-
-La création d'un générateur UML à partir de code source nécessite de séparer le programme en deux moteurs distincts : un moteur de lecture (analyse du code) et un moteur d'écriture (génération du fichier PlantUML). Pour garantir la robustesse, les performances et la maintenabilité de la bibliothèque, deux outils open-source de référence ont été sélectionnés pour accomplir ces tâches.
-
-
-
-\subsection{Le Moteur d'Analyse : Spoon (Inria)}
-
-\subsubsection{Justification du choix}
-Pour lire le code Java du développeur, l'API de Réflexion standard de Java présente des limites majeures : elle ne peut pas lire le contenu à l'intérieur des méthodes et gère difficilement la résolution des types génériques complexes (ex: \texttt{List<Map<String, Commande>>}). 
-
-C'est pourquoi nous utilisons \textbf{Spoon}, une bibliothèque d'analyse et de transformation de code source développée par l'Inria. Spoon lit les fichiers sources \texttt{.java} et construit un Arbre Syntaxique Abstrait (AST - \textit{Abstract Syntax Tree}). Cela permet de parcourir le code non pas comme du texte, mais comme un ensemble d'objets Java interconnectés, offrant une vue exhaustive sur la structure et le comportement du programme.
-
-\subsubsection{Implication dans les annotations}
-Spoon est le cœur de la détection fonctionnelle. Son utilisation est vitale pour traiter les annotations suivantes :
-
-\begin{itemize}
-    \item \textbf{\texttt{@UMLDependency} :} C'est le cas d'usage critique de Spoon. Puisque cette annotation permet de déclarer une dépendance basée sur l'utilisation locale d'une classe (à l'intérieur d'une méthode), Spoon est le seul outil capable de descendre dans le corps des méthodes (\textit{Method Body}) pour vérifier si la classe cible est effectivement instanciée ou appelée, validant ainsi la pertinence de l'annotation.
-    \item \textbf{\texttt{@UMLAssociation} :} Spoon excelle dans la résolution des types. Lorsqu'il rencontre un champ \texttt{List<Commande>}, son analyseur sémantique nous indique instantanément que le type fondamental est \texttt{Commande} et qu'il s'agit d'une collection. Cela nous permet d'appliquer la multiplicité \texttt{*} par défaut, avant même de lire les valeurs \texttt{cardinality} de l'annotation.
-    \item \textbf{\texttt{@UMLClass}, \texttt{@UMLExclude}, \texttt{@UMLInclude} :} Spoon agit ici comme un filtre puissant. Grâce à son API de requêtage (similaire à des requêtes de base de données sur le code), il permet d'isoler en une seule commande toutes les classes possédant \texttt{@UMLClass}, puis de filtrer leurs membres en fonction de la présence de \texttt{@UMLExclude} ou \texttt{@UMLInclude}, selon la stratégie définie.
-\end{itemize}
-
-\subsection{Le Moteur de Génération : Apache FreeMarker}
-
-\subsubsection{Justification du choix}
-Une fois le code analysé et les données extraites par Spoon, la génération du fichier \texttt{.puml} final requiert la production de texte structuré. Utiliser la concaténation de chaînes de caractères (\texttt{String} ou \texttt{StringBuilder}) directement dans le code Java rendrait la maintenance impossible face à la syntaxe complexe de PlantUML.
-
-\textbf{Apache FreeMarker} est un moteur de \textit{templates} (gabarits). Il permet de séparer totalement la logique d'analyse (Java) de la logique d'affichage (PlantUML). Nous fournissons à FreeMarker un fichier modèle "à trous" et un ensemble de données, et il se charge d'injecter les données de manière sécurisée et formatée.
-
-\subsubsection{Implication dans les annotations}
-FreeMarker gère la traduction visuelle des concepts sémantiques. Il interagit particulièrement avec les données issues des annotations suivantes :
-
-\begin{itemize}
-    \item \textbf{\texttt{@UMLPackage} et \texttt{@UMLNote} :} FreeMarker gère les structures conditionnelles directement dans le template. Il traduira ces annotations par des blocs spécifiques uniquement si elles sont présentes, par exemple :
-    \begin{lstlisting}[language=HTML, caption=Exemple de logique FreeMarker pour les Notes]
-<#if element.hasNote()>
-  note ${element.note.position} of ${element.name}
-    ${element.note.text}
-  end note
-</#if>
-    \end{lstlisting}
-    
-    \item \textbf{\texttt{@UMLLayout} :} L'annotation ordonne une contrainte de placement géographique. FreeMarker traduit cette instruction en générant une ligne spécifique de mise en page PlantUML avec une flèche invisible, par exemple : \texttt{ClasseA -[hidden]DOWN-> ClasseB}.
-    
-    \item \textbf{\texttt{@UMLClass} (Paramètres \texttt{color} et \texttt{stereotype}) :} Le moteur de template récupère les métadonnées esthétiques de l'annotation et les formate directement à côté de la déclaration de la classe (ex: \texttt{class Utilisateur <<Entity>> \#LightBlue}).
-    
-    \item \textbf{\texttt{@UMLAssociation} (Traduction des symboles) :} FreeMarker utilise les valeurs de l'énumération \texttt{UMLRelationType} extraites par l'annotation pour imprimer le bon symbole PlantUML. Si le type est \texttt{COMPOSITION}, le template générera un losange plein (\texttt{*--}). Si l'attribut \texttt{label} est renseigné, il l'ajoutera après un deux-points (\texttt{: possede >}).
-\end{itemize}
-
-\subsection{Conclusion sur l'Architecture}
-En combinant \textbf{Spoon} pour sa profondeur d'analyse structurelle et \textbf{Apache FreeMarker} pour sa flexibilité de génération de texte, la bibliothèque garantit une séparation stricte des responsabilités (MVC). Le code Java reste propre, dédié uniquement au "mapping" entre les concepts du code source annoté et les abstractions visuelles de l'UML.
-
 \end{comment}
 \end{document}

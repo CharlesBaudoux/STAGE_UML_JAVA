@@ -3,13 +3,17 @@ package io.github.oliviercailloux.umlg.rendering;
 import io.github.oliviercailloux.umlg.model.UmlEntity;
 import io.github.oliviercailloux.umlg.model.UmlField;
 import io.github.oliviercailloux.umlg.model.UmlMethod;
+import java.util.HashSet;
+import java.util.Set;
 
 public class PlantUmlSyntaxBuilder {
 
     private final StringBuilder builder;
+    private final Set<String> aliasUtilises;
 
     public PlantUmlSyntaxBuilder() {
         this.builder = new StringBuilder();
+        this.aliasUtilises = new HashSet<>();
     }
 
     public void startDocument() {
@@ -25,8 +29,7 @@ public class PlantUmlSyntaxBuilder {
 
     public PlantUmlSyntaxBuilder addClass(UmlEntity entity) {
         // 1. Déclaration de la classe et de son nom
-        // On crée un alias sans espaces pour éviter les bugs PlantUML avec le mot-clé 'as'
-        String alias = entity.name().replaceAll("[^a-zA-Z0-9]", "");
+        String alias = aliasPour(entity.name());
         builder.append("class \"").append(entity.name()).append("\" as ").append(alias);
 
         
@@ -73,6 +76,31 @@ public class PlantUmlSyntaxBuilder {
 
         builder.append("}\n\n");
         return this;
+    }
+
+    /**
+     * Alias PlantUML pour un nom affiché : un identifiant sans espace ni ponctuation, et
+     * distinct de tous ceux déjà attribués dans ce document.
+     *
+     * <p>Le nom affiché est bien plus permissif que l'alias : {@code @UMLClass.name()}
+     * accepte les lettres unicode, les espaces, '.', '_' et '-'. Deux écueils en découlent,
+     * qu'aucun des deux PlantUML ne signale comme une erreur exploitable : un nom sans
+     * aucun caractère ASCII alphanumérique (« 客户 », « ... ») donnerait un alias vide et
+     * un diagramme d'erreur, et deux noms distincts peuvent se réduire au même alias
+     * (« Mon.Client » et « MonClient »), auquel cas PlantUML fusionne silencieusement les
+     * deux classes. D'où le repli sur un préfixe et la déduplication par suffixe.
+     */
+    private String aliasPour(String nom) {
+        String base = nom.replaceAll("[^a-zA-Z0-9]", "");
+        if (base.isEmpty() || !Character.isLetter(base.charAt(0))) {
+            base = "C" + base;
+        }
+
+        String candidat = base;
+        for (int suffixe = 2; !aliasUtilises.add(candidat); suffixe++) {
+            candidat = base + "_" + suffixe;
+        }
+        return candidat;
     }
 
     public String build() {

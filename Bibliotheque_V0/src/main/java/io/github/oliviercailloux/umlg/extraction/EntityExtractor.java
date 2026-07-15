@@ -23,7 +23,7 @@ import java.util.regex.Pattern;
  * {@code @UMLClass} en {@link UmlEntity}, en appliquant la stratégie de
  * visibilité et le filtre anti-bruit décrits dans les spécifications.
  */
-public final class EntityExtractor {
+public class EntityExtractor {
 
     // Lettres/chiffres unicode, espace, '.', '_' et '-' : suffisant pour des noms de
     // classe réalistes (y compris accentués), tout en excluant les caractères qui
@@ -57,7 +57,7 @@ public final class EntityExtractor {
         validateStereotype(finalStereotype, clazz);
         validateColor(finalColor, clazz);
 
-        List<UmlField> extractedFields = extractFields(clazz, finalStrategy);
+        List<UmlField> extractedFields = extractFields(clazz, finalStrategy); 
         List<UmlMethod> extractedMethods = extractMethods(clazz, finalStrategy);
 
         return new UmlEntity(
@@ -107,6 +107,11 @@ public final class EntityExtractor {
         List<UmlField> result = new ArrayList<>();
 
         for (Field field : clazz.getDeclaredFields()) {
+            
+            if (field.isSynthetic()) {
+                continue;
+            }
+
             if (isElementVisible(field.getModifiers(), strategy, field.isAnnotationPresent(UMLInclude.class), field.isAnnotationPresent(UMLExclude.class))) {
                 result.add(new UmlField(
                     field.getName(),
@@ -131,7 +136,7 @@ public final class EntityExtractor {
             boolean hasInclude = method.isAnnotationPresent(UMLInclude.class);
             boolean hasExclude = method.isAnnotationPresent(UMLExclude.class);
 
-            if (isNoise(method.getName()) && !hasInclude) {
+            if (isNoise(method, clazz) && !hasInclude) {
                 continue;
             }
 
@@ -182,13 +187,93 @@ public final class EntityExtractor {
         return false;
     }
 
-    private static boolean isNoise(String methodName) {
-        return methodName.startsWith("get")
-            || methodName.startsWith("set")
-            || methodName.startsWith("is")
-            || methodName.equals("toString")
-            || methodName.equals("hashCode")
-            || methodName.equals("equals");
+    /**
+     * Indique si {@code method} relève de la plomberie plutôt que du métier, et doit donc
+     * être écartée du diagramme sauf dérogation {@code @UMLInclude}.
+     *
+     * <p>La détection s'appuie sur la convention JavaBean complète (préfixe <em>suivi d'une
+     * majuscule</em>, arité et type de retour), et non sur le seul préfixe : « isoler »,
+     * « setup », « issue » ou « getaway » sont de vraies méthodes métier qu'un test de
+     * préfixe nu faisait disparaître silencieusement du diagramme. À l'inverse, le bruit
+     * généré par le compilateur sur les record et les enum ne porte aucun préfixe et
+     * passait au travers.
+     */
+    private static boolean isNoise(Method method, Class<?> clazz) {
+        return isObjectMethod(method)
+            || isGetter(method)
+            || isBooleanGetter(method)
+            || isSetter(method)
+            || isRecordAccessor(method, clazz)
+            || isEnumGenerated(method, clazz);
+    }
+
+    /**
+     * Convention JavaBean : le préfixe doit être suivi d'une majuscule. C'est ce qui
+     * distingue {@code getNom()} (accesseur) de {@code getaway()} (méthode métier).
+     */
+    private static boolean hasBeanPrefix(String methodName, String prefix) {
+        return methodName.length() > prefix.length()
+            && methodName.startsWith(prefix)
+            && Character.isUpperCase(methodName.charAt(prefix.length()));
+    }
+
+    private static boolean isGetter(Method method) {
+        return hasBeanPrefix(method.getName(), "get")
+            && method.getParameterCount() == 0
+            && method.getReturnType() != void.class;
+    }
+
+    private static boolean isBooleanGetter(Method method) {
+        return hasBeanPrefix(method.getName(), "is")
+            && method.getParameterCount() == 0
+            && (method.getReturnType() == boolean.class || method.getReturnType() == Boolean.class);
+    }
+
+    private static boolean isSetter(Method method) {
+        return hasBeanPrefix(method.getName(), "set")
+            && method.getParameterCount() == 1
+            && method.getReturnType() == void.class;
+    }
+
+    /** Signatures exactes héritées d'{@code Object} : une surcharge reste du métier. */
+    private static boolean isObjectMethod(Method method) {
+        String name = method.getName();
+        Class<?>[] params = method.getParameterTypes();
+
+        return switch (name) {
+            case "toString" -> params.length == 0 && method.getReturnType() == String.class;
+            case "hashCode" -> params.length == 0 && method.getReturnType() == int.class;
+            case "equals" -> params.length == 1 && params[0] == Object.class
+                && method.getReturnType() == boolean.class;
+            default -> false;
+        };
+    }
+
+    /**
+     * Accesseur canonique d'un record ({@code latitude()}) : même rôle qu'un getter, mais
+     * sans préfixe puisque javac le nomme d'après le composant.
+     */
+    private static boolean isRecordAccessor(Method method, Class<?> clazz) {
+        if (!clazz.isRecord() || method.getParameterCount() != 0) {
+            return false;
+        }
+        return Arrays.stream(clazz.getRecordComponents())
+                     .anyMatch(component -> component.getName().equals(method.getName())
+                         && component.getType() == method.getReturnType());
+    }
+
+    /**
+     * {@code values()} et {@code valueOf(String)}, ajoutées à toute enum par javac. Elles ne
+     * sont pas marquées synthétiques et échappent donc au filtre de {@code isSynthetic()}.
+     */
+    private static boolean isEnumGenerated(Method method, Class<?> clazz) {
+        if (!clazz.isEnum() || !Modifier.isStatic(method.getModifiers())) {
+            return false;
+        }
+        Class<?>[] params = method.getParameterTypes();
+
+        return (method.getName().equals("values") && params.length == 0)
+            || (method.getName().equals("valueOf") && params.length == 1 && params[0] == String.class);
     }
 
     private static String getUmlVisibilitySymbol(int modifiers) {
