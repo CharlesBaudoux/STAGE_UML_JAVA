@@ -1,0 +1,89 @@
+package io.github.oliviercailloux.umlg.processing;
+
+import io.github.oliviercailloux.umlg.annotation.UMLAssociation;
+import io.github.oliviercailloux.umlg.annotation.UMLClass;
+import io.github.oliviercailloux.umlg.annotation.UMLDerived;
+import io.github.oliviercailloux.umlg.annotation.UMLExclude;
+import io.github.oliviercailloux.umlg.annotation.UMLInclude;
+import io.github.oliviercailloux.umlg.extraction.member.VisibilityPolicy;
+import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.Element;
+import javax.lang.model.element.TypeElement;
+
+// Vérifie @UMLDerived, posée sur un attribut ou une méthode.
+//
+// L'annotation ne porte aucun paramètre : il n'y a donc rien à valider dans ce qu'elle dit, et
+// tout à vérifier dans ce qu'elle produira. Une barre oblique ne se voit que si l'élément
+// qu'elle marque est dessiné ; ce vérificateur ne parle que de cela.
+final class VerificateurDerive {
+
+    private final Rapporteur rapporteur;
+
+    VerificateurDerive(Rapporteur rapporteur) {
+        this.rapporteur = rapporteur;
+    }
+
+    void verifier(Element membre) {
+        AnnotationMirror annotation = rapporteur.miroir(membre, UMLDerived.class);
+        if (annotation == null) {
+            return;
+        }
+        TypeElement porteuse = (TypeElement) membre.getEnclosingElement();
+        UMLClass classe = porteuse.getAnnotation(UMLClass.class);
+
+        if (classe == null) {
+            rapporteur.erreur(Membre.emplacement(membre) + ": the declaring class does not carry "
+                + "@UMLClass, so it is not part of the diagram and this annotation has no "
+                + "effect. Annotate " + porteuse.getQualifiedName() + ", or remove it.",
+                membre, annotation);
+            return;
+        }
+
+        AnnotationMirror association = rapporteur.miroir(membre, UMLAssociation.class);
+        if (association != null) {
+            // Sous la notation ATTRIBUTE, la barre oblique retrouve sa place ordinaire : devant
+            // le nom de l'attribut, lequel est écrit dans la boîte quelle que soit la stratégie.
+            // Il n'y a donc rien à signaler — ni rôle manquant, ni membre invisible.
+            if (Notation.trait(rapporteur, association)) {
+                signalerLienSansRole(membre, annotation, association);
+            }
+            return;
+        }
+        signalerMembreInvisible(membre, classe, annotation);
+    }
+
+    // Sur un attribut porteur de @UMLAssociation, la dérivation quitte l'attribut pour le lien,
+    // et la barre oblique se pose devant le rôle cible — le nom que porte la propriété sur le
+    // dessin. Sans rôle écrit, cette propriété n'est nommée nulle part : il n'y a rien à marquer,
+    // et l'annotation reste sans effet visible.
+    private void signalerLienSansRole(Element membre, AnnotationMirror annotation,
+        AnnotationMirror association) {
+        if (!rapporteur.texte(association, "targetRole").isEmpty()) {
+            return;
+        }
+        rapporteur.avertissement(Membre.emplacement(membre) + ": @UMLDerived marks the link as "
+            + "derived, and the slash goes in front of the target role — but targetRole is not "
+            + "set on @UMLAssociation, so nothing on the link would carry it. Set targetRole, or "
+            + "remove @UMLDerived.", membre, annotation);
+    }
+
+    // Un membre que la classe ne montre pas ne peut pas montrer sa barre oblique.
+    //
+    // La question vaut pour les attributs comme pour les méthodes : le filtre anti-bruit, que le
+    // processeur n'a pas sous la main, ne fait qu'en retirer davantage. Ce que la stratégie
+    // masque déjà est donc masqué à coup sûr, et le dire ici ne risque aucun faux reproche.
+    private void signalerMembreInvisible(Element membre, UMLClass classe,
+        AnnotationMirror annotation) {
+        boolean visible = VisibilityPolicy.estVisible(Membre.bits(membre), classe.strategy(),
+            rapporteur.miroir(membre, UMLInclude.class) != null,
+            rapporteur.miroir(membre, UMLExclude.class) != null);
+
+        if (visible) {
+            return;
+        }
+        rapporteur.avertissement(Membre.emplacement(membre) + ": @UMLDerived has no visible "
+            + "effect, this member is not shown on the diagram (strategy = " + classe.strategy()
+            + " on the declaring class). Add @UMLInclude if you want to see it, slash included.",
+            membre, annotation);
+    }
+}

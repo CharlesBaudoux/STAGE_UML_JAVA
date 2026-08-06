@@ -10,6 +10,12 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+// La façade vue de l'extérieur : ce que le builder accepte, ce qu'il refuse, et une génération
+// complète de bout en bout.
+//
+// Chaque refus est vérifié au bon appel : le dossier invalide échoue dès sourceDirectory(),
+// l'extension invalide dès outputFile(), et l'absence de dossier source seulement à build().
+// Ce n'est pas un détail : c'est ce qui donne un message pointant sur la ligne fautive.
 class UMLGeneratorTest {
 
     @Test
@@ -22,6 +28,34 @@ class UMLGeneratorTest {
 
         // Assert : Si on arrive ici, c'est que toutes les validations ont réussi
         assertNotNull(generator, "Le générateur aurait dû être instancié avec succès.");
+    }
+
+    @Test
+    void styleRefuseNull(@TempDir Path dossierTemporaire) {
+        // Le style a un défaut, mais « null » n'en est pas un : ce serait un oubli, et le
+        // laisser passer ferait échouer le rendu bien plus loin, sans dire pourquoi.
+        assertThrows(NullPointerException.class, () -> UMLGenerator.builder()
+            .sourceDirectory(dossierTemporaire.toString())
+            .style(null));
+    }
+
+    @Test
+    void styleFacultatif_leDefautSuffitAConstruire(@TempDir Path dossierTemporaire) {
+        // L'apparence est le seul paramètre à défaut raisonnable des trois : PlantUML sait
+        // dessiner sans qu'on lui dicte ses couleurs.
+        assertNotNull(UMLGenerator.builder()
+            .sourceDirectory(dossierTemporaire.toString())
+            .outputFile("diagramme.svg")
+            .build());
+    }
+
+    @Test
+    void styleExplicite_estAccepte(@TempDir Path dossierTemporaire) {
+        assertNotNull(UMLGenerator.builder()
+            .sourceDirectory(dossierTemporaire.toString())
+            .outputFile("diagramme.svg")
+            .style(UmlStyle.UMLG)
+            .build());
     }
 
     @Test
@@ -53,6 +87,8 @@ class UMLGeneratorTest {
         }, "Le builder doit rejeter formellement toute extension autre que .png ou .svg.");
     }
 
+    // Le seul test qui parcourt toute la chaîne : scan réel de target/test-classes (où se
+    // trouvent les cobayes annotés des autres tests), puis écriture d'une vraie image.
     @Test
     void testExecutionCompleteSansErreur(@TempDir Path dossierSortie) {
         Path cheminFichierSortie = dossierSortie.resolve("resultat.png");

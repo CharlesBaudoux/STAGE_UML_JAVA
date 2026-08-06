@@ -13,6 +13,10 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+// L'écriture du fichier : le format choisi d'après l'extension, et les refus d'entrée.
+//
+// Ces tests ne regardent que l'existence et la taille du fichier — ce qu'il contient est
+// l'affaire de PlantUmlWriterOutputTest, qui en relit le texte.
 class PlantUmlWriterTest {
 
     // On crée un vrai cobaye valide pour tromper la sécurité de UmlEntity
@@ -23,10 +27,12 @@ class PlantUmlWriterTest {
     void testGenerationFichierSvg(@TempDir Path dossierTemporaire) throws Exception {
         UmlEntity fausseEntite = EntityExtractor.extract(ClasseCobaye.class);
         UmlProject projet = UmlProject.given(Set.of(fausseEntite));
-        
+
         Path cheminFichierSortie = dossierTemporaire.resolve("diagramme_test.svg");
         PlantUmlWriter.write(projet, cheminFichierSortie.toString());
 
+        // Vérification volontairement faible : PlantUML écrit aussi une image quand il échoue,
+        // si bien qu'un fichier non vide ne prouve pas que le diagramme soit correct.
         assertTrue(Files.exists(cheminFichierSortie));
         assertTrue(Files.size(cheminFichierSortie) > 0);
     }
@@ -35,7 +41,7 @@ class PlantUmlWriterTest {
     void testGenerationFichierPng(@TempDir Path dossierTemporaire) throws Exception {
         UmlEntity fausseEntite = EntityExtractor.extract(ClasseCobaye.class);
         UmlProject projet = UmlProject.given(Set.of(fausseEntite));
-        
+
         Path cheminFichierSortie = dossierTemporaire.resolve("diagramme_test.png");
         PlantUmlWriter.write(projet, cheminFichierSortie.toString());
 

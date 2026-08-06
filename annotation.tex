@@ -12,6 +12,13 @@
 
 \usepackage{comment}
 
+% Tolerance de cesure pour les longs identifiants en fonte a chasse fixe
+\setlength{\emergencystretch}{3em}
+
+% Colonnes de tableau justifiees a gauche et de largeur fixe
+\usepackage{array}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+
 % Configuration pour l'affichage du code Java
 \usepackage{listings}
 \definecolor{codegreen}{rgb}{0,0.6,0}
@@ -53,7 +60,117 @@
 \newpage
 
 \section{Introduction}
-Ce document référence le système d'annotations Java conçu pour la génération automatique de diagrammes PlantUML. L'outil a été pensé pour allier la simplicité de la déduction automatique du code Java avec la flexibilité requise pour modéliser des concepts métier complexes et maîtriser le rendu visuel. Il gère nativement les concepts standards (héritage via \texttt{extends}, implémentation via \texttt{implements}, classes abstraites et énumérations) grâce à l'analyse de l'Arbre Syntaxique (AST). Les annotations ci-dessous viennent enrichir et paramétrer cette analyse.
+Ce document référence le système d'annotations Java conçu pour la génération automatique de diagrammes PlantUML. L'outil a été pensé pour allier la simplicité de la déduction automatique du code Java avec la flexibilité requise pour modéliser des concepts métier complexes et maîtriser le rendu visuel. Il gère nativement les concepts standards (héritage via \texttt{extends}, implémentation via \texttt{implements}, classes abstraites et énumérations). Les annotations ci-dessous viennent enrichir et paramétrer cette analyse.
+
+\subsection{Comment le code est lu}
+\label{sec:lecture}
+
+La bibliothèque travaille \textbf{par réflexion sur les classes compilées} : on lui désigne un répertoire de \texttt{.class} (typiquement \texttt{target/classes}), et non un répertoire de sources. Ce choix a une conséquence qu'il faut énoncer d'emblée, car elle explique la forme de plusieurs annotations : \textbf{ce que la compilation efface est définitivement perdu pour le générateur}. Concrètement, \texttt{List<Commande>} ne se distingue plus de \texttt{List}, et les valeurs d'initialisation des attributs n'existent plus.
+
+Loin d'être une limite subie, c'est le fondement du principe retenu : \textbf{rien n'est deviné, tout est déclaré}. La classe située à l'autre bout d'un lien et la multiplicité de ce lien sont des paramètres obligatoires ou explicites de \texttt{@UMLAssociation}, et non des déductions. Une déduction automatique serait de toute façon incapable de trancher entre \texttt{0..*} et \texttt{1..*}, qui relèvent du métier et non du code ; la faire disparaître ne coûte donc rien et supprime une source d'écarts silencieux entre le code et le dessin.
+
+Une seconde lecture, indépendante, a lieu \textbf{au moment de la compilation} : la bibliothèque embarque un processeur d'annotations qui vérifie ce que le développeur écrit, là où il l'écrit (voir la section \ref{sec:verification}).
+
+Une exception mérite d'être signalée, car elle ne dépend pas de la bibliothèque mais du projet analysé : les \textbf{noms des paramètres de méthode} ne sont écrits dans les \texttt{.class} que si celui-ci est compilé avec l'option \texttt{-parameters}. Le générateur les affiche lorsqu'ils existent, et se limite aux types sinon (section \ref{sec:membres}).
+
+\subsection{Périmètre}
+La bibliothèque cible exclusivement le \textbf{diagramme de classes}. Les autres types de diagrammes supportés par PlantUML (séquence, composants, états, cas d'utilisation) sont hors périmètre et ne font l'objet d'aucune annotation.
+
+\subsection{Principe directeur : la sobriété de l'API}
+La valeur de la bibliothèque ne se mesure pas au nombre de fonctionnalités PlantUML rendues accessibles, mais au \textbf{nombre d'annotations qu'un développeur doit écrire pour obtenir un diagramme correct}. Dans le cas nominal, \texttt{@UMLClass} doit suffire.
+
+Ce principe a une conséquence directe : toute annotation supplémentaire alourdit le code source, augmente le coût d'apprentissage et multiplie les interactions à spécifier. Un jeu d'annotations trop riche déplacerait le problème au lieu de le résoudre — on écrirait alors davantage de spécification UML que de Java, et le développeur retournerait rédiger son fichier \texttt{.puml} à la main. Les directives de rendu purement esthétiques sont donc volontairement écartées (voir la section \ref{sec:horsperimetre}).
+
+Il en découle un second partage, entre ce qui se déclare sur un élément et ce qui vaut pour tout le projet. Une annotation dit une chose sur \textit{cet} attribut ou \textit{cette} classe ; ce qui s'applique partout — par exemple qu'un \texttt{ImmutableList} s'affiche \texttt{List} — se déclare une seule fois dans le fichier \texttt{umlg.rules} (section \ref{sec:regles-projet}), et non sur chaque membre concerné.
+
+% ---------------------------------------------------------
+\section{Règles générales et conventions}
+\label{sec:regles}
+
+Cette section fixe les règles transverses valables pour l'ensemble des annotations. Elle lève les ambiguïtés de combinaison qui, sans arbitrage explicite, rendraient le rendu imprévisible.
+
+\subsection{Convention de nommage}
+Tout paramètre désignant une classe visée par un lien s'appelle \texttt{target} (et \texttt{source} pour l'extrémité de départ). Cette convention est uniforme sur \texttt{@UMLAssociation}, \texttt{@UMLAssociationClass}, \texttt{@UMLDependency} et \texttt{@UMLLayout}.
+
+\subsection{Comment un membre est écrit}
+\label{sec:membres}
+
+Le générateur emploie la notation d'UML, \textbf{\texttt{nom: Type}}, et non l'ordre de déclaration de Java. Le nom vient d'abord, le type après les deux-points : c'est l'ordre dans lequel un diagramme se lit, où l'on cherche une propriété par son nom et non par son type. La règle vaut aux trois endroits où un type paraît --- un attribut, un paramètre, le retour d'une méthode.
+
+\begin{lstlisting}
+class "Vol" {
+  - departureTime: Date
+  - escales: Aeroport [0..*]
+  --
+  + reporter(nouvelleHeure: String, minutes: int): void
+  + {static} /compter(code: String): int
+}
+\end{lstlisting}
+
+L'ordre des morceaux est fixe. Pour un attribut : la visibilité, \texttt{\{static\}} s'il y a lieu, le nom (précédé de sa barre oblique s'il est dérivé), le type, la multiplicité entre crochets, puis les contraintes entre accolades. Pour une méthode : la visibilité, \texttt{\{static\}}, le nom, les paramètres entre parenthèses, le type de retour, puis sa multiplicité.
+
+\paragraph{Le type de retour.} Il est écrit par défaut, \texttt{void} compris. UML le tient pourtant pour facultatif, et l'omettre veut dire « ne rend rien » --- c'est la forme qu'emploient la plupart des diagrammes tenus à la main. Le choix se déclare une fois pour tout le projet, par la règle \texttt{hide return void} (section \ref{sec:regles-projet}), et non annotation par annotation : il tient à la façon dont on veut lire le diagramme, jamais à telle méthode en particulier.
+
+\paragraph{Les noms des paramètres.} Ils ne sont affichés que si le projet analysé a été compilé avec l'option \texttt{-parameters} ; sans elle, la réflexion ne rend que \texttt{arg0}, \texttt{arg1}\ldots, que le générateur \textbf{n'écrit jamais} --- le lecteur croirait lire le code de l'auteur. La signature se réduit alors à \texttt{reporter(String, int): void}. Pour Maven, l'option se pose sur le \texttt{maven-compiler-plugin} :
+\begin{lstlisting}[language=XML]
+<configuration>
+    <parameters>true</parameters>
+</configuration>
+\end{lstlisting}
+
+\paragraph{La multiplicité.} Elle n'est écrite que là où elle est déclarée : par \texttt{targetCardinality} sur une association dessinée dans la boîte (\texttt{notation = ATTRIBUTE}, section \ref{sec:notation}), ou par \texttt{@UMLMultiplicity} sur n'importe quel attribut ou méthode (section \ref{sec:multiplicite}). Une multiplicité absente vaut \textit{exactement un}, et ne s'écrit donc pas.
+
+\subsection{Un seul énuméré de direction}
+L'énuméré \texttt{UMLDirection} (\texttt{NONE}, \texttt{UP}, \texttt{DOWN}, \texttt{LEFT}, \texttt{RIGHT}) est utilisé partout où une orientation est demandée. \texttt{NONE} est le défaut : aucune contrainte n'est posée et PlantUML place l'élément lui-même, ce qui est le bon choix dans la quasi-totalité des cas. Pour une note, \texttt{UP} et \texttt{DOWN} correspondent respectivement au placement \textit{au-dessus} et \textit{en dessous} de l'élément annoté.
+
+\subsection{Annotations répétables}
+Une classe dépend fréquemment de plusieurs autres, porte plusieurs notes ou plusieurs contraintes. Les annotations suivantes sont donc déclarées \texttt{@Repeatable} et peuvent être apposées plusieurs fois sur le même élément :
+\begin{itemize}
+    \item \texttt{@UMLDependency}
+    \item \texttt{@UMLNote}
+    \item \texttt{@UMLConstraint}
+    \item \texttt{@UMLLayout}
+\end{itemize}
+Les autres annotations (\texttt{@UMLClass}, \texttt{@UMLAssociation}, \texttt{@UMLAssociationClass}, \texttt{@UMLMultiplicity}, \texttt{@UMLPackage}, \texttt{@UMLDerived}, \texttt{@UMLInclude}, \texttt{@UMLExclude}, \texttt{@UMLDiagram}) sont uniques sur leur cible.
+
+\begin{lstlisting}
+@UMLDependency(target = ServiceBancaire.class, label = "facture via")
+@UMLDependency(target = Journal.class, label = "trace")
+@UMLClass
+public class Panier { }
+\end{lstlisting}
+
+\subsection{Cibles autorisées}
+\begin{center}
+\begin{tabular}{@{}L{4cm}L{11cm}@{}}
+\hline
+\textbf{Cible} & \textbf{Annotations acceptées} \\
+\hline
+Type \newline \small(classe, interface, énumération) &
+\texttt{@UMLClass}, \texttt{@UMLPackage}, \texttt{@UMLAssociationClass}, \texttt{@UMLDependency}, \texttt{@UMLLayout}, \texttt{@UMLNote}, \texttt{@UMLConstraint} \\[0.4em]
+Attribut &
+\texttt{@UMLInclude}, \texttt{@UMLExclude}, \texttt{@UMLAssociation}, \texttt{@UMLMultiplicity}, \texttt{@UMLDerived}, \texttt{@UMLConstraint}, \texttt{@UMLNote} \\[0.4em]
+Méthode &
+\texttt{@UMLInclude}, \texttt{@UMLExclude}, \texttt{@UMLMultiplicity}, \texttt{@UMLDerived}, \texttt{@UMLNote} \\[0.4em]
+Paquetage \newline \small(\texttt{package-info.java}) &
+\texttt{@UMLDiagram} \\
+\hline
+\end{tabular}
+\end{center}
+Une annotation posée hors de ces cibles est rejetée à la compilation.
+
+\subsection{Résolution des conflits}
+\begin{itemize}
+    \item \textbf{\texttt{@UMLInclude} et \texttt{@UMLExclude} sur le même élément} : \textbf{erreur de compilation}. La bibliothèque saurait départager — la dissimulation l'emporterait — mais appliquer une règle d'arbitrage en silence reviendrait à choisir à la place de l'auteur, dans un code qui se contredit. Le message invite à ne garder que celle des deux qui dit ce que l'on veut.
+    \item \textbf{Classe visée par un lien mais dépourvue de \texttt{@UMLClass}} : \textbf{erreur de compilation}, positionnée sur le paramètre \texttt{target} fautif. Le message nomme l'endroit (la classe et l'attribut porteurs), la classe visée, et les deux issues possibles : annoter la cible, ou viser une classe qui l'est déjà. Une cible est en effet toujours écrite exprès : son absence du diagramme est un oubli, jamais une intention.
+
+    \textit{Une seule exception} : les liens d'héritage, qui ne sont pas déclarés mais lus dans la signature de la classe. Une classe mère hors du diagramme y est le cas courant — tout hérite d'\texttt{Object}, beaucoup de classes implémentent \texttt{Comparable} — et le lien est alors \textbf{ignoré silencieusement}. Seul le périmètre déclaré par \texttt{@UMLClass} fait foi ; aucune classe n'est créée implicitement, ce qui garantit que le diagramme ne déborde jamais du périmètre choisi.
+    \item \textbf{\texttt{@UMLConstraint} sur un attribut porteur de \texttt{@UMLAssociation}} : la contrainte s'applique à l'\textbf{association} et non à l'attribut ordinaire, ce qui correspond à l'usage majoritaire, du type \texttt{\{subset\}} ou \texttt{\{ordered\}}. Elle est écrite là où l'association est dessinée : à l'extrémité du trait sous \texttt{notation = ARROW}, à la suite de la ligne dans la boîte sous \texttt{ATTRIBUTE}. En l'absence de \texttt{@UMLAssociation}, elle s'applique à l'attribut.
+    \item \textbf{\texttt{@UMLDerived} sur un attribut porteur de \texttt{@UMLAssociation}} : c'est l'association qui est marquée comme dérivée, la barre oblique se plaçant devant le nom que porte la propriété sur le dessin. Sous \texttt{notation = ARROW}, ce nom est le \textbf{rôle cible}, l'attribut ayant quitté la boîte pour devenir un trait ; si \texttt{targetRole} n'est pas renseigné, la propriété n'est nommée nulle part, il n'y a rien à marquer, et le compilateur avertit. Sous \texttt{ATTRIBUTE}, la barre retrouve sa place ordinaire devant le nom de la ligne, qui existe toujours : il n'y a alors rien à signaler.
+    \item \textbf{\texttt{@UMLExclude} sur un attribut porteur de \texttt{@UMLAssociation}} : ce qui disparaît est ce que l'association demandait --- le trait entre les deux boîtes sous \texttt{ARROW}, la ligne dans la boîte sous \texttt{ATTRIBUTE}. Dans les deux cas le compilateur avertit, l'effet dépassant ce qu'un lecteur pressé attendrait.
+    \item \textbf{Stratégie de visibilité et \texttt{@UMLAssociation}} : une association est \textbf{toujours} dessinée, quelle que soit la \texttt{strategy} de la classe et la visibilité de l'attribut porteur. Une demande explicite l'emporte sur un défaut ; la règle vaut pour les deux notations, si bien que passer de l'une à l'autre ne fait jamais apparaître ni disparaître un lien.
+    \item \textbf{Deux classes déclarant le même \texttt{@UMLPackage(name)} avec des couleurs différentes} : la première couleur rencontrée dans l'ordre d'analyse est retenue et un avertissement est émis.
+\end{itemize}
 
 % ---------------------------------------------------------
 \section{Le Déclencheur et le Seuil : \texttt{@UMLClass}}
@@ -64,7 +181,7 @@ Placée sur une classe, interface ou énumération, cette annotation indique que
 \subsection{Le paramètre de Stratégie (Visibilité)}
 Le paramètre \texttt{strategy} définit exactement quels niveaux d'encapsulation doivent être affichés automatiquement :
 \begin{itemize}
-    \item \textbf{Aucune stratégie (par défaut)} : La classe apparaît sur le diagramme comme une coquille vide (aucun attribut ni méthode n'est comptabilisé).
+    \item \textbf{\texttt{NONE} (par défaut)} : La classe apparaît sur le diagramme comme une coquille vide (aucun attribut ni méthode n'est comptabilisé), sauf les éléments explicitement marqués \texttt{@UMLInclude}.
     \item \textbf{\texttt{PUBLIC}} : Seuls les éléments \texttt{public} sont générés.
     \item \textbf{\texttt{PROTECTED}} : Les éléments \texttt{public} et \texttt{protected} sont générés.
     \item \textbf{\texttt{PACKAGE}} : Les éléments \texttt{public} et ceux sans modificateur (package-private) sont générés. Les éléments \texttt{protected} sont exclus par défaut.
@@ -87,8 +204,8 @@ Sans cette annotation, le générateur tenterait de dessiner toutes les classes 
 \begin{itemize}
     \item \texttt{name} (String) : Surcharge le nom affiché (utile pour raccourcir les noms à rallonge).
     \item \texttt{color} (String) : Applique une couleur de fond.
-    \item \texttt{stereotype} (String) : Ajoute une étiquette métier (ex: \texttt{"<<Service>>"}).
-    \item \texttt{strategy} (Enum) : \texttt{PUBLIC}, \texttt{PROTECTED}, \texttt{PACKAGE}, \texttt{PRIVATE}.
+    \item \texttt{stereotype} (String) : Ajoute une étiquette métier (ex: \texttt{"Service"}). Les guillemets français \texttt{<<~>>} sont posés par le générateur : les écrire soi-même les afficherait en double, ce dont le compilateur avertit.
+    \item \texttt{strategy} (Enum) : \texttt{NONE} (défaut), \texttt{PUBLIC}, \texttt{PROTECTED}, \texttt{PACKAGE}, \texttt{PRIVATE}.
 \end{itemize}
 
 \subsection{Exemple}
@@ -169,6 +286,7 @@ Le code Java \texttt{List<Commande> commandes} indique qu'il y a plusieurs comma
 \subsection{Paramètres}
 \begin{itemize}
     \item \texttt{target} (Class) : Pointe explicitement vers la classe cible de la relation.
+    \item \texttt{notation} (Enum) : \texttt{UMLNotation} --- \texttt{ARROW} (défaut) ou \texttt{ATTRIBUTE}. Décide de la \textbf{forme} du dessin : un trait entre deux boîtes, ou une ligne dans celle de départ (section \ref{sec:notation}).
     \item \texttt{type} (Enum) : \texttt{ASSOCIATION}, \texttt{COMPOSITION}, \texttt{AGGREGATION}.
     \item \texttt{sourceCardinality} (String) : Multiplicité côté source (ex: \texttt{"1"}, \texttt{"0..1"}).
     \item \texttt{targetCardinality} (String) : Multiplicité côté cible (ex: \texttt{"0..*"}, \texttt{"*"}).
@@ -176,7 +294,7 @@ Le code Java \texttt{List<Commande> commandes} indique qu'il y a plusieurs comma
     \item \texttt{isOrdered} (boolean) : Si vrai, ajoute la contrainte de collection \texttt{\{ordered\}}.
     \item \texttt{qualifier} (String) : Génère une association qualifiée (le petit carré contenant une clé d'identification).
     \item \texttt{label} (String) : Texte sur la flèche (ex: \texttt{"possede"}).
-    \item \texttt{direction} (Enum) : \texttt{UP, DOWN, LEFT, RIGHT}.
+    \item \texttt{direction} (Enum) : \texttt{UMLDirection} --- \texttt{UP, DOWN, LEFT, RIGHT}.
 \end{itemize}
 
 \subsection{Exemple}
@@ -184,9 +302,9 @@ Le code Java \texttt{List<Commande> commandes} indique qu'il y a plusieurs comma
 public class Utilisateur {
     @UMLAssociation(
         target = Commande.class,
-        type = UMLRelationType.COMPOSITION, 
+        type = UMLRelationType.COMPOSITION,
         sourceCardinality = "1",
-        targetCardinality = "0..*", 
+        targetCardinality = "0..*",
         targetRole = "achats",
         isOrdered = true,
         label = "passe"
@@ -194,6 +312,57 @@ public class Utilisateur {
     private List<Commande> commandes;
 }
 \end{lstlisting}
+
+\subsection{Les deux notations d'une association}
+\label{sec:notation}
+
+UML offre deux façons de dessiner une même propriété, et n'en autorise \textbf{qu'une à la fois} : ou bien un trait entre deux boîtes, ou bien une ligne dans la boîte de départ. Les deux disent exactement la même chose ; le choix relève de la lisibilité, non de la sémantique. Le paramètre \texttt{notation} le rend explicite, et la bibliothèque se charge de tenir la règle du non-doublon --- sous \texttt{ARROW} l'attribut est retiré de la boîte au profit du trait, sous \texttt{ATTRIBUTE} il y reste et aucun trait n'est tracé.
+
+\begin{center}
+\begin{tabular}{@{}L{3cm}L{5.5cm}L{6.5cm}@{}}
+\hline
+\textbf{Valeur} & \textbf{Ce qui est dessiné} & \textbf{Quand la choisir} \\
+\hline
+\texttt{ARROW} \newline \small(défaut) & Un trait décoré à ses extrémités : \newline \texttt{Client "1" *-{}- "achats 0..*" Commande} & Les associations qui structurent le domaine, celles que le lecteur doit voir en premier. \\[0.4em]
+\texttt{ATTRIBUTE} & Une ligne du compartiment des attributs : \newline \texttt{- commandes: Commande [0..*]} & Quand une classe en cite dix autres, ou quand la cible n'a rien d'intéressant à montrer d'elle-même : la toile d'araignée disparaît. \\
+\hline
+\end{tabular}
+\end{center}
+
+\begin{lstlisting}
+@UMLClass
+public class Client {
+    // Un trait vers Commande (comportement par defaut).
+    @UMLAssociation(target = Commande.class, targetCardinality = "1")
+    private Commande courante;
+
+    // Une ligne dans la boite : "- archivees: Commande [0..*]"
+    @UMLAssociation(target = Commande.class, targetCardinality = "0..*",
+                    notation = UMLNotation.ATTRIBUTE)
+    private List<Commande> archivees;
+}
+\end{lstlisting}
+
+\paragraph{Ce que la notation \texttt{ATTRIBUTE} retient.} Une ligne de boîte ne porte qu'un nom, un type et une multiplicité. Trois paramètres y trouvent donc leur place, et trois seulement :
+\begin{itemize}
+    \item \texttt{target} donne le \textbf{type} affiché --- la classe visée, et non \texttt{List}, qui ne dirait rien du contenu ;
+    \item \texttt{targetCardinality} donne la \textbf{multiplicité}, écrite entre crochets ;
+    \item \texttt{targetRole} donne le \textbf{nom} de la propriété, s'il est renseigné : en notation attribut, le rôle \textit{est} le nom que l'on lit. À défaut, c'est le nom de l'attribut Java.
+\end{itemize}
+S'y ajoutent, comme pour n'importe quelle ligne, ce que portent les autres annotations : la visibilité et \texttt{\{static\}} lus sur l'attribut, la barre oblique de \texttt{@UMLDerived}, \texttt{\{ordered\}} puis les \texttt{@UMLConstraint}.
+
+\begin{lstlisting}
+@UMLConstraint(rule = "non vide")
+@UMLDerived
+@UMLAssociation(target = Commande.class, targetCardinality = "1..*",
+                isOrdered = true, notation = UMLNotation.ATTRIBUTE)
+protected List<Commande> achats;
+// Ligne produite : # /achats: Commande [1..*] {ordered} {non vide}
+\end{lstlisting}
+
+\paragraph{Ce qu'elle laisse de côté.} Les paramètres qui décorent un \textit{trait} n'ont alors nulle part où s'écrire : \texttt{type} (le losange d'une composition), \texttt{sourceCardinality}, \texttt{sourceRole}, \texttt{qualifier}, \texttt{label} et \texttt{direction}. Ce n'est pas une faute --- le diagramme reste valide --- mais l'auteur a écrit ces valeurs pour obtenir un effet qu'il n'aura pas : le compilateur les lui nomme (section \ref{sec:verification}).
+
+\paragraph{Ce qu'elle ne relâche pas.} La classe visée doit porter \texttt{@UMLClass} dans les deux notations, et la grammaire des multiplicités reste la même. La notation choisit une forme de dessin ; elle ne change aucune exigence sur ce qui est dessiné.
 
 % ---------------------------------------------------------
 \section{La Classe d'Association : \texttt{@UMLAssociationClass}}
@@ -209,6 +378,13 @@ En Java, il est impossible de lier directement un objet à un lien. Il faut obli
     \item \texttt{source} (Class) : La classe de départ de la relation.
     \item \texttt{target} (Class) : La classe d'arrivée de la relation.
 \end{itemize}
+Les deux sont obligatoires : une classe d'association qui ne connaîtrait qu'une extrémité ne qualifierait rien.
+
+\paragraph{Le trait est dessiné par elle.} Déclarer la classe d'association suffit : le lien entre les deux extrémités est tracé du même coup. Il n'y a donc pas à écrire en plus une \texttt{@UMLAssociation} entre \texttt{source} et \texttt{target} --- ce serait un second trait, et le dessin dirait deux fois la même chose.
+
+\paragraph{Ce qui est refusé.} Les deux extrémités doivent porter \texttt{@UMLClass}, comme toute extrémité de lien, et la classe annotée aussi --- le trait en pointillés rejoindrait sinon une place vide. Aucune des deux extrémités ne peut être la classe d'association elle-même : le lien serait rattaché à la boîte même qui le qualifie. Les deux extrémités sont vérifiées ensemble, si bien qu'un auteur qui s'est trompé sur les deux les voit signalées d'un coup.
+
+En revanche, \texttt{source} et \texttt{target} peuvent désigner \textit{la même} classe : l'association réflexive existe en UML --- deux personnes mariées l'une à l'autre --- et la classe qui la qualifie est alors parfaitement licite.
 
 \subsection{Exemple}
 \begin{lstlisting}
@@ -221,10 +397,52 @@ public class Inscription {
 \end{lstlisting}
 
 % ---------------------------------------------------------
+\section{La Multiplicité d'une propriété : \texttt{@UMLMultiplicity}}
+\label{sec:multiplicite}
+
+\subsection{Principe}
+Déclare combien d'objets une propriété tient, écrit entre crochets à côté de son nom. Elle se pose sur un attribut --- le nombre d'objets tenus --- ou sur une méthode --- le nombre d'objets rendus.
+
+\begin{lstlisting}
+@UMLClass(strategy = UMLVisibility.PRIVATE)
+public class CanonicalMnemonic {
+    @UMLMultiplicity("0..*")
+    private String deprecatedAliases;   // - deprecatedAliases: String [0..*]
+
+    @UMLMultiplicity("0..1")
+    private int ucp;                    // - ucp: int [0..1]
+
+    @UMLMultiplicity("0..*")
+    public String names() { ... }       // + names(): String [0..*]
+}
+\end{lstlisting}
+
+\subsection{Pourquoi c'est utile ?}
+La multiplicité d'un \textit{lien} se déclare déjà sur \texttt{@UMLAssociation}, par \texttt{targetCardinality}. Mais toutes les propriétés multiples ne sont pas des liens : un ensemble de chaînes, une liste d'entiers ou un champ facultatif n'ont \textbf{aucune classe à l'autre bout}, et n'ont donc rien à faire dans une association --- laquelle exigerait une \texttt{target} figurant sur le diagramme. Cette annotation dit le nombre, et rien que le nombre.
+
+Elle reste par ailleurs le seul moyen de qualifier une \textbf{méthode} : \texttt{names(): String [0..*]} se lit « rend zéro, une ou plusieurs chaînes », ce qu'aucune association ne saurait exprimer.
+
+\subsection{Ce qu'elle ne déduit pas}
+Rien, comme partout ailleurs. Un attribut de type \texttt{List} laisse deviner « plusieurs », jamais si c'est \texttt{0..*} ou \texttt{1..*} ; un \texttt{Optional} ne dit pas si l'absence est un cas normal ou un accident. Ces choix relèvent du métier, et les deviner produirait un diagramme faux une fois sur deux.
+
+\subsection{Paramètres}
+\begin{itemize}
+    \item \texttt{value} (String) : la multiplicité, dans le vocabulaire d'UML --- \texttt{"1"}, \texttt{"0..1"}, \texttt{"*"}, \texttt{"1..*"}, \texttt{"2..5"}. C'est la même grammaire que celle des multiplicités de lien, et c'est la même règle qui la vérifie : il n'y en a qu'une en UML, qu'elle se lise le long d'un trait ou à côté d'un nom.
+\end{itemize}
+Le paramètre se nomme \texttt{value}, ce qui permet la forme courte \texttt{@UMLMultiplicity("0..*")} : le nom de l'annotation dit déjà ce que la valeur est.
+
+\subsection{Combinaison avec les autres annotations}
+\begin{itemize}
+    \item \textbf{Avec \texttt{@UMLAssociation} sur le même attribut} : \textbf{erreur de compilation}. La multiplicité de cette propriété est déjà donnée par \texttt{targetCardinality} ; deux multiplicités sur la même propriété se contrediraient tôt ou tard, et rien ne dirait laquelle fait foi.
+    \item \textbf{Avec \texttt{@UMLDerived} et \texttt{@UMLConstraint}} : sans difficulté, chacune écrivant à sa place --- \texttt{- /etiquettes: String [1..*] \{sans doublon\}}.
+    \item \textbf{Sur un membre que le diagramme n'affiche pas} : \textbf{avertissement}. Des crochets ne se voient que si le membre qu'ils suivent est dessiné.
+\end{itemize}
+
+% ---------------------------------------------------------
 \section{Les Éléments Dérivés : \texttt{@UMLDerived}}
 
 \subsection{Principe}
-Indique qu'une classe, un attribut ou une association est "dérivé", c'est-à-dire qu'il n'est pas instancié ou stocké directement, mais qu'il est calculé dynamiquement à partir d'autres données.
+Indique qu'un attribut, une méthode ou une association est "dérivé", c'est-à-dire qu'il n'est pas stocké directement, mais calculé dynamiquement à partir d'autres données. L'annotation ne s'applique pas à une classe : la notion de classe dérivée n'existe pas en UML.
 
 \subsection{Pourquoi c'est utile ?}
 En UML, un élément dérivé doit être précédé d'un slash (\texttt{/}). Comme ce slash n'est pas une syntaxe Java valide pour nommer une variable, l'annotation signale au générateur d'ajouter ce préfixe visuel lors du rendu PlantUML.
@@ -232,13 +450,26 @@ En UML, un élément dérivé doit être précédé d'un slash (\texttt{/}). Com
 \subsection{Paramètres}
 Aucun.
 
+La barre oblique appartient au \textbf{nom} de la propriété, et à lui seul : ni le type, ni la visibilité, ni la multiplicité ne la portent. Sur un lien dessiné en trait, elle précède le rôle cible ; sur une association écrite dans la boîte, le nom de la ligne.
+
 \subsection{Exemple}
 \begin{lstlisting}
+@UMLClass(strategy = UMLVisibility.PRIVATE)
 public class Personne {
     private LocalDate dateNaissance;
 
     @UMLDerived
-    private int age; // Sera affiche en UML sous la forme : /age : int
+    private int age; // Affiche en UML sous la forme : - /age: int
+
+    @UMLDerived
+    @UMLAssociation(target = Commande.class, targetRole = "encours",
+                    targetCardinality = "0..*")
+    private List<Commande> commandesEnCours; // Trait portant "/encours 0..*"
+
+    @UMLDerived
+    @UMLAssociation(target = Commande.class, targetCardinality = "0..*",
+                    notation = UMLNotation.ATTRIBUTE)
+    private List<Commande> commandesSoldees; // - /commandesSoldees: Commande [0..*]
 }
 \end{lstlisting}
 
@@ -253,8 +484,18 @@ Pour conserver la validité sémantique du modèle, certaines règles métier ne
 
 \subsection{Paramètres}
 \begin{itemize}
-    \item \texttt{rule} (String) : La règle à afficher. Les accolades sont ajoutées automatiquement par le générateur.
+    \item \texttt{rule} (String) : La règle à afficher, \textbf{écrite nue}. Les accolades sont ajoutées par le générateur ; les écrire soi-même les afficherait en double, ce dont le compilateur avertit.
 \end{itemize}
+Annotation \textbf{répétable}. Si l'élément annoté porte également un \texttt{@UMLAssociation}, la contrainte est rattachée au lien et non à l'attribut (voir section \ref{sec:regles}).
+
+\subsection{Où la contrainte est écrite}
+Trois positions, selon ce que l'annotation vise, pour une seule et même notation :
+\begin{itemize}
+    \item \textbf{sur un attribut} : à la suite de sa ligne, dans la boîte --- \texttt{- solde: double \{toujours positif\}} ;
+    \item \textbf{sur un attribut porteur de \texttt{@UMLAssociation}} : là où l'association est dessinée --- à l'extrémité cible du trait sous \texttt{notation = ARROW}, à la fin de la ligne sous \texttt{ATTRIBUTE} --- aux côtés de la multiplicité et de \texttt{\{ordered\}}. Rien ne distingue alors un \texttt{\{subset\}} écrit par le développeur d'un \texttt{\{ordered\}} engendré, et rien ne doit les distinguer ;
+    \item \textbf{sur une classe} : dans une bulle accolée à la boîte. PlantUML n'a pas de notation propre pour une contrainte de classe ; UML l'écrit entre accolades à côté de l'élément, ce qu'une note reproduit exactement.
+\end{itemize}
+Une contrainte posée sur un attribut que le diagramme n'affiche pas ne serait écrite nulle part : le compilateur avertit.
 
 \subsection{Exemple}
 \begin{lstlisting}
@@ -276,13 +517,14 @@ Cette annotation est la seule façon de révéler formellement sur le diagramme 
 
 \subsection{Paramètres}
 \begin{itemize}
-    \item \texttt{targetClass} (Class) : Classe ciblée.
+    \item \texttt{target} (Class) : Classe ciblée.
     \item \texttt{label} (String) : Raison du lien (ex: \texttt{"utilise"}).
 \end{itemize}
+Annotation \textbf{répétable} : une classe peut déclarer autant de dépendances que nécessaire.
 
 \subsection{Exemple}
 \begin{lstlisting}
-@UMLDependency(targetClass = ServiceBancaire.class, label = "facture via")
+@UMLDependency(target = ServiceBancaire.class, label = "facture via")
 public class Panier {
     public void valider() {
         ServiceBancaire sb = new ServiceBancaire();
@@ -302,14 +544,23 @@ Un diagramme explique le "Comment" (structure), la note explique le "Pourquoi". 
 
 \subsection{Paramètres}
 \begin{itemize}
-    \item \texttt{text} (String) : Contenu de la note.
-    \item \texttt{position} (Enum) : \texttt{TOP, BOTTOM, LEFT, RIGHT}.
+    \item \texttt{text} (String) : Contenu de la note. Obligatoire et non vide --- une note sans texte n'est qu'un carré jaune posé au hasard.
+    \item \texttt{direction} (Enum) : \texttt{UMLDirection} --- \texttt{UP, DOWN, LEFT, RIGHT}. \texttt{NONE}, le défaut, place la bulle \textbf{à droite} : c'est le placement d'usage, et celui qui perturbe le moins la lecture verticale de l'héritage.
 \end{itemize}
+Annotation \textbf{répétable} : plusieurs notes peuvent être rattachées au même élément.
+
+\subsection{Ce à quoi une note peut s'accrocher}
+Une bulle ne se dessine qu'attachée à un élément réellement présent sur le diagramme. Deux cas la laissent donc sans support, et le compilateur avertit dans les deux :
+\begin{itemize}
+    \item \textbf{le membre visé n'est pas affiché} (masqué par la \texttt{strategy}, ou écarté par le filtre anti-bruit) ;
+    \item \textbf{l'attribut visé porte \texttt{@UMLAssociation} dessinée en trait} (\texttt{notation = ARROW}) : il a quitté la boîte pour devenir un trait, et les notes rattachées à un lien sont hors périmètre (section \ref{sec:horsperimetre}). Poser la note sur la classe est alors la seule façon d'en parler.
+\end{itemize}
+Sous \texttt{notation = ATTRIBUTE}, en revanche, l'association \textit{est} une ligne de la boîte : la note s'y accroche comme à n'importe quel attribut. Elle vise alors le \textbf{nom affiché} --- le rôle cible s'il est renseigné, le nom du champ sinon.
 
 \subsection{Exemple}
 \begin{lstlisting}
 public class MoteurDeRecherche {
-    @UMLNote(text = "Algorithme critique, ne pas modifier", position = UMLPosition.RIGHT)
+    @UMLNote(text = "Algorithme critique, ne pas modifier", direction = UMLDirection.RIGHT)
     public void indexer() {
     }
 }
@@ -326,9 +577,15 @@ Sur un projet contenant 40 classes, le diagramme devient illisible. Regrouper le
 
 \subsection{Paramètres}
 \begin{itemize}
-    \item \texttt{name} (String) : Nom du groupe.
-    \item \texttt{color} (String) : Couleur de fond du groupe.
+    \item \texttt{name} (String) : Nom du groupe. \textbf{Obligatoire} --- un groupe anonyme ne dirait pas ce qu'il rassemble, et c'est tout ce qu'on lui demande. C'est aussi lui qui fait l'identité du groupe : deux classes déclarant le même \texttt{name} entrent dans le même rectangle.
+    \item \texttt{color} (String) : Couleur de fond du groupe, écrite comme celle d'une boîte et vérifiée par la même règle.
 \end{itemize}
+
+\paragraph{Le groupe n'est pas le paquetage Java.} Il est déclaré, jamais déduit du paquetage où la classe se trouve. C'est délibéré : le découpage qui fait un bon diagramme n'est pas toujours celui qui fait une bonne arborescence de fichiers, et l'un ne doit pas obliger à refaire l'autre. Deux classes de paquetages différents peuvent ainsi figurer dans le même rectangle, et inversement.
+
+\paragraph{Deux couleurs pour un groupe.} Un rectangle n'en a qu'une. La première rencontrée est retenue et un avertissement est émis (section \ref{sec:regles}) --- l'auteur a écrit une couleur qu'il ne verra pas, et rien sur le dessin ne le lui dirait. Une couleur déclarée là où le groupe n'en avait pas encore ne concurrence aucun choix : elle est simplement retenue.
+
+\paragraph{Ce que le groupe ne change pas.} Les boîtes qu'il entoure sont écrites à l'identique, et les traits continuent de le traverser : une association entre deux groupes reste un trait ordinaire. Un rectangle range les boîtes, il ne les modifie pas.
 
 \subsection{Exemple}
 \begin{lstlisting}
@@ -349,17 +606,257 @@ Le moteur PlantUML calcule les positions automatiquement. Parfois, il croise des
 
 \subsection{Paramètres}
 \begin{itemize}
-    \item \texttt{targetClass} (Class) : Classe cible du lien invisible.
-    \item \texttt{direction} (Enum) : Ex: \texttt{DOWN} (force la cible à être en dessous).
+    \item \texttt{target} (Class) : Classe cible du lien invisible. Obligatoire, et soumise à la même exigence que toute extrémité : elle doit porter \texttt{@UMLClass}.
+    \item \texttt{direction} (Enum) : \texttt{UMLDirection} --- ex: \texttt{DOWN} (force la cible à être en dessous). \texttt{NONE}, le défaut, pose bien un lien mais ne dit pas de quel côté : il rapproche seulement les deux boîtes, et le compilateur avertit --- l'annotation est écrite pour corriger un placement, et celle-là ne corrige presque rien.
 \end{itemize}
+Annotation \textbf{répétable}, à utiliser avec parcimonie. Une même cible ne peut cependant être placée deux fois : « en haut » puis « en bas » se contrediraient, et le moteur trancherait seul. C'est une erreur de compilation, comme le placement d'une classe par rapport à elle-même.
+
+\paragraph{C'est la seule annotation sans aucun sens UML.} Toutes les autres disent quelque chose du modèle. Celle-ci ne dit rien qu'un diagramme puisse signifier --- elle corrige un dessin. Quelques-unes redressent une mise en page ; une vingtaine la fige, et le moindre ajout de classe oblige alors à toutes les reprendre.
 
 \subsection{Exemple}
 \begin{lstlisting}
-@UMLLayout(targetClass = BaseDeDonnees.class, direction = UMLDirection.DOWN)
+@UMLLayout(target = BaseDeDonnees.class, direction = UMLDirection.DOWN)
 @UMLClass
 public class InterfaceUtilisateur {
 }
 \end{lstlisting}
+% ---------------------------------------------------------
+\section{La Configuration Globale : \texttt{@UMLDiagram}}
+\label{sec:diagramme}
+
+\subsection{Principe}
+Unique annotation de niveau projet, elle se place sur le fichier \texttt{package-info.java} et pilote les réglages qui s'appliquent au diagramme dans son ensemble, et non à une classe particulière.
+
+\subsection{Pourquoi c'est utile ?}
+Toutes les autres annotations décrivent le \textit{contenu} du modèle ; celle-ci décrit sa \textit{présentation d'ensemble}. Sans elle, il n'existe aucun moyen de donner un titre au diagramme ni d'agir sur le sens de lecture global --- or c'est précisément ce qui rend exploitable un schéma comportant de nombreuses classes. Écrite une seule fois par projet, elle offre le meilleur rapport entre le coût pour le développeur et le gain de lisibilité.
+
+\subsection{Paramètres}
+\begin{itemize}
+    \item \texttt{title} (String) : Titre affiché en tête du diagramme. Vide par défaut : aucune ligne n'est alors écrite, pas même la hauteur qu'elle occuperait.
+    \item \texttt{direction} (Enum) : \texttt{UMLFlow} --- \texttt{TOP\_TO\_BOTTOM} (défaut) ou \texttt{LEFT\_TO\_RIGHT}. Un diagramme large se lit souvent mieux de gauche à droite. Le défaut n'écrit aucune directive : c'est déjà ce que fait le moteur de rendu sans qu'on le lui demande.
+    \item \texttt{hideEmptyMembers} (boolean) : Masque les compartiments d'attributs et de méthodes restés vides, supprimant les rectangles inutiles. \textbf{Vrai par défaut}, et ce défaut n'est pas neutre --- voir ci-dessous.
+\end{itemize}
+
+\paragraph{Pourquoi \texttt{hideEmptyMembers} vaut vrai par défaut.} La stratégie par défaut de \texttt{@UMLClass} est \texttt{NONE}, qui ne montre aucun membre : le cas nominal de la bibliothèque --- une classe annotée, rien de plus --- produit donc précisément des boîtes vides. Un défaut à \texttt{faux} dessinerait deux rectangles vides sous chaque nom, et il faudrait écrire une \texttt{@UMLDiagram} dans tout projet pour ne pas les voir, contre le principe de sobriété.
+
+Le paramètre est donc une \textbf{dérogation}, et se lit dans ce sens : \texttt{hideEmptyMembers = false} veut dire « montre-les tout de même », ce qu'on demande pour un diagramme où l'on tient à voir que les compartiments existent.
+
+\subsection{Unicité}
+Un seul paquetage du projet peut porter l'annotation. Deux \texttt{@UMLDiagram} décriraient deux diagrammes concurrents --- deux titres, deux sens de lecture --- et rien ne dirait lequel fait foi ; en retenir un en silence reviendrait à livrer celui que l'ordre d'analyse aura désigné. C'est donc une \textbf{erreur}, signalée à la compilation lorsque les deux paquetages y sont vus ensemble, et à la génération dans tous les cas. Le message nomme les deux paquetages.
+
+\subsection{Exemple}
+\begin{lstlisting}
+// Fichier : package-info.java
+@UMLDiagram(
+    title = "Architecture du module Facturation",
+    direction = UMLFlow.LEFT_TO_RIGHT
+)
+package com.exemple.facturation;
+
+// Le cas rare ou l'on veut voir les compartiments, meme vides.
+@UMLDiagram(hideEmptyMembers = false)
+package com.exemple.autre;
+\end{lstlisting}
+
+% ---------------------------------------------------------
+\section{Les règles du projet : le fichier \texttt{umlg.rules}}
+\label{sec:regles-projet}
+
+\subsection{Principe}
+Certaines décisions ne portent pas sur un élément mais sur le projet entier : « dans ce diagramme, un \texttt{ImmutableList} s'affiche \texttt{List} ». Elles se déclarent dans un fichier facultatif, \texttt{umlg.rules}, posé \textbf{à la racine du répertoire analysé}. Pour un projet Maven ordinaire, cela signifie \texttt{src/main/resources/umlg.rules}, que la construction recopie dans \texttt{target/classes}.
+
+\subsection{Pourquoi un fichier, et non une annotation ?}
+Une annotation dit une chose sur un élément : cette classe-ci est une boîte, cet attribut-là est un lien. C'est le bon outil pour ce qui se décide au cas par cas, et le mauvais pour ce qui vaut partout --- écrire la même directive sur chacun des deux cents attributs d'un projet est un travail que personne ne fait, et que personne ne tient à jour. Le fichier sert exactement le principe de sobriété énoncé en introduction : une règle générale s'écrit une fois, à un endroit, et ne coûte plus rien ensuite.
+
+\subsection{Forme du fichier}
+Une règle par ligne. Les lignes vides sont ignorées, ainsi que les commentaires, ouverts par \texttt{\#}. Une règle commence par un mot-clé qui dit sa nature ; \texttt{type} est le seul aujourd'hui.
+
+\begin{lstlisting}[language=]
+# Les types de Guava n'apprennent rien au lecteur du diagramme.
+type ImmutableList -> List
+type com.google.common.collect.ImmutableSet -> Set
+
+# Un retour void ne s'ecrit pas, comme dans les diagrammes tenus a la main.
+hide return void
+\end{lstlisting}
+
+\paragraph{\texttt{type} : renommer.} Une règle \texttt{type} remplace un nom de type par un autre, \textbf{partout où ce type paraît dans une boîte} : attributs, types de retour, paramètres de méthode. Le nom de gauche s'écrit au choix simple (\texttt{ImmutableList}) ou complet (\texttt{com.google.common.collect.ImmutableList}) ; le nom complet l'emporte sur le nom simple, ce qui permet de viser une classe précise quand deux paquetages en ont une homonyme.
+
+\paragraph{\texttt{hide return} : taire un type de retour.} Une règle \texttt{hide return} efface le type rendu par les méthodes qui le rendent : elles s'écrivent alors \texttt{valider()} et non \texttt{valider(): void}. UML tient ce type pour facultatif, et l'omettre veut dire « ne rend rien ». Par défaut rien n'est masqué, et le \texttt{void} est écrit.
+
+La règle vaut pour le \textbf{seul retour}, et c'est délibéré : un attribut ou un paramètre privé de son type laisserait une ligne incompréhensible, là où une méthode sans type de retour dit quelque chose de précis. C'est aussi pourquoi le mot \texttt{return} figure dans la règle --- il dit où elle s'applique, et laisse la place à d'autres endroits si l'usage en révèle.
+
+\subsection{Ce que les règles ne touchent pas}
+Le \textbf{nom d'une boîte} et la \textbf{classe visée par une \texttt{@UMLAssociation}}. Ces deux-là ne sont pas lus dans le code mais écrits dans une annotation --- renommer une boîte, c'est \texttt{@UMLClass(name = ...)}. Une règle qui les atteindrait ferait diverger le type écrit dans une boîte du nom de la boîte d'à côté, sans que rien ne le signale.
+
+\subsection{Ce qui est refusé}
+Le fichier est écrit à la main, sans compilateur pour le relire : chaque refus nomme donc le fichier, le numéro de ligne et la forme attendue. Un fichier fautif \textbf{arrête la génération} plutôt que d'être appliqué à moitié --- il a été écrit pour être suivi, l'ignorer produirait un diagramme qui n'est pas celui qu'on a demandé.
+
+\begin{center}
+\begin{tabular}{@{}L{6.5cm}L{8.5cm}@{}}
+\hline
+\textbf{Situation} & \textbf{Raison} \\
+\hline
+Mot-clé inconnu (\texttt{couleur Client -> rouge}) & Le vocabulaire du fichier est fermé ; le message rappelle les mots-clés connus. \\[0.4em]
+Flèche \texttt{->} absente, ou l'une des deux moitiés vide & La règle ne dit pas ce qu'elle remplace, ou par quoi. \\[0.4em]
+\texttt{hide} sans \texttt{return} (\texttt{hide void}) & La règle ne dit pas où elle s'applique ; seul un type de retour peut être tu. \\[0.4em]
+Deux règles sur le même type & La seconde l'emporterait en silence, et l'auteur ignorerait laquelle s'applique. \\[0.4em]
+Espace au milieu d'un nom de type & Trahit une flèche oubliée ou un mot en trop. \\
+\hline
+\end{tabular}
+\end{center}
+
+\subsection{Une extension prévue}
+Le fichier est fait pour grandir : d'autres natures de règles viendront s'ajouter à \texttt{type} --- ce qu'on masque partout, ce qu'on abrège, ce qu'on place. Le lecteur du fichier est écrit pour cela : ajouter une règle consiste à reconnaître un mot-clé de plus, et un mot-clé inconnu est refusé plutôt qu'ignoré, ce qui garantit qu'un fichier écrit pour une version ultérieure ne sera jamais appliqué à moitié par une version antérieure.
+
+% ---------------------------------------------------------
+\section{L'apparence du diagramme : \texttt{UmlStyle}}
+\label{sec:style}
+
+\subsection{Principe}
+L'habillage du dessin --- couleurs des boîtes, épaisseur et teinte des traits, police --- ne se déclare ni sur un élément ni dans le fichier de règles, mais \textbf{à l'appel du générateur}, par l'énuméré \texttt{UmlStyle}. C'est le troisième et dernier endroit où quelque chose se décide, et le seul qui ne touche pas au modèle : les mêmes boîtes, les mêmes traits, les mêmes membres, vêtus autrement.
+
+\begin{lstlisting}
+UMLGenerator.builder()
+    .sourceDirectory("target/classes")
+    .outputFile("architecture.svg")
+    .style(UmlStyle.UMLG)   // facultatif ; PLANTUML par defaut
+    .build()
+    .generate();
+\end{lstlisting}
+
+\subsection{Pourquoi ce n'est pas une annotation}
+Une annotation dit une chose sur un élément, et le fichier \texttt{umlg.rules} dit une chose sur le modèle du projet --- qu'un \texttt{ImmutableList} s'affiche \texttt{List}. L'apparence ne dit rien, ni de l'un ni de l'autre : deux diagrammes engendrés dans les deux styles portent exactement la même information. Elle relève de qui \textit{regarde} le diagramme, non de qui l'écrit, et peut changer d'une génération à l'autre sans qu'une ligne de code annoté bouge. La placer dans le code source obligerait à recompiler pour changer de couleur.
+
+Cela n'entre pas en contradiction avec les directives brutes écartées en section \ref{sec:horsperimetre}. Le vocabulaire est ici \textbf{fermé} : deux valeurs, et aucun accès aux \texttt{skinparam} de PlantUML. On choisit entre deux habillages tenus par la bibliothèque, on n'en compose pas un troisième.
+
+\subsection{Les deux valeurs}
+\begin{center}
+\begin{tabular}{@{}L{3cm}L{5.5cm}L{6.5cm}@{}}
+\hline
+\textbf{Valeur} & \textbf{Ce qui est dessiné} & \textbf{Quand la choisir} \\
+\hline
+\texttt{PLANTUML} \newline \small(défaut) & Ce que PlantUML dessine quand on ne lui dit rien : boîtes grises, pastille \texttt{C} ou \texttt{I} accolée au nom, traits par défaut. & Le cas nominal. Un utilisateur qui n'a rien demandé retrouve le rendu qu'il reconnaît de tous les diagrammes qu'il a déjà vus. \\[0.4em]
+\texttt{UMLG} & Bandeau bleu pâle sur fond blanc cassé, bords bleu foncé, coins arrondis, pas d'ombre, nom des liens en italique coloré, pastille masquée. & À l'impression, ou sur un fond clair : plus sobre, au prix d'un repère visuel en moins. \\
+\hline
+\end{tabular}
+\end{center}
+
+Le défaut est \texttt{PLANTUML} par le même principe que partout ailleurs : ne rien imposer est un meilleur point de départ qu'imposer un goût.
+
+\subsection{Ce qui échappe au choix}
+Deux réglages sont posés dans les deux cas, parce qu'ils touchent au sens et non à l'apparence :
+\begin{itemize}
+    \item \texttt{classAttributeIconSize 0} : les visibilités s'écrivent \texttt{+}, \texttt{-}, \texttt{\#}, \texttt{\textasciitilde} --- la notation d'UML --- et non en pastilles colorées propres à PlantUML ;
+    \item l'\textbf{espacement}, calculé sur la plus longue étiquette du diagramme, sans quoi les étiquettes de lien se chevaucheraient.
+\end{itemize}
+
+Un troisième leur ressemble sans leur appartenir : le masquage des \textbf{compartiments vides}, que les deux apparences écrivent pareillement mais que \texttt{@UMLDiagram(hideEmptyMembers = false)} peut lever (section \ref{sec:diagramme}). Ce n'est donc pas un invariant du rendu, c'est un réglage du diagramme sur lequel le style n'a pas d'avis --- les deux apparences le suivent, elles ne le décident pas.
+
+% ---------------------------------------------------------
+\section{La vérification à la compilation}
+\label{sec:verification}
+
+\subsection{Principe}
+La bibliothèque embarque un \textbf{processeur d'annotations} (JSR 269), c'est-à-dire du code qui s'exécute à l'intérieur de \texttt{javac}. Il n'engendre aucun fichier : il lit les annotations et parle, en pointant la valeur en cause dans le fichier source.
+
+\subsection{Pourquoi c'est utile ?}
+Une annotation mal écrite est une \textbf{faute de code}, pas un incident d'exécution. La signaler à la compilation la met sous les yeux de son auteur, au moment où il l'écrit, plutôt que quelques minutes plus tard au fond d'une pile d'exceptions --- ou, pire, jamais : sur un diagramme silencieusement faux.
+
+Le processeur ne réécrit aucune règle. Il construit les objets du modèle avec les valeurs lues dans l'annotation et traduit en erreur de compilation l'exception que le modèle lève déjà. Les deux niveaux de vérification ne peuvent donc pas diverger, et le message affiché par \texttt{javac} est mot pour mot celui que la génération aurait produit.
+
+\subsection{Deux gravités, et une règle pour les départager}
+\begin{itemize}
+    \item \textbf{Erreur} : \textit{ce code ne décrit aucun diagramme}. La compilation s'arrête.
+    \item \textbf{Avertissement} : \textit{ce code décrit un diagramme, mais vraisemblablement pas celui que son auteur croit}. La compilation continue --- l'annotation fait toujours foi, et la bibliothèque n'est pas juge des intentions. Mais taire l'écart laisserait l'utilisateur le découvrir sur l'image, sans le moindre indice sur sa cause.
+\end{itemize}
+
+\subsection{Ce qui arrête la compilation}
+\begin{center}
+\begin{tabular}{@{}L{6.5cm}L{8.5cm}@{}}
+\hline
+\textbf{Situation} & \textbf{Raison} \\
+\hline
+Cible d'un lien dépourvue de \texttt{@UMLClass} & La cible a été écrite exprès ; son absence du diagramme est un oubli. \\[0.4em]
+Cible primitive (\texttt{int.class}) ou qui n'est pas une classe & Seule une classe du diagramme peut être une extrémité. \\[0.4em]
+Multiplicité illisible (\texttt{"beaucoup"}) ou inversée (\texttt{"3..1"}) & Le vocabulaire des multiplicités est fermé. \\[0.4em]
+Couleur inconnue de PlantUML & Vérifiée contre le catalogue réel du moteur de rendu, pas contre sa seule forme. \\[0.4em]
+Texte fait uniquement d'espaces (nom, rôle, label, stéréotype, titre) & Produirait une étiquette invisible. \\[0.4em]
+Deux paquetages portant \texttt{@UMLDiagram} & Deux diagrammes concurrents, sans rien qui dise lequel fait foi. Signalé dès que les deux sont compilés ensemble. \\[0.4em]
+\texttt{@UMLPackage(name)} vide ou fait d'espaces & Un groupe est identifié par son nom ; le rectangle porterait une étiquette illisible. \\[0.4em]
+\texttt{@UMLLayout} vers la classe elle-même, ou deux fois vers la même cible & Se placer par rapport à soi ne dit rien ; « en haut » puis « en bas » se contredisent. \\[0.4em]
+\texttt{@UMLAssociationClass} dont une extrémité est la classe annotée & Le lien serait rattaché à la boîte même qui le qualifie. \\[0.4em]
+\texttt{@UMLInclude} et \texttt{@UMLExclude} sur le même membre & Intention contradictoire (section \ref{sec:regles}). \\[0.4em]
+\texttt{@UMLMultiplicity} et \texttt{@UMLAssociation} sur le même attribut & Deux multiplicités pour une seule propriété ; \texttt{targetCardinality} la donne déjà. \\[0.4em]
+Annotation posée sur une classe dépourvue de \texttt{@UMLClass} & Le lien serait tracé depuis une boîte inexistante. \\[0.4em]
+Dépendance d'une classe vers elle-même, ou deux fois la même dépendance & N'apprendrait rien, ou dessinerait deux traits superposés. \\
+\hline
+\end{tabular}
+\end{center}
+
+\subsection{Ce qui produit un avertissement}
+\begin{center}
+\begin{tabular}{@{}L{6.5cm}L{8.5cm}@{}}
+\hline
+\textbf{Situation} & \textbf{Ce que l'auteur attendait, et n'aura pas} \\
+\hline
+\texttt{@UMLInclude} sur un attribut que la \texttt{strategy} affiche déjà & La dérogation ne déroge à rien. \\[0.4em]
+\texttt{@UMLExclude} sur un membre que la \texttt{strategy} masque déjà & Idem, dans l'autre sens. \\[0.4em]
+\texttt{@UMLInclude} sur un attribut porteur de \texttt{@UMLAssociation} & Sous \texttt{ARROW}, l'attribut est dessiné comme un lien et rien ne l'y ramènera ; sous \texttt{ATTRIBUTE}, il est déjà affiché quelle que soit la stratégie. Dans les deux cas la dérogation ne sert à rien. \\[0.4em]
+\texttt{@UMLExclude} sur un attribut porteur de \texttt{@UMLAssociation} & Ce qui disparaît est ce que l'association demandait : le \textbf{lien entre les deux boîtes} sous \texttt{ARROW}, la \textbf{ligne dans la boîte} sous \texttt{ATTRIBUTE}. \\[0.4em]
+Paramètre de trait écrit sous \texttt{notation = ATTRIBUTE} (\texttt{type}, \texttt{label}, \texttt{qualifier}, \texttt{direction}, \texttt{sourceRole}, \texttt{sourceCardinality}) & Une ligne de boîte ne porte qu'un nom, un type et une multiplicité : ces valeurs ne seront dessinées nulle part. Le message les nomme une à une. \\[0.4em]
+\texttt{stereotype} contenant déjà \texttt{<<~>>} & Les guillemets seraient affichés en double. \\[0.4em]
+Deux classes affichant la même étiquette & Deux rectangles que le lecteur ne peut pas distinguer ; \texttt{name} est là pour cela. \\[0.4em]
+\texttt{@UMLDependency} vers une classe déjà atteinte par une \texttt{@UMLAssociation} \textbf{dessinée en trait} & Une association dit strictement plus qu'une dépendance ; le second trait n'ajoute que de l'encombrement. Sous \texttt{ATTRIBUTE}, aucun trait n'est tracé : rien n'est alors signalé. \\[0.4em]
+Attribut de type collection sans \texttt{targetCardinality} & Ni le lien ni la ligne ne porteront de multiplicité. Seul le métier sait si c'est \texttt{0..*} ou \texttt{1..*}. \\[0.4em]
+Multiplicité que le type contredit (une \texttt{List} pour \texttt{"0..1"}, un attribut simple pour \texttt{"1..*"}) & L'un des deux se trompe, et ce n'est pas au générateur d'en décider. \\[0.4em]
+\texttt{target} absent du type de l'attribut & Souvent un copier-coller. Le lien sera tout de même dessiné vers la classe déclarée. \\[0.4em]
+\texttt{@UMLDerived} sur un membre que le diagramme n'affiche pas & Une barre oblique ne se voit que si l'élément qu'elle marque est dessiné. \\[0.4em]
+\texttt{@UMLMultiplicity} sur un membre que le diagramme n'affiche pas & Des crochets ne se voient que si le membre qu'ils suivent est dessiné. \\[0.4em]
+\texttt{@UMLMultiplicity("")} & Une multiplicité vide est ce que porte un membre qui n'en a pas : l'annotation ne demande rien. \\[0.4em]
+\texttt{@UMLDerived} sur un lien \textbf{dessiné en trait} et dépourvu de \texttt{targetRole} & La barre se pose devant le rôle cible ; sans rôle, rien ne peut la porter. Sous \texttt{ATTRIBUTE}, la ligne a toujours un nom : rien n'est signalé. \\[0.4em]
+\texttt{@UMLNote} visant un membre que le diagramme n'affiche pas & La bulle n'a rien où s'accrocher et ne sera pas dessinée. \\[0.4em]
+\texttt{@UMLNote} sur un attribut porteur d'une \texttt{@UMLAssociation} \textbf{dessinée en trait} & L'attribut est devenu un trait, et une note ne s'accroche pas à un trait. Sous \texttt{ATTRIBUTE}, la note s'accroche normalement à la ligne. \\[0.4em]
+\texttt{@UMLConstraint} dont la \texttt{rule} porte déjà les accolades & Elles seraient dessinées en double. \\[0.4em]
+\texttt{@UMLConstraint} sur un attribut que le diagramme n'affiche pas & La règle ne serait écrite nulle part. \\[0.4em]
+\texttt{@UMLDiagram} dont aucun paramètre n'est écrit & Elle décrit exactement le diagramme qu'on obtiendrait sans elle. Plus vraisemblablement un paramètre oublié qu'une intention. \\[0.4em]
+\texttt{@UMLLayout(direction = NONE)} & Le lien invisible rapproche les deux boîtes sans dire de quel côté ; l'annotation ne corrige presque rien. \\[0.4em]
+Deux classes du même groupe déclarant deux couleurs & Un rectangle n'en a qu'une : la première l'emporte, la seconde ne sera pas dessinée. \\
+\hline
+\end{tabular}
+\end{center}
+
+Chacun de ces contrôles \textbf{se tait dès qu'il ne peut pas conclure} : une collection écrite sans paramètre de type (\texttt{List} nu) ne se voit jamais reprocher sa cible, puisque c'est exactement le manque que \texttt{target} vient combler. Un avertissement qui se trompe coûte plus cher que celui qui manque un cas : le premier apprend à ne plus les lire.
+
+\subsection{Faire taire les avertissements}
+L'option \texttt{-Aumlg.warnings=none} les éteint tous. Les erreurs, elles, ne s'éteignent pas : elles disent qu'aucun diagramme ne peut être produit, ce dont personne ne peut vouloir être dispensé.
+
+% ---------------------------------------------------------
+\section{Choix de conception : ce qui est hors périmètre}
+\label{sec:horsperimetre}
+
+Certaines possibilités de PlantUML ont été délibérément écartées. Les mentionner explicitement évite de les réintroduire par inadvertance et documente l'arbitrage retenu.
+
+\subsection{Fonctionnalités écartées}
+\begin{itemize}
+    \item \textbf{Style fin des liens} : couleur, épaisseur, pointillés, longueur des flèches. Gain purement esthétique pour un coût élevé en surface d'API.
+    \item \textbf{Navigabilité explicite} (\texttt{-{}-} contre \texttt{-{}->} contre \texttt{<-{}->}) : la flèche déduite automatiquement convient dans la quasi-totalité des cas.
+    \item \textbf{Pastille de stéréotype} (\texttt{<<(S,\#FF7700) Service>>}) et stéréotypes multiples : le paramètre \texttt{stereotype} reste une chaîne simple.
+    \item \textbf{Imbrication de paquetages} et variantes de conteneurs (\texttt{namespace}, \texttt{folder}, \texttt{frame}, \texttt{together}) : un seul niveau de regroupement suffit à diviser la complexité visuelle.
+    \item \textbf{Notes rattachées à un lien} et notes flottantes non ancrées.
+    \item \textbf{Directives brutes} \texttt{skinparam} et thèmes PlantUML : exposer ces réglages reviendrait à réécrire PlantUML en syntaxe Java.
+\end{itemize}
+
+\subsection{Ce qui relève de l'analyse automatique, non des annotations}
+Les éléments suivants sont déduits du code compilé et ne nécessitent aucune annotation : la nature de l'entité (classe, classe abstraite, interface, énumération, type annotation, \textit{record}), les liens d'héritage lus dans \texttt{extends} et \texttt{implements}, les littéraux d'une énumération, le modificateur \texttt{static}, la visibilité de chaque membre, et les signatures de méthodes (type de retour, types des paramètres, et leurs noms lorsque le projet est compilé avec \texttt{-parameters}).
+
+\subsection{Ce qui ne peut pas être déduit, et pourquoi}
+La lecture ayant lieu après compilation (section \ref{sec:lecture}), trois informations ont déjà disparu et ne sont donc \textit{pas} déductibles : les \textbf{valeurs d'initialisation des attributs}, les \textbf{paramètres de type des classes génériques}, et le \textbf{contenu des collections} (\texttt{List<Commande>} est devenu \texttt{List}).
+
+C'est précisément ce que \texttt{@UMLAssociation} vient combler, en exigeant la classe cible et en offrant les multiplicités. La perte est donc sans conséquence sur le diagramme produit --- et elle évite d'entretenir deux sources de vérité concurrentes.
+
+Un quatrième cas se règle autrement : le \textbf{nom des paramètres de méthode} n'a pas disparu à cause d'un choix de la bibliothèque, mais parce que \texttt{javac} ne l'écrit dans les \texttt{.class} que sur demande. Il ne s'agit donc pas d'une déduction impossible mais d'une option de construction du projet analysé, \texttt{-parameters}, décrite en section \ref{sec:membres}. Sans elle, la signature se limite aux types ; aucune annotation ne vient combler ce manque, car le compilateur sait déjà le faire.
+
 % ---------------------------------------------------------
 \begin{comment}
 \end{comment}

@@ -1,32 +1,40 @@
 package io.github.oliviercailloux.umlg.rendering;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.oliviercailloux.umlg.annotation.UMLClass;
+import io.github.oliviercailloux.umlg.annotation.UMLDirection;
+import io.github.oliviercailloux.umlg.annotation.UMLFlow;
 import io.github.oliviercailloux.umlg.annotation.UMLVisibility;
 import io.github.oliviercailloux.umlg.extraction.EntityExtractor;
+import io.github.oliviercailloux.umlg.model.UmlAssociation;
+import io.github.oliviercailloux.umlg.model.UmlDiagram;
+import io.github.oliviercailloux.umlg.model.UmlEntity;
 import io.github.oliviercailloux.umlg.model.UmlProject;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
+import net.sourceforge.plantuml.dot.GraphvizUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/**
- * Tests du fichier réellement écrit par {@link PlantUmlWriter}.
- *
- * <p>Vérifier {@code Files.exists()} et {@code size > 0} ne prouve rien : PlantUML écrit
- * une image parfaitement valide même quand la syntaxe est fausse — elle affiche
- * simplement « syntax error » en rouge. Ces tests regardent donc le contenu : le bon
- * format de fichier, et la présence des classes et membres attendus.
- */
+// Ce que contient réellement le fichier écrit : le bon format, le bon contenu, et pas une image
+// d'erreur déguisée.
+//
+// C'est le complément indispensable de PlantUmlWriterTest : PlantUML dessine une image même
+// quand il échoue, si bien qu'un fichier non vide ne prouve rien. Ici, on relit le contenu.
 class PlantUmlWriterOutputTest {
 
+    // Le nombre magique d'un fichier PNG : ses huit premiers octets. Sert à vérifier le format
+    // réellement produit, sans se fier au nom du fichier.
     private static final byte[] ENTETE_PNG = {(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A};
 
     @UMLClass(name = "Facture", stereotype = "Entity", strategy = UMLVisibility.PRIVATE)
@@ -36,8 +44,25 @@ class PlantUmlWriterOutputTest {
         public void emettre() {}
     }
 
+    // Le projet d'essai, refabriqué à chaque appel : aucun test n'hérite de l'état d'un autre.
     private static UmlProject projetCobaye() {
         return UmlProject.given(Set.of(EntityExtractor.extract(Cobaye.class)));
+    }
+
+    @Test
+    void titreDeclare_estDessineDansLImage(@TempDir Path tmp) throws Exception {
+        // Le maillon que ni le scan ni le rendu ne couvrent seuls : le writer doit passer au
+        // rendu les réglages que porte le projet. Les oublier ne casserait rien — l'image
+        // resterait valide, simplement sans le titre demandé.
+        Path sortie = tmp.resolve("diagramme.svg");
+        UmlProject projet = UmlProject.given(Set.of(EntityExtractor.extract(Cobaye.class)),
+            new UmlDiagram("Architecture du module Facturation", UMLFlow.TOP_TO_BOTTOM, true));
+
+        PlantUmlWriter.write(projet, sortie.toString());
+
+        assertTrue(Files.readString(sortie, StandardCharsets.UTF_8)
+            .contains("Architecture du module Facturation"),
+            "Le titre déclaré doit se lire dans l'image livrée.");
     }
 
     @Test
@@ -86,6 +111,54 @@ class PlantUmlWriterOutputTest {
         assertArrayEquals(ENTETE_PNG, entete, "Les octets d'en-tête PNG sont attendus.");
     }
 
+    // Une chaîne de classes reliées vers la droite : le seul moyen sûr d'obtenir un diagramme
+    // plus large que le plafond de PlantUML, qui range sinon les boîtes isolées en grille.
+    private static UmlProject chaineHorizontale(int longueur) {
+        Set<UmlEntity> entites = new LinkedHashSet<>();
+        for (int i = 0; i < longueur; i++) {
+            UmlEntity.Builder boite = UmlEntity.builder("com.exemple.Classe" + i, "Classe" + i);
+            if (i + 1 < longueur) {
+                boite.relations(List.of(
+                    UmlAssociation.builder("suivant", "com.exemple.Classe" + (i + 1))
+                        .direction(UMLDirection.RIGHT).build()));
+            }
+            entites.add(boite.build());
+        }
+        return UmlProject.given(entites);
+    }
+
+    // La largeur d'un PNG, lue dans son en-tête IHDR : quatre octets à partir du seizième.
+    private static int largeurPng(Path fichier) throws Exception {
+        byte[] octets = Files.readAllBytes(fichier);
+        return ((octets[16] & 0xFF) << 24) | ((octets[17] & 0xFF) << 16)
+            | ((octets[18] & 0xFF) << 8) | (octets[19] & 0xFF);
+    }
+
+    @Test
+    void pngPlusLargeQueLePlafondDePlantUml_nEstPasRogne(@TempDir Path tmp) throws Exception {
+        // PlantUML plafonne ses images à 4096 pixels et rogne au-delà, sans rien signaler : des
+        // boîtes entières disparaissaient du PNG alors que le SVG, vectoriel, était complet.
+        // Quarante classes en chaîne dépassent largement ce plafond.
+        Path sortie = tmp.resolve("large.png");
+
+        PlantUmlWriter.write(chaineHorizontale(40), sortie.toString());
+
+        assertTrue(largeurPng(sortie) > 4096,
+            "Le PNG a été rogné au plafond de PlantUML : largeur = " + largeurPng(sortie));
+    }
+
+    @Test
+    void plafondDImage_estRenduAuFilApresUsage(@TempDir Path tmp) throws Exception {
+        // Le réglage est une ThreadLocal de PlantUML : le poser sans le retirer laisserait la
+        // bibliothèque modifier, en douce et durablement, le comportement de son appelant.
+        int avant = GraphvizUtils.getenvImageLimit();
+
+        PlantUmlWriter.write(projetCobaye(), tmp.resolve("diagramme.svg").toString());
+
+        assertEquals(avant, GraphvizUtils.getenvImageLimit(),
+            "Le plafond posé pour le rendu doit être retiré ensuite.");
+    }
+
     @Test
     void extensionEnMajuscules_estReconnue(@TempDir Path tmp) throws Exception {
         // Le writer normalise la casse avant de choisir le format, et UMLGenerator.Builder
@@ -128,7 +201,8 @@ class PlantUmlWriterOutputTest {
         // Le writer ne crée pas l'arborescence : autant que l'échec soit franc.
         Path sortie = tmp.resolve("sous/dossier/absent/diagramme.svg");
 
-        assertThrows(Exception.class, () -> PlantUmlWriter.write(projetCobaye(), sortie.toString()));
+        assertThrows(Exception.class,
+            () -> PlantUmlWriter.write(projetCobaye(), sortie.toString()));
     }
 
     @Test

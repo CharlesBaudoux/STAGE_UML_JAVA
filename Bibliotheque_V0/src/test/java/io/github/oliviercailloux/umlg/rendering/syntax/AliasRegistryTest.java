@@ -1,4 +1,4 @@
-package io.github.oliviercailloux.umlg.rendering;
+package io.github.oliviercailloux.umlg.rendering.syntax;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -7,25 +7,29 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import io.github.oliviercailloux.umlg.annotation.UMLClass;
 import io.github.oliviercailloux.umlg.extraction.EntityExtractor;
 import io.github.oliviercailloux.umlg.model.UmlEntity;
+import io.github.oliviercailloux.umlg.rendering.PlantUmlAssert;
+import io.github.oliviercailloux.umlg.rendering.PlantUmlWriter;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests de la génération d'alias PlantUML.
- *
- * <p>L'alias est dérivé du nom affiché en supprimant tout ce qui n'est pas alphanumérique.
- * Or {@code @UMLClass.name()} accepte bien plus large que ça (lettres unicode, '.', '-',
- * '_', espaces). L'écart entre ce que la validation autorise et ce que la génération
- * d'alias sait encoder est la source de deux défauts silencieux : alias vide et collision
- * d'alias. Ces tests verrouillent les deux.
- */
-class PlantUmlAliasTest {
+// La fabrication des alias, éprouvée sur les noms que le nettoyage naïf casserait :
+// idéogrammes, ponctuation seule, nom purement numérique, espaces, accents.
+//
+// Le danger visé est le silence. PlantUML ne se plaint ni d'un alias vide ni de deux classes
+// partageant un alias : dans le premier cas il rend une image d'erreur, dans le second il
+// fusionne deux boîtes — pendant que le programme annonce « Success ». D'où l'appel à
+// assertCompile dans chaque test.
+class AliasRegistryTest {
 
+    // Deux noms qui, une fois nettoyés, donnent tous deux « MonClient ».
     @UMLClass(name = "Mon.Client")
     static class NomAvecPoint {}
 
     @UMLClass(name = "MonClient")
     static class NomSansPoint {}
+
+    @UMLClass(name = "MonClient")
+    static class NomSansPointBis {}
 
     @UMLClass(name = "客户")
     static class NomIdeogrammes {}
@@ -59,7 +63,8 @@ class PlantUmlAliasTest {
 
     @Test
     void nomEnPonctuationSeule_produitUnAliasUtilisable() {
-        String source = PlantUmlAssert.documentPour(EntityExtractor.extract(NomPonctuationSeule.class));
+        String source =
+            PlantUmlAssert.documentPour(EntityExtractor.extract(NomPonctuationSeule.class));
 
         assertAliasNonVide(source);
         PlantUmlAssert.assertCompile(source);
@@ -111,7 +116,8 @@ class PlantUmlAliasTest {
 
         assertEquals(2, alias.size(), "Les deux classes doivent être déclarées.");
         assertNotEquals(alias.get(0), alias.get(1),
-            "Deux entités distinctes partageant un alias sont fusionnées silencieusement par PlantUML.");
+            "Deux entités distinctes partageant un alias sont fusionnées silencieusement par "
+                + "PlantUML.");
         PlantUmlAssert.assertCompile(source);
     }
 
@@ -120,7 +126,7 @@ class PlantUmlAliasTest {
         // Cas réel : deux classes homonymes dans deux packages différents, toutes deux
         // annotées. Elles doivent apparaître comme deux boîtes.
         UmlEntity a = EntityExtractor.extract(NomSansPoint.class);
-        UmlEntity b = EntityExtractor.extract(NomSansPoint.class);
+        UmlEntity b = EntityExtractor.extract(NomSansPointBis.class);
 
         String source = PlantUmlAssert.documentPour(a, b);
         List<String> alias = PlantUmlAssert.aliasDeclares(source);
@@ -141,6 +147,7 @@ class PlantUmlAliasTest {
         PlantUmlAssert.assertCompile(source);
     }
 
+    // Assertion partagée : une seule classe déclarée, et son alias n'est pas vide.
     private static void assertAliasNonVide(String source) {
         List<String> alias = PlantUmlAssert.aliasDeclares(source);
         assertEquals(1, alias.size(), "Une seule classe attendue dans :\n" + source);

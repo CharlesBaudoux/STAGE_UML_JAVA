@@ -13,13 +13,15 @@ import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests du modèle de données. Ces records sont la frontière entre l'extraction et le
- * rendu : s'ils laissent passer un état incohérent ou se laissent muter après coup, le
- * diagramme produit ne correspond plus à ce qui a été scanné.
- */
+// Les invariants transversaux du modèle : refus des nulls, copies défensives, immuabilité de ce
+// qui est exposé, et égalité par valeur.
+//
+// Ces trois dernières propriétés découlent du choix des records et d'ImmutableList ; les tester
+// explicitement les fige, pour qu'un remplacement de ImmutableList par une List ordinaire ne
+// passe pas inaperçu.
 class UmlModelTest {
 
+    // Fabrique partagée : une entité sans rien, quand seul l'objet importe et pas son contenu.
     private static UmlEntity entiteMinimale() {
         return new UmlEntity("E", "", "", UMLVisibility.NONE, List.of(), List.of());
     }
@@ -33,19 +35,38 @@ class UmlModelTest {
         IllegalArgumentException e =
             assertThrows(IllegalArgumentException.class, () -> UmlProject.given(Set.of()));
 
-        assertTrue(e.getMessage().contains("au moins une classe annotée"), e.getMessage());
+        // On vérifie aussi le message : c'est lui que lira l'utilisateur, et le second argument
+        // d'assertTrue le fait apparaître dans le rapport si le test échoue.
+        assertTrue(e.getMessage().contains("at least one annotated class"), e.getMessage());
     }
 
     @Test
     void projetNull_estRefuse() {
         assertThrows(NullPointerException.class, () -> UmlProject.given(null));
-        assertThrows(NullPointerException.class, () -> new UmlProject(null));
+        assertThrows(NullPointerException.class,
+            () -> new UmlProject(null, UmlDiagram.defaut()));
+    }
+
+    @Test
+    void projetSansReglagesDEnsemble_estRefuse() {
+        // Le second composant n'est jamais nul : tout le rendu compte sur sa présence, et
+        // UmlDiagram.defaut() est là pour dire « rien de particulier » sans avoir à l'omettre.
+        assertThrows(NullPointerException.class,
+            () -> UmlProject.given(Set.of(entiteMinimale()), null));
+    }
+
+    @Test
+    void projetSansDiagrammeDeclare_prendLesReglagesParDefaut() {
+        // La forme courte de given() est celle qu'emploie un projet sans @UMLDiagram, c'est-à-dire
+        // la grande majorité d'entre eux.
+        assertEquals(UmlDiagram.defaut(), UmlProject.given(Set.of(entiteMinimale())).diagram());
     }
 
     @Test
     void entitesDUnProjet_sontImmuables() {
         UmlProject projet = UmlProject.given(Set.of(entiteMinimale()));
 
+        // Une collection immuable de Guava ne refuse pas l'ajout par un booléen : elle lève.
         assertThrows(UnsupportedOperationException.class,
             () -> projet.entities().add(entiteMinimale()));
     }
@@ -66,11 +87,15 @@ class UmlModelTest {
 
     @Test
     void projet_neCopiePasInutilementUnImmutableSet() {
+        // ImmutableSet.copyOf rend l'argument tel quel s'il est déjà immuable : rien à recopier,
+        // il ne peut plus changer.
         ImmutableSet<UmlEntity> entites = ImmutableSet.of(entiteMinimale());
 
         assertEquals(entites, UmlProject.given(entites).entities());
     }
 
+    // Égalité par valeur, fournie par le record : deux projets de même contenu sont le même
+    // projet. C'est ce qui rend les assertEquals des autres tests possibles.
     @Test
     void projetsAvecMemesEntites_sontEgaux() {
         assertEquals(UmlProject.given(Set.of(entiteMinimale())),
@@ -79,6 +104,8 @@ class UmlModelTest {
 
     // --- UmlEntity ---
 
+    // Chaque paramètre est mis à null tour à tour : un checkNotNull oublié se verrait, alors
+    // qu'un seul cas de test ne le montrerait pas.
     @Test
     void entite_refuseChaqueArgumentNull() {
         assertThrows(NullPointerException.class,
@@ -106,11 +133,15 @@ class UmlModelTest {
 
         UmlEntity entity = new UmlEntity("E", "", "", UMLVisibility.PUBLIC, champs, methodes);
 
+        // Le geste du test : on vide les listes d'origine après construction. Sans copie
+        // défensive, l'entité se retrouverait vide elle aussi.
         champs.clear();
         methodes.clear();
 
-        assertEquals(1, entity.fields().size(), "La liste d'attributs ne doit pas suivre la source.");
-        assertEquals(1, entity.methods().size(), "La liste de méthodes ne doit pas suivre la source.");
+        assertEquals(1, entity.fields().size(),
+            "La liste d'attributs ne doit pas suivre la source.");
+        assertEquals(1, entity.methods().size(),
+            "La liste de méthodes ne doit pas suivre la source.");
     }
 
     @Test
@@ -142,7 +173,8 @@ class UmlModelTest {
         UmlMethod methode = new UmlMethod("calculer", "void", "+", false, parametres);
         parametres.clear();
 
-        assertEquals(List.of("int", "String"), methode.parameterTypes(),
+        assertEquals(List.of(UmlParameter.anonyme("int"), UmlParameter.anonyme("String")),
+            methode.parameters(),
             "La signature ne doit pas suivre la liste passée au constructeur.");
     }
 
@@ -150,7 +182,8 @@ class UmlModelTest {
     void methode_exposeUneListeDeParametresImmuable() {
         UmlMethod methode = new UmlMethod("calculer", "void", "+", false, List.of("int"));
 
-        assertThrows(UnsupportedOperationException.class, () -> methode.parameterTypes().add("long"));
+        assertThrows(UnsupportedOperationException.class,
+            () -> methode.parameters().add(UmlParameter.anonyme("long")));
     }
 
     @Test
@@ -164,6 +197,8 @@ class UmlModelTest {
 
     // --- UmlField ---
 
+    // UmlField n'a aucun constructeur compact : ces deux tests ne vérifient que l'égalité par
+    // valeur engendrée par le record, dont dépendent les comparaisons de listes ailleurs.
     @Test
     void champsIdentiques_sontEgaux() {
         assertEquals(new UmlField("a", "int", "+", false), new UmlField("a", "int", "+", false));

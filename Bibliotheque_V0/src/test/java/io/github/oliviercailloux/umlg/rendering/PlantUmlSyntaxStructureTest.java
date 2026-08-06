@@ -6,18 +6,20 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.oliviercailloux.umlg.annotation.UMLVisibility;
+import io.github.oliviercailloux.umlg.UmlStyle;
 import io.github.oliviercailloux.umlg.model.UmlEntity;
 import io.github.oliviercailloux.umlg.model.UmlField;
 import io.github.oliviercailloux.umlg.model.UmlMethod;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests de mise en forme du code PlantUML, construits directement sur le modèle
- * ({@link UmlEntity}) plutôt que sur des cobayes annotés : on isole ainsi le rendu de
- * l'extraction, et on peut fabriquer des combinaisons qu'aucune classe Java réelle ne
- * produirait facilement (entité sans membre, méthode sans paramètre, etc.).
- */
+// La forme exacte du texte PlantUML engendré pour une boîte : ordre des morceaux, marqueurs,
+// séparateur de compartiments, en-tête et fin de document.
+//
+// Les assertions portent sur des extraits littéraux (« + int age ») : c'est volontairement
+// rigide, car c'est précisément cette forme qui est le contrat avec PlantUML. Chaque test
+// termine par assertCompile, pour vérifier non seulement que le texte est celui attendu, mais
+// que PlantUML l'accepte.
 class PlantUmlSyntaxStructureTest {
 
     private static UmlEntity entite(List<UmlField> champs, List<UmlMethod> methodes) {
@@ -74,7 +76,7 @@ class PlantUmlSyntaxStructureTest {
         // Ordre UML « visibilité type nom », et non « nom : type ».
         String source = rendu(entite(List.of(new UmlField("age", "int", "+", false)), List.of()));
 
-        assertTrue(source.contains("  + int age\n"), source);
+        assertTrue(source.contains("  + age: int\n"), source);
         PlantUmlAssert.assertCompile(source);
     }
 
@@ -82,7 +84,7 @@ class PlantUmlSyntaxStructureTest {
     void champStatique_porteLeMarqueurStatic() {
         String source = rendu(entite(List.of(new UmlField("SEUIL", "int", "+", true)), List.of()));
 
-        assertTrue(source.contains("  + {static} int SEUIL\n"), source);
+        assertTrue(source.contains("  + {static} SEUIL: int\n"), source);
         PlantUmlAssert.assertCompile(source);
     }
 
@@ -94,10 +96,10 @@ class PlantUmlSyntaxStructureTest {
             new UmlField("c", "int", "#", false),
             new UmlField("d", "int", "~", false)), List.of()));
 
-        assertTrue(source.contains("+ int a"), source);
-        assertTrue(source.contains("- int b"), source);
-        assertTrue(source.contains("# int c"), source);
-        assertTrue(source.contains("~ int d"), source);
+        assertTrue(source.contains("+ a: int"), source);
+        assertTrue(source.contains("- b: int"), source);
+        assertTrue(source.contains("# c: int"), source);
+        assertTrue(source.contains("~ d: int"), source);
         PlantUmlAssert.assertCompile(source);
     }
 
@@ -107,16 +109,17 @@ class PlantUmlSyntaxStructureTest {
     void methodeSansParametre_renduAvecParenthesesVides() {
         String source = rendu(entite(List.of(), List.of(METHODE)));
 
-        assertTrue(source.contains("  + void agir()\n"), source);
+        assertTrue(source.contains("  + agir(): void\n"), source);
         PlantUmlAssert.assertCompile(source);
     }
 
     @Test
     void parametres_sontJointsParVirguleEspace() {
-        UmlMethod m = new UmlMethod("calculer", "double", "+", false, List.of("int", "String", "boolean"));
+        UmlMethod m = new UmlMethod("calculer", "double", "+", false,
+            List.of("int", "String", "boolean"));
         String source = rendu(entite(List.of(), List.of(m)));
 
-        assertTrue(source.contains("  + double calculer(int, String, boolean)\n"), source);
+        assertTrue(source.contains("  + calculer(int, String, boolean): double\n"), source);
         PlantUmlAssert.assertCompile(source);
     }
 
@@ -125,7 +128,7 @@ class PlantUmlSyntaxStructureTest {
         UmlMethod m = new UmlMethod("creer", "E", "+", true, List.of());
         String source = rendu(entite(List.of(), List.of(m)));
 
-        assertTrue(source.contains("  + {static} E creer()\n"), source);
+        assertTrue(source.contains("  + {static} creer(): E\n"), source);
         PlantUmlAssert.assertCompile(source);
     }
 
@@ -135,7 +138,7 @@ class PlantUmlSyntaxStructureTest {
         UmlField champ = new UmlField("elements", "String[]", "-", false);
         String source = rendu(entite(List.of(champ), List.of()));
 
-        assertTrue(source.contains("- String[] elements"), source);
+        assertTrue(source.contains("- elements: String[]"), source);
         PlantUmlAssert.assertCompile(source);
     }
 
@@ -143,7 +146,8 @@ class PlantUmlSyntaxStructureTest {
 
     @Test
     void stereotypeVide_nEstPasRendu() {
-        String source = rendu(new UmlEntity("E", "", "", UMLVisibility.PUBLIC, List.of(), List.of()));
+        String source =
+            rendu(new UmlEntity("E", "", "", UMLVisibility.PUBLIC, List.of(), List.of()));
 
         assertFalse(source.contains("<<"), "Un stéréotype vide ne doit pas produire « <<>> ».");
         PlantUmlAssert.assertCompile(source);
@@ -151,7 +155,8 @@ class PlantUmlSyntaxStructureTest {
 
     @Test
     void stereotypeRenseigne_estRenduEntreChevrons() {
-        String source = rendu(new UmlEntity("E", "Service", "", UMLVisibility.PUBLIC, List.of(), List.of()));
+        String source =
+            rendu(new UmlEntity("E", "Service", "", UMLVisibility.PUBLIC, List.of(), List.of()));
 
         assertTrue(source.contains("<<Service>>"), source);
         PlantUmlAssert.assertCompile(source);
@@ -160,8 +165,10 @@ class PlantUmlSyntaxStructureTest {
     @Test
     void couleurSansDiese_estNormaliseeCommeAvecDiese() {
         // Les deux écritures sont acceptées par @UMLClass : elles doivent produire le même rendu.
-        String sans = rendu(new UmlEntity("E", "", "AABBCC", UMLVisibility.PUBLIC, List.of(), List.of()));
-        String avec = rendu(new UmlEntity("E", "", "#AABBCC", UMLVisibility.PUBLIC, List.of(), List.of()));
+        String sans =
+            rendu(new UmlEntity("E", "", "AABBCC", UMLVisibility.PUBLIC, List.of(), List.of()));
+        String avec =
+            rendu(new UmlEntity("E", "", "#AABBCC", UMLVisibility.PUBLIC, List.of(), List.of()));
 
         assertEquals(avec, sans, "« AABBCC » et « #AABBCC » doivent produire un rendu identique.");
         assertTrue(sans.contains("#AABBCC"), sans);
@@ -170,9 +177,13 @@ class PlantUmlSyntaxStructureTest {
 
     @Test
     void couleurVide_nEstPasRendue() {
-        String source = rendu(new UmlEntity("E", "", "", UMLVisibility.PUBLIC, List.of(), List.of()));
+        String source =
+            rendu(new UmlEntity("E", "", "", UMLVisibility.PUBLIC, List.of(), List.of()));
 
-        assertFalse(source.contains("#"), "Une couleur vide ne doit pas produire un « # » orphelin.");
+        // La déclaration, et non le document : le bloc de style porte lui aussi des « # », et
+        // les y interdire reviendrait à interdire toute couleur par défaut.
+        assertTrue(source.contains("class \"E\" as E {"),
+            () -> "Une couleur vide ne doit pas produire un « # » orphelin :\n" + source);
         PlantUmlAssert.assertCompile(source);
     }
 
@@ -209,13 +220,15 @@ class PlantUmlSyntaxStructureTest {
 
     @Test
     void addClass_estFluent() {
-        PlantUmlSyntaxBuilder builder = new PlantUmlSyntaxBuilder();
+        PlantUmlSyntaxBuilder builder = new PlantUmlSyntaxBuilder(UmlStyle.PLANTUML);
         UmlEntity e = entite(List.of(), List.of());
 
         assertSame(builder, builder.addClass(e),
             "addClass déclare renvoyer this : le chaînage doit fonctionner.");
     }
 
+    // Le rendu ne doit dépendre d'aucun état résiduel : deux appels sur la même entité donnent
+    // le même texte, sinon le fichier engendré changerait sans que le code change.
     @Test
     void rendu_estDeterministe() {
         UmlEntity e = entite(List.of(CHAMP), List.of(METHODE));

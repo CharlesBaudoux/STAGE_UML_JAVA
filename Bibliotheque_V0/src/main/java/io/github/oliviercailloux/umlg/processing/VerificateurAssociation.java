@@ -1,0 +1,192 @@
+package io.github.oliviercailloux.umlg.processing;
+
+import com.google.common.collect.ImmutableList;
+import io.github.oliviercailloux.umlg.annotation.UMLAssociation;
+import io.github.oliviercailloux.umlg.annotation.UMLClass;
+import io.github.oliviercailloux.umlg.model.UmlAssociation;
+import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.AnnotationValue;
+import javax.lang.model.element.Element;
+import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.TypeMirror;
+
+// Vérifie ce que @UMLAssociation déclare sur un attribut.
+final class VerificateurAssociation {
+
+    // Les paramètres qui ne veulent dire quelque chose que le long d'un trait. Sous la notation
+    // ATTRIBUTE, l'annotation garde ce qu'une ligne de boîte sait porter : target — le type
+    // affiché —, targetCardinality — la multiplicité entre crochets — et targetRole, qui est
+    // alors le nom même de la propriété.
+    private static final ImmutableList<String> PARAMETRES_DE_TRAIT = ImmutableList.of(
+        "type", "sourceCardinality", "sourceRole", "qualifier", "label", "direction");
+
+    private final Rapporteur rapporteur;
+    private final Cible cible;
+    private final TypeAttribut typeAttribut;
+
+    VerificateurAssociation(Rapporteur rapporteur, Cible cible, TypeAttribut typeAttribut) {
+        this.rapporteur = rapporteur;
+        this.cible = cible;
+        this.typeAttribut = typeAttribut;
+    }
+
+    void verifier(Element champ) {
+        AnnotationMirror annotation = rapporteur.miroir(champ, UMLAssociation.class);
+        if (annotation == null) {
+            return;
+        }
+        TypeElement porteuse = (TypeElement) champ.getEnclosingElement();
+        String contexte = "@UMLAssociation on " + porteuse.getQualifiedName() + "."
+            + champ.getSimpleName();
+
+        // Une association part d'une boîte : sans @UMLClass sur la classe porteuse, il n'y a
+        // aucune boîte d'où partir, et l'annotation ne produirait rien. C'est presque toujours
+        // un @UMLClass oublié.
+        if (porteuse.getAnnotation(UMLClass.class) == null) {
+            rapporteur.erreur(contexte + ": the carrying class does not carry @UMLClass, so it is "
+                + "not part of the diagram and this association would be drawn from nowhere. "
+                + "Annotate " + porteuse.getQualifiedName() + ", or remove this annotation.",
+                champ, annotation);
+            return;
+        }
+
+        String nomCible = cible.resoudre(annotation, "target", contexte, champ);
+        if (nomCible == null) {
+            // La cible est déjà en faute ; poursuivre ne ferait qu'empiler des messages sur la
+            // même ligne.
+            return;
+        }
+
+        if (!verifierValeurs(champ, annotation, contexte, nomCible)) {
+            // Une multiplicité illisible ne peut pas être confrontée au type de l'attribut : le
+            // second message ne ferait que répéter le premier autrement.
+            return;
+        }
+        if (!Notation.trait(rapporteur, annotation)) {
+            signalerParametresSansPlace(champ, annotation, contexte);
+        }
+        signalerIncoherences(champ, annotation, contexte);
+    }
+
+    // Les paramètres qui décorent un trait, et qu'une ligne d'attribut ne sait pas porter.
+    //
+    // Une ligne de boîte n'a qu'un type et une multiplicité. Le losange d'une composition, le
+    // rôle écrit le long du trait, le libellé posé au milieu, la contrainte de placement : tout
+    // cela suppose un trait, et disparaît avec lui. Ce n'est pas une faute — le diagramme reste
+    // valide —, mais l'auteur a écrit ces valeurs pour obtenir un effet qu'il n'aura pas.
+    private void signalerParametresSansPlace(Element champ, AnnotationMirror annotation,
+        String contexte) {
+        // Seuls les paramètres réellement écrits dans le source sont cités : reprocher un défaut
+        // que personne n'a tapé serait incompréhensible.
+        ImmutableList<String> ecrits = PARAMETRES_DE_TRAIT.stream()
+            .filter(membre -> rapporteur.valeurEcrite(annotation, membre) != null)
+            .collect(ImmutableList.toImmutableList());
+
+        if (ecrits.isEmpty()) {
+            return;
+        }
+        rapporteur.avertissement(contexte + ": notation = ATTRIBUTE writes this association "
+            + "inside the box, as a line of the attribute compartment, which carries only a type "
+            + "and a multiplicity. " + String.join(", ", ecrits) + " decorate a path between two "
+            + "boxes, and nothing will be drawn from them. Remove them, or switch back to "
+            + "notation = ARROW.", champ, annotation,
+            rapporteur.valeurEcrite(annotation, "notation"));
+    }
+
+    // Les multiplicités, les rôles, le qualificateur et le label sont validés en construisant
+    // l'objet du modèle avec ces mêmes valeurs.
+    //
+    // Aucune règle n'est donc réécrite ici : la grammaire des multiplicités reste écrite une
+    // seule fois, dans UmlAssociation, et le message affiché par javac est mot pour mot celui
+    // que la génération aurait produit. Les paramètres qui ne participent à aucune validation
+    // — type, direction, isOrdered — sont laissés à leur défaut, leur lecture serait inutile.
+    private boolean verifierValeurs(Element champ, AnnotationMirror annotation, String contexte,
+        String nomCible) {
+        try {
+            UmlAssociation.builder(champ.getSimpleName().toString(), nomCible)
+                .sourceCardinality(rapporteur.texte(annotation, "sourceCardinality"))
+                .targetCardinality(rapporteur.texte(annotation, "targetCardinality"))
+                .sourceRole(rapporteur.texte(annotation, "sourceRole"))
+                .targetRole(rapporteur.texte(annotation, "targetRole"))
+                .qualifier(rapporteur.texte(annotation, "qualifier"))
+                .label(rapporteur.texte(annotation, "label"))
+                .build();
+            return true;
+        } catch (IllegalArgumentException e) {
+            // Le message du modèle nomme lui-même le paramètre fautif ; l'erreur est donc posée
+            // sur l'annotation entière sans que le lecteur ait à chercher.
+            rapporteur.erreur(contexte + " : " + e.getMessage(), champ, annotation);
+            return false;
+        }
+    }
+
+    // Ce que l'annotation déclare, confronté à ce que le type de l'attribut laisse attendre.
+    //
+    // Rien de tout cela n'est une faute : l'annotation fait foi, et un modèle peut légitimement
+    // s'écarter du code — c'est même la raison d'être de @UMLAssociation. Mais l'écart est assez
+    // souvent une étourderie, un copier-coller ou une multiplicité oubliée, pour mériter d'être
+    // dit. Chaque contrôle se tait dès que le type ne permet pas de conclure.
+    private void signalerIncoherences(Element champ, AnnotationMirror annotation, String contexte) {
+        TypeMirror type = champ.asType();
+        TypeMirror typeCible = (TypeMirror) rapporteur.valeur(annotation, "target").getValue();
+
+        if (typeAttribut.comparableALaCible(type) && !typeAttribut.contient(type, typeCible)) {
+            rapporteur.avertissement(contexte + ": target = " + typeCible + " does not appear "
+                + "anywhere in the field's type (" + type + "). " + typeCible + " is what will be "
+                + "drawn all the same, since the annotation is what counts — check that this is "
+                + "the class you meant.", champ, annotation,
+                rapporteur.valeurEcrite(annotation, "target"));
+        }
+
+        signalerMultiplicite(champ, annotation, contexte, type);
+    }
+
+    // La multiplicité côté cible, confrontée au nombre d'objets que le type peut tenir.
+    private void signalerMultiplicite(Element champ, AnnotationMirror annotation, String contexte,
+        TypeMirror type) {
+        String multiplicite = rapporteur.texte(annotation, "targetCardinality");
+        boolean multivalue = typeAttribut.multivalue(type);
+        // Souligne « targetCardinality = "1" » là où il est écrit ; null quand la valeur vient du
+        // défaut, et le Rapporteur se rabat alors sur l'annotation entière.
+        AnnotationValue position = rapporteur.valeurEcrite(annotation, "targetCardinality");
+
+        if (multivalue && multiplicite.isEmpty()) {
+            // « le lien » ou « l'attribut », selon la notation : c'est la même multiplicité
+            // manquante, mais elle manquerait à deux endroits différents du dessin.
+            String porteur = Notation.trait(rapporteur, annotation) ? "link" : "attribute";
+
+            rapporteur.avertissement(contexte + ": the field's type (" + type + ") holds several "
+                + "objects, but targetCardinality is not set, so the " + porteur + " will carry "
+                + "no multiplicity at all. Only you know whether it is \"0..*\" or \"1..*\".",
+                champ, annotation, position);
+            return;
+        }
+        if (multiplicite.isEmpty()) {
+            return;
+        }
+        if (multivalue && !permetPlusieurs(multiplicite)) {
+            rapporteur.avertissement(contexte + ": targetCardinality = \"" + multiplicite
+                + "\" allows at most one object, but the field's type (" + type + ") holds "
+                + "several.", champ, annotation, position);
+            return;
+        }
+        if (!multivalue && permetPlusieurs(multiplicite) && !typeAttribut.indetermine(type)) {
+            rapporteur.avertissement(contexte + ": targetCardinality = \"" + multiplicite
+                + "\" allows several objects, but the field's type (" + type + ") holds a single "
+                + "one.", champ, annotation, position);
+        }
+    }
+
+    // Vrai si la multiplicité autorise plus d'un objet à cette extrémité.
+    //
+    // Ne valide rien : elle n'est appelée qu'après que le modèle a accepté la valeur, et se
+    // contente donc d'en lire la borne haute. C'est la seule lecture d'une multiplicité hors du
+    // modèle, et elle ne saurait le contredire — une forme qu'il aurait refusée n'arrive jamais
+    // jusqu'ici.
+    private static boolean permetPlusieurs(String multiplicite) {
+        int separateur = multiplicite.indexOf("..");
+        String borneHaute =
+            separateur < 0 ? multiplicite : multiplicite.substring(separateur + 2);
+        return borneHaute.equals("*") || Long.parseLong(borneHaute) > 1;
+    }
+}
