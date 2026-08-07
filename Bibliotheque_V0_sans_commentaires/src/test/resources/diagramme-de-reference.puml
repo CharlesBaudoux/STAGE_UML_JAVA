@@ -1,0 +1,47 @@
+@startuml
+skinparam classAttributeIconSize 0
+hide empty members
+skinparam nodesep 220
+skinparam ranksep 90
+
+interface "Identifiable" as Identifiable {
+}
+
+abstract class "Personne" as Personne {
+  # String nom
+  --
+  + void valider()
+}
+
+enum "Statut" as Statut {
+  ACTIF
+  SUSPENDU
+}
+
+class "Commande" as Commande {
+}
+
+class "ServiceBancaire" as ServiceBancaire {
+}
+
+class "Client" as Client <<Entity>> #LightBlue {
+  ~ int /age
+  - int compteur
+  ~ double solde {solde positif}
+  ~ Statut statut
+  --
+  + String identifiant()
+  + String /resumer()
+  + void valider()
+}
+
+Identifiable <|.. Personne
+Client "[numero] acheteur 1" *-down- "achats 0..* {ordered} {non vide}" Commande : <i>passe</i>
+Client ..> ServiceBancaire : <i>facture via</i>
+Personne <|-- Client
+note top of Client : Coeur du domaine, ne pas exposer hors du module
+note right of Client::solde
+&#74;amais negatif
+end note
+note right of Client : {titulaire majeur}
+@enduml

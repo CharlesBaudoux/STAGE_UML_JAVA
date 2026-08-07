@@ -8,8 +8,10 @@
     <version>1.0</version>
 
     <properties>
-        <maven.compiler.source>17</maven.compiler.source>
-        <maven.compiler.target>17</maven.compiler.target>
+        <!-- La bibliothèque est compilée pour Java 21 : la lire demande le même palier. -->
+        <maven.compiler.source>21</maven.compiler.source>
+        <maven.compiler.target>21</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
     <dependencies>
@@ -22,6 +24,21 @@
 
     <build>
         <plugins>
+            <!--
+                Sans cette configuration, Maven passe « -nowarn » à javac, ce qui fait taire
+                les avertissements du processeur d'annotations embarqué dans umlg — c'est-à-dire
+                tout ce qu'il a à dire, ses erreurs mises à part. Une compilation silencieuse
+                cessait alors de rien prouver.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.13.0</version>
+                <configuration>
+                    <showWarnings>true</showWarnings>
+                </configuration>
+            </plugin>
+
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>exec-maven-plugin</artifactId>

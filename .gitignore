@@ -11,6 +11,19 @@ target/
 .project
 .settings/
 
+# Fichiers intermédiaires de compilation LaTeX
+*.aux
+*.log
+*.out
+*.toc
+*.synctex.gz
+*.fls
+*.fdb_latexmk
+
+# Clone local d'un dépôt externe (oliviercailloux/Keyboardd), consulté pour
+# comparaison mais non versionné ici
+Keyboardd/
+
 # Fichiers systèmes
 .DS_Store
 Thumbs.db
