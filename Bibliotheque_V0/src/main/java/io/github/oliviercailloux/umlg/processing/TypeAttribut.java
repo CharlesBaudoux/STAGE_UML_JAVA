@@ -83,6 +83,31 @@ final class TypeAttribut {
         };
     }
 
+    // La classe que ce type désigne, quand il n'en désigne qu'une : le pendant, côté
+    // compilation, de TypeAffiche.elementSeul.
+    //
+    // « List<Commande> » donne Commande, « Commande » se donne lui-même. Null pour tout ce qui
+    // n'en désigne pas une seule — une Map, un type brut, un tableau, une variable de type —,
+    // auquel cas la cible doit être écrite.
+    TypeMirror elementSeul(TypeMirror type) {
+        if (type.getKind() != TypeKind.DECLARED || indetermine(type)) {
+            return null;
+        }
+        DeclaredType declare = (DeclaredType) type;
+        if (!multivalue(type)) {
+            // Un type ordinaire est lui-même la cible ; ses éventuels paramètres ne changent
+            // rien à la classe visée.
+            return types.erasure(type);
+        }
+        // Une collection : c'est son unique paramètre qui nomme la cible. Une Map en a deux, et
+        // rien ne dirait laquelle est visée.
+        if (declare.getTypeArguments().size() != 1) {
+            return null;
+        }
+        TypeMirror argument = declare.getTypeArguments().get(0);
+        return argument.getKind() == TypeKind.DECLARED ? types.erasure(argument) : null;
+    }
+
     // Vrai si l'on peut confronter ce type à la cible déclarée sans risquer un faux reproche.
     //
     // Deux cas s'y refusent. Les types indéterminés, d'abord. Les collections écrites sans

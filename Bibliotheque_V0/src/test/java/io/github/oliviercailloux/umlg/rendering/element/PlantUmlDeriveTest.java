@@ -30,7 +30,7 @@ class PlantUmlDeriveTest {
             boite(List.of(new UmlField("age", "int", "", "-", false, true, ImmutableList.of())),
                 List.of()));
 
-        assertTrue(source.contains("- /age: int"),
+        assertTrue(source.contains("- /age : int"),
             "La barre doit précéder le nom, et rien d'autre :\n" + source);
         PlantUmlAssert.assertCompile(source);
     }
@@ -40,7 +40,7 @@ class PlantUmlDeriveTest {
         String source = PlantUmlAssert.documentPour(
             boite(List.of(new UmlField("solde", "double", "-", false)), List.of()));
 
-        assertTrue(source.contains("- solde: double"), source);
+        assertTrue(source.contains("- solde : double"), source);
         assertFalse(source.contains("/solde"), source);
     }
 
@@ -52,7 +52,7 @@ class PlantUmlDeriveTest {
             boite(List.of(new UmlField("total", "double", "", "+", true, true, ImmutableList.of())),
                 List.of()));
 
-        assertTrue(source.contains("+ {static} /total: double"), source);
+        assertTrue(source.contains("+ {static} /total : double"), source);
         PlantUmlAssert.assertCompile(source);
     }
 
@@ -61,7 +61,7 @@ class PlantUmlDeriveTest {
         String source = PlantUmlAssert.documentPour(boite(List.of(),
             List.of(new UmlMethod("age", "int", "", "+", false, ImmutableList.of(), true))));
 
-        assertTrue(source.contains("+ /age(): int"), source);
+        assertTrue(source.contains("+ /age() : int"), source);
         PlantUmlAssert.assertCompile(source);
     }
 

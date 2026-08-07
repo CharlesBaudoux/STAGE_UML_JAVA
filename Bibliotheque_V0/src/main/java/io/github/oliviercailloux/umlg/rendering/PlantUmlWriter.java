@@ -17,6 +17,8 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Locale;
 import net.sourceforge.plantuml.BlockUml;
 import net.sourceforge.plantuml.FileFormat;
@@ -89,12 +91,20 @@ public class PlantUmlWriter {
         // La première vue est l'intégrale : ConstructeurDeVues la place toujours en tête.
         boolean integrale = true;
 
+        // Où mène chaque boîte : calculé une fois pour tout le dossier, puis restreint à chaque
+        // vue — une boîte ne renvoie jamais vers la vue qu'on est en train de lire.
+        Map<String, String> detailleePar = detailleePar(project, extension);
+
         for (UmlView vue : project.views()) {
             Path fichier = integrale
                 ? racine.resolve(NOM_DE_L_INTEGRALE + extension)
                 : desVues.resolve(vue.nomDeFichier() + extension);
 
-            write(vue, project.diagram(), fichier.toString(), style);
+            write(vue, project.diagram(), fichier.toString(), style,
+                navigation(vue, detailleePar, integrale, extension));
+            // Le dessin est écrit, donc mesurable : c'est le seul moment où l'on peut dire à
+            // l'utilisateur que sa vue est illisible avant qu'il n'ouvre le fichier.
+            Proportions.verifier(fichier, vue.name());
             ecrits.add(fichier);
             integrale = false;
         }
@@ -156,12 +166,57 @@ public class PlantUmlWriter {
 
     // Une vue, dans son fichier. Les réglages d'ensemble du projet lui donnent le sort des
     // compartiments vides ; son titre et son sens de lecture, eux, sont les siens.
-    private static void write(UmlView vue, UmlDiagram reglages, String fichier, UmlStyle style)
-        throws Exception {
+    private static void write(UmlView vue, UmlDiagram reglages, String fichier, UmlStyle style,
+        Map<String, String> navigation) throws Exception {
         UmlDiagram propres =
             new UmlDiagram(vue.name(), vue.direction(), reglages.hideEmptyMembers());
 
-        ecrire(new PlantUmlSyntaxBuilder(style, propres), vue.entities(), fichier);
+        ecrire(new PlantUmlSyntaxBuilder(style, propres).navigation(navigation),
+            vue.entities(), fichier);
+    }
+
+    // Quelle vue détaille chaque boîte : la première qui la retient, hors vue intégrale.
+    //
+    // Un dossier de onze diagrammes n'est qu'une collection d'images tant qu'on ne peut pas
+    // passer de l'une à l'autre. Depuis la vue d'ensemble, cliquer sur une classe doit ouvrir
+    // celle qui la détaille — c'est le geste qu'on fait naturellement, et le seul qui manque.
+    private static Map<String, String> detailleePar(UmlProject project, String extension) {
+        Map<String, String> vers = new LinkedHashMap<>();
+        boolean integrale = true;
+
+        for (UmlView vue : project.views()) {
+            if (integrale) {
+                // L'intégrale ne détaille rien : elle montre tout, c'est d'elle qu'on part.
+                integrale = false;
+                continue;
+            }
+            for (UmlEntity entite : vue.entities()) {
+                vers.putIfAbsent(entite.qualifiedName(), vue.nomDeFichier() + extension);
+            }
+        }
+        return vers;
+    }
+
+    // La table de navigation d'une vue donnée, avec les chemins vus depuis son propre fichier.
+    //
+    // Une boîte ne renvoie jamais vers la vue qu'on lit déjà : le lien ne mènerait nulle part et
+    // laisserait croire qu'il y a autre chose à voir.
+    private static Map<String, String> navigation(UmlView vue, Map<String, String> detailleePar,
+        boolean integrale, String extension) {
+        String propre = vue.nomDeFichier() + extension;
+        Map<String, String> pourCetteVue = new LinkedHashMap<>();
+
+        for (UmlEntity entite : vue.entities()) {
+            String cible = detailleePar.get(entite.qualifiedName());
+            if (cible == null || cible.equals(propre)) {
+                continue;
+            }
+            // Depuis la racine, il faut descendre dans le sous-dossier ; depuis une vue, les
+            // autres sont ses voisines.
+            pourCetteVue.put(entite.qualifiedName(),
+                integrale ? DOSSIER_DES_VUES + "/" + cible : cible);
+        }
+        return pourCetteVue;
     }
 
     // Le format voulu se lit dans l'extension du nom de fichier. Cette méthode permet à l'appelant

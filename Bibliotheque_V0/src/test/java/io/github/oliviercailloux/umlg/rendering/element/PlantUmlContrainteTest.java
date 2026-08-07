@@ -30,7 +30,7 @@ class PlantUmlContrainteTest {
                 ImmutableList.of("toujours positif"))),
             List.of()));
 
-        assertTrue(source.contains("- solde: double {toujours positif}"), source);
+        assertTrue(source.contains("- solde : double {toujours positif}"), source);
         PlantUmlAssert.assertCompile(source);
     }
 
@@ -54,7 +54,7 @@ class PlantUmlContrainteTest {
                 ImmutableList.of("positif", "arrondi au centime"))),
             List.of()));
 
-        assertTrue(source.contains("- solde: double {positif} {arrondi au centime}"), source);
+        assertTrue(source.contains("- solde : double {positif} {arrondi au centime}"), source);
         PlantUmlAssert.assertCompile(source);
     }
 
@@ -67,7 +67,7 @@ class PlantUmlContrainteTest {
                 ImmutableList.of("toujours positif"))),
             List.of()));
 
-        assertTrue(source.contains("- /age: int {toujours positif}"), source);
+        assertTrue(source.contains("- /age : int {toujours positif}"), source);
         PlantUmlAssert.assertCompile(source);
     }
 

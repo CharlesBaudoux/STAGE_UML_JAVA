@@ -249,6 +249,44 @@ class ReglesDuProjetTest {
         assertThrows(IllegalArgumentException.class, () -> regles("hide method"));
     }
 
+    // --- Les symboles de visibilité ---
+
+    @Test
+    void parDefaut_lesVisibilitesSontEcrites() {
+        // UML les demande, et elles disent quelque chose qu'aucune autre marque ne dit.
+        assertEquals("-", EntityExtractor.extract(Bavarde.class).fields().stream()
+            .filter(f -> f.name().equals("nom")).findFirst().orElseThrow().visibility());
+    }
+
+    @Test
+    void hideVisibility_lesTait() {
+        // Beaucoup de diagrammes tenus à la main les omettent, parce qu'ils montrent une
+        // structure plutôt qu'une API. Le projet doit pouvoir en faire autant.
+        UmlEntity entity = EntityExtractor.extract(Bavarde.class, regles("hide visibility"));
+
+        assertTrue(entity.fields().stream().allMatch(f -> f.visibility().isEmpty()),
+            entity.fields().toString());
+        assertTrue(entity.methods().stream().allMatch(m -> m.visibility().isEmpty()),
+            entity.methods().toString());
+    }
+
+    @Test
+    void hideVisibility_neLaisseAucunEspaceDansLeDessin() {
+        // Le symbole disparaît, et l'espace qui le suivait avec lui : sans quoi chaque ligne
+        // commencerait par un blanc que rien ne justifie.
+        String source = io.github.oliviercailloux.umlg.rendering.PlantUmlAssert.documentPour(
+            EntityExtractor.extract(Bavarde.class, regles("hide visibility")));
+
+        assertTrue(source.contains("  nom : String"), source);
+        assertFalse(source.contains("   nom"), "Pas d'espace surnuméraire : " + source);
+    }
+
+    @Test
+    void hideVisibility_deuxFois_estRefuse() {
+        assertThrows(IllegalArgumentException.class,
+            () -> regles("hide visibility", "hide visibility"));
+    }
+
     // --- Le rangement d'un paquetage ---
 
     @UMLClass

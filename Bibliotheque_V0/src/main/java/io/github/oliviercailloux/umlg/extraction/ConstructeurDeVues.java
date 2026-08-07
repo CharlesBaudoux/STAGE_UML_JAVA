@@ -45,6 +45,18 @@ public final class ConstructeurDeVues {
     // projet, celui qu'on ouvre pour savoir ce qui existe.
     public static final String VUE_INTEGRALE = "Projet";
 
+    // Au-delà de ce nombre de blocs, la vue n'est plus ordonnée du tout.
+    //
+    // Enchaîner deux ou trois groupes dit une intention : « on lit d'abord ceci, puis cela ».
+    // En enchaîner cinq construit une file indienne, que le moteur déroule sur toute la largeur
+    // — mesuré sur un cas réel : cinq blocs ont donné un dessin de 3570 pixels de large pour 289
+    // de haut, illisible, là où les mêmes boîtes sans contrainte tenaient dans 1578 sur 824.
+    //
+    // Trois est le seuil que la mesure désigne : les vues à trois blocs restent équilibrées,
+    // celle à cinq ne l'était plus. Au-delà, le moteur compose mieux que l'ordre écrit, et il
+    // vaut mieux le laisser faire que d'imposer une lecture qui rendrait le dessin inutilisable.
+    private static final int BLOCS_ENCHAINABLES = 3;
+
     private ConstructeurDeVues() {}
 
     public static ImmutableList<UmlView> construire(ImmutableSet<UmlEntity> entites,
@@ -229,7 +241,7 @@ public final class ConstructeurDeVues {
         return new UmlEntity(entite.qualifiedName(), entite.name(), entite.kind(),
             entite.stereotype(), entite.color(), entite.strategy(), entite.literals(),
             entite.fields(), entite.methods(), tenues, entite.notes(), entite.constraints(),
-            entite.group());
+            entite.group(), entite.declared());
     }
 
     // Enchaîne par des liens invisibles les blocs de boîtes que rien ne relie entre eux.
@@ -263,8 +275,9 @@ public final class ConstructeurDeVues {
             return ImmutableList.copyOf(entites);
         }
         List<List<UmlEntity>> blocs = blocs(entites);
-        if (blocs.size() < 2) {
-            // Tout se tient déjà : le moteur a tout ce qu'il lui faut pour placer la vue.
+        if (blocs.size() < 2 || blocs.size() > BLOCS_ENCHAINABLES) {
+            // Un seul bloc : le moteur a tout ce qu'il lui faut. Trop de blocs : l'ordre écrit
+            // ferait plus de mal que de bien, et la vue gagne à être composée librement.
             return ImmutableList.copyOf(entites);
         }
 
@@ -294,7 +307,7 @@ public final class ConstructeurDeVues {
         return new UmlEntity(entite.qualifiedName(), entite.name(), entite.kind(),
             entite.stereotype(), entite.color(), entite.strategy(), entite.literals(),
             entite.fields(), entite.methods(), relations, entite.notes(), entite.constraints(),
-            entite.group());
+            entite.group(), entite.declared());
     }
 
     // Les blocs de la vue : des groupes de boîtes que les traits relient, directement ou de

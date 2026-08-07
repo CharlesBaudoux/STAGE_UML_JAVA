@@ -65,7 +65,9 @@ Ce document référence le système d'annotations Java conçu pour la générati
 \subsection{Comment le code est lu}
 \label{sec:lecture}
 
-La bibliothèque travaille \textbf{par réflexion sur les classes compilées} : on lui désigne un répertoire de \texttt{.class} (typiquement \texttt{target/classes}), et non un répertoire de sources. Ce choix a une conséquence qu'il faut énoncer d'emblée, car elle explique la forme de plusieurs annotations : \textbf{ce que la compilation efface est définitivement perdu pour le générateur}. Concrètement, \texttt{List<Commande>} ne se distingue plus de \texttt{List}, et les valeurs d'initialisation des attributs n'existent plus.
+La bibliothèque travaille \textbf{par réflexion sur les classes compilées} : on lui désigne un répertoire de \texttt{.class} (typiquement \texttt{target/classes}), et non un répertoire de sources. Ce choix a une conséquence qu'il faut énoncer d'emblée, car elle explique la forme de plusieurs annotations : \textbf{ce que la compilation efface est définitivement perdu pour le générateur}. Ainsi les valeurs d'initialisation des attributs n'existent plus, et le corps des méthodes non plus --- une dépendance qui ne se lit que dans un appel devra être déclarée.
+
+\paragraph{Ce que la compilation n'efface pas.} Une idée reçue mérite d'être écartée ici, car elle a longtemps guidé la conception de cette bibliothèque : on lit souvent que l'effacement de type (\textit{type erasure}) fait disparaître les paramètres de type, et qu'un \texttt{List<Commande>} deviendrait un \texttt{List}. C'est vrai de ce qui vit à l'exécution --- deux listes, l'une de commandes et l'autre de clients, sont le même objet en mémoire, et aucune ne sait ce qu'elle contient. Ce n'est pas vrai des \textbf{signatures déclarées} : le compilateur écrit dans le \texttt{.class} un attribut \texttt{Signature} qui conserve le type tel qu'il a été écrit, précisément pour que d'autres compilations puissent le relire. La réflexion l'expose (\texttt{getGenericType}, \texttt{getGenericReturnType}), et la bibliothèque s'en sert : un attribut déclaré \texttt{Map<String, Short>} s'écrit \texttt{Map<String, Short>} sur le diagramme, et un \texttt{List<Commande>} dit à lui seul quelle classe l'association vise.
 
 Loin d'être une limite subie, c'est le fondement du principe retenu : \textbf{rien n'est deviné, tout est déclaré}. La classe située à l'autre bout d'un lien et la multiplicité de ce lien sont des paramètres obligatoires ou explicites de \texttt{@UMLAssociation}, et non des déductions. Une déduction automatique serait de toute façon incapable de trancher entre \texttt{0..*} et \texttt{1..*}, qui relèvent du métier et non du code ; la faire disparaître ne coûte donc rien et supprime une source d'écarts silencieux entre le code et le dessin.
 
@@ -95,15 +97,15 @@ Tout paramètre désignant une classe visée par un lien s'appelle \texttt{targe
 \subsection{Comment un membre est écrit}
 \label{sec:membres}
 
-Le générateur emploie la notation d'UML, \textbf{\texttt{nom: Type}}, et non l'ordre de déclaration de Java. Le nom vient d'abord, le type après les deux-points : c'est l'ordre dans lequel un diagramme se lit, où l'on cherche une propriété par son nom et non par son type. La règle vaut aux trois endroits où un type paraît --- un attribut, un paramètre, le retour d'une méthode.
+Le générateur emploie la notation d'UML, \textbf{\texttt{nom : Type}}, et non l'ordre de déclaration de Java. Le nom vient d'abord, le type après les deux-points : c'est l'ordre dans lequel un diagramme se lit, où l'on cherche une propriété par son nom et non par son type. La règle vaut aux trois endroits où un type paraît --- un attribut, un paramètre, le retour d'une méthode. Les deux-points sont \textbf{entourés d'espaces}, comme les écrit la norme UML : \texttt{solde : double}, et non \texttt{solde: double}, qui est la ponctuation de Java et de PlantUML.
 
 \begin{lstlisting}
 class "Vol" {
-  - departureTime: Date
-  - escales: Aeroport [0..*]
+  - departureTime : Date
+  - escales : Aeroport [0..*]
   --
-  + reporter(nouvelleHeure: String, minutes: int): void
-  + {static} /compter(code: String): int
+  + reporter(nouvelleHeure : String, minutes : int) : void
+  + {static} /compter(code : String) : int
 }
 \end{lstlisting}
 
@@ -117,6 +119,8 @@ L'ordre des morceaux est fixe. Pour un attribut : la visibilité, \texttt{\{stat
     <parameters>true</parameters>
 </configuration>
 \end{lstlisting}
+
+\paragraph{Le type devant une multiplicité.} Dès qu'une multiplicité est écrite, le type qui la précède est celui de l'\textbf{élément}, jamais celui du conteneur. Un attribut déclaré \texttt{Set<String>} et marqué \texttt{[0..*]} s'écrit \texttt{alias: String [0..*]}, et non \texttt{alias: Set [0..*]} --- lequel se lirait « zéro ou plusieurs ensembles », ce qui est faux : il y a un ensemble, contenant zéro ou plusieurs chaînes. \texttt{Optional<Integer>} suit la même règle. Une \texttt{Map}, en revanche, a deux paramètres et rien ne dirait lequel est la propriété : elle s'écrit en entier.
 
 \paragraph{La multiplicité.} Elle n'est écrite que là où elle est déclarée : par \texttt{targetCardinality} sur une association dessinée dans la boîte (\texttt{notation = ATTRIBUTE}, section \ref{sec:notation}), ou par \texttt{@UMLMultiplicity} sur n'importe quel attribut ou méthode (section \ref{sec:multiplicite}). Une multiplicité absente vaut \textit{exactement un}, et ne s'écrit donc pas.
 
@@ -285,7 +289,7 @@ Le code Java \texttt{List<Commande> commandes} indique qu'il y a plusieurs comma
 
 \subsection{Paramètres}
 \begin{itemize}
-    \item \texttt{target} (Class) : Pointe explicitement vers la classe cible de la relation.
+    \item \texttt{target} (Class) : Pointe vers la classe cible. \textbf{Facultatif} : un attribut déclaré \texttt{List<Commande>} nomme déjà sa cible, et la bibliothèque la lit (section \ref{sec:lecture}). Il reste nécessaire là où le type ne dit rien --- une collection écrite sans paramètre, une \texttt{Map} dont rien ne dirait laquelle des deux moitiés est visée, un lien vers une classe qui n'apparaît pas dans le type. Ce n'est pas une entorse au principe « rien n'est deviné » : lire \texttt{List<Commande>} n'est pas deviner, c'est lire ce que l'auteur a écrit.
     \item \texttt{notation} (Enum) : \texttt{UMLNotation} --- \texttt{ARROW} (défaut) ou \texttt{ATTRIBUTE}. Décide de la \textbf{forme} du dessin : un trait entre deux boîtes, ou une ligne dans celle de départ (section \ref{sec:notation}).
     \item \texttt{type} (Enum) : \texttt{ASSOCIATION}, \texttt{COMPOSITION}, \texttt{AGGREGATION}.
     \item \texttt{sourceCardinality} (String) : Multiplicité côté source (ex: \texttt{"1"}, \texttt{"0..1"}).
@@ -649,7 +653,8 @@ Une règle par ligne. Les lignes vides sont ignorées, ainsi que les commentaire
 \texttt{hide method get*, with*} & Écarte les méthodes dont le nom suit l'un des motifs. \\[0.4em]
 \texttt{hide field log, *Cache} & Idem pour les attributs --- le seul moyen d'en filtrer. \\[0.4em]
 \texttt{hide return void} & Efface le type rendu : \texttt{valider()} et non \texttt{valider(): void}. \\[0.4em]
-\texttt{type ImmutableList -> List} & Renomme un type partout où il paraît dans une boîte. \\[0.4em]
+\texttt{type ImmutableList -> List} & Renomme un type partout où il paraît dans une boîte, y compris à l'intérieur des chevrons. \\[0.4em]
+\texttt{hide visibility} & Tait les symboles \texttt{+}, \texttt{-}, \texttt{\#}, \texttt{\textasciitilde} devant les membres. UML les demande, mais beaucoup de diagrammes tenus à la main les omettent, parce qu'ils montrent une structure plutôt qu'une API. \\[0.4em]
 \hline
 \multicolumn{2}{@{}l}{\textit{Ce que le dessin d'ensemble montre}} \\[0.3em]
 \texttt{title Mon architecture} & Titre écrit en tête de la vue intégrale. \\[0.4em]
@@ -663,7 +668,12 @@ Une règle par ligne. Les lignes vides sont ignorées, ainsi que les commentaire
 \texttt{view "Nom" = around A} & La classe et ses voisines immédiates. \\[0.4em]
 \texttt{view "Nom" direction left-to-right} & Le sens de lecture de cette vue. \\[0.4em]
 \texttt{views by package} & Une vue par paquetage, sans rien déclarer. \\[0.4em]
-\texttt{output replace} \textbar{} \texttt{keep} & Efface la génération précédente, ou la conserve à côté. \\
+\texttt{output replace} \textbar{} \texttt{keep} & Efface la génération précédente, ou la conserve à côté. \\[0.4em]
+\hline
+\multicolumn{2}{@{}l}{\textit{Les boîtes que le code ne porte pas} (section \ref{sec:declarees})} \\[0.3em]
+\texttt{declare class Animal} & Une boîte qu'aucune classe Java ne porte. \texttt{extends} pose un héritage. \\[0.4em]
+\texttt{declare field Animal nom : String} & Un attribut de cette boîte. \\[0.4em]
+\texttt{declare association A -> B 0..*} & Un lien partant d'une boîte déclarée. \\
 \hline
 \end{tabular}
 \end{center}
@@ -681,6 +691,7 @@ hide object-methods
 hide method with*, visit*
 hide field log, LOGGER
 hide return void
+hide visibility
 type ImmutableList -> List
 
 # ---- Le rangement ----
@@ -869,6 +880,20 @@ Une vue par paquetage Java, sans rien déclarer. C'est le découpage que suivent
 \subsection{Les liens qui sortent d'une vue}
 Une relation dont l'autre bout n'est pas dans la vue \textbf{disparaît, sans un mot}. C'est le même arbitrage que pour un héritage dont le parent n'est pas annoté : restreindre la vue \textit{est} la demande de l'auteur, il n'y a donc aucun écart à lui signaler. Le contraire --- dessiner la boîte manquante pour sauver le trait --- ferait déborder chaque vue de proche en proche, jusqu'à ce qu'elles se ressemblent toutes.
 
+\subsection{Passer d'une vue à l'autre}
+Un dossier de onze diagrammes n'est qu'une collection d'images tant qu'on ne peut pas passer de l'une à l'autre. Chaque boîte porte donc un \textbf{lien cliquable} vers la vue qui la détaille : depuis la vue intégrale, cliquer sur une classe ouvre le diagramme où elle est expliquée. Le dossier devient une documentation qui se parcourt.
+
+La cible est la première vue déclarée qui retient cette boîte ; une vue ne renvoie jamais vers elle-même, un tel lien ne menant nulle part. Les chemins sont relatifs au fichier courant, si bien que le dossier reste déplaçable.
+
+\subsection{Quand le dessin devient illisible}
+Un diagramme peut être juste et impossible à lire. Une vue dont les boîtes s'alignent sur une seule rangée donne un ruban de plusieurs milliers de pixels de large sur quelques centaines de haut : imprimé sur une page, chaque boîte y fait deux millimètres. Rien n'a échoué, la source est correcte, et l'auteur ne le découvre qu'en ouvrant le fichier.
+
+Deux garde-fous.
+
+\paragraph{L'enchaînement s'arrête à trois blocs.} Ordonner deux ou trois groupes dit une intention ; en ordonner cinq construit une file indienne que le moteur déroule sur toute la largeur. Au-delà de trois, la vue n'est donc plus contrainte du tout : le moteur compose mieux que l'ordre écrit, et mieux vaut le laisser faire que d'imposer une lecture qui rendrait le dessin inutilisable. Sur un cas réel, cinq blocs donnaient 3570 pixels de large pour 289 de haut ; les mêmes boîtes sans contrainte tenaient dans 1578 sur 824.
+
+\paragraph{Les proportions sont mesurées.} La bibliothèque relit les dimensions de ce qu'elle vient d'écrire, et \textbf{avertit} lorsque le rapport entre la plus grande et la plus petite dépasse quatre pour un, sur une image assez grande pour que cela compte. Elle ne corrige rien : les causes sont plusieurs --- un sens de lecture qui ne convient pas à cette vue-ci, des boîtes trop larges, une vue qui retient trop de classes --- et le choix entre elles appartient à l'auteur. Le message nomme la vue et rappelle les remèdes.
+
 \subsection{Ce que devient la génération précédente}
 \begin{lstlisting}[language=]
 output replace   # le defaut
@@ -888,6 +913,29 @@ UMLGenerator.builder()
     .generate();
 \end{lstlisting}
 La forme d'origine, \texttt{outputFile("architecture.svg")}, reste disponible et n'écrit que le diagramme d'ensemble. C'est \texttt{outputDirectory} qui écrit toutes les vues.
+
+% ---------------------------------------------------------
+\section{Les boîtes que le code ne porte pas}
+\label{sec:declarees}
+
+\subsection{Principe}
+Un diagramme n'est pas toujours le reflet exact du code. On veut y montrer une classe encore à écrire, ou une abstraction que le code réalise autrement --- une hiérarchie de deux sous-classes explique parfois mieux qu'une classe unique à deux champs dont un seul est renseigné. Les diagrammes tenus à la main le font couramment, et s'en priver reviendrait à interdire de dessiner ce qu'on a en tête.
+
+\begin{lstlisting}[language=]
+declare class StringRepresentation extends Representation
+declare field StringRepresentation string : String
+declare association Animal -> Chien 0..*
+\end{lstlisting}
+
+\subsection{Ce que cela coûte, et comment on le paie}
+Une boîte déclarée ici échappe à tout ce qui fait la valeur de la bibliothèque : aucun compilateur ne la vérifie, aucun renommage ne la suit, et rien ne signalera le jour où le code aura pris un autre chemin. C'est exactement le défaut des diagrammes tenus à la main, et il serait malhonnête de le réintroduire en silence.
+
+D'où la contrepartie, \textbf{non négociable} : une boîte déclarée \textbf{se voit}. Elle porte le stéréotype \texttt{<<declared>>} et un \textbf{contour pointillé}, si bien qu'un lecteur distingue au premier coup d'œil ce qui a du code derrière de ce qui n'en a pas. Un diagramme mixte qui ne marquerait pas la différence serait pire que les deux extrêmes.
+
+\subsection{Ce qui est refusé}
+Un nom introuvable --- ni classe du diagramme, ni boîte déclarée --- arrête la génération. Une association ne peut pas \textit{partir} d'une classe réelle : son entité est construite à partir de son code, et une règle qui lui ajouterait un lien passerait par-dessus ce que ce code déclare, sans que rien ne le montre. Le lien se déclare alors depuis l'autre extrémité, ou par \texttt{@UMLAssociation} dans le code.
+
+Un attribut déclaré n'a ni visibilité ni multiplicité : ce qui n'existe pas dans le code n'a pas d'encapsulation à montrer, et une visibilité inventée serait une affirmation de plus que rien ne garantit.
 
 % ---------------------------------------------------------
 \section{La vérification à la compilation}
@@ -1006,9 +1054,11 @@ Certaines possibilités de PlantUML ont été délibérément écartées. Les me
 Les éléments suivants sont déduits du code compilé et ne nécessitent aucune annotation : la nature de l'entité (classe, classe abstraite, interface, énumération, type annotation, \textit{record}), les liens d'héritage lus dans \texttt{extends} et \texttt{implements}, les littéraux d'une énumération, le modificateur \texttt{static}, la visibilité de chaque membre, et les signatures de méthodes (type de retour, types des paramètres, et leurs noms lorsque le projet est compilé avec \texttt{-parameters}).
 
 \subsection{Ce qui ne peut pas être déduit, et pourquoi}
-La lecture ayant lieu après compilation (section \ref{sec:lecture}), trois informations ont déjà disparu et ne sont donc \textit{pas} déductibles : les \textbf{valeurs d'initialisation des attributs}, les \textbf{paramètres de type des classes génériques}, et le \textbf{contenu des collections} (\texttt{List<Commande>} est devenu \texttt{List}).
+La lecture ayant lieu après compilation (section \ref{sec:lecture}), deux informations ont déjà disparu et ne sont donc \textit{pas} déductibles : les \textbf{valeurs d'initialisation des attributs}, et le \textbf{corps des méthodes} --- d'où \texttt{@UMLDependency}, seule façon de déclarer un lien qui ne se lit que dans un appel.
 
-C'est précisément ce que \texttt{@UMLAssociation} vient combler, en exigeant la classe cible et en offrant les multiplicités. La perte est donc sans conséquence sur le diagramme produit --- et elle évite d'entretenir deux sources de vérité concurrentes.
+Une troisième, longtemps rangée ici, n'y a pas sa place : le \textbf{contenu des collections}. Les paramètres de type survivent dans les signatures déclarées (section \ref{sec:lecture}), et la bibliothèque les lit. C'est pourquoi \texttt{target} n'est plus obligatoire sur \texttt{@UMLAssociation} : un \texttt{List<Commande>} nomme déjà sa cible, et la redéclarer ne ferait qu'ouvrir un écart possible entre l'annotation et le code.
+
+Ce qui reste réellement indéductible, et que \texttt{@UMLAssociation} vient combler, est la \textbf{multiplicité} : rien dans \texttt{Set<String>} ne dit \texttt{0..*} plutôt que \texttt{1..*}. Cela relève du métier, et le deviner produirait un diagramme faux une fois sur deux.
 
 Un quatrième cas se règle autrement : le \textbf{nom des paramètres de méthode} n'a pas disparu à cause d'un choix de la bibliothèque, mais parce que \texttt{javac} ne l'écrit dans les \texttt{.class} que sur demande. Il ne s'agit donc pas d'une déduction impossible mais d'une option de construction du projet analysé, \texttt{-parameters}, décrite en section \ref{sec:membres}. Sans elle, la signature se limite aux types ; aucune annotation ne vient combler ce manque, car le compilateur sait déjà le faire.
 

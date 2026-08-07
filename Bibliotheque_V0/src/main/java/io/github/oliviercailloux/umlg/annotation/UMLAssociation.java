@@ -20,10 +20,21 @@ import java.lang.annotation.Target;
 public @interface UMLAssociation {
 
     // Classe située à l'autre bout du trait.
-    // Volontairement sans default : un élément d'annotation sans valeur par défaut est
-    // obligatoire, et c'est javac lui-même qui refuse une @UMLAssociation où la cible manque.
-    // Rien n'est jamais déduit du type de l'attribut : ce qui est dessiné est ce qui est écrit.
-    Class<?> target();
+    //
+    // Facultative depuis que la bibliothèque sait lire les paramètres de type : un attribut
+    // déclaré « List<Commande> » dit déjà quelle classe est visée, et le répéter dans
+    // l'annotation ne ferait qu'ouvrir un écart possible entre les deux. Elle reste nécessaire
+    // là où le type ne dit rien — un attribut de type brut, une Map dont on ne saurait pas
+    // laquelle des deux moitiés est la cible, un lien vers une classe qui n'apparaît pas dans
+    // le type.
+    //
+    // Ce n'est pas une entorse au principe « rien n'est deviné » : lire « List<Commande> » n'est
+    // pas deviner, c'est lire ce que l'auteur a écrit, à l'endroit où il l'a écrit. Ce qui reste
+    // indéductible — la multiplicité, qui relève du métier — reste déclaré.
+    //
+    // void.class est la sentinelle « rien d'écrit » : une annotation Java ne peut pas avoir null
+    // pour défaut, et void n'a jamais pu être une extrémité de lien.
+    Class<?> target() default void.class;
 
     // Comment le lien se dessine : un trait entre les deux boîtes, ou une ligne dans celle de
     // départ. Voir UMLNotation, qui décrit les deux notations.

@@ -125,6 +125,78 @@ class PlantUmlVuesEcritesTest {
         assertEquals(List.of("projet.png", "vues"), fichiers(dossier));
     }
 
+    // --- La navigation d'une vue à l'autre ---
+
+    @Test
+    void depuisLIntegrale_chaqueBoiteMeneAsaVue(@TempDir Path tmp) throws Exception {
+        // Un dossier de diagrammes n'est qu'une collection d'images tant qu'on ne peut pas
+        // passer de l'une à l'autre. Depuis la vue d'ensemble, cliquer sur une classe doit
+        // ouvrir celle qui la détaille.
+        Path dossier = tmp.resolve("diagrammes");
+        PlantUmlWriter.writeViews(projet(), dossier, ".svg", UmlStyle.PLANTUML,
+            Regles.Sortie.REPLACE);
+
+        String integrale =
+            Files.readString(dossier.resolve("projet.svg"), StandardCharsets.UTF_8);
+
+        assertTrue(integrale.contains("vues/facturation.svg"), "Le lien descend au sous-dossier.");
+        assertTrue(integrale.contains("vues/clients.svg"), integrale.substring(0, 400));
+    }
+
+    @Test
+    void entreDeuxVues_leCheminEstCeluiDuVoisin(@TempDir Path tmp) throws Exception {
+        // Depuis « vues/facturation.svg », les autres vues sont des voisines : le chemin ne
+        // repasse pas par la racine.
+        Path dossier = tmp.resolve("diagrammes");
+        PlantUmlWriter.writeViews(projet(), dossier, ".svg", UmlStyle.PLANTUML,
+            Regles.Sortie.REPLACE);
+
+        String clients =
+            Files.readString(dossier.resolve("vues/clients.svg"), StandardCharsets.UTF_8);
+
+        assertFalse(clients.contains("vues/vues/"), "Aucun chemin ne se dédouble.");
+    }
+
+    @Test
+    void uneVue_neRenvoiePasVersElleMeme(@TempDir Path tmp) throws Exception {
+        // Le lien ne mènerait nulle part, et laisserait croire qu'il y a autre chose à voir.
+        Path dossier = tmp.resolve("diagrammes");
+        PlantUmlWriter.writeViews(projet(), dossier, ".svg", UmlStyle.PLANTUML,
+            Regles.Sortie.REPLACE);
+
+        String facturation =
+            Files.readString(dossier.resolve("vues/facturation.svg"), StandardCharsets.UTF_8);
+
+        assertFalse(facturation.contains("facturation.svg"), facturation.substring(0, 400));
+    }
+
+    @Test
+    void uneBoiteDeclareeEtCliquable_estAccepteeParLeMoteur(@TempDir Path tmp) throws Exception {
+        // Le piège que ce test protège : le moteur accepte « <<stéréotype>> [[lien]] #style » et
+        // refuse « <<stéréotype>> #style [[lien]] ». Rien ne le documente, et seul le cas où une
+        // boîte déclarée porte AUSSI un lien de navigation le révèle — les tests qui éprouvaient
+        // l'un sans l'autre passaient tous.
+        UmlEntity declaree = UmlEntity.builder("Animal", "Animal").declared(true).build();
+        ImmutableList<UmlEntity> toutes = ImmutableList.of(boite("Facture"), declaree);
+
+        UmlProject projet = UmlProject.given(Set.copyOf(toutes), UmlDiagram.defaut(), List.of(
+            new UmlView("Projet", toutes, UMLFlow.TOP_TO_BOTTOM),
+            new UmlView("Le vivant", ImmutableList.of(declaree), UMLFlow.TOP_TO_BOTTOM)));
+        Path dossier = tmp.resolve("diagrammes");
+
+        // writeViews échoue si le moteur rejette la source : la vérification est dans le writer,
+        // et c'est elle qui a attrapé le défaut au lieu de livrer une image d'erreur.
+        PlantUmlWriter.writeViews(projet, dossier, ".svg", UmlStyle.PLANTUML,
+            Regles.Sortie.REPLACE);
+
+        String integrale =
+            Files.readString(dossier.resolve("projet.svg"), StandardCharsets.UTF_8);
+
+        assertTrue(integrale.contains("vues/le-vivant.svg"), "Le lien est bien posé.");
+        assertTrue(integrale.contains("stroke-dasharray"), "Et la boîte reste en pointillés.");
+        assertFalse(integrale.toLowerCase().contains("syntax error"), "Aucune image d'erreur.");
+    }
+
     // --- Ce que devient la génération précédente ---
 
     @Test

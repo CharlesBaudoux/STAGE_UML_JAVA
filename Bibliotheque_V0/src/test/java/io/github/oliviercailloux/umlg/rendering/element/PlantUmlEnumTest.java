@@ -59,7 +59,7 @@ class PlantUmlEnumTest {
                 .fields(List.of(new UmlField("masse", "double", "-", false)))
                 .build());
 
-        assertEquals(List.of("  TERRE", "  --", "  - masse: double"),
+        assertEquals(List.of("  TERRE", "  --", "  - masse : double"),
             corpsDeLaBoite(source));
     }
 
@@ -73,7 +73,7 @@ class PlantUmlEnumTest {
                 .build());
 
         assertEquals(
-            List.of("  TERRE", "  --", "  - masse: double", "  --", "  + masse(): double"),
+            List.of("  TERRE", "  --", "  - masse : double", "  --", "  + masse() : double"),
             corpsDeLaBoite(source));
     }
 
@@ -88,7 +88,7 @@ class PlantUmlEnumTest {
                          List.of("double"))))
                      .build());
 
-        assertEquals(List.of("  - solde: double", "  --", "  + retirer(double): void"),
+        assertEquals(List.of("  - solde : double", "  --", "  + retirer(double) : void"),
             corpsDeLaBoite(source));
     }
 

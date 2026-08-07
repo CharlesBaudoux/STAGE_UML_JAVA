@@ -64,15 +64,15 @@ class PlantUmlSyntaxBuilderTest {
                 + "couleur.");
 
         // Assert : Vérification des attributs (avec la stratégie PRIVATE)
-        assertTrue(resultat.contains("- nom: String"),
+        assertTrue(resultat.contains("- nom : String"),
             "L'attribut privé doit être présent avec le symbole '-'");
-        assertTrue(resultat.contains("+ age: int"),
+        assertTrue(resultat.contains("+ age : int"),
             "L'attribut public doit être présent avec le symbole '+'");
 
         // Assert : Vérification des méthodes
-        assertTrue(resultat.contains("+ faireQuelqueChose(): void"),
+        assertTrue(resultat.contains("+ faireQuelqueChose() : void"),
             "La méthode publique doit être formatée correctement");
-        assertTrue(resultat.contains("- methodeSecrete(): void"),
+        assertTrue(resultat.contains("- methodeSecrete() : void"),
             "La méthode privée doit être formatée correctement");
     }
 }

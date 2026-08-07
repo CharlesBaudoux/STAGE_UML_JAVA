@@ -60,6 +60,13 @@ public class ProjectScanner {
                                  .replace(File.separatorChar, '.')
                                  .replace(".class", "");
 
+                         // module-info.class décrit un module, pas une classe : le charger lève
+                         // une erreur, et un projet modulaire ferait échouer le scan entier. Il
+                         // n'y a rien à en tirer pour un diagramme de classes.
+                         if (className.endsWith("module-info")) {
+                             return;
+                         }
+
                          try {
                              Class<?> clazz = classLoader.loadClass(className);
 
@@ -95,9 +102,16 @@ public class ProjectScanner {
         // C'est le même souci que celui des membres, et la même réponse : entre un ordre
         // arbitraire mais stable et un ordre imprévisible, la stabilité l'emporte (voir
         // MembresOrdonnes).
-        ImmutableSet<UmlEntity> entites = projectBuilder.build().stream()
+        ImmutableSet<UmlEntity> duCode = projectBuilder.build().stream()
             .sorted(java.util.Comparator.comparing(UmlEntity::qualifiedName))
             .collect(ImmutableSet.toImmutableSet());
+
+        // Les boîtes que le fichier déclare rejoignent celles du code, après elles : ce qui a du
+        // code derrière vient d'abord, ce qui n'en a pas ensuite.
+        ImmutableSet<UmlEntity> entites = ImmutableSet.<UmlEntity>builder()
+            .addAll(duCode)
+            .addAll(EntitesDeclarees.de(duCode, regles))
+            .build();
 
         // Les réglages du dessin d'ensemble viennent du fichier de règles, comme tout ce qui vaut
         // pour le projet entier plutôt que pour un élément.

@@ -12,6 +12,8 @@ import io.github.oliviercailloux.umlg.annotation.UMLNotation;
 import io.github.oliviercailloux.umlg.annotation.UMLVisibility;
 import io.github.oliviercailloux.umlg.extraction.ConstraintExtractor;
 import io.github.oliviercailloux.umlg.extraction.MembresOrdonnes;
+import io.github.oliviercailloux.umlg.extraction.TypeAffiche;
+import io.github.oliviercailloux.umlg.extraction.relation.CibleDeduite;
 import io.github.oliviercailloux.umlg.extraction.relation.TargetResolver;
 import io.github.oliviercailloux.umlg.extraction.rules.Regles;
 import io.github.oliviercailloux.umlg.model.UmlAssociation;
@@ -135,7 +137,7 @@ public final class MemberExtractor {
             }
             result.add(association == null
                 ? champ(field, regles)
-                : champAssocie(field, association));
+                : champAssocie(field, association, regles));
         }
         return result.build();
     }
@@ -165,11 +167,16 @@ public final class MemberExtractor {
     // se lit nulle part dans le code : seule @UMLMultiplicity la donne.
     private static UmlField champ(Field field, Regles regles) {
         try {
+            String multiplicite = multiplicite(field);
             return new UmlField(
                 field.getName(),
-                regles.nomAffiche(field.getType()),
-                multiplicite(field),
-                VisibilityPolicy.symbole(field.getModifiers()),
+                // Avec une multiplicité, UML veut le type de l'élément : « aliases: String
+                // [0..*] », et non « Set [0..*] », qui se lirait « plusieurs ensembles ».
+                multiplicite.isEmpty()
+                    ? TypeAffiche.de(field.getGenericType(), regles)
+                    : TypeAffiche.deLElement(field.getGenericType(), regles),
+                multiplicite,
+                symbole(field.getModifiers(), regles),
                 Modifier.isStatic(field.getModifiers()),
                 field.isAnnotationPresent(UMLDerived.class),
                 ConstraintExtractor.de(field, emplacement(field)));
@@ -218,10 +225,12 @@ public final class MemberExtractor {
     //
     // Le reste de la ligne se lit sur l'attribut lui-même, comme pour n'importe quel autre :
     // visibilité, {static}, barre oblique de @UMLDerived, contraintes de @UMLConstraint.
-    private static UmlField champAssocie(Field field, UMLAssociation association) {
+    private static UmlField champAssocie(Field field, UMLAssociation association,
+        Regles regles) {
         String contexte = "@UMLAssociation sur " + emplacement(field);
         // La même exigence que sous la notation ARROW : la cible est une classe du diagramme.
-        TargetResolver.validerCible(association.target(), contexte, "target()");
+        Class<?> cible = CibleDeduite.de(field, association, contexte);
+        TargetResolver.validerCible(cible, contexte, "target()");
 
         try {
             // La multiplicité et le rôle sont validés en construisant l'objet du modèle avec ces
@@ -229,7 +238,7 @@ public final class MemberExtractor {
             // règle n'est donc réécrite ici : la grammaire des multiplicités reste écrite une
             // seule fois, dans UmlAssociation, et le refus est le même sous les deux notations.
             UmlAssociation lien =
-                UmlAssociation.builder(field.getName(), association.target().getName())
+                UmlAssociation.builder(field.getName(), cible.getName())
                     .targetRole(association.targetRole())
                     .targetCardinality(association.targetCardinality())
                     .ordered(association.isOrdered())
@@ -239,25 +248,51 @@ public final class MemberExtractor {
             // {ordered} d'abord, les règles de l'utilisateur ensuite : le même ordre que sur un
             // trait (voir Extremite), pour que déplacer un lien d'une notation à l'autre ne
             // réarrange rien.
-            ImmutableList.Builder<String> regles = ImmutableList.builder();
+            ImmutableList.Builder<String> contraintes = ImmutableList.builder();
             if (lien.ordered()) {
-                regles.add("ordered");
+                contraintes.add("ordered");
             }
-            regles.addAll(lien.constraints());
+            contraintes.addAll(lien.constraints());
 
             return new UmlField(
                 nomAffiche(field),
-                association.target().getSimpleName(),
+                // getSimpleName et non les règles du projet : le document réserve le renommage
+                // aux types lus dans le code, pour que le type écrit ici ne diverge jamais du nom
+                // de la boîte voisine.
+                cible.getSimpleName(),
                 lien.targetCardinality(),
-                VisibilityPolicy.symbole(field.getModifiers()),
+                symbole(field.getModifiers(), regles),
                 Modifier.isStatic(field.getModifiers()),
                 field.isAnnotationPresent(UMLDerived.class),
-                regles.build());
+                contraintes.build());
         } catch (IllegalArgumentException | NullPointerException e) {
             // Le modèle a détecté la faute — une multiplicité « 3..1 », par exemple — mais ignore
             // d'où elle vient : on rejoue son message en le préfixant de l'emplacement.
             throw new IllegalArgumentException(contexte + " : " + e.getMessage(), e);
         }
+    }
+
+    // Le type rendu par une méthode, tel qu'il paraît après les deux-points.
+    //
+    // Une règle « hide return » peut l'effacer tout à fait — c'est le seul endroit où un type
+    // peut ne pas être écrit du tout, « valider() » disant déjà qu'il n'y a rien à rendre. Sinon,
+    // il s'écrit avec ses paramètres de type, et se réduit à l'élément quand une multiplicité le
+    // suit : « names(): String [0..*] » se lit « rend zéro ou plusieurs chaînes ».
+    private static String retour(Method method, String multiplicite, Regles regles) {
+        if (regles.nomAfficheRetour(method.getReturnType()).isEmpty()) {
+            return "";
+        }
+        return multiplicite.isEmpty()
+            ? TypeAffiche.de(method.getGenericReturnType(), regles)
+            : TypeAffiche.deLElement(method.getGenericReturnType(), regles);
+    }
+
+    // Le symbole de visibilité, ou rien si le projet a demandé qu'on le taise.
+    //
+    // Le taire est un choix de lecture : UML le demande, mais beaucoup de diagrammes tenus à la
+    // main l'omettent, parce qu'ils montrent une structure plutôt qu'une API.
+    private static String symbole(int modifiers, Regles regles) {
+        return regles.masquerVisibilite() ? "" : VisibilityPolicy.symbole(modifiers);
     }
 
     // Désigne un attribut dans un message d'erreur, sous la forme « com.banque.Client.solde ».
@@ -275,7 +310,8 @@ public final class MemberExtractor {
         ImmutableList.Builder<UmlParameter> parametres = ImmutableList.builder();
 
         for (Parameter parametre : method.getParameters()) {
-            String type = regles.nomAffiche(parametre.getType());
+            // getParameterizedType, et non getType : « Map<String, Short> » plutôt que « Map ».
+            String type = TypeAffiche.de(parametre.getParameterizedType(), regles);
 
             parametres.add(parametre.isNamePresent()
                 ? new UmlParameter(parametre.getName(), type)
@@ -312,14 +348,12 @@ public final class MemberExtractor {
                 hasExclude)) {
 
                 try {
+                    String multiplicite = multiplicite(method);
                     result.add(new UmlMethod(
                         method.getName(),
-                        // nomAfficheRetour, et non nomAffiche : c'est le seul endroit où une
-                        // règle du projet peut faire disparaître le type — « valider() » plutôt
-                        // que « valider(): void ».
-                        regles.nomAfficheRetour(method.getReturnType()),
-                        multiplicite(method),
-                        VisibilityPolicy.symbole(method.getModifiers()),
+                        retour(method, multiplicite, regles),
+                        multiplicite,
+                        symbole(method.getModifiers(), regles),
                         Modifier.isStatic(method.getModifiers()),
                         parametres(method, regles),
                         method.isAnnotationPresent(UMLDerived.class)

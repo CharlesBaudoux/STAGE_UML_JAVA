@@ -75,7 +75,7 @@ class PlantUmlNotationTest {
 
         // Le type affiché est la cible, et non « List » : c'est la multiplicité qui dit qu'il y
         // en a plusieurs, comme le veut UML.
-        assertTrue(source.contains("- commandes: Commande [0..*]"),
+        assertTrue(source.contains("- commandes : Commande [0..*]"),
             "La ligne attendue est absente :\n" + source);
         PlantUmlAssert.assertCompile(source);
     }
@@ -110,7 +110,7 @@ class PlantUmlNotationTest {
     void sansMultiplicite_aucunCrochetNEstEcrit() {
         String source = document(SansMultiplicite.class, Commande.class);
 
-        assertTrue(source.contains("- commande: Commande\n"),
+        assertTrue(source.contains("- commande : Commande\n"),
             "Une multiplicité vide vaut « exactement un » et ne s'écrit pas :\n" + source);
         assertFalse(source.contains("[]"), source);
     }
@@ -132,7 +132,7 @@ class PlantUmlNotationTest {
         // les règles — {ordered} avant celles de l'utilisateur.
         String source = document(Decoree.class, Commande.class);
 
-        assertTrue(source.contains("# /achats: Commande [1..*] {ordered} {non vide}"),
+        assertTrue(source.contains("# /achats : Commande [1..*] {ordered} {non vide}"),
             "La ligne attendue est absente :\n" + source);
         PlantUmlAssert.assertCompile(source);
     }
@@ -154,7 +154,7 @@ class PlantUmlNotationTest {
         // là où le code déclare un champ « keys ».
         String source = document(Clavier.class, Commande.class);
 
-        assertTrue(source.contains("- physicalKeys: Commande [0..*]"),
+        assertTrue(source.contains("- physicalKeys : Commande [0..*]"),
             "Le rôle doit nommer la ligne :\n" + source);
         assertFalse(source.contains(" keys "), source);
         PlantUmlAssert.assertCompile(source);
@@ -187,7 +187,7 @@ class PlantUmlNotationTest {
         // le même code dirait deux choses selon la façon de le dessiner.
         String source = document(StrategieMuette.class, Commande.class);
 
-        assertTrue(source.contains("- commandes: Commande [0..*]"), source);
+        assertTrue(source.contains("- commandes : Commande [0..*]"), source);
     }
 
     @UMLClass(strategy = UMLVisibility.PRIVATE)
@@ -261,7 +261,7 @@ class PlantUmlNotationTest {
     void deuxNotations_coexistentSurLaMemeClasse() {
         String source = document(Melangee.class, Commande.class);
 
-        assertTrue(source.contains("- archivees: Commande [0..*]"), source);
+        assertTrue(source.contains("- archivees : Commande [0..*]"), source);
         assertEquals(List.of("Melangee --> \"courante 1\" Commande"),
             PlantUmlAssert.lignesDeLien(source), source);
         PlantUmlAssert.assertCompile(source);

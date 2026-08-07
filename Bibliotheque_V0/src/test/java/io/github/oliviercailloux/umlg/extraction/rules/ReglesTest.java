@@ -212,7 +212,7 @@ class ReglesTest {
 
         assertTrue(source.contains("+ basculer()\n"),
             "Le void ne doit laisser ni type ni deux-points :\n" + source);
-        assertTrue(source.contains("+ etat(): String"), source);
+        assertTrue(source.contains("+ etat() : String"), source);
         PlantUmlAssert.assertCompile(source);
     }
 
@@ -220,7 +220,7 @@ class ReglesTest {
     void sansRegle_leVoidEstEcrit() {
         String source = PlantUmlAssert.documentPour(EntityExtractor.extract(Interrupteur.class));
 
-        assertTrue(source.contains("+ basculer(): void"), source);
+        assertTrue(source.contains("+ basculer() : void"), source);
     }
 
     @Test
@@ -232,9 +232,11 @@ class ReglesTest {
         var methode = MemberExtractor.extractMethods(Clavier.class, UMLVisibility.PRIVATE, regles)
             .stream().filter(m -> m.name().equals("noms")).findFirst().orElseThrow();
 
-        assertEquals("List", champs.get(0).type(), "L'attribut : " + champs);
-        assertEquals("Set", methode.returnType());
-        assertEquals("List", methode.parameters().get(0).type());
+        // La règle s'applique aussi à l'intérieur des chevrons : le renommage porte sur chaque
+        // nom de classe rencontré, pas seulement sur celui de tête.
+        assertEquals("List<String>", champs.get(0).type(), "L'attribut : " + champs);
+        assertEquals("Set<String>", methode.returnType());
+        assertEquals("List<String>", methode.parameters().get(0).type());
     }
 
     @Test
@@ -242,6 +244,6 @@ class ReglesTest {
         List<UmlField> champs =
             MemberExtractor.extractFields(Clavier.class, UMLVisibility.PRIVATE, Regles.aucune());
 
-        assertEquals("ImmutableList", champs.get(0).type());
+        assertEquals("ImmutableList<String>", champs.get(0).type());
     }
 }

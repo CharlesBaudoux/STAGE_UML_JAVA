@@ -176,7 +176,7 @@ class ProjectScannerIntegrationTest {
             """);
         Files.writeString(sortie.resolve("application.properties"), "cle=valeur");
         Files.createDirectories(sortie.resolve("META-INF"));
-        Files.writeString(sortie.resolve("META-INF/MANIFEST.MF"), "Manifest-Version: 1.0");
+        Files.writeString(sortie.resolve("META-INF/MANIFEST.MF"), "Manifest-Version : 1.0");
 
         UmlProject projet = ProjectScanner.scan(sortie);
 
@@ -297,7 +297,7 @@ class ProjectScannerIntegrationTest {
 
         UmlEntity clavier = ProjectScanner.scan(sortie).entities().iterator().next();
 
-        assertEquals("List", clavier.fields().get(0).type(),
+        assertEquals("List<String>", clavier.fields().get(0).type(),
             "La règle du projet doit atteindre les boîtes : " + clavier.fields());
     }
 
@@ -319,7 +319,7 @@ class ProjectScannerIntegrationTest {
 
         UmlEntity clavier = ProjectScanner.scan(sortie).entities().iterator().next();
 
-        assertEquals("ImmutableList", clavier.fields().get(0).type());
+        assertEquals("ImmutableList<String>", clavier.fields().get(0).type());
     }
 
     // --- Les noms des paramètres, quand le projet n'a pas été compilé pour les garder ---
@@ -386,6 +386,36 @@ class ProjectScannerIntegrationTest {
             assertThrows(IllegalArgumentException.class, () -> ProjectScanner.scan(sortie));
 
         assertTrue(e.getMessage().contains("title is missing"), e.getMessage());
+    }
+
+    @Test
+    void unProjetModulaire_neFaitPasEchouerLeScan(@TempDir Path tmp) throws Exception {
+        // Un module-info.class n'est pas une classe : le charger lève « access_flag ACC_MODULE
+        // is set », et le scan entier échouait sur le premier projet modulaire rencontré. Aucun
+        // cobaye n'en portait, et le défaut n'est apparu qu'en analysant un vrai projet.
+        Path sources = tmp.resolve("src");
+        Path sortie = tmp.resolve("classes");
+        compiler(sources, sortie, "com/exemple/Facture.java", UNE_BOITE);
+
+        // Le descripteur de module est compilé à part : il n'a besoin de rien, et sa seule
+        // présence dans le répertoire suffit à reproduire le cas.
+        Path descripteur = sources.resolve("module-info.java");
+        Files.writeString(descripteur, "module cobaye {\n}\n", StandardCharsets.UTF_8);
+        JavaCompiler compilateur = ToolProvider.getSystemJavaCompiler();
+        try (StandardJavaFileManager gestionnaire =
+            compilateur.getStandardFileManager(null, null, StandardCharsets.UTF_8)) {
+            assertTrue(compilateur.getTask(null, gestionnaire, null,
+                List.of("-proc:none", "-d", sortie.toString()), null,
+                gestionnaire.getJavaFileObjects(descripteur.toFile())).call(),
+                "Le descripteur de module doit compiler.");
+        }
+        assertTrue(Files.exists(sortie.resolve("module-info.class")),
+            "Le cas n'est pas reproduit si le descripteur n'est pas là.");
+
+        UmlProject projet = ProjectScanner.scan(sortie);
+
+        assertEquals(Set.of("Facture"), noms(projet),
+            "Le module-info est ignoré, et les classes annotées sont bien lues.");
     }
 
     @Test

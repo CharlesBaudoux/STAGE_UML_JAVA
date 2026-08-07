@@ -55,7 +55,8 @@ public final class AssociationExtractor implements RelationExtractor {
         String contexte = "@UMLAssociation sur " + Emplacement.de(field);
         // target() est obligatoire (sans default), donc toujours renseignée : reste à vérifier
         // qu'elle désigne bien une classe du diagramme.
-        Class<?> cible = annotation.target();
+        // Écrite, ou lue dans le type de l'attribut : « List<Commande> » dit déjà la cible.
+        Class<?> cible = CibleDeduite.de(field, annotation, contexte);
         TargetResolver.validerCible(cible, contexte, "target()");
 
         try {

@@ -28,12 +28,33 @@ final class Cible {
     // Rend le nom complet de la classe visée, ou null si elle ne peut pas être une extrémité.
     // Dans ce second cas l'erreur a déjà été signalée : l'appelant n'a qu'à s'arrêter.
     String resoudre(AnnotationMirror annotation, String membre, String contexte, Element porteur) {
+        return resoudre(annotation, membre, contexte, porteur, null);
+    }
+
+    // La même chose, avec un repli quand la valeur n'est pas écrite.
+    //
+    // Sert à @UMLAssociation, dont le target est facultatif depuis que le type de l'attribut
+    // suffit à le dire. Le repli est la classe que ce type désigne ; s'il n'en désigne aucune, le
+    // message demande d'écrire la cible plutôt que de laisser deviner.
+    String resoudre(AnnotationMirror annotation, String membre, String contexte, Element porteur,
+        TypeMirror repli) {
         AnnotationValue valeur = rapporteur.valeur(annotation, membre);
         AnnotationValue position = rapporteur.valeurEcrite(annotation, membre);
 
         // Pour un membre de type Class<?>, getValue() rend un TypeMirror : la description que
         // javac se fait du type, sans avoir eu besoin de le charger.
         TypeMirror cible = (TypeMirror) valeur.getValue();
+
+        // void est la sentinelle « rien d'écrit » : on se rabat alors sur ce que dit le type.
+        if (cible.getKind() == TypeKind.VOID) {
+            if (repli == null) {
+                rapporteur.erreur(contexte + ": target() is not written, and the field's type "
+                    + "does not name a single class of the diagram. Write it explicitly.",
+                    porteur, annotation);
+                return null;
+            }
+            cible = repli;
+        }
 
         // int.class est du Java légal — son type est Class<Integer> —, et passerait donc la
         // vérification du compilateur sans être pour autant une classe du diagramme.

@@ -50,7 +50,9 @@ final class VerificateurAssociation {
             return;
         }
 
-        String nomCible = cible.resoudre(annotation, "target", contexte, champ);
+        // La cible est écrite, ou lue dans le type de l'attribut — « List<Commande> » la dit.
+        String nomCible = cible.resoudre(annotation, "target", contexte, champ,
+            typeAttribut.elementSeul(champ.asType()));
         if (nomCible == null) {
             // La cible est déjà en faute ; poursuivre ne ferait qu'empiler des messages sur la
             // même ligne.

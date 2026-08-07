@@ -50,22 +50,22 @@ class PlantUmlMultipliciteTest {
 
     @Test
     void surUnAttribut_lesCrochetsSuiventLeType() {
-        assertTrue(source().contains("- deprecatedAliases: String [0..*]"), source());
-        assertTrue(source().contains("- ucp: int [0..1]"), source());
+        assertTrue(source().contains("- deprecatedAliases : String [0..*]"), source());
+        assertTrue(source().contains("- ucp : int [0..1]"), source());
     }
 
     @Test
     void surUneMethode_lesCrochetsSuiventLeTypeDeRetour() {
-        // La forme des diagrammes tenus à la main : « names(): String [0..*] » se lit « rend
+        // La forme des diagrammes tenus à la main : « names() : String [0..*] » se lit « rend
         // zéro, une ou plusieurs chaînes ».
-        assertTrue(source().contains("+ names(): String [0..*]"), source());
+        assertTrue(source().contains("+ names() : String [0..*]"), source());
         PlantUmlAssert.assertCompile(source());
     }
 
     @Test
     void sansAnnotation_aucunCrochetNEstEcrit() {
-        assertTrue(source().contains("- mnemonic: String\n"), source());
-        assertTrue(source().contains("+ mnemonic(): String\n"), source());
+        assertTrue(source().contains("- mnemonic : String\n"), source());
+        assertTrue(source().contains("+ mnemonic() : String\n"), source());
         assertFalse(source().contains("[]"), source());
     }
 
@@ -73,8 +73,8 @@ class PlantUmlMultipliciteTest {
     void lecteurVoitLesCrochets() throws Exception {
         String texte = PlantUmlAssert.texteRendu(EntityExtractor.extract(Mnemonique.class));
 
-        assertTrue(texte.contains("deprecatedAliases: String [0..*]"), texte);
-        assertTrue(texte.contains("names(): String [0..*]"), texte);
+        assertTrue(texte.contains("deprecatedAliases : String [0..*]"), texte);
+        assertTrue(texte.contains("names() : String [0..*]"), texte);
     }
 
     // --- Ce qui se combine avec elle ---
@@ -92,7 +92,7 @@ class PlantUmlMultipliciteTest {
         // L'ordre d'UML : le nom, le type, la multiplicité, puis les règles.
         String source = PlantUmlAssert.documentPour(EntityExtractor.extract(Decoree.class));
 
-        assertTrue(source.contains("- /etiquettes: String [1..*] {sans doublon}"), source);
+        assertTrue(source.contains("- /etiquettes : String [1..*] {sans doublon}"), source);
         PlantUmlAssert.assertCompile(source);
     }
 

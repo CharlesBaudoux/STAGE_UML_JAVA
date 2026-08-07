@@ -39,6 +39,11 @@ final class LecteurDeRegles {
     private static final String TITLE = "title";
     private static final String SHOW = "show";
     private static final String MEMBRES_VIDES = "empty members";
+    private static final String VISIBILITE = "visibility";
+    private static final String DECLARE = "declare";
+    private static final String CLASS = "class";
+    private static final String EXTENDS = "extends";
+    private static final String ASSOCIATION = "association";
     private static final String DIRECTION = "direction";
     private static final String AROUND = "around";
     private static final String RETURN = "return";
@@ -68,6 +73,11 @@ final class LecteurDeRegles {
         String[] titre = {""};
         UMLFlow[] direction = {UMLFlow.TOP_TO_BOTTOM};
         boolean[] masquerMembresVides = {true};
+        boolean[] masquerVisibilite = {false};
+        // LinkedHashMap : les boîtes déclarées se complètent ligne à ligne — la classe d'abord,
+        // ses attributs ensuite — et sortent dans l'ordre d'écriture.
+        Map<String, ClasseDeclaree> declarees = new LinkedHashMap<>();
+        List<Regles.LienDeclare> liens = new ArrayList<>();
         // Un tableau d'une case : une variable locale ne peut pas être réaffectée depuis une
         // méthode appelée, et la stratégie est lue par lireStrategy. Un objet mutable d'une seule
         // case est le moyen le plus court de lui laisser rendre sa valeur sans inventer un type.
@@ -94,7 +104,8 @@ final class LecteurDeRegles {
 
             switch (motCle) {
                 case TYPE -> lireType(alias, reste, contexte);
-                case HIDE -> lireHide(retoursMasques, bruits, methodes, champs, reste, contexte);
+                case HIDE -> lireHide(retoursMasques, bruits, methodes, champs, masquerVisibilite,
+                    reste, contexte);
                 case STRATEGY -> lireStrategy(strategie, reste, contexte);
                 case GROUP -> lireGroup(groupes, reste, contexte);
                 case VIEW -> lireView(vues, reste, contexte);
@@ -103,10 +114,11 @@ final class LecteurDeRegles {
                 case TITLE -> lireTitle(titre, reste, contexte);
                 case DIRECTION -> direction[0] = lireFlux(reste, contexte);
                 case SHOW -> lireShow(masquerMembresVides, reste, contexte);
+                case DECLARE -> lireDeclare(declarees, liens, reste, contexte);
                 default -> throw new IllegalArgumentException(contexte + ": unknown rule \""
                     + motCle + "\". Known rules: " + TYPE + ", " + HIDE + ", " + STRATEGY + ", "
                     + GROUP + ", " + VIEW + ", " + VIEWS + ", " + OUTPUT + ", " + TITLE + ", "
-                    + DIRECTION + ", " + SHOW + ".");
+                    + DIRECTION + ", " + SHOW + ", " + DECLARE + ".");
             }
         }
         return new Regles(ImmutableMap.copyOf(alias), ImmutableSet.copyOf(retoursMasques),
@@ -114,7 +126,8 @@ final class LecteurDeRegles {
             ImmutableSet.copyOf(bruits), ImmutableList.copyOf(methodes),
             ImmutableList.copyOf(champs), ImmutableMap.copyOf(groupes),
             ImmutableList.copyOf(vues.values()), parPaquetage[0], sortie[0], titre[0],
-            direction[0], masquerMembresVides[0]);
+            direction[0], masquerMembresVides[0], masquerVisibilite[0],
+            ImmutableList.copyOf(declarees.values()), ImmutableList.copyOf(liens));
     }
 
     // « title Architecture du module Facturation » : le titre de la vue intégrale.
@@ -257,6 +270,107 @@ final class LecteurDeRegles {
         };
     }
 
+    // Les trois formes de « declare » : une boîte, un de ses attributs, un lien.
+    //
+    //   declare class StringRepresentation extends Representation
+    //   declare field StringRepresentation string : String
+    //   declare association Animal -> Chien 0..*
+    //
+    // Elles se lisent dans cet ordre : une boîte doit exister avant qu'on lui pose un attribut,
+    // faute de quoi la ligne désignerait une boîte que rien ne dessine.
+    private static void lireDeclare(Map<String, ClasseDeclaree> declarees,
+        List<Regles.LienDeclare> liens, String reste, String contexte) {
+
+        if (reste.startsWith(CLASS + " ")) {
+            lireDeclareClass(declarees, reste.substring(CLASS.length()).strip(), contexte);
+            return;
+        }
+        if (reste.startsWith(FIELD + " ")) {
+            lireDeclareField(declarees, reste.substring(FIELD.length()).strip(), contexte);
+            return;
+        }
+        if (reste.startsWith(ASSOCIATION + " ")) {
+            lireDeclareAssociation(liens, reste.substring(ASSOCIATION.length()).strip(), contexte);
+            return;
+        }
+        throw new IllegalArgumentException(contexte + ": expected \"declare class …\", \"declare "
+            + "field …\" or \"declare association …\", got \"declare " + reste + "\".");
+    }
+
+    // « declare class Animal » ou « declare class Chien extends Animal ».
+    private static void lireDeclareClass(Map<String, ClasseDeclaree> declarees, String reste,
+        String contexte) {
+        String nom = reste;
+        String parent = "";
+
+        int mot = reste.indexOf(" " + EXTENDS + " ");
+        if (mot >= 0) {
+            nom = reste.substring(0, mot).strip();
+            parent = reste.substring(mot + EXTENDS.length() + 2).strip();
+            checkArgument(!parent.isEmpty() && !parent.contains(" "),
+                "%s: expected a single parent name after \"extends\", read \"%s\".",
+                contexte, parent);
+        }
+        checkArgument(!nom.isEmpty() && !nom.contains(" "),
+            "%s: expected \"declare class <Name> [extends <Name>]\", got \"declare class %s\".",
+            contexte, reste);
+        checkArgument(!declarees.containsKey(nom),
+            "%s: class \"%s\" is already declared. Keep only one of the two.", contexte, nom);
+
+        declarees.put(nom, ClasseDeclaree.de(nom, parent));
+    }
+
+    // « declare field StringRepresentation string : String ».
+    private static void lireDeclareField(Map<String, ClasseDeclaree> declarees, String reste,
+        String contexte) {
+        int espace = reste.indexOf(' ');
+        checkArgument(espace > 0,
+            "%s: expected \"declare field <Class> <name> : <Type>\", got \"declare field %s\".",
+            contexte, reste);
+
+        String classe = reste.substring(0, espace);
+        String champ = reste.substring(espace + 1).strip();
+        int deuxPoints = champ.indexOf(':');
+        checkArgument(deuxPoints > 0,
+            "%s: expected \"<name> : <Type>\" after the class name, got \"%s\".",
+            contexte, champ);
+
+        String nom = champ.substring(0, deuxPoints).strip();
+        String type = champ.substring(deuxPoints + 1).strip();
+        ClasseDeclaree porteuse = declarees.get(classe);
+        checkArgument(porteuse != null,
+            "%s: class \"%s\" is not declared. Write \"declare class %s\" first.",
+            contexte, classe, classe);
+        checkArgument(!nom.isEmpty() && !type.isEmpty(),
+            "%s: the field name or its type is missing, in \"%s\".", contexte, champ);
+
+        declarees.put(classe, porteuse.avec(new ClasseDeclaree.ChampDeclare(nom, type)));
+    }
+
+    // « declare association Animal -> Chien 0..* » : la cardinalité est facultative.
+    private static void lireDeclareAssociation(List<Regles.LienDeclare> liens, String reste,
+        String contexte) {
+        int fleche = reste.indexOf(FLECHE);
+        checkArgument(fleche >= 0,
+            "%s: expected \"declare association <Source> -> <Target> [cardinality]\", got "
+                + "\"declare association %s\".",
+            contexte, reste);
+
+        String source = reste.substring(0, fleche).strip();
+        String suite = reste.substring(fleche + FLECHE.length()).strip();
+        int espace = suite.indexOf(' ');
+        String cible = espace < 0 ? suite : suite.substring(0, espace);
+        String cardinalite = espace < 0 ? "" : suite.substring(espace + 1).strip();
+
+        checkArgument(!source.isEmpty() && !cible.isEmpty(),
+            "%s: the source or the target is missing, in \"declare association %s\".",
+            contexte, reste);
+        checkArgument(!source.contains(" "),
+            "%s: a class name cannot contain a space (read \"%s\").", contexte, source);
+
+        liens.add(new Regles.LienDeclare(source, cible, cardinalite));
+    }
+
     // « strategy public » : ce que prennent les classes qui ne déclarent pas la leur.
     private static void lireStrategy(UMLVisibility[] strategie, String reste, String contexte) {
         checkArgument(!reste.isEmpty(),
@@ -322,7 +436,16 @@ final class LecteurDeRegles {
     // un attribut sans type n'apprendrait plus rien, alors qu'une méthode sans type de retour
     // dit, en UML, qu'elle ne rend rien.
     private static void lireHide(Set<String> retoursMasques, Set<Bruit> bruits,
-        List<Motif> methodes, List<Motif> champs, String reste, String contexte) {
+        List<Motif> methodes, List<Motif> champs, boolean[] masquerVisibilite, String reste,
+        String contexte) {
+
+        // « hide visibility » : les membres s'écrivent sans « + » ni « - ».
+        if (VISIBILITE.equals(reste)) {
+            checkArgument(!masquerVisibilite[0],
+                "%s: \"hide visibility\" is already asked for.", contexte);
+            masquerVisibilite[0] = true;
+            return;
+        }
 
         // Une famille de bruit s'écrit d'un seul mot : « hide accessors ».
         Bruit famille = Bruit.parMotCle(reste);
@@ -341,7 +464,8 @@ final class LecteurDeRegles {
         }
         checkArgument(reste.startsWith(RETURN + " "),
             "%s: expected \"hide return <type>\", \"hide method <pattern>\", \"hide field "
-                + "<pattern>\" or one of the noise families (%s); got \"hide %s\".",
+                + "<pattern>\", \"hide visibility\" or one of the noise families (%s); got "
+                + "\"hide %s\".",
             contexte, Bruit.motsCles(), reste);
 
         String type = reste.substring(RETURN.length()).strip();

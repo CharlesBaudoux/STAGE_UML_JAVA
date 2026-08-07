@@ -76,7 +76,7 @@ class PlantUmlSyntaxStructureTest {
         // Ordre UML « visibilité type nom », et non « nom : type ».
         String source = rendu(entite(List.of(new UmlField("age", "int", "+", false)), List.of()));
 
-        assertTrue(source.contains("  + age: int\n"), source);
+        assertTrue(source.contains("  + age : int\n"), source);
         PlantUmlAssert.assertCompile(source);
     }
 
@@ -84,7 +84,7 @@ class PlantUmlSyntaxStructureTest {
     void champStatique_porteLeMarqueurStatic() {
         String source = rendu(entite(List.of(new UmlField("SEUIL", "int", "+", true)), List.of()));
 
-        assertTrue(source.contains("  + {static} SEUIL: int\n"), source);
+        assertTrue(source.contains("  + {static} SEUIL : int\n"), source);
         PlantUmlAssert.assertCompile(source);
     }
 
@@ -96,10 +96,10 @@ class PlantUmlSyntaxStructureTest {
             new UmlField("c", "int", "#", false),
             new UmlField("d", "int", "~", false)), List.of()));
 
-        assertTrue(source.contains("+ a: int"), source);
-        assertTrue(source.contains("- b: int"), source);
-        assertTrue(source.contains("# c: int"), source);
-        assertTrue(source.contains("~ d: int"), source);
+        assertTrue(source.contains("+ a : int"), source);
+        assertTrue(source.contains("- b : int"), source);
+        assertTrue(source.contains("# c : int"), source);
+        assertTrue(source.contains("~ d : int"), source);
         PlantUmlAssert.assertCompile(source);
     }
 
@@ -109,7 +109,7 @@ class PlantUmlSyntaxStructureTest {
     void methodeSansParametre_renduAvecParenthesesVides() {
         String source = rendu(entite(List.of(), List.of(METHODE)));
 
-        assertTrue(source.contains("  + agir(): void\n"), source);
+        assertTrue(source.contains("  + agir() : void\n"), source);
         PlantUmlAssert.assertCompile(source);
     }
 
@@ -119,7 +119,7 @@ class PlantUmlSyntaxStructureTest {
             List.of("int", "String", "boolean"));
         String source = rendu(entite(List.of(), List.of(m)));
 
-        assertTrue(source.contains("  + calculer(int, String, boolean): double\n"), source);
+        assertTrue(source.contains("  + calculer(int, String, boolean) : double\n"), source);
         PlantUmlAssert.assertCompile(source);
     }
 
@@ -128,7 +128,7 @@ class PlantUmlSyntaxStructureTest {
         UmlMethod m = new UmlMethod("creer", "E", "+", true, List.of());
         String source = rendu(entite(List.of(), List.of(m)));
 
-        assertTrue(source.contains("  + {static} creer(): E\n"), source);
+        assertTrue(source.contains("  + {static} creer() : E\n"), source);
         PlantUmlAssert.assertCompile(source);
     }
 
@@ -138,7 +138,7 @@ class PlantUmlSyntaxStructureTest {
         UmlField champ = new UmlField("elements", "String[]", "-", false);
         String source = rendu(entite(List.of(champ), List.of()));
 
-        assertTrue(source.contains("- elements: String[]"), source);
+        assertTrue(source.contains("- elements : String[]"), source);
         PlantUmlAssert.assertCompile(source);
     }
 

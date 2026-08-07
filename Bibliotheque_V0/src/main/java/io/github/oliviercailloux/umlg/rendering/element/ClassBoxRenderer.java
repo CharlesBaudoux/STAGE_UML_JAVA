@@ -18,12 +18,17 @@ import java.util.stream.Stream;
 //     + retirer(montant: double): void
 //   }
 //
-// LA NOTATION « nom: Type »
+// LA NOTATION « nom : Type »
 //
 // C'est celle d'UML, et elle vaut pour les trois endroits où un type paraît : un attribut, un
 // paramètre, le retour d'une méthode. Le nom vient toujours en premier, le type après les
 // deux-points — l'inverse de l'ordre de déclaration de Java, mais l'ordre que lit un diagramme :
 // on cherche une propriété par son nom, pas par son type.
+//
+// Les deux-points sont entourés d'espaces, comme les écrit la norme UML : « solde : double », et
+// non « solde: double », qui est la ponctuation de Java et de PlantUML. La bibliothèque produit
+// des diagrammes UML ; elle en suit la notation jusque dans ce détail, qui est celui qu'un
+// lecteur habitué remarque en premier.
 //
 // Le mot-clé initial dépend de la nature de l'entité, et une énumération ouvre la boîte sur un
 // compartiment supplémentaire, celui de ses littéraux :
@@ -40,6 +45,15 @@ public final class ClassBoxRenderer {
 
     // L'alias est fourni par l'appelant, qui le tient d'AliasRegistry.
     public static String boite(UmlEntity entity, String alias) {
+        return boite(entity, alias, "");
+    }
+
+    // La même, avec un lien cliquable vers la vue où cette boîte est détaillée.
+    //
+    // Un dossier de onze diagrammes est une collection d'images sans rapport tant qu'on ne peut
+    // pas passer de l'une à l'autre. Le lien en fait une documentation qui se parcourt : depuis
+    // la vue d'ensemble, cliquer sur une classe ouvre la vue qui la détaille.
+    public static String boite(UmlEntity entity, String alias, String lien) {
         StringBuilder boite = new StringBuilder();
 
         // Le mot-clé dit la nature de l'entité : class, abstract class, interface, enum,
@@ -54,12 +68,32 @@ public final class ClassBoxRenderer {
         if (entity.stereotype() != null && !entity.stereotype().isBlank()) {
             boite.append(" <<").append(PlantUmlEscaper.stereotype(entity.stereotype()))
                  .append(">>");
+        } else if (entity.declared()) {
+            // Une boîte déclarée dans le fichier de règles porte sa marque, faute de quoi le
+            // lecteur la croirait adossée à du code. Le stéréotype le dit en toutes lettres ; le
+            // contour pointillé, plus bas, le dit d'un coup d'œil.
+            boite.append(" <<declared>>");
         }
 
         // La couleur n'est pas échappée mais validée : son vocabulaire est fermé, et ColorCodec
         // rejette tout ce que PlantUML ne connaît pas. Le nom complet sert au message d'erreur.
         if (entity.color() != null && !entity.color().isBlank()) {
             boite.append(" ").append(ColorCodec.code(entity.color(), entity.qualifiedName()));
+        }
+
+        // L'ordre de ces deux morceaux n'est pas libre, et le moteur ne pardonne pas : il
+        // accepte « <<stéréotype>> [[lien]] #style » et refuse « <<stéréotype>> #style [[lien]] ».
+        // Mesuré, faute de l'avoir lu nulle part.
+        //
+        // Le chemin du lien n'est pas échappé : il est calculé par la bibliothèque à partir des
+        // noms de fichiers qu'elle a elle-même formés, jamais écrit par l'utilisateur.
+        if (!lien.isEmpty()) {
+            boite.append(" [[").append(lien).append("]]");
+        }
+
+        // Le contour pointillé des boîtes déclarées : c'est la marque qu'on voit sans lire.
+        if (entity.declared()) {
+            boite.append(" #line.dashed");
         }
 
         boite.append(" {\n");
@@ -75,6 +109,15 @@ public final class ClassBoxRenderer {
         // La ligne vide finale sépare les boîtes dans le fichier engendré : sans effet sur le
         // dessin, mais le texte reste lisible si on l'ouvre.
         return boite.append("}\n\n").toString();
+    }
+
+    // Le symbole de visibilité et l'espace qui le suit, ou rien du tout.
+    //
+    // Un projet peut demander à taire les visibilités (« hide visibility ») : le symbole est
+    // alors vide, et l'espace doit disparaître avec lui — sans quoi chaque ligne commencerait
+    // par un blanc que rien ne justifie.
+    private static String prefixe(String visibilite) {
+        return visibilite.isEmpty() ? "" : PlantUmlEscaper.label(visibilite) + " ";
     }
 
     // Les règles formelles, chacune entre accolades, à la suite de l'élément qu'elles
@@ -119,7 +162,7 @@ public final class ClassBoxRenderer {
     private static String attributs(UmlEntity entity) {
         StringBuilder compartiment = new StringBuilder();
         for (UmlField field : entity.fields()) {
-            compartiment.append("  ").append(PlantUmlEscaper.label(field.visibility())).append(" ");
+            compartiment.append("  ").append(prefixe(field.visibility()));
 
             // {static} demande à PlantUML de souligner le membre, comme le veut UML.
             if (field.isStatic()) {
@@ -127,7 +170,7 @@ public final class ClassBoxRenderer {
             }
 
             compartiment.append(derive(field.derived(), field.name()))
-                        .append(": ").append(PlantUmlEscaper.label(field.type()))
+                        .append(" : ").append(PlantUmlEscaper.label(field.type()))
                         .append(multiplicite(field.cardinality()))
                         .append(contraintes(field.constraints())).append("\n");
         }
@@ -138,8 +181,7 @@ public final class ClassBoxRenderer {
     private static String methodes(UmlEntity entity) {
         StringBuilder compartiment = new StringBuilder();
         for (UmlMethod method : entity.methods()) {
-            compartiment.append("  ").append(PlantUmlEscaper.label(method.visibility()))
-                        .append(" ");
+            compartiment.append("  ").append(prefixe(method.visibility()));
 
             if (method.isStatic()) {
                 compartiment.append("{static} ");
@@ -162,7 +204,7 @@ public final class ClassBoxRenderer {
         if (method.returnType().isEmpty()) {
             return "";
         }
-        return ": " + PlantUmlEscaper.label(method.returnType())
+        return " : " + PlantUmlEscaper.label(method.returnType())
             + multiplicite(method.cardinality());
     }
 
@@ -175,7 +217,7 @@ public final class ClassBoxRenderer {
     private static String parametres(UmlMethod method) {
         return method.parameters().stream()
                      .map(parametre -> parametre.nomme()
-                         ? PlantUmlEscaper.label(parametre.name()) + ": "
+                         ? PlantUmlEscaper.label(parametre.name()) + " : "
                              + PlantUmlEscaper.label(parametre.type())
                          : PlantUmlEscaper.label(parametre.type()))
                      .collect(Collectors.joining(", "));

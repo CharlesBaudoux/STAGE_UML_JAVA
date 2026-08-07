@@ -46,17 +46,17 @@ class PlantUmlSignatureTest {
 
     @Test
     void attribut_secritNomPuisType() {
-        assertTrue(source().contains("- departureTime: String"), source());
+        assertTrue(source().contains("- departureTime : String"), source());
     }
 
     @Test
     void methode_ecritSonTypeDeRetourApresLesParentheses() {
-        assertTrue(source().contains("+ destination(): String"), source());
+        assertTrue(source().contains("+ destination() : String"), source());
     }
 
     @Test
     void parametres_portentLeurNomQuandLaCompilationLaGarde() {
-        assertTrue(source().contains("+ reporter(nouvelleHeure: String, minutes: int): void"),
+        assertTrue(source().contains("+ reporter(nouvelleHeure : String, minutes : int) : void"),
             "Les paramètres doivent être nommés et séparés par une virgule :\n" + source());
         // Le nom inventé par la réflexion ne doit jamais atteindre le dessin.
         assertFalse(source().contains("arg0"), source());
@@ -66,7 +66,7 @@ class PlantUmlSignatureTest {
     void staticEtDerive_gardentLeursNotationsAutourDeLaSignature() {
         // {static} avant le nom, la barre oblique devant lui, le type de retour après : les trois
         // notations doivent coexister sans se marcher dessus.
-        assertTrue(source().contains("+ {static} /compter(code: String): int"), source());
+        assertTrue(source().contains("+ {static} /compter(code : String) : int"), source());
         PlantUmlAssert.assertCompile(source());
     }
 
@@ -83,7 +83,7 @@ class PlantUmlSignatureTest {
 
         String source = PlantUmlAssert.documentPour(entite);
 
-        assertTrue(source.contains("+ retirer(double, motif: String): void"), source);
+        assertTrue(source.contains("+ retirer(double, motif : String) : void"), source);
         PlantUmlAssert.assertCompile(source);
     }
 
@@ -91,7 +91,7 @@ class PlantUmlSignatureTest {
     void lecteurVoitLaSignatureComplete() throws Exception {
         String texte = PlantUmlAssert.texteRendu(EntityExtractor.extract(Vol.class));
 
-        assertTrue(texte.contains("departureTime: String"), texte);
-        assertTrue(texte.contains("reporter(nouvelleHeure: String, minutes: int): void"), texte);
+        assertTrue(texte.contains("departureTime : String"), texte);
+        assertTrue(texte.contains("reporter(nouvelleHeure : String, minutes : int) : void"), texte);
     }
 }

@@ -43,7 +43,13 @@ public record UmlEntity(
     // Le rectangle nommé dans lequel la boîte se range, ou UmlPackage.aucun() si elle se dessine
     // au premier niveau. Vient de @UMLPackage, et ne dit rien du modèle : deux diagrammes qui ne
     // différeraient que par leurs groupes disent la même chose.
-    UmlPackage group
+    UmlPackage group,
+    // Vrai pour une boîte que le fichier de règles déclare, et qu'aucune classe Java ne porte.
+    //
+    // Le rendu la dessine en pointillés : elle échappe à tout ce qui fait la valeur du reste —
+    // aucun compilateur ne la vérifie, aucun renommage ne la suit —, et le lecteur doit pouvoir
+    // distinguer d'un coup d'œil ce qui a du code derrière de ce qui n'en a pas.
+    boolean declared
 ) {
     // Constructeur compact : s'exécute avant l'affectation des champs, quel que soit le chemin
     // de construction (builder, appel direct, test). C'est ici, et nulle part ailleurs, que les
@@ -86,7 +92,8 @@ public record UmlEntity(
                 checkNotNull(fields, "The list of fields cannot be null.")),
             ImmutableList.copyOf(
                 checkNotNull(methods, "The list of methods cannot be null.")),
-            ImmutableList.of(), ImmutableList.of(), ImmutableList.of(), UmlPackage.aucun());
+            ImmutableList.of(), ImmutableList.of(), ImmutableList.of(), UmlPackage.aucun(),
+            false);
     }
 
     // Rend les relations d'une nature donnée. Le paramètre de type T suit celui du Class<T>
@@ -146,6 +153,7 @@ public record UmlEntity(
         private ImmutableList<UmlNote> notes = ImmutableList.of();
         private ImmutableList<String> constraints = ImmutableList.of();
         private UmlPackage group = UmlPackage.aucun();
+        private boolean declared;
         // Un builder de Guava, et non une liste mutable : les relations s'ajoutent en plusieurs
         // fois — une passe par extracteur — et lui seul accumule sans jamais exposer d'état
         // modifiable, ni exiger une recopie au moment de figer.
@@ -208,6 +216,11 @@ public record UmlEntity(
             return this;
         }
 
+        public Builder declared(boolean declared) {
+            this.declared = declared;
+            return this;
+        }
+
         // Contrairement aux autres, cette méthode ajoute au lieu de remplacer : deux appels
         // successifs cumulent leurs relations.
         public Builder relations(List<? extends UmlRelation> relations) {
@@ -230,7 +243,7 @@ public record UmlEntity(
         // l'ensemble.
         public UmlEntity build() {
             return new UmlEntity(qualifiedName, name, kind, stereotype, color, strategy, literals,
-                fields, methods, relations.build(), notes, constraints, group);
+                fields, methods, relations.build(), notes, constraints, group, declared);
         }
     }
 }

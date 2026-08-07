@@ -134,9 +134,9 @@ public final class ProjetDeReference {
             direction = UMLDirection.DOWN)
         private List<Commande> commandes;
 
-        // Une méthode à paramètre : le diagramme le nomme, « montant: double ». Ce projet-ci est
+        // Une méthode à paramètre : le diagramme le nomme, « montant : double ». Ce projet-ci est
         // compilé avec l'option « -parameters » (voir le pom) ; sans elle, la signature se
-        // réduirait à « crediter(double): void ».
+        // réduirait à « crediter(double) : void ».
         public void crediter(double montant) {}
 
         // Redéfinit la méthode abstraite de Personne.

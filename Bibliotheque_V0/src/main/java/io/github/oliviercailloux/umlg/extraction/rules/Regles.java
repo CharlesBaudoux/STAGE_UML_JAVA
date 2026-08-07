@@ -54,6 +54,12 @@ import java.nio.file.Path;
 //   title Architecture du module Facturation
 //   direction left-to-right
 //   show empty members
+//   hide visibility
+//
+//   # Une boîte qu'aucune classe Java ne porte, dessinée en pointillés.
+//   declare class StringRepresentation extends Representation
+//   declare field StringRepresentation string : String
+//   declare association Animal -> Chien 0..*
 //
 // Une ligne « type » remplace un nom de type par un autre, partout où ce type paraît dans une
 // boîte : attributs, types de retour, paramètres. Le nom de gauche s'écrit au choix simple
@@ -84,7 +90,7 @@ public final class Regles {
     private static final Regles AUCUNE = new Regles(ImmutableMap.of(), ImmutableSet.of(),
         UMLVisibility.NONE, ImmutableSet.of(), ImmutableList.of(), ImmutableList.of(),
         ImmutableMap.of(), ImmutableList.of(), false, Sortie.REPLACE, "",
-        UMLFlow.TOP_TO_BOTTOM, true);
+        UMLFlow.TOP_TO_BOTTOM, true, false, ImmutableList.of(), ImmutableList.of());
 
     // Clé : le nom de type écrit à gauche de la flèche, simple ou complet. Valeur : ce qui
     // s'affiche à sa place.
@@ -129,6 +135,19 @@ public final class Regles {
     // aucun membre, si bien que ne pas masquer dessinerait deux rectangles vides sous chaque nom.
     private final boolean masquerMembresVides;
 
+    // Faut-il taire les symboles de visibilité — « + », « - », « # », « ~ » — devant les membres ?
+    //
+    // Faux par défaut : UML les demande, et ils disent quelque chose qu'aucune autre marque ne
+    // dit. Mais beaucoup de diagrammes tenus à la main les omettent, parce qu'ils exposent une
+    // structure plutôt qu'une API, et le projet doit pouvoir en faire autant.
+    private final boolean masquerVisibilite;
+
+    // Les boîtes que le fichier déclare, et qu'aucune classe Java ne porte.
+    private final ImmutableList<ClasseDeclaree> classesDeclarees;
+
+    // Les liens déclarés entre deux boîtes, réelles ou déclarées : « source -> cible ».
+    private final ImmutableList<LienDeclare> liensDeclares;
+
     // Ce que devient le dossier des vues d'une génération à la suivante.
     public enum Sortie {
         // Les diagrammes précédents sont effacés : le dossier décrit toujours l'état courant du
@@ -144,7 +163,9 @@ public final class Regles {
         ImmutableList<Motif> methodesMasquees, ImmutableList<Motif> champsMasques,
         ImmutableMap<String, String> groupesParPaquetage, ImmutableList<DefinitionDeVue> vues,
         boolean vuesParPaquetage, Sortie sortie, String titre, UMLFlow direction,
-        boolean masquerMembresVides) {
+        boolean masquerMembresVides, boolean masquerVisibilite,
+        ImmutableList<ClasseDeclaree> classesDeclarees,
+        ImmutableList<LienDeclare> liensDeclares) {
         this.alias = checkNotNull(alias);
         this.retoursMasques = checkNotNull(retoursMasques);
         this.strategie = checkNotNull(strategie);
@@ -158,6 +179,24 @@ public final class Regles {
         this.titre = checkNotNull(titre);
         this.direction = checkNotNull(direction);
         this.masquerMembresVides = masquerMembresVides;
+        this.masquerVisibilite = masquerVisibilite;
+        this.classesDeclarees = checkNotNull(classesDeclarees);
+        this.liensDeclares = checkNotNull(liensDeclares);
+    }
+
+    public ImmutableList<ClasseDeclaree> classesDeclarees() {
+        return classesDeclarees;
+    }
+
+    public ImmutableList<LienDeclare> liensDeclares() {
+        return liensDeclares;
+    }
+
+    // Un lien déclaré dans le fichier, entre deux boîtes désignées par leur nom.
+    public record LienDeclare(String source, String cible, String cardinalite) {}
+
+    public boolean masquerVisibilite() {
+        return masquerVisibilite;
     }
 
     // Le titre écrit en tête de la vue intégrale, ou la chaîne vide.
@@ -319,6 +358,7 @@ public final class Regles {
             && bruits.isEmpty() && methodesMasquees.isEmpty() && champsMasques.isEmpty()
             && groupesParPaquetage.isEmpty() && vues.isEmpty() && !vuesParPaquetage
             && sortie == Sortie.REPLACE && titre.isEmpty()
-            && direction == UMLFlow.TOP_TO_BOTTOM && masquerMembresVides;
+            && direction == UMLFlow.TOP_TO_BOTTOM && masquerMembresVides && !masquerVisibilite
+            && classesDeclarees.isEmpty() && liensDeclares.isEmpty();
     }
 }

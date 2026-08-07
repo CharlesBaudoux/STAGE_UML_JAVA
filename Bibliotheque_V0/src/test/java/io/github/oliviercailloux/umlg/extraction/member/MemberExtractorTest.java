@@ -218,16 +218,19 @@ class MemberExtractorTest {
     }
 
     @Test
-    void typesTableauxEtGeneriques_sontRendusParLeurSimpleName() {
+    void typesTableauxEtGeneriques_gardentLeursParametresDeType() {
+        // On lit souvent que la compilation perd les paramètres de type. C'est vrai de ce qui
+        // vit à l'exécution, faux des signatures déclarées : le compilateur les conserve dans
+        // l'attribut « Signature » du .class, et la réflexion les rend par getGenericType().
+        // « List<String> » dit ce que la liste contient, « List » ne dit rien.
         UmlEntity entity = EntityExtractor.extract(TypesVaries.class);
 
         assertEquals("int[]", champ(entity, "tableau").orElseThrow().type(),
             "Un tableau doit garder ses crochets.");
-        assertEquals("List", champ(entity, "liste").orElseThrow().type(),
-            "getSimpleName() efface l'argument de type : List<String> devient List.");
+        assertEquals("List<String>", champ(entity, "liste").orElseThrow().type());
 
         UmlMethod lister = methode(entity, "lister").orElseThrow();
-        assertEquals("List", lister.returnType());
+        assertEquals("List<String>", lister.returnType());
         assertEquals(List.of("int[]"), types(lister));
     }
 

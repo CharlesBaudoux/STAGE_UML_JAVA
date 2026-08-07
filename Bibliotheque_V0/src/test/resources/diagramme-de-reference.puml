@@ -8,9 +8,9 @@ interface "Identifiable" as Identifiable {
 }
 
 abstract class "Personne" as Personne {
-  # nom: String
+  # nom : String
   --
-  + valider(): void
+  + valider() : void
 }
 
 enum "Statut" as Statut {
@@ -25,18 +25,18 @@ class "ServiceBancaire" as ServiceBancaire {
 }
 
 class "Client" as Client <<Entity>> #LightBlue {
-  ~ /age: int
-  - archivees: Commande [0..*]
-  - compteur: int
-  ~ etiquettes: String [0..*]
-  ~ solde: double {solde positif}
-  ~ statut: Statut
+  ~ /age : int
+  - archivees : Commande [0..*]
+  - compteur : int
+  ~ etiquettes : String [0..*]
+  ~ solde : double {solde positif}
+  ~ statut : Statut
   --
-  + crediter(montant: double): void
-  + historique(): String [0..*]
-  + identifiant(): String
-  + /resumer(): String
-  + valider(): void
+  + crediter(montant : double) : void
+  + historique() : String [0..*]
+  + identifiant() : String
+  + /resumer() : String
+  + valider() : void
 }
 
 Identifiable <|.. Personne

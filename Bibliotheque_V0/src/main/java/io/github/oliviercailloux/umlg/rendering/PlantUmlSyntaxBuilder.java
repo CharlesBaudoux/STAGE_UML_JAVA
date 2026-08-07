@@ -39,6 +39,8 @@ final class PlantUmlSyntaxBuilder {
     // Tous trois s'écrivent en tête du fichier, et nulle part ailleurs.
     private final UmlDiagram diagramme;
     private final RelationRenderer liens;
+    // Nom complet d'une boîte -> chemin relatif de la vue qui la détaille.
+    private Map<String, String> navigation = Map.of();
 
     // Sans réglages déclarés : ceux par défaut, c'est-à-dire ce que décrit un projet dont le
     // fichier de règles ne dit rien du dessin.
@@ -123,7 +125,17 @@ final class PlantUmlSyntaxBuilder {
     // qui n'ont qu'une boîte et aucun groupe à dessiner.
     public PlantUmlSyntaxBuilder addClass(UmlEntity entity) {
         builder.append(ClassBoxRenderer.boite(entity,
-            alias.enregistrer(entity.qualifiedName(), entity.name())));
+            alias.enregistrer(entity.qualifiedName(), entity.name()),
+            navigation.getOrDefault(entity.qualifiedName(), "")));
+        return this;
+    }
+
+    // Où mène chaque boîte quand on clique dessus : nom complet -> chemin relatif du fichier.
+    //
+    // Vide par défaut : un diagramme isolé n'a nulle part où renvoyer, et c'est le cas de tous
+    // les appelants qui n'écrivent qu'une image.
+    public PlantUmlSyntaxBuilder navigation(Map<String, String> versLesVues) {
+        this.navigation = checkNotNull(versLesVues);
         return this;
     }
 
