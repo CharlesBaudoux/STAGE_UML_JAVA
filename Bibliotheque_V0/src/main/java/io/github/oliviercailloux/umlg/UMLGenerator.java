@@ -3,7 +3,9 @@ package io.github.oliviercailloux.umlg;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.google.common.collect.ImmutableList;
 import io.github.oliviercailloux.umlg.extraction.ProjectScanner;
+import io.github.oliviercailloux.umlg.extraction.rules.Regles;
 import io.github.oliviercailloux.umlg.model.UmlProject;
 import io.github.oliviercailloux.umlg.rendering.PlantUmlWriter;
 import java.nio.file.Files;
@@ -31,12 +33,16 @@ public final class UMLGenerator {
 
     private final Path sourceDirectory;
     private final String outputFileName;
+    private final Path outputDirectory;
+    private final String extension;
     private final UmlStyle style;
 
     // Privé : on ne passe que par le builder, seul à valider les paramètres.
     private UMLGenerator(Builder builder) {
         this.sourceDirectory = builder.sourceDirectory;
         this.outputFileName = builder.outputFileName;
+        this.outputDirectory = builder.outputDirectory;
+        this.extension = builder.extension;
         this.style = builder.style;
     }
 
@@ -46,9 +52,22 @@ public final class UMLGenerator {
 
     public void generate() {
         try {
-            // Étape 1 : le code annoté devient un modèle.
+            // Étape 1 : le code annoté devient un modèle, vues comprises.
             UmlProject project = ProjectScanner.scan(sourceDirectory);
-            // Étape 2 : le modèle devient une image sur le disque.
+
+            // Étape 2 : le modèle devient une ou plusieurs images sur le disque.
+            //
+            // Un dossier a été demandé : toutes les vues sont écrites, l'intégrale à la racine et
+            // les autres dans un sous-dossier. Sinon, on écrit le seul diagramme d'ensemble dans
+            // le fichier nommé — la forme d'origine, que rien n'oblige à abandonner.
+            if (outputDirectory != null) {
+                ImmutableList<Path> ecrits = PlantUmlWriter.writeViews(project,
+                    outputDirectory, extension, style, Regles.duProjet(sourceDirectory).sortie());
+
+                System.out.println("Success: " + ecrits.size() + " diagram(s) generated -> "
+                    + ecrits.get(0).getParent());
+                return;
+            }
             PlantUmlWriter.write(project, outputFileName, style);
         } catch (Exception e) {
             // Les deux étapes déclarent « throws Exception » (entrées-sorties, chargement de
@@ -57,7 +76,8 @@ public final class UMLGenerator {
             // d'un répertoire ou d'un nom de fichier inattendu. La cause d'origine est conservée.
             throw new RuntimeException(
                 "Failed to generate the UML diagram (source directory: " + sourceDirectory
-                    + ", output file: " + outputFileName + "): " + e.getMessage(), e);
+                    + ", output: " + (outputDirectory != null ? outputDirectory : outputFileName)
+                    + "): " + e.getMessage(), e);
         }
     }
 
@@ -84,6 +104,9 @@ public final class UMLGenerator {
     public static final class Builder {
         private Path sourceDirectory;
         private String outputFileName = "diagramme_architecture.svg"; // Smart Default
+        // Null tant qu'aucun dossier n'est demandé : c'est ce qui distingue les deux sorties.
+        private Path outputDirectory;
+        private String extension = ".svg";
         // L'apparence de PlantUML : ne rien imposer est le défaut le moins présomptueux.
         private UmlStyle style = UmlStyle.PLANTUML;
 
@@ -109,6 +132,34 @@ public final class UMLGenerator {
                 "The output format must be .png or .svg (got: %s)", fileName);
 
             this.outputFileName = fileName;
+            return this;
+        }
+
+        // Le dossier où déposer tous les diagrammes du projet : la vue intégrale à sa racine,
+        // les autres dans un sous-dossier « vues ».
+        //
+        // C'est la forme à préférer dès qu'un projet déclare des vues, et la seule qui les écrive
+        // toutes. Le dossier est créé s'il n'existe pas ; ce qu'il advient de la génération
+        // précédente se règle dans umlg.rules, par « output replace » ou « output keep ».
+        public Builder outputDirectory(String path) {
+            checkNotNull(path, "The output directory cannot be null.");
+            this.outputDirectory = Paths.get(path);
+            return this;
+        }
+
+        // Le format des images écrites dans le dossier : « .svg » (défaut) ou « .png ».
+        //
+        // Séparé du nom de fichier parce qu'il n'y en a plus un seul : vingt vues partagent un
+        // format, et le répéter vingt fois n'aurait aucun sens.
+        public Builder outputFormat(String extensionDemandee) {
+            checkNotNull(extensionDemandee, "The output format cannot be null.");
+            String normalisee = extensionDemandee.startsWith(".")
+                ? extensionDemandee
+                : "." + extensionDemandee;
+            checkArgument(PlantUmlWriter.supporte("x" + normalisee),
+                "The output format must be .png or .svg (got: %s)", extensionDemandee);
+
+            this.extension = normalisee;
             return this;
         }
 

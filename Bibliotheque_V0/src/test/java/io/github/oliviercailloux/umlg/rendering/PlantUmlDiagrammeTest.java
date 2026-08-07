@@ -14,8 +14,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
-// Ce que @UMLDiagram écrit en tête du fichier engendré : le titre, le sens de lecture, le sort
-// des compartiments vides.
+// Ce que les réglages d'ensemble écrivent en tête du fichier engendré : le titre, le sens de
+// lecture, le sort des compartiments vides.
 //
 // Les trois se rendent au même endroit et pour la même raison — ils ne visent aucune boîte —,
 // d'où un seul fichier de test. Ce qu'il faut prouver de chacun est double : la directive
@@ -123,7 +123,7 @@ class PlantUmlDiagrammeTest {
     void leMasquage_neDependPasDeLApparence(UmlStyle style) {
         // Le point de la refonte : ce réglage a quitté le bloc commun aux deux apparences, mais
         // il ne leur appartenait pas pour autant. Les deux styles doivent le suivre à
-        // l'identique — c'est @UMLDiagram qui décide, jamais UmlStyle.
+        // l'identique — c'est le fichier de règles qui décide, jamais UmlStyle.
         assertTrue(PlantUmlAssert.documentPour(style, UmlDiagram.defaut(), boiteVide())
             .contains(LIGNE_MASQUAGE));
         assertFalse(PlantUmlAssert

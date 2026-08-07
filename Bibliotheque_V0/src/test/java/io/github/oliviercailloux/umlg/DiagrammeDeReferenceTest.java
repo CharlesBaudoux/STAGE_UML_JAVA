@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import com.google.common.collect.ImmutableList;
 import io.github.oliviercailloux.umlg.extraction.EntityExtractor;
+import io.github.oliviercailloux.umlg.extraction.rules.Regles;
 import io.github.oliviercailloux.umlg.model.UmlEntity;
 import io.github.oliviercailloux.umlg.rendering.PlantUmlAssert;
 import java.io.InputStream;
@@ -56,16 +57,28 @@ class DiagrammeDeReferenceTest {
 
     private static final String FICHIER_DE_REFERENCE = "/diagramme-de-reference.puml";
 
+    // Les règles du projet cobaye : les quatre familles de bruit, demandées explicitement.
+    //
+    // Elles ne sont plus appliquées d'office — rien ne l'est —, et ce test est le meilleur endroit
+    // pour le vérifier : le document attendu n'a pas changé d'une ligne le jour où le filtre est
+    // devenu configurable. C'est la preuve que les familles nommées ici font exactement ce que la
+    // bibliothèque faisait seule auparavant, ni plus ni moins.
+    private static final Regles REGLES = Regles.lues(ImmutableList.of(
+        "hide accessors",
+        "hide object-methods",
+        "hide record-accessors",
+        "hide enum-methods"), "les règles du projet de référence");
+
     // Les entités du diagramme, dans l'ordre où elles seront déclarées : les cibles avant ce qui
     // les vise, ce qui rend le fichier engendré lisible de haut en bas.
     private static ImmutableList<UmlEntity> entites() {
         return ImmutableList.of(
-            EntityExtractor.extract(ProjetDeReference.Identifiable.class),
-            EntityExtractor.extract(ProjetDeReference.Personne.class),
-            EntityExtractor.extract(ProjetDeReference.Statut.class),
-            EntityExtractor.extract(ProjetDeReference.Commande.class),
-            EntityExtractor.extract(ProjetDeReference.ServiceBancaire.class),
-            EntityExtractor.extract(ProjetDeReference.ClientFacture.class));
+            EntityExtractor.extract(ProjetDeReference.Identifiable.class, REGLES),
+            EntityExtractor.extract(ProjetDeReference.Personne.class, REGLES),
+            EntityExtractor.extract(ProjetDeReference.Statut.class, REGLES),
+            EntityExtractor.extract(ProjetDeReference.Commande.class, REGLES),
+            EntityExtractor.extract(ProjetDeReference.ServiceBancaire.class, REGLES),
+            EntityExtractor.extract(ProjetDeReference.ClientFacture.class, REGLES));
     }
 
     private static String documentEngendre() {

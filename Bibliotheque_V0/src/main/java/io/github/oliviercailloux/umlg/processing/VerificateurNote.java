@@ -22,9 +22,11 @@ import javax.lang.model.element.TypeElement;
 final class VerificateurNote {
 
     private final Rapporteur rapporteur;
+    private final Strategie strategie;
 
-    VerificateurNote(Rapporteur rapporteur) {
+    VerificateurNote(Rapporteur rapporteur, Strategie strategie) {
         this.rapporteur = rapporteur;
+        this.strategie = strategie;
     }
 
     void verifier(Element porteur) {
@@ -111,7 +113,13 @@ final class VerificateurNote {
             return;
         }
 
-        boolean visible = VisibilityPolicy.estVisible(Membre.bits(membre), classe.strategy(),
+        // Sans les règles du projet, une stratégie laissée à PROJECT est hors de portée de
+        // javac : le contrôle se tait plutôt que de deviner. L'option -Aumlg.rules la lui donne.
+        if (!strategie.connue(classe)) {
+            return;
+        }
+        boolean visible = VisibilityPolicy.estVisible(Membre.bits(membre),
+            strategie.effective(classe),
             rapporteur.miroir(membre, UMLInclude.class) != null,
             rapporteur.miroir(membre, UMLExclude.class) != null);
 
@@ -119,7 +127,8 @@ final class VerificateurNote {
             return;
         }
         rapporteur.avertissement(contexte + ": this member is not shown on the diagram "
-            + "(strategy = " + classe.strategy() + " on the declaring class), so the note has "
+            + "(strategy = "
+            + strategie.effective(classe) + " on the declaring class), so the note has "
             + "nothing to hang on and will not be drawn. Add @UMLInclude, or move the note onto "
             + "the class.", membre, note);
     }

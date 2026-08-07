@@ -14,9 +14,11 @@ import javax.lang.model.element.TypeElement;
 final class VerificateurMembre {
 
     private final Rapporteur rapporteur;
+    private final Strategie strategie;
 
-    VerificateurMembre(Rapporteur rapporteur) {
+    VerificateurMembre(Rapporteur rapporteur, Strategie strategie) {
         this.rapporteur = rapporteur;
+        this.strategie = strategie;
     }
 
     void verifier(Element membre) {
@@ -72,8 +74,15 @@ final class VerificateurMembre {
 
         // La même question que se posera l'extraction, posée à la même règle, dérogations mises
         // de côté : « ce membre serait-il affiché si celle-ci n'était pas là ? »
-        boolean visibleSansDerogation =
-            VisibilityPolicy.estVisible(Membre.bits(membre), classe.strategy(), false, false);
+        //
+        // Elle n'a de réponse que si la classe déclare sa stratégie. Quand elle s'en remet au
+        // fichier de règles, que javac ne lit pas, les deux avertissements qui en dépendent se
+        // taisent — ceux qui portent sur les associations, eux, restent dus : ils ne consultent
+        // aucune stratégie.
+        boolean strategieConnue = strategie.connue(classe);
+        boolean visibleSansDerogation = strategieConnue
+            && VisibilityPolicy.estVisible(Membre.bits(membre), strategie.effective(classe),
+                false, false);
 
         if (inclusion) {
             if (trait) {
@@ -95,9 +104,10 @@ final class VerificateurMembre {
             // le filtre anti-bruit — un getter —, auquel cas @UMLInclude sert bel et bien. Ce
             // filtre travaille sur des Method, que le processeur n'a pas ; plutôt que de
             // réécrire sa règle, on se tait sur les méthodes.
-            if (Membre.estAttribut(membre) && visibleSansDerogation) {
+            if (strategieConnue && Membre.estAttribut(membre) && visibleSansDerogation) {
                 rapporteur.avertissement(Membre.emplacement(membre) + ": @UMLInclude has no "
-                    + "effect, the field is already shown by strategy = " + classe.strategy()
+                    + "effect, the field is already shown by strategy = "
+                    + strategie.effective(classe)
                     + " on the declaring class. Remove it, or narrow the strategy.",
                     membre, presente);
             }
@@ -122,9 +132,10 @@ final class VerificateurMembre {
                 + "@UMLAssociation instead if that is what you meant.", membre, presente);
             return;
         }
-        if (!visibleSansDerogation) {
+        if (strategieConnue && !visibleSansDerogation) {
             rapporteur.avertissement(Membre.emplacement(membre) + ": @UMLExclude has no effect, "
-                + "strategy = " + classe.strategy() + " on the declaring class already hides "
+                + "strategy = " + strategie.effective(classe)
+                + " on the declaring class already hides "
                 + "this member.", membre, presente);
         }
     }

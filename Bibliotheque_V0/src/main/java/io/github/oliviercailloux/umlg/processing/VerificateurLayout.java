@@ -1,7 +1,6 @@
 package io.github.oliviercailloux.umlg.processing;
 
 import io.github.oliviercailloux.umlg.annotation.UMLClass;
-import io.github.oliviercailloux.umlg.annotation.UMLDirection;
 import io.github.oliviercailloux.umlg.annotation.UMLLayout;
 import io.github.oliviercailloux.umlg.annotation.UMLLayouts;
 import java.util.HashSet;
@@ -59,23 +58,7 @@ final class VerificateurLayout {
                 continue;
             }
 
-            signalerPlacementSansCote(classe, annotation, contexte);
         }
     }
 
-    // Un placement sans direction pose bien un lien invisible, mais ne dit pas de quel côté :
-    // il rapproche les deux boîtes, et laisse le moteur décider du reste.
-    //
-    // Ce n'est pas une faute — c'est même parfois ce qu'on veut —, mais l'annotation est écrite
-    // pour corriger un placement, et celle-ci ne corrige presque rien. Le dire coûte une ligne ;
-    // le taire laisse chercher pourquoi le dessin n'a pas bougé.
-    private void signalerPlacementSansCote(TypeElement classe, AnnotationMirror annotation,
-        String contexte) {
-        if (!UMLDirection.NONE.name().equals(rapporteur.texte(annotation, "direction"))) {
-            return;
-        }
-        rapporteur.avertissement(contexte + ": direction = NONE only pulls the two boxes "
-            + "together, without saying on which side. Set UP, DOWN, LEFT or RIGHT to place the "
-            + "target where you want it.", classe, annotation);
-    }
 }

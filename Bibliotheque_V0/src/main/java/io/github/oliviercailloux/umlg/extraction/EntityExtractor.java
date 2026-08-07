@@ -55,7 +55,10 @@ public final class EntityExtractor {
         String finalName = annotation.name().isEmpty() ? clazz.getSimpleName() : annotation.name();
         String finalStereotype = annotation.stereotype();
         String finalColor = annotation.color();
-        UMLVisibility finalStrategy = annotation.strategy();
+        // La seule résolution de UMLVisibility.PROJECT de toute la bibliothèque : la classe dit
+        // la sienne, ou s'en remet à celle du projet. Tout ce qui suit ne voit qu'une visibilité
+        // concrète, et n'a donc pas à connaître l'existence du renvoi.
+        UMLVisibility finalStrategy = regles.strategieDe(annotation.strategy());
 
         ClassHeaderValidator.validateName(finalName, clazz);
         ClassHeaderValidator.validateStereotype(finalStereotype, clazz);
@@ -79,7 +82,7 @@ public final class EntityExtractor {
             .methods(methods)
             .notes(NoteExtractor.extraire(clazz, fields, methods))
             .constraints(ConstraintExtractor.de(clazz, clazz.getName()))
-            .group(PackageExtractor.extraire(clazz));
+            .group(PackageExtractor.extraire(clazz, regles));
 
         for (RelationExtractor extracteur : EXTRACTEURS) {
             builder.relations(extracteur.extraire(clazz));

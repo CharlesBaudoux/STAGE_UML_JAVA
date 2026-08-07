@@ -149,8 +149,10 @@ class UmlgGroupesEtPlacementsTest {
     }
 
     @Test
-    void placementSansDirection_estSignale(@TempDir Path tmp) throws IOException {
-        // Il pose bien un lien, mais ne dit pas de quel côté : l'annotation ne fait presque rien.
+    void placementSansDirection_neSignaleRien(@TempDir Path tmp) throws IOException {
+        // Un lien invisible sans direction n'est pas sans effet : la mesure montre qu'il empile
+        // bien les deux boîtes l'une sous l'autre. C'est même la forme la plus courante sur les
+        // diagrammes tenus à la main, où elle sert à ordonner des boîtes que rien ne relie.
         Verdict verdict = compiler(tmp, """
             @UMLClass
             class Moteur {}
@@ -161,8 +163,7 @@ class UmlgGroupesEtPlacementsTest {
             """);
 
         assertTrue(verdict.reussie(), verdict.rapport());
-        assertTrue(verdict.avertissementContient("without saying on which side"),
-            verdict.rapport());
+        assertTrue(verdict.avertissements().isEmpty(), verdict.rapport());
     }
 
     @Test

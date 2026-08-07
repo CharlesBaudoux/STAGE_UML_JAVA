@@ -3,19 +3,19 @@ package io.github.oliviercailloux.umlg.extraction;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.github.oliviercailloux.umlg.annotation.UMLClass;
 import io.github.oliviercailloux.umlg.extraction.rules.Regles;
 import io.github.oliviercailloux.umlg.model.UmlDiagram;
 import io.github.oliviercailloux.umlg.model.UmlEntity;
 import io.github.oliviercailloux.umlg.model.UmlProject;
+import io.github.oliviercailloux.umlg.model.UmlView;
 import java.io.File;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Map;
-import java.util.TreeMap;
 import java.util.stream.Stream;
 
 // Parcourt un répertoire de classes compilées et en tire le projet UML.
@@ -32,15 +32,6 @@ public class ProjectScanner {
             "The source directory is not valid: %s", rootPath);
 
         ImmutableSet.Builder<UmlEntity> projectBuilder = ImmutableSet.builder();
-
-        // Les package-info porteurs de @UMLDiagram, par nom de paquetage.
-        //
-        // Une TreeMap, et non l'ordre du parcours : Files.walk ne promet pas le même ordre d'un
-        // système de fichiers à l'autre, et le message d'erreur qui nomme les paquetages
-        // concurrents doit se lire pareil partout. Ils sont accumulés puis départagés après le
-        // parcours, faute de quoi refuser le second reviendrait à refuser celui que le hasard
-        // aura vu en dernier.
-        Map<String, UmlDiagram> diagrammes = new TreeMap<>();
 
         // Les règles du projet, lues une fois pour toutes avant la première classe : elles valent
         // pour l'ensemble du diagramme, et les relire par classe n'aurait aucun sens. Absentes,
@@ -76,14 +67,6 @@ public class ProjectScanner {
                              if (clazz.isAnnotationPresent(UMLClass.class)) {
                                  projectBuilder.add(EntityExtractor.extract(clazz, regles));
                              }
-                             // Un package-info porteur de @UMLDiagram n'est pas une boîte : il
-                             // règle le dessin dans son ensemble. Les deux tests ne s'excluent
-                             // pas en théorie, mais @UMLClass ne vise pas un paquetage et
-                             // @UMLDiagram ne vise que lui : aucun fichier ne passe les deux.
-                             if (DiagramExtractor.porteLeDiagramme(clazz)) {
-                                 diagrammes.put(clazz.getPackageName(),
-                                     DiagramExtractor.extraire(clazz));
-                             }
                          } catch (ClassNotFoundException | LinkageError e) {
                              // Un .class illisible signale un répertoire incohérent (dépendance
                              // manquante, compilation partielle). On enveloppe en exception non
@@ -99,27 +82,34 @@ public class ProjectScanner {
 
         // Le constructeur d'UmlProject refuse un ensemble vide : c'est là que se signale un
         // répertoire sans aucune classe annotée.
-        return UmlProject.given(projectBuilder.build(), diagramme(diagrammes));
+        //
+        // L'ORDRE, QUI N'EST PAS UN DÉTAIL
+        //
+        // Les entités sont triées par nom complet avant d'entrer dans le projet. Files.walk rend
+        // les fichiers dans l'ordre du système de fichiers, qu'aucune norme ne définit : sans ce
+        // tri, deux machines analysant le même code produiraient des diagrammes différents.
+        //
+        // Ce n'est pas une gêne théorique. L'ordre des boîtes gouverne celui des déclarations
+        // dans le fichier engendré, donc la mise en page ; et une vue qui retient tout un
+        // paquetage y puise l'ordre de ses boîtes, donc les liens invisibles qui les enchaînent.
+        // C'est le même souci que celui des membres, et la même réponse : entre un ordre
+        // arbitraire mais stable et un ordre imprévisible, la stabilité l'emporte (voir
+        // MembresOrdonnes).
+        ImmutableSet<UmlEntity> entites = projectBuilder.build().stream()
+            .sorted(java.util.Comparator.comparing(UmlEntity::qualifiedName))
+            .collect(ImmutableSet.toImmutableSet());
+
+        // Les réglages du dessin d'ensemble viennent du fichier de règles, comme tout ce qui vaut
+        // pour le projet entier plutôt que pour un élément.
+        UmlDiagram diagramme = new UmlDiagram(regles.titre(), regles.direction(),
+            regles.masquerMembresVides());
+
+        // Les vues sont taillées ici, et non au rendu : elles dépendent des règles du projet, que
+        // le scan est seul à avoir lues.
+        ImmutableList<UmlView> vues =
+            ConstructeurDeVues.construire(entites, diagramme, regles);
+
+        return UmlProject.given(entites, diagramme, vues);
     }
 
-    // Les réglages d'ensemble du projet, à partir de ce que le parcours a trouvé.
-    //
-    // Aucun @UMLDiagram est le cas courant, et il ne se signale pas : l'annotation est faite pour
-    // n'être écrite que si l'on a quelque chose à en dire.
-    //
-    // Deux, en revanche, arrêtent la génération. Ils décrivent deux diagrammes concurrents — deux
-    // titres, deux sens de lecture — et rien ne dirait lequel fait foi ; en retenir un en silence
-    // reviendrait à choisir à la place de l'auteur, dans un projet qui se contredit. Le message
-    // nomme les paquetages fautifs, seule information dont l'utilisateur ait besoin pour trancher.
-    private static UmlDiagram diagramme(Map<String, UmlDiagram> diagrammes) {
-        checkArgument(diagrammes.size() <= 1,
-            "Several packages carry @UMLDiagram: %s. The annotation sets the diagram as a whole, "
-                + "so exactly one package may carry it. Keep the one that describes the diagram "
-                + "you want.",
-            String.join(", ", diagrammes.keySet()));
-
-        return diagrammes.isEmpty()
-            ? UmlDiagram.defaut()
-            : diagrammes.values().iterator().next();
-    }
 }

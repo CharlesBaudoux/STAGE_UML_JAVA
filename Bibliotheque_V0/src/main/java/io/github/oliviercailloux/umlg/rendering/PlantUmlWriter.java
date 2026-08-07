@@ -1,12 +1,22 @@
 package io.github.oliviercailloux.umlg.rendering;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.google.common.collect.ImmutableList;
+
 import io.github.oliviercailloux.umlg.UmlStyle;
+import io.github.oliviercailloux.umlg.extraction.rules.Regles;
+import io.github.oliviercailloux.umlg.model.UmlDiagram;
 import io.github.oliviercailloux.umlg.model.UmlEntity;
 import io.github.oliviercailloux.umlg.model.UmlProject;
+import io.github.oliviercailloux.umlg.model.UmlView;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Comparator;
 import java.util.Locale;
 import net.sourceforge.plantuml.BlockUml;
 import net.sourceforge.plantuml.FileFormat;
@@ -36,7 +46,123 @@ public class PlantUmlWriter {
     // la mémoire, et la retirer tout à fait remplacerait un dessin tronqué par une panne.
     private static final int COTE_MAXIMAL_PNG = 16384;
 
+    // Le sous-dossier où vont toutes les vues, sauf l'intégrale qui reste à la racine : c'est
+    // elle qu'on ouvre en premier, et la chercher parmi vingt fichiers serait une corvée.
+    private static final String DOSSIER_DES_VUES = "vues";
+
+    // Le nom de fichier de la vue intégrale, quel que soit son titre.
+    //
+    // Fixe, et c'est le sujet : elle porte souvent un titre déclaré — « Architecture du module
+    // Facturation » —, et nommer le fichier d'après lui ferait changer son chemin à chaque
+    // retouche du titre, cassant les liens de toute documentation qui la montre. C'est le
+    // diagramme qu'on ouvre en premier ; il doit se trouver toujours au même endroit.
+    private static final String NOM_DE_L_INTEGRALE = "projet";
+
     private PlantUmlWriter() {}
+
+    // Écrit tout ce que le projet décrit : la vue intégrale à la racine du dossier, les autres
+    // dans un sous-dossier.
+    //
+    //   diagrammes/
+    //   ├── projet.svg
+    //   └── vues/
+    //       ├── mapping.svg
+    //       └── mnemonics.svg
+    //
+    // Rend la liste des fichiers écrits, dans l'ordre où ils l'ont été.
+    public static ImmutableList<Path> writeViews(UmlProject project, Path dossier, String extension,
+        UmlStyle style, Regles.Sortie sortie) throws Exception {
+        checkNotNull(project);
+        checkNotNull(dossier);
+        checkNotNull(style);
+        checkNotNull(sortie);
+        checkArgument(supporte("x" + extension),
+            "The output format must be .png or .svg (got: %s)", extension);
+        checkArgument(!project.views().isEmpty(),
+            "This project describes no view; nothing would be written.");
+
+        Path racine = destination(dossier, sortie);
+        Path desVues = racine.resolve(DOSSIER_DES_VUES);
+        Files.createDirectories(desVues);
+
+        ImmutableList.Builder<Path> ecrits = ImmutableList.builder();
+        // La première vue est l'intégrale : ConstructeurDeVues la place toujours en tête.
+        boolean integrale = true;
+
+        for (UmlView vue : project.views()) {
+            Path fichier = integrale
+                ? racine.resolve(NOM_DE_L_INTEGRALE + extension)
+                : desVues.resolve(vue.nomDeFichier() + extension);
+
+            write(vue, project.diagram(), fichier.toString(), style);
+            ecrits.add(fichier);
+            integrale = false;
+        }
+        return ecrits.build();
+    }
+
+    // Le dossier où écrire cette génération.
+    //
+    // Sous REPLACE, c'est celui qu'on a demandé, vidé de ce qu'une génération précédente y aurait
+    // laissé : sans cela, une vue retirée du fichier de règles laisserait derrière elle une image
+    // que plus rien ne met à jour, et qui ment d'autant mieux qu'elle a l'air d'être à sa place.
+    //
+    // Sous KEEP, c'est un dossier voisin numéroté — « diagrammes-2 », « diagrammes-3 » —, ce qui
+    // laisse la génération précédente intacte et permet de comparer les deux.
+    private static Path destination(Path dossier, Regles.Sortie sortie) throws IOException {
+        if (sortie == Regles.Sortie.REPLACE) {
+            viderLesVues(dossier);
+            return dossier;
+        }
+        if (!Files.exists(dossier)) {
+            return dossier;
+        }
+        // Le premier numéro libre. La borne est un garde-fou : mille générations conservées
+        // signalent un dossier qu'on a oublié de nettoyer, pas un besoin réel.
+        for (int numero = 2; numero < 1000; numero++) {
+            Path candidat = dossier.resolveSibling(dossier.getFileName() + "-" + numero);
+            if (!Files.exists(candidat)) {
+                return candidat;
+            }
+        }
+        throw new IllegalStateException("Too many kept generations next to " + dossier
+            + ". Remove the old ones, or switch to \"output replace\".");
+    }
+
+    // Efface les diagrammes de la génération précédente, et eux seuls.
+    //
+    // Seuls les fichiers que nous écrivons sont retirés — ceux qui portent nos extensions, dans
+    // notre sous-dossier et à la racine du dossier de sortie. Un dossier de sortie qui
+    // contiendrait autre chose, par mégarde ou parce que l'utilisateur l'a voulu, n'est pas vidé
+    // de ce qui ne nous appartient pas.
+    private static void viderLesVues(Path dossier) throws IOException {
+        if (!Files.isDirectory(dossier)) {
+            return;
+        }
+        for (Path racine : new Path[] {dossier, dossier.resolve(DOSSIER_DES_VUES)}) {
+            if (!Files.isDirectory(racine)) {
+                continue;
+            }
+            try (java.util.stream.Stream<Path> fichiers = Files.list(racine)) {
+                for (Path fichier : fichiers.sorted(Comparator.naturalOrder()).toList()) {
+                    if (Files.isRegularFile(fichier)
+                        && supporte(fichier.getFileName().toString())) {
+                        Files.delete(fichier);
+                    }
+                }
+            }
+        }
+    }
+
+    // Une vue, dans son fichier. Les réglages d'ensemble du projet lui donnent le sort des
+    // compartiments vides ; son titre et son sens de lecture, eux, sont les siens.
+    private static void write(UmlView vue, UmlDiagram reglages, String fichier, UmlStyle style)
+        throws Exception {
+        UmlDiagram propres =
+            new UmlDiagram(vue.name(), vue.direction(), reglages.hideEmptyMembers());
+
+        ecrire(new PlantUmlSyntaxBuilder(style, propres), vue.entities(), fichier);
+    }
 
     // Le format voulu se lit dans l'extension du nom de fichier. Cette méthode permet à l'appelant
     // (UMLGenerator) de refuser une extension inconnue avant d'avoir rien calculé.
@@ -71,8 +197,13 @@ public class PlantUmlWriter {
         // Deux sources gouvernent le fichier engendré, et elles ne viennent pas du même endroit :
         // le style est choisi ici, à l'appel du générateur, tandis que les réglages d'ensemble
         // ont été lus dans le code annoté, sur le package-info du projet.
-        PlantUmlSyntaxBuilder syntax = new PlantUmlSyntaxBuilder(style, project.diagram());
+        ecrire(new PlantUmlSyntaxBuilder(style, project.diagram()), project.entities(),
+            outputFileName);
+    }
 
+    // Le tronc commun : des boîtes, un fichier.
+    private static void ecrire(PlantUmlSyntaxBuilder syntax, Iterable<UmlEntity> entities,
+        String outputFileName) throws Exception {
         syntax.startDocument();
         // Deux passes : une relation nomme ses extrémités par leur alias, qui n'existe qu'une
         // fois la classe déclarée. Une classe citée par une association déclarée trop tôt
@@ -80,13 +211,13 @@ public class PlantUmlWriter {
         //
         // Les boîtes sont déclarées d'un seul appel, et non une par une : c'est ce qui permet
         // d'ouvrir et de refermer au bon endroit les rectangles de @UMLPackage.
-        syntax.addClasses(project.entities());
-        for (UmlEntity entity : project.entities()) {
+        syntax.addClasses(entities);
+        for (UmlEntity entity : entities) {
             syntax.addRelations(entity);
         }
         // Les notes en dernier : elles désignent les boîtes, et les grouper en fin de fichier
         // garde le texte engendré lisible — les traits d'un côté, les commentaires de l'autre.
-        for (UmlEntity entity : project.entities()) {
+        for (UmlEntity entity : entities) {
             syntax.addNotes(entity);
         }
         syntax.endDocument();

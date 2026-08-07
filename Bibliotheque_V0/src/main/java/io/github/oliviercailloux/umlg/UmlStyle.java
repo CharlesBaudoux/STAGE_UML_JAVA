@@ -21,10 +21,11 @@ package io.github.oliviercailloux.umlg;
 //   - l'espacement, calculé sur la plus longue étiquette du diagramme (voir PlantUmlLayout),
 //     sans quoi les étiquettes de lien se chevauchent.
 //
-// Un troisième leur ressemble sans leur appartenir : « hide empty members », que les deux
-// apparences écrivent pareillement, mais que @UMLDiagram(hideEmptyMembers = false) peut lever.
-// Ce n'est donc pas un invariant du rendu, c'est un réglage du diagramme sur lequel le style
-// n'a pas d'avis — la nuance vit dans PlantUmlLayout, qui le pose hors du bloc commun.
+// Un troisième leur ressemble sans leur appartenir : le masquage des compartiments vides, que
+// les deux apparences écrivent pareillement, mais que la ligne « show empty members » du fichier
+// de règles peut lever. Ce n'est donc pas un invariant du rendu, c'est un réglage du diagramme
+// sur lequel le style n'a pas d'avis — la nuance vit dans PlantUmlLayout, qui le pose hors du
+// bloc commun.
 public enum UmlStyle {
 
     // Ce que PlantUML dessine quand on ne lui dit rien : boîtes grises, pastille « C » verte ou

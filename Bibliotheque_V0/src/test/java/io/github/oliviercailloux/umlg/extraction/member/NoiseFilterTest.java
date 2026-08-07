@@ -6,7 +6,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import io.github.oliviercailloux.umlg.annotation.UMLClass;
 import io.github.oliviercailloux.umlg.annotation.UMLInclude;
 import io.github.oliviercailloux.umlg.annotation.UMLVisibility;
+import com.google.common.collect.ImmutableList;
 import io.github.oliviercailloux.umlg.extraction.EntityExtractor;
+import io.github.oliviercailloux.umlg.extraction.rules.Regles;
 import io.github.oliviercailloux.umlg.model.UmlEntity;
 import io.github.oliviercailloux.umlg.model.UmlMethod;
 import io.github.oliviercailloux.umlg.model.UmlParameter;
@@ -21,6 +23,21 @@ import org.junit.jupiter.api.Test;
 // méthode manque au diagramme sans que rien ne le signale. D'où les cobayes aux noms trompeurs
 // (setup, issue, getaway) et aux signatures presque conformes.
 class NoiseFilterTest {
+
+    // Les quatre familles, demandées explicitement : rien n'est plus masqué d'office.
+    //
+    // Chaque test de ce fichier les active, parce qu'il éprouve la reconnaissance — « ceci est un
+    // getter » — et non la décision de les masquer, qui appartient désormais au projet. Ce que
+    // devient une classe dont le projet ne demande rien est éprouvé à part, par ReglesBruitTest.
+    private static final Regles REGLES = Regles.lues(ImmutableList.of(
+        "hide accessors",
+        "hide object-methods",
+        "hide record-accessors",
+        "hide enum-methods"), "les règles du test");
+
+    private static UmlEntity extraire(Class<?> cobaye) {
+        return EntityExtractor.extract(cobaye, REGLES);
+    }
 
     private static List<String> nomsDesMethodes(UmlEntity entity) {
         return entity.methods().stream().map(UmlMethod::name).toList();
@@ -56,7 +73,7 @@ class NoiseFilterTest {
     void strategiePrivate_filtreQuandMemeLeBruitDesMethodes() {
         // Le filtre anti-bruit n'est pas une question de visibilité : il s'applique même quand
         // la stratégie la plus permissive autoriserait la méthode.
-        UmlEntity entity = EntityExtractor.extract(AccesseursSousStrategiePrivate.class);
+        UmlEntity entity = extraire(AccesseursSousStrategiePrivate.class);
 
         assertTrue(methode(entity, "getChampPrive").isEmpty(),
             "Les getters sont du bruit, même en PRIVATE.");
@@ -89,7 +106,7 @@ class NoiseFilterTest {
     void vraisAccesseursJavaBean_restentDuBruit() {
         // Le pendant du test sur les préfixes trompeurs : l'assouplissement ne doit pas laisser
         // passer les accesseurs authentiques.
-        UmlEntity entity = EntityExtractor.extract(AccesseursConformes.class);
+        UmlEntity entity = extraire(AccesseursConformes.class);
 
         assertEquals(List.of("calculer"), nomsDesMethodes(entity),
             "getNom/setNom/isActif sont de vrais accesseurs : " + entity.methods());
@@ -114,7 +131,7 @@ class NoiseFilterTest {
         // métier, mais « setup » commence par set, « issue »/« isoler » par is, « getaway »
         // par get. La convention JavaBean exige une majuscule après le préfixe, ce qui les
         // sauve toutes sans aucune annotation.
-        UmlEntity entity = EntityExtractor.extract(PrefixesTrompeurs.class);
+        UmlEntity entity = extraire(PrefixesTrompeurs.class);
 
         List<String> visibles = nomsDesMethodes(entity);
 
@@ -139,7 +156,7 @@ class NoiseFilterTest {
     void methodesRessemblantAUnAccesseurMaisDeMauvaiseSignature_restentVisibles() {
         // La convention JavaBean porte aussi sur l'arité et le type de retour, pas seulement
         // sur le nom : ces trois-là ont le bon préfixe et la majuscule, mais pas la forme.
-        UmlEntity entity = EntityExtractor.extract(FaussesSignatures.class);
+        UmlEntity entity = extraire(FaussesSignatures.class);
 
         List<String> visibles = nomsDesMethodes(entity);
 
@@ -170,7 +187,7 @@ class NoiseFilterTest {
         // JavaBean (rien à accéder n'est nommé). Sur un Supplier, get() est même L'opération
         // métier de la classe. Elles restent donc affichées ; @UMLExclude est là pour ceux
         // qui pensent autrement.
-        UmlEntity entity = EntityExtractor.extract(PrefixesNus.class);
+        UmlEntity entity = extraire(PrefixesNus.class);
 
         List<String> visibles = nomsDesMethodes(entity);
 
@@ -190,7 +207,7 @@ class NoiseFilterTest {
     void accesseurBooleenRenvoyantLeWrapper_estAussiDuBruit() {
         // isActif() peut renvoyer Boolean plutôt que boolean (champ nullable) : c'est le même
         // accesseur.
-        UmlEntity entity = EntityExtractor.extract(AccesseurWrapper.class);
+        UmlEntity entity = extraire(AccesseurWrapper.class);
 
         assertTrue(methode(entity, "isActif").isEmpty(), entity.methods().toString());
         assertEquals(List.of("agir"), nomsDesMethodes(entity));
@@ -220,7 +237,7 @@ class NoiseFilterTest {
 
     @Test
     void methodesHeriteesDObject_sontDuBruit() {
-        UmlEntity entity = EntityExtractor.extract(BruitObject.class);
+        UmlEntity entity = extraire(BruitObject.class);
 
         assertEquals(List.of("agir"), nomsDesMethodes(entity),
             "equals/hashCode/toString redéfinis restent du bruit : " + entity.methods());
@@ -251,7 +268,7 @@ class NoiseFilterTest {
     void surchargesDesMethodesDObject_restentDuMetier() {
         // Seules les signatures exactes d'Object sont du bruit : equals(Client) est une
         // méthode métier que le développeur a écrite délibérément.
-        UmlEntity entity = EntityExtractor.extract(SurchargeObject.class);
+        UmlEntity entity = extraire(SurchargeObject.class);
 
         List<String> visibles = nomsDesMethodes(entity);
 
@@ -280,7 +297,7 @@ class NoiseFilterTest {
         // La spec range les constructeurs dans le bruit. Aucun code ne les filtre pourtant :
         // getDeclaredMethods() ne les rend tout simplement pas (ils relèvent de
         // getDeclaredConstructors). Le test fige ce résultat, quelle qu'en soit la raison.
-        UmlEntity entity = EntityExtractor.extract(AvecConstructeurs.class);
+        UmlEntity entity = extraire(AvecConstructeurs.class);
 
         assertTrue(methodes(entity, "AvecConstructeurs").isEmpty());
         assertTrue(methodes(entity, "<init>").isEmpty());
@@ -301,7 +318,7 @@ class NoiseFilterTest {
         // Les accesseurs d'un record s'appellent latitude()/longitude() : aucun préfixe, donc
         // invisibles pour un filtre basé sur get/set/is, alors qu'ils jouent exactement le
         // rôle d'un getter. Ils sont reconnus via getRecordComponents().
-        UmlEntity entity = EntityExtractor.extract(Coordonnees.class);
+        UmlEntity entity = extraire(Coordonnees.class);
 
         assertTrue(methode(entity, "latitude").isEmpty(),
             "L'accesseur canonique d'un record est du bruit : " + entity.methods());
@@ -322,7 +339,7 @@ class NoiseFilterTest {
         // valeur() est l'accesseur canonique ; valeur(int) est une surcharge métier qui porte
         // le même nom. Seule la signature exacte du composant (0 paramètre, type identique)
         // est du bruit.
-        UmlEntity entity = EntityExtractor.extract(RecordAvecSurcharge.class);
+        UmlEntity entity = extraire(RecordAvecSurcharge.class);
 
         List<UmlMethod> valeur = methodes(entity, "valeur");
 
@@ -345,7 +362,7 @@ class NoiseFilterTest {
     void enum_filtreValuesEtValueOfGenereesParJavac() {
         // javac ajoute values() et valueOf(String) à toute enum. Elles ne sont pas marquées
         // synthétiques : isSynthetic() ne les attrape pas, et un filtre par préfixe non plus.
-        UmlEntity entity = EntityExtractor.extract(Statut.class);
+        UmlEntity entity = extraire(Statut.class);
 
         assertTrue(methode(entity, "values").isEmpty(),
             "values() est générée par le compilateur : " + entity.methods());
@@ -371,7 +388,7 @@ class NoiseFilterTest {
         // Ancien bug : le filtre anti-bruit s'appliquait avant la vérification de @UMLInclude,
         // rendant impossible de forcer l'affichage d'un getter comme documenté dans
         // annotation.tex.
-        UmlEntity entity = EntityExtractor.extract(IncludeSurGetter.class);
+        UmlEntity entity = extraire(IncludeSurGetter.class);
 
         assertTrue(methode(entity, "getSecretCritique").isPresent(),
             "@UMLInclude doit pouvoir forcer l'affichage d'un getter normalement filtré comme "
@@ -389,7 +406,7 @@ class NoiseFilterTest {
     void umlInclude_recupereUneMethodeMetierVictimeDuFiltre() {
         // Corollaire : la porte de sortie documentée par la spec, pour les faux positifs que
         // la convention JavaBean ne suffit pas à écarter.
-        UmlEntity entity = EntityExtractor.extract(SetupRecupere.class);
+        UmlEntity entity = extraire(SetupRecupere.class);
 
         assertTrue(nomsDesMethodes(entity).contains("setup"),
             "@UMLInclude doit rattraper un faux positif du filtre anti-bruit.");

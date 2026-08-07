@@ -10,7 +10,6 @@ import io.github.oliviercailloux.umlg.annotation.UMLConstraints;
 import io.github.oliviercailloux.umlg.annotation.UMLDependencies;
 import io.github.oliviercailloux.umlg.annotation.UMLDependency;
 import io.github.oliviercailloux.umlg.annotation.UMLDerived;
-import io.github.oliviercailloux.umlg.annotation.UMLDiagram;
 import io.github.oliviercailloux.umlg.annotation.UMLExclude;
 import io.github.oliviercailloux.umlg.annotation.UMLInclude;
 import io.github.oliviercailloux.umlg.annotation.UMLLayout;
@@ -19,6 +18,11 @@ import io.github.oliviercailloux.umlg.annotation.UMLMultiplicity;
 import io.github.oliviercailloux.umlg.annotation.UMLNote;
 import io.github.oliviercailloux.umlg.annotation.UMLNotes;
 import io.github.oliviercailloux.umlg.annotation.UMLPackage;
+import io.github.oliviercailloux.umlg.extraction.rules.Regles;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.lang.annotation.Annotation;
 import java.util.Set;
 import javax.annotation.processing.AbstractProcessor;
@@ -58,7 +62,6 @@ public final class UmlgProcessor extends AbstractProcessor {
         UMLNotes.class,
         UMLConstraint.class,
         UMLConstraints.class,
-        UMLDiagram.class,
         UMLPackage.class,
         UMLAssociationClass.class,
         UMLLayout.class,
@@ -71,6 +74,15 @@ public final class UmlgProcessor extends AbstractProcessor {
 
     private static final String AVERTISSEMENTS_MUETS = "none";
 
+    // L'option qui donne au processeur le chemin du fichier de règles :
+    // -Aumlg.rules=src/main/resources/umlg.rules, ou <compilerArgs> dans le pom.
+    //
+    // Elle existe parce que javac ne peut pas le trouver seul : le fichier vit à la racine du
+    // répertoire des classes compilées, et rien, dans une compilation, ne dit ce que la
+    // construction fera du résultat. Sans elle, le processeur se tait sur tout ce qui dépend de
+    // la stratégie du projet (voir Strategie).
+    private static final String OPTION_REGLES = "umlg.rules";
+
     private Rapporteur rapporteur;
     private VerificateurClasse classes;
     private VerificateurAssociation associations;
@@ -80,7 +92,6 @@ public final class UmlgProcessor extends AbstractProcessor {
     private VerificateurMultiplicite multiplicites;
     private VerificateurNote notes;
     private VerificateurContrainte contraintes;
-    private VerificateurDiagramme diagrammes;
     private VerificateurPackage groupes;
     private VerificateurClasseDAssociation classesDAssociation;
     private VerificateurLayout placements;
@@ -94,6 +105,9 @@ public final class UmlgProcessor extends AbstractProcessor {
 
         rapporteur = new Rapporteur(environnement.getMessager(), environnement.getElementUtils(),
             avertir);
+
+        Strategie strategie = new Strategie(
+            lireRegles(environnement.getOptions().get(OPTION_REGLES)));
         Cible cible = new Cible(rapporteur, environnement.getTypeUtils());
         TypeAttribut typeAttribut = new TypeAttribut(environnement.getTypeUtils(),
             environnement.getElementUtils());
@@ -101,12 +115,11 @@ public final class UmlgProcessor extends AbstractProcessor {
         classes = new VerificateurClasse(rapporteur);
         associations = new VerificateurAssociation(rapporteur, cible, typeAttribut);
         dependances = new VerificateurDependance(rapporteur, cible);
-        membres = new VerificateurMembre(rapporteur);
-        derives = new VerificateurDerive(rapporteur);
-        multiplicites = new VerificateurMultiplicite(rapporteur);
-        notes = new VerificateurNote(rapporteur);
-        contraintes = new VerificateurContrainte(rapporteur);
-        diagrammes = new VerificateurDiagramme(rapporteur);
+        membres = new VerificateurMembre(rapporteur, strategie);
+        derives = new VerificateurDerive(rapporteur, strategie);
+        multiplicites = new VerificateurMultiplicite(rapporteur, strategie);
+        notes = new VerificateurNote(rapporteur, strategie);
+        contraintes = new VerificateurContrainte(rapporteur, strategie);
         groupes = new VerificateurPackage(rapporteur);
         classesDAssociation = new VerificateurClasseDAssociation(rapporteur, cible);
         placements = new VerificateurLayout(rapporteur, cible);
@@ -120,10 +133,47 @@ public final class UmlgProcessor extends AbstractProcessor {
             .collect(ImmutableSet.toImmutableSet());
     }
 
-    // Déclarer l'option évite l'avertissement de javac sur un -A qu'aucun processeur ne réclame.
+    // Déclarer les options évite l'avertissement de javac sur un -A qu'aucun processeur ne
+    // réclame.
     @Override
     public Set<String> getSupportedOptions() {
-        return ImmutableSet.of(OPTION_AVERTISSEMENTS);
+        return ImmutableSet.of(OPTION_AVERTISSEMENTS, OPTION_REGLES);
+    }
+
+    // Les règles désignées par l'option, ou null si elle n'a pas été donnée.
+    //
+    // Trois issues, et trois messages différents, parce que les trois situations n'ont pas la
+    // même gravité :
+    //   - option absente : le cas ordinaire, rien à signaler. Le processeur se taira sur ce qu'il
+    //     ne peut pas savoir, ce qui est son comportement normal ;
+    //   - fichier introuvable : l'utilisateur a nommé un fichier qu'il n'a pas écrit. Rien n'est
+    //     faux dans son code, mais il attend des vérifications qu'il n'aura pas — d'où un
+    //     avertissement, et non une erreur ;
+    //   - fichier fautif : c'est une erreur. Le même fichier arrêtera la génération pour la même
+    //     raison, et le dire ici le dit plus tôt, ce qui est tout l'intérêt du processeur.
+    private Regles lireRegles(String chemin) {
+        if (chemin == null || chemin.isBlank()) {
+            return null;
+        }
+        Path fichier = Paths.get(chemin);
+
+        if (!Files.isRegularFile(fichier)) {
+            rapporteur.avertissement("-A" + OPTION_REGLES + "=" + chemin + ": no such file. The "
+                + "checks that depend on the project strategy cannot conclude, and will stay "
+                + "silent.");
+            return null;
+        }
+        try {
+            return Regles.duFichier(fichier);
+        } catch (IllegalArgumentException e) {
+            rapporteur.erreur(chemin + " : " + e.getMessage());
+            return null;
+        } catch (IOException e) {
+            rapporteur.avertissement("-A" + OPTION_REGLES + "=" + chemin + ": cannot be read ("
+                + e.getMessage() + "). The checks that depend on the project strategy will stay "
+                + "silent.");
+            return null;
+        }
     }
 
     @Override
@@ -177,11 +227,6 @@ public final class UmlgProcessor extends AbstractProcessor {
             contraintes.verifier(porteur);
         }
 
-        // Les paquetages, seuls porteurs possibles de @UMLDiagram : l'annotation ne vise pas un
-        // élément du modèle mais le dessin dans son ensemble.
-        for (Element paquetage : porteurs(tour, UMLDiagram.class)) {
-            diagrammes.verifier(paquetage);
-        }
 
         // false : les annotations ne sont pas « consommées ». Elles restent visibles des autres
         // processeurs, ce qui est la moindre des politesses pour un processeur qui se contente

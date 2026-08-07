@@ -35,13 +35,13 @@ final class PlantUmlSyntaxBuilder {
     // L'apparence voulue. Elle traverse cette classe sans y servir directement : le bloc de
     // style est écrit par PlantUmlLayout, l'habillage des noms de liens par RelationRenderer.
     private final UmlStyle style;
-    // Les réglages d'ensemble, venus de @UMLDiagram : le titre, le sens de lecture, le sort des
-    // compartiments vides. Tous trois s'écrivent en tête du fichier, et nulle part ailleurs.
+    // Les réglages d'ensemble : le titre, le sens de lecture, le sort des compartiments vides.
+    // Tous trois s'écrivent en tête du fichier, et nulle part ailleurs.
     private final UmlDiagram diagramme;
     private final RelationRenderer liens;
 
-    // Sans réglages déclarés : ceux par défaut, c'est-à-dire ce que décrit un projet dont aucun
-    // paquetage ne porte @UMLDiagram.
+    // Sans réglages déclarés : ceux par défaut, c'est-à-dire ce que décrit un projet dont le
+    // fichier de règles ne dit rien du dessin.
     PlantUmlSyntaxBuilder(UmlStyle style) {
         this(style, UmlDiagram.defaut());
     }
@@ -71,7 +71,7 @@ final class PlantUmlSyntaxBuilder {
         builder.append("@enduml\n");
     }
 
-    // Ce que @UMLDiagram écrit en tête du fichier, hors du bloc de style.
+    // Ce que les réglages d'ensemble écrivent en tête du fichier, hors du bloc de style.
     //
     // Rien n'est écrit pour les valeurs par défaut : sans titre déclaré il n'y a pas de ligne
     // « title » — une ligne vide occuperait tout de même de la hauteur —, et TOP_TO_BOTTOM est

@@ -109,9 +109,9 @@ public final class PlantUmlAssert {
         return documentPour(style, UmlDiagram.defaut(), entities);
     }
 
-    // La même chose avec des réglages d'ensemble déclarés, pour les seuls tests qui parlent de
-    // @UMLDiagram. Les autres passent par les surcharges ci-dessus, qui décrivent un projet
-    // n'ayant rien déclaré.
+    // La même chose avec des réglages d'ensemble déclarés, pour les seuls tests qui parlent du
+    // titre, du sens de lecture ou des compartiments vides. Les autres passent par les surcharges
+    // ci-dessus, qui décrivent un projet n'ayant rien réglé.
     public static String documentPour(UmlDiagram diagramme, UmlEntity... entities) {
         return documentPour(UmlStyle.PLANTUML, diagramme, entities);
     }

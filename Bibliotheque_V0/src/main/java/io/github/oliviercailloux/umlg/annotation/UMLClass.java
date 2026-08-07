@@ -28,6 +28,12 @@ public @interface UMLClass {
     String stereotype() default "";
 
     // Quels attributs et méthodes entrent dans la boîte, par défaut.
-    // NONE : aucun ; seuls les membres explicitement marqués @UMLInclude apparaissent.
-    UMLVisibility strategy() default UMLVisibility.NONE;
+    //
+    // PROJECT — le défaut — veut dire « celle que le projet a choisie », c'est-à-dire la ligne
+    // « strategy » du fichier umlg.rules, ou NONE si le projet n'en déclare aucune. Écrire une
+    // valeur ici ne vaut donc que pour cette classe, et l'emporte sur le réglage du projet.
+    //
+    // NONE : aucun membre ; seuls ceux explicitement marqués @UMLInclude apparaissent. C'est ce
+    // qu'on écrit pour ramener une classe à sa boîte nue dans un projet qui montre le reste.
+    UMLVisibility strategy() default UMLVisibility.PROJECT;
 }

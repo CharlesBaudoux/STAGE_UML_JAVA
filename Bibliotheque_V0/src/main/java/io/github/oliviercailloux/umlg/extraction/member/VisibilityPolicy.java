@@ -34,6 +34,13 @@ public final class VisibilityPolicy {
         return switch (strategy) {
             case NONE -> false;
 
+            // PROJECT n'est pas une visibilité mais un renvoi vers la ligne « strategy » du
+            // fichier de règles, et EntityExtractor l'a résolu bien avant d'arriver ici. S'il
+            // parvient tout de même jusqu'à cette méthode — un appelant qui construit le modèle
+            // par programme, un test —, le traiter comme NONE est le repli le plus sûr : une
+            // boîte vide se remarque, un membre affiché par erreur non.
+            case PROJECT -> false;
+
             case PRIVATE -> true;
             case PUBLIC -> Modifier.isPublic(modifiers);
             case PROTECTED -> Modifier.isPublic(modifiers) || Modifier.isProtected(modifiers);

@@ -7,7 +7,22 @@ package io.github.oliviercailloux.umlg.annotation;
 // l'emportent toujours sur la stratégie, membre par membre.
 public enum UMLVisibility {
 
-    // Rien par défaut : la boîte reste vide, sauf @UMLInclude explicites.
+    // « Celle que le projet a choisie » : la stratégie déclarée par la ligne « strategy » du
+    // fichier umlg.rules, ou NONE si le projet n'en déclare aucune.
+    //
+    // C'est le défaut de @UMLClass, et cette valeur n'existe que pour lui. Sans elle, une classe
+    // qui ne dit rien serait indiscernable d'une classe qui demande NONE : une annotation Java ne
+    // permet pas de savoir, par réflexion, si une valeur a été écrite ou laissée à son défaut.
+    // Or la différence compte, et c'est tout l'intérêt du réglage de projet — écrire
+    // « strategy public » une fois, puis revenir à la boîte vide sur la classe où on la veut.
+    //
+    // Elle est résolue par EntityExtractor, qui la remplace par la stratégie du projet avant que
+    // quiconque ait à décider quoi que ce soit : le reste de la bibliothèque ne voit jamais que
+    // des visibilités concrètes.
+    PROJECT,
+
+    // Rien : la boîte reste vide, sauf @UMLInclude explicites. Écrite sur une classe, elle
+    // l'emporte sur ce que le projet a choisi.
     NONE,
 
     // Seulement public.

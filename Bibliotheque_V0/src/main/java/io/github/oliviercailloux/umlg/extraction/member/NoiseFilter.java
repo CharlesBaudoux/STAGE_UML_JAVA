@@ -1,31 +1,60 @@
 package io.github.oliviercailloux.umlg.extraction.member;
 
+import io.github.oliviercailloux.umlg.extraction.rules.Bruit;
+import io.github.oliviercailloux.umlg.extraction.rules.Regles;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
 
-// Reconnaît les méthodes qui n'apprennent rien au lecteur du diagramme.
+// Reconnaît les membres que le projet a déclaré sans intérêt pour son diagramme.
 //
-// Un getSolde() ne dit rien de plus que l'attribut solde ; un equals() est attendu partout. Les
-// afficher noierait les quelques méthodes qui, elles, portent le métier. Ce filtre est un
-// jugement de valeur assumé, et il se contourne membre par membre avec @UMLInclude.
+// RIEN N'EST MASQUÉ SANS DEMANDE
+//
+// La bibliothèque écartait autrefois d'office les accesseurs, les méthodes d'Object et quelques
+// autres familles, au motif qu'elles n'apprennent rien. Le motif est bon dans beaucoup de
+// projets, et mauvais dans d'autres : sur un code immuable à la manière de Guava, il n'y a pas un
+// getter à écarter, et ce qui encombre la boîte est ailleurs — des surcharges, des méthodes de
+// fabrique. Un filtre qui décide seul retire alors du diagramme des membres que personne n'avait
+// demandé à cacher, sans que rien ne le signale.
+//
+// Chaque famille se déclare donc dans le fichier de règles, et rien ne s'applique tant qu'elle
+// n'y est pas écrite. Ce qui reste ici est la reconnaissance : savoir dire ce qu'EST un getter,
+// et non décider s'il faut le montrer.
 //
 // Chaque test vérifie la forme complète (nom, nombre de paramètres, type de retour) et pas
-// seulement le nom : une méthode métier appelée getPrix(Client) n'est pas un getter, et doit
-// donc rester visible.
+// seulement le nom : une méthode métier appelée getPrix(Client) n'est pas un getter, et ne doit
+// donc pas disparaître avec eux.
 final class NoiseFilter {
 
     private NoiseFilter() {}
 
-    // Point d'entrée : le OU des six familles reconnues. L'évaluation en court-circuit s'arrête
-    // au premier test satisfait.
-    static boolean estDuBruit(Method method, Class<?> clazz) {
-        return isObjectMethod(method)
-            || isGetter(method)
-            || isBooleanGetter(method)
-            || isSetter(method)
-            || isRecordAccessor(method, clazz)
-            || isEnumGenerated(method, clazz);
+    // Cette méthode est-elle du bruit aux yeux de ce projet ?
+    //
+    // Chaque famille n'est consultée que si le fichier de règles la nomme ; les motifs de noms
+    // s'y ajoutent, pour ce qu'aucune famille ne sait reconnaître — les « with… » d'un builder,
+    // les « visit… » d'un visiteur.
+    static boolean estDuBruit(Method method, Class<?> clazz, Regles regles) {
+        return (regles.masque(Bruit.OBJECT_METHODS) && isObjectMethod(method))
+            || (regles.masque(Bruit.ACCESSORS) && isAccessor(method))
+            || (regles.masque(Bruit.RECORD_ACCESSORS) && isRecordAccessor(method, clazz))
+            || (regles.masque(Bruit.ENUM_METHODS) && isEnumGenerated(method, clazz))
+            || regles.methodeMasquee(method.getName());
+    }
+
+    // Cet attribut est-il du bruit ?
+    //
+    // Les attributs n'ont pas de famille : aucune forme ne les trahit comme la convention
+    // JavaBean trahit un getter. Un logger ne se reconnaît qu'à son nom ou à son type, tous deux
+    // affaires de convention locale — d'où les seuls motifs, écrits par qui connaît le projet.
+    static boolean estDuBruit(Field field, Regles regles) {
+        return regles.champMasque(field.getName());
+    }
+
+    // Les trois formes de la convention JavaBean, réunies : c'est ainsi que le fichier les
+    // désigne, d'un seul mot.
+    private static boolean isAccessor(Method method) {
+        return isGetter(method) || isBooleanGetter(method) || isSetter(method);
     }
 
     // Convention JavaBean : le préfixe doit être suivi d'au moins un caractère, en majuscule.

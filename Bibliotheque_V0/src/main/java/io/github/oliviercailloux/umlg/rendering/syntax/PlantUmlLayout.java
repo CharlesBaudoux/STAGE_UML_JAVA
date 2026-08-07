@@ -41,9 +41,9 @@ public final class PlantUmlLayout {
     // Le masquage des compartiments vides, posé par-dessus le bloc commun.
     //
     // Il ne vit pas dans COMMUN, et la nuance compte : il ne relève ni du goût — les deux
-    // apparences le veulent — ni d'un invariant, puisque @UMLDiagram(hideEmptyMembers = false)
-    // peut le lever. C'est un réglage du diagramme, décidé dans le code annoté et non par le
-    // style, qui n'a donc aucun avis là-dessus.
+    // apparences le veulent — ni d'un invariant, puisque la ligne « show empty members » du
+    // fichier de règles peut le lever. C'est un réglage du diagramme, décidé par le projet et non
+    // par le style, qui n'a donc aucun avis là-dessus.
     //
     // Il est actif par défaut : la stratégie par défaut de @UMLClass ne montre aucun membre, si
     // bien que sans lui le cas nominal dessinerait des rectangles vides sous chaque nom.
@@ -107,8 +107,8 @@ public final class PlantUmlLayout {
     // L'espacement est commun aux deux apparences : il ne relève pas du goût mais de la place
     // qu'une étiquette occupe, et cette place est la même quelle que soit la couleur des boîtes.
     //
-    // masquerMembresVides vient de @UMLDiagram, et traverse donc cette classe sans appartenir au
-    // style : c'est le seul réglage de ce bloc que l'utilisateur décide dans son code annoté.
+    // masquerMembresVides vient du fichier de règles, et traverse donc cette classe sans
+    // appartenir au style : c'est le seul réglage de ce bloc que l'utilisateur décide lui-même.
     public static String bloc(UmlStyle style, int largeurEtiquetteMax,
         boolean masquerMembresVides) {
         checkNotNull(style);

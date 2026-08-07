@@ -36,6 +36,20 @@ final class Rapporteur {
         this.avertir = avertir;
     }
 
+    // Message rattaché à aucun élément du code, parce qu'il n'en vise aucun : une option de
+    // compilation mal renseignée, un fichier de règles introuvable. javac l'affiche seul, sans
+    // fichier ni numéro de ligne — c'est exact, la faute n'est pas dans le code source.
+    void erreur(String message) {
+        messager.printMessage(Diagnostic.Kind.ERROR, message);
+    }
+
+    void avertissement(String message) {
+        if (!avertir) {
+            return;
+        }
+        messager.printMessage(Diagnostic.Kind.WARNING, message);
+    }
+
     // Erreur positionnée sur une valeur précise : « target = Commande.class » sera souligné.
     void erreur(String message, Element element, AnnotationMirror annotation,
         AnnotationValue valeur) {

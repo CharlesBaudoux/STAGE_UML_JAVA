@@ -4,7 +4,9 @@ package io.github.oliviercailloux.umlg.annotation;
 //
 // À ne pas confondre avec UMLDirection, qui place une boîte par rapport à une autre : celui-ci
 // ne vise aucun élément en particulier, il dit dans quelle direction le moteur de rendu déplie
-// l'ensemble du dessin. C'est pourquoi il ne se déclare qu'une fois, sur @UMLDiagram.
+// l'ensemble du dessin. C'est pourquoi il ne se déclare pas sur un élément : la ligne
+// « direction » du fichier de règles le donne pour la vue intégrale, et chaque vue déclare le
+// sien.
 public enum UMLFlow {
 
     // Le défaut de PlantUML, et le nôtre : les héritages descendent, le diagramme s'allonge vers

@@ -19,9 +19,11 @@ import javax.lang.model.element.TypeElement;
 final class VerificateurMultiplicite {
 
     private final Rapporteur rapporteur;
+    private final Strategie strategie;
 
-    VerificateurMultiplicite(Rapporteur rapporteur) {
+    VerificateurMultiplicite(Rapporteur rapporteur, Strategie strategie) {
         this.rapporteur = rapporteur;
+        this.strategie = strategie;
     }
 
     void verifier(Element membre) {
@@ -88,7 +90,13 @@ final class VerificateurMultiplicite {
     // ne fait qu'en retirer davantage.
     private void signalerMembreInvisible(Element membre, UMLClass classe,
         AnnotationMirror annotation) {
-        boolean visible = VisibilityPolicy.estVisible(Membre.bits(membre), classe.strategy(),
+        // Sans les règles du projet, une stratégie laissée à PROJECT est hors de portée de
+        // javac : le contrôle se tait plutôt que de deviner. L'option -Aumlg.rules la lui donne.
+        if (!strategie.connue(classe)) {
+            return;
+        }
+        boolean visible = VisibilityPolicy.estVisible(Membre.bits(membre),
+            strategie.effective(classe),
             rapporteur.miroir(membre, UMLInclude.class) != null,
             rapporteur.miroir(membre, UMLExclude.class) != null);
 
@@ -96,7 +104,8 @@ final class VerificateurMultiplicite {
             return;
         }
         rapporteur.avertissement(Membre.emplacement(membre) + ": @UMLMultiplicity has no visible "
-            + "effect, this member is not shown on the diagram (strategy = " + classe.strategy()
+            + "effect, this member is not shown on the diagram (strategy = "
+            + strategie.effective(classe)
             + " on the declaring class). Add @UMLInclude if you want to see it, brackets "
             + "included.", membre, annotation);
     }

@@ -64,7 +64,7 @@ final class CompilationCobaye {
     // Plusieurs fichiers dans une seule tâche javac, et donc devant un seul processeur.
     //
     // La distinction compte pour les contrôles qui portent sur le projet et non sur un fichier —
-    // deux paquetages qui déclareraient chacun @UMLDiagram. Compilés l'un après l'autre, chaque
+    // deux classes qui se contrediraient à distance. Compilés l'un après l'autre, chaque
     // appel construit un processeur neuf, dont l'état est vierge : la contradiction ne peut alors
     // pas être vue, et le test mesurerait le harnais plutôt que la bibliothèque.
     //

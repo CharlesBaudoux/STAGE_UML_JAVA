@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.github.oliviercailloux.umlg.annotation.UMLVisibility;
 import java.util.ArrayList;
@@ -44,7 +45,7 @@ class UmlModelTest {
     void projetNull_estRefuse() {
         assertThrows(NullPointerException.class, () -> UmlProject.given(null));
         assertThrows(NullPointerException.class,
-            () -> new UmlProject(null, UmlDiagram.defaut()));
+            () -> new UmlProject(null, UmlDiagram.defaut(), ImmutableList.of()));
     }
 
     @Test
@@ -57,8 +58,8 @@ class UmlModelTest {
 
     @Test
     void projetSansDiagrammeDeclare_prendLesReglagesParDefaut() {
-        // La forme courte de given() est celle qu'emploie un projet sans @UMLDiagram, c'est-à-dire
-        // la grande majorité d'entre eux.
+        // La forme courte de given() est celle qu'emploie un projet qui ne règle rien du dessin
+        // d'ensemble, c'est-à-dire la grande majorité d'entre eux.
         assertEquals(UmlDiagram.defaut(), UmlProject.given(Set.of(entiteMinimale())).diagram());
     }
 

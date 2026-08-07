@@ -16,9 +16,11 @@ import javax.lang.model.element.TypeElement;
 final class VerificateurContrainte {
 
     private final Rapporteur rapporteur;
+    private final Strategie strategie;
 
-    VerificateurContrainte(Rapporteur rapporteur) {
+    VerificateurContrainte(Rapporteur rapporteur, Strategie strategie) {
         this.rapporteur = rapporteur;
+        this.strategie = strategie;
     }
 
     void verifier(Element porteur) {
@@ -85,7 +87,13 @@ final class VerificateurContrainte {
             return;
         }
 
-        boolean visible = VisibilityPolicy.estVisible(Membre.bits(attribut), classe.strategy(),
+        // Sans les règles du projet, une stratégie laissée à PROJECT est hors de portée de
+        // javac : le contrôle se tait plutôt que de deviner. L'option -Aumlg.rules la lui donne.
+        if (!strategie.connue(classe)) {
+            return;
+        }
+        boolean visible = VisibilityPolicy.estVisible(Membre.bits(attribut),
+            strategie.effective(classe),
             rapporteur.miroir(attribut, UMLInclude.class) != null,
             rapporteur.miroir(attribut, UMLExclude.class) != null);
 
@@ -93,7 +101,8 @@ final class VerificateurContrainte {
             return;
         }
         rapporteur.avertissement(contexte + ": this field is not shown on the diagram "
-            + "(strategy = " + classe.strategy() + " on the declaring class), so the constraint "
+            + "(strategy = "
+            + strategie.effective(classe) + " on the declaring class), so the constraint "
             + "will not be written anywhere. Add @UMLInclude, or move the constraint onto the "
             + "class.", attribut, contrainte);
     }

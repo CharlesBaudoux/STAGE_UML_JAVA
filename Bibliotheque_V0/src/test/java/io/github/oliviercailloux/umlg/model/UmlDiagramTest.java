@@ -52,7 +52,7 @@ class UmlDiagramTest {
 
     @Test
     void reglagesParDefaut_masquentLesMembresVides() {
-        // Le défaut décide du cas nominal, celui d'un projet sans @UMLDiagram : la stratégie par
+        // Le défaut décide du cas nominal, celui d'un projet qui ne règle rien : la stratégie par
         // défaut de @UMLClass ne montrant aucun membre, ne pas masquer dessinerait des
         // rectangles vides sous chaque nom.
         assertTrue(UmlDiagram.defaut().hideEmptyMembers());

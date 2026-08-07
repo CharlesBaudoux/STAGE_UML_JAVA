@@ -352,31 +352,8 @@ class ProjectScannerIntegrationTest {
             "Aucun « arg0 » ne doit atteindre le dessin : " + reporter.parameters());
     }
 
-    // --- Les réglages d'ensemble, lus sur un package-info ---
-
-    // Une classe annotée, pour que le projet ne soit pas vide : @UMLDiagram règle le dessin, il
-    // ne le peuple pas.
-    private static final String UNE_BOITE = """
-        package com.exemple;
-
-        import io.github.oliviercailloux.umlg.annotation.UMLClass;
-
-        @UMLClass
-        public class Facture {}
-        """;
-
-    // Un package-info.java : la déclaration de paquetage précède les imports, et l'annotation
-    // précède les deux. C'est la seule forme que Java accepte pour annoter un paquetage.
-    private static String packageInfo(String paquetage, String parametres) {
-        return "@UMLDiagram(" + parametres + ")\n"
-            + "package " + paquetage + ";\n\n"
-            + "import io.github.oliviercailloux.umlg.annotation.UMLDiagram;\n"
-            + "import io.github.oliviercailloux.umlg.annotation.UMLFlow;\n";
-    }
-
     @Test
-    void projetSansPackageInfo_prendLesReglagesParDefaut(@TempDir Path tmp) throws Exception {
-        // Le cas courant : personne n'a rien déclaré, et le diagramme se dessine comme toujours.
+    void sansFichierDeRegles_lesReglagesSontCeuxParDefaut(@TempDir Path tmp) throws Exception {
         Path sortie = tmp.resolve("classes");
         compiler(tmp.resolve("src"), sortie, "com/exemple/Facture.java", UNE_BOITE);
 
@@ -384,16 +361,13 @@ class ProjectScannerIntegrationTest {
     }
 
     @Test
-    void packageInfoAnnote_estLuParLeScan(@TempDir Path tmp) throws Exception {
-        // Le point délicat : le scan doit charger « com.exemple.package-info », un nom qu'aucun
-        // identifiant Java ne peut porter, et y trouver l'annotation. C'est le seul test qui
-        // l'éprouve sur un vrai .class engendré par javac.
-        Path sources = tmp.resolve("src");
+    void titreEtSensDeLecture_sontLusDansLeFichierDeRegles(@TempDir Path tmp) throws Exception {
         Path sortie = tmp.resolve("classes");
-        compiler(sources, sortie, "com/exemple/Facture.java", UNE_BOITE);
-        compiler(sources, sortie, "com/exemple/package-info.java", packageInfo("com.exemple",
-            "title = \"Architecture du module Facturation\", "
-                + "direction = UMLFlow.LEFT_TO_RIGHT, hideEmptyMembers = false"));
+        compiler(tmp.resolve("src"), sortie, "com/exemple/Facture.java", UNE_BOITE);
+        Files.writeString(sortie.resolve("umlg.rules"),
+            "title Architecture du module Facturation\ndirection left-to-right\n"
+                + "show empty members\n",
+            StandardCharsets.UTF_8);
 
         UmlDiagram diagramme = ProjectScanner.scan(sortie).diagram();
 
@@ -403,60 +377,54 @@ class ProjectScannerIntegrationTest {
     }
 
     @Test
-    void packageInfoNonAnnote_nEmpecheRien(@TempDir Path tmp) throws Exception {
-        // Un package-info sans notre annotation est un fichier ordinaire du projet analysé : il
-        // ne doit ni être lu comme une boîte, ni faire échouer le scan.
-        Path sources = tmp.resolve("src");
+    void fichierDeReglesFautif_arreteLeScan(@TempDir Path tmp) throws Exception {
         Path sortie = tmp.resolve("classes");
-        compiler(sources, sortie, "com/exemple/Facture.java", UNE_BOITE);
-        compiler(sources, sortie, "com/exemple/package-info.java", """
-            @Deprecated
-            package com.exemple;
-            """);
-
-        UmlProject projet = ProjectScanner.scan(sortie);
-
-        assertEquals(Set.of("Facture"), noms(projet));
-        assertEquals(UmlDiagram.defaut(), projet.diagram());
-    }
-
-    @Test
-    void deuxPaquetagesAnnotes_arretentLeScan(@TempDir Path tmp) throws Exception {
-        // Deux @UMLDiagram décrivent deux diagrammes concurrents. En retenir un en silence
-        // reviendrait à livrer celui que l'ordre de parcours aura désigné.
-        Path sources = tmp.resolve("src");
-        Path sortie = tmp.resolve("classes");
-        compiler(sources, sortie, "com/exemple/Facture.java", UNE_BOITE);
-        compiler(sources, sortie, "com/exemple/package-info.java",
-            packageInfo("com.exemple", "title = \"Premier\""));
-        compiler(sources, sortie, "com/autre/package-info.java",
-            packageInfo("com.autre", "title = \"Second\""));
+        compiler(tmp.resolve("src"), sortie, "com/exemple/Facture.java", UNE_BOITE);
+        Files.writeString(sortie.resolve("umlg.rules"), "title\n", StandardCharsets.UTF_8);
 
         IllegalArgumentException e =
             assertThrows(IllegalArgumentException.class, () -> ProjectScanner.scan(sortie));
 
-        // Le message nomme les deux paquetages, seule information qui permette de trancher, et
-        // les nomme dans un ordre qui ne dépend pas du système de fichiers.
-        assertTrue(e.getMessage().contains("com.autre"), e.getMessage());
-        assertTrue(e.getMessage().contains("com.exemple"), e.getMessage());
-        assertTrue(e.getMessage().indexOf("com.autre") < e.getMessage().indexOf("com.exemple"),
-            "Les paquetages doivent être nommés dans un ordre stable : " + e.getMessage());
+        assertTrue(e.getMessage().contains("title is missing"), e.getMessage());
     }
 
     @Test
-    void titreBlanc_arreteLeScan(@TempDir Path tmp) throws Exception {
-        // La seconde ligne de défense : ces cobayes sont compilés avec -proc:none, donc sans le
-        // processeur. C'est l'extraction qui doit refuser, comme pour @UMLClass.
+    void lOrdreDesBoites_neDependPasDuSystemeDeFichiers(@TempDir Path tmp) throws Exception {
+        // Files.walk rend les fichiers dans l'ordre du système de fichiers, qu'aucune norme ne
+        // définit : sans tri, deux machines produiraient deux diagrammes différents. L'ordre des
+        // boîtes gouverne la mise en page, et les vues y puisent l'ordre de leurs liens
+        // invisibles — ce n'est donc pas une gêne théorique.
         Path sources = tmp.resolve("src");
         Path sortie = tmp.resolve("classes");
-        compiler(sources, sortie, "com/exemple/Facture.java", UNE_BOITE);
-        compiler(sources, sortie, "com/exemple/package-info.java",
-            packageInfo("com.exemple", "title = \"   \""));
+        for (String nom : List.of("Zebre", "Alpha", "Milieu")) {
+            compiler(sources, sortie, "com/exemple/" + nom + ".java", """
+                package com.exemple;
 
-        IllegalArgumentException e =
-            assertThrows(IllegalArgumentException.class, () -> ProjectScanner.scan(sortie));
+                import io.github.oliviercailloux.umlg.annotation.UMLClass;
 
-        assertTrue(e.getMessage().contains("com.exemple"), e.getMessage());
-        assertTrue(e.getMessage().contains("whitespace"), e.getMessage());
+                @UMLClass
+                public class NOM {}
+                """.replace("NOM", nom));
+        }
+
+        List<String> lus = ProjectScanner.scan(sortie).entities().stream()
+            .map(UmlEntity::name).toList();
+
+        assertEquals(List.of("Alpha", "Milieu", "Zebre"), lus,
+            "Les boîtes doivent être rendues dans un ordre stable, ici l'alphabétique.");
     }
+
+    // --- Les réglages d'ensemble, lus dans le fichier de règles ---
+
+    // Une classe annotée, pour que le projet ne soit pas vide : les réglages d'ensemble règlent
+    // le dessin, ils ne le peuplent pas.
+    private static final String UNE_BOITE = """
+        package com.exemple;
+
+        import io.github.oliviercailloux.umlg.annotation.UMLClass;
+
+        @UMLClass
+        public class Facture {}
+        """;
+
 }

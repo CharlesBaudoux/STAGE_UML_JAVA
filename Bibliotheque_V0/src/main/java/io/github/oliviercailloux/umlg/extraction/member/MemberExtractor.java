@@ -28,9 +28,10 @@ import java.lang.reflect.Parameter;
 //
 // Tout l'enjeu est de trier. Une classe réelle a beaucoup plus de membres qu'un diagramme
 // lisible n'en supporte ; trois filtres se succèdent donc, dans cet ordre :
-//   1. le technique — ce que le compilateur a fabriqué (isSynthetic) ;
-//   2. le sémantique — ce qui est déjà montré ailleurs (les associations dessinées en trait), ou
-//      n'apprend rien (NoiseFilter : getters, setters, equals…) ;
+//   1. le technique — ce que le compilateur a fabriqué (isSynthetic), et que l'utilisateur n'a
+//      jamais écrit ; c'est le seul filtre que la bibliothèque applique de son propre chef ;
+//   2. ce que le projet a déclaré sans intérêt — les familles et les motifs du fichier de règles
+//      (NoiseFilter), qui ne masquent rien tant que rien n'est écrit ;
 //   3. le choix de l'utilisateur — la stratégie de visibilité, et les vetos @UMLInclude /
 //      @UMLExclude (VisibilityPolicy).
 public final class MemberExtractor {
@@ -119,6 +120,13 @@ public final class MemberExtractor {
             // Sous l'autre notation, c'est l'inverse : le trait n'existe pas, et l'attribut
             // reste ici. Il n'y a donc jamais de doublon, quelle que soit la notation choisie.
             if (association != null && association.notation() != UMLNotation.ATTRIBUTE) {
+                continue;
+            }
+
+            // Un attribut que le projet tient pour du bruit — un logger, un compteur interne —
+            // sort ici. Le veto individuel @UMLInclude le ramène, comme pour une méthode.
+            if (NoiseFilter.estDuBruit(field, regles)
+                && !field.isAnnotationPresent(UMLInclude.class)) {
                 continue;
             }
 
@@ -293,7 +301,10 @@ public final class MemberExtractor {
             boolean hasInclude = method.isAnnotationPresent(UMLInclude.class);
             boolean hasExclude = method.isAnnotationPresent(UMLExclude.class);
 
-            if (NoiseFilter.estDuBruit(method, clazz) && !hasInclude) {
+            // Le bruit ne se juge plus tout seul : seules les familles et les motifs écrits dans
+            // le fichier de règles écartent quoi que ce soit. @UMLInclude garde le dernier mot,
+            // comme toujours — la décision individuelle bat la règle générale.
+            if (NoiseFilter.estDuBruit(method, clazz, regles) && !hasInclude) {
                 continue;
             }
 
