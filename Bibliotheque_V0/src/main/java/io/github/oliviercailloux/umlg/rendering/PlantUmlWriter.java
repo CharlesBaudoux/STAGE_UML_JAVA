@@ -298,7 +298,6 @@ public class PlantUmlWriter {
                 GraphvizUtils.removeLocalLimitSize();
             }
 
-            System.out.println("Success: diagram generated -> " + outputFileName);
         }
     }
 

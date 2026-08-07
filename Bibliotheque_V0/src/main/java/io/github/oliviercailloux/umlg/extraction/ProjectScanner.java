@@ -33,6 +33,13 @@ public class ProjectScanner {
 
         ImmutableSet.Builder<UmlEntity> projectBuilder = ImmutableSet.builder();
 
+        // Les classes rencontrées et laissées de côté, faute de @UMLClass. Leur nombre est la
+        // seule façon, pour l'utilisateur, de distinguer une classe volontairement hors du
+        // diagramme d'une classe qu'il a oublié d'annoter : les deux se ressemblent trait pour
+        // trait sur le dessin, c'est-à-dire qu'elles n'y sont ni l'une ni l'autre.
+        java.util.List<String> ignorees =
+            java.util.Collections.synchronizedList(new java.util.ArrayList<>());
+
         // Les règles du projet, lues une fois pour toutes avant la première classe : elles valent
         // pour l'ensemble du diagramme, et les relire par classe n'aurait aucun sens. Absentes,
         // c'est un jeu vide, et le code se décrit tel qu'il est écrit.
@@ -73,6 +80,11 @@ public class ProjectScanner {
                              // Le filtre principal : seules les classes annotées entrent.
                              if (clazz.isAnnotationPresent(UMLClass.class)) {
                                  projectBuilder.add(EntityExtractor.extract(clazz, regles));
+                             } else if (!clazz.isSynthetic() && !clazz.isAnonymousClass()) {
+                                 // Le code que le compilateur fabrique — classes anonymes,
+                                 // lambdas — n'a jamais été écrit par personne : le compter
+                                 // comme « oublié » serait un reproche absurde.
+                                 ignorees.add(clazz.getSimpleName());
                              }
                          } catch (ClassNotFoundException | LinkageError e) {
                              // Un .class illisible signale un répertoire incohérent (dépendance
@@ -123,7 +135,22 @@ public class ProjectScanner {
         ImmutableList<UmlView> vues =
             ConstructeurDeVues.construire(entites, diagramme, regles);
 
+        DERNIER_SCAN.set(ImmutableList.sortedCopyOf(ignorees));
+
         return UmlProject.given(entites, diagramme, vues);
     }
+
+    // Les classes que le dernier scan de ce fil a laissées de côté.
+    //
+    // Une variable de fil plutôt qu'une valeur rendue : scan() rend un UmlProject, et lui ajouter
+    // ce compte reviendrait à faire porter au modèle du diagramme une information qui ne le
+    // décrit pas — ces classes n'y sont justement pas. Le fil isole les générations concurrentes,
+    // et le compte rendu est lu juste après le scan qui l'a rempli.
+    public static ImmutableList<String> classesIgnorees() {
+        ImmutableList<String> dernieres = DERNIER_SCAN.get();
+        return dernieres == null ? ImmutableList.of() : dernieres;
+    }
+
+    private static final ThreadLocal<ImmutableList<String>> DERNIER_SCAN = new ThreadLocal<>();
 
 }

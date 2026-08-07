@@ -105,4 +105,40 @@ class UMLGeneratorTest {
 
         assertTrue(Files.exists(cheminFichierSortie), "Le fichier final aurait dû être produit.");
     }
+
+    // --- La ligne de commande ---
+
+    @Test
+    void ligneDeCommande_avecUnNomSansExtension_ecritUnDossierDeVues(@TempDir Path tmp)
+        throws Exception {
+        // Le trou que ce test protège : outputDirectory existait dans le builder, et la ligne de
+        // commande n'y donnait pas accès — la fonctionnalité principale était inatteignable pour
+        // qui n'écrivait pas sa propre classe de lancement.
+        Path sortie = tmp.resolve("diagrammes");
+
+        UMLGenerator.main(new String[] {"target/test-classes", sortie.toString()});
+
+        assertTrue(Files.isDirectory(sortie), "Un nom sans extension demande un dossier.");
+        assertTrue(Files.exists(sortie.resolve("projet.svg")), "La vue intégrale y est écrite.");
+    }
+
+    @Test
+    void ligneDeCommande_avecUneExtension_ecritCeSeulFichier(@TempDir Path tmp) throws Exception {
+        // Personne n'appelle « architecture.svg » un répertoire : l'extension suffit à dire ce
+        // qu'on veut, et évite une option de plus.
+        Path fichier = tmp.resolve("architecture.svg");
+
+        UMLGenerator.main(new String[] {"target/test-classes", fichier.toString()});
+
+        assertTrue(Files.isRegularFile(fichier));
+    }
+
+    @Test
+    void ligneDeCommande_accepteLeFormatPng(@TempDir Path tmp) throws Exception {
+        Path sortie = tmp.resolve("diagrammes");
+
+        UMLGenerator.main(new String[] {"target/test-classes", sortie.toString(), "png"});
+
+        assertTrue(Files.exists(sortie.resolve("projet.png")));
+    }
 }

@@ -64,11 +64,14 @@ public final class UMLGenerator {
                 ImmutableList<Path> ecrits = PlantUmlWriter.writeViews(project,
                     outputDirectory, extension, style, Regles.duProjet(sourceDirectory).sortie());
 
-                System.out.println("Success: " + ecrits.size() + " diagram(s) generated -> "
-                    + ecrits.get(0).getParent());
+                System.out.println(new RapportDeGeneration(project.entities().size(),
+                    ProjectScanner.classesIgnorees(), ecrits).resume());
                 return;
             }
             PlantUmlWriter.write(project, outputFileName, style);
+            System.out.println(new RapportDeGeneration(project.entities().size(),
+                ProjectScanner.classesIgnorees(),
+                ImmutableList.of(Paths.get(outputFileName))).resume());
         } catch (Exception e) {
             // Les deux étapes déclarent « throws Exception » (entrées-sorties, chargement de
             // classes). On les enveloppe en exception non vérifiée pour ne pas l'imposer à
@@ -81,10 +84,19 @@ public final class UMLGenerator {
         }
     }
 
-    // Utilisation en ligne de commande, l'équivalent des trois appels du builder.
+    // Utilisation en ligne de commande.
+    //
+    // Le second argument dit à lui seul ce qu'on veut : un nom finissant par « .svg » ou « .png »
+    // demande ce seul fichier, tout autre nom demande un dossier — la vue intégrale à sa racine,
+    // les autres dans un sous-dossier. Deviner ainsi évite une option de plus, et se lit sans
+    // documentation : personne n'appelle « diagrammes » un fichier, ni « architecture.svg » un
+    // répertoire.
+    //
+    // Le format des images d'un dossier se règle par un troisième argument, « png » ou « svg ».
     public static void main(String[] args) {
         if (args.length < 1) {
-            System.err.println("Usage: UMLGenerator <source-directory> [output-file]");
+            System.err.println("Usage: UMLGenerator <source-directory> "
+                + "[output-file.svg|output-directory] [png|svg]");
             System.exit(1);
             // Inutile après exit(), mais rend explicite qu'on n'ira pas plus loin — et permet
             // aux tests de remplacer exit() sans que la suite s'exécute quand même.
@@ -92,9 +104,16 @@ public final class UMLGenerator {
         }
 
         Builder builder = builder().sourceDirectory(args[0]);
-        // Le fichier de sortie est facultatif : sans lui, le défaut du builder s'applique.
+
         if (args.length >= 2) {
-            builder.outputFile(args[1]);
+            if (PlantUmlWriter.supporte(args[1])) {
+                builder.outputFile(args[1]);
+            } else {
+                builder.outputDirectory(args[1]);
+            }
+        }
+        if (args.length >= 3) {
+            builder.outputFormat(args[2]);
         }
         builder.build().generate();
     }

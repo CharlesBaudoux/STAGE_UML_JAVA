@@ -894,6 +894,15 @@ Deux garde-fous.
 
 \paragraph{Les proportions sont mesurées.} La bibliothèque relit les dimensions de ce qu'elle vient d'écrire, et \textbf{avertit} lorsque le rapport entre la plus grande et la plus petite dépasse quatre pour un, sur une image assez grande pour que cela compte. Elle ne corrige rien : les causes sont plusieurs --- un sens de lecture qui ne convient pas à cette vue-ci, des boîtes trop larges, une vue qui retient trop de classes --- et le choix entre elles appartient à l'auteur. Le message nomme la vue et rappelle les remèdes.
 
+\subsection{Ce que la génération dit d'elle-même}
+Un compte rendu, en deux lignes :
+\begin{lstlisting}[language=]
+12 diagram(s) written to /chemin/diagrammes
+  21 class(es) drawn, 23 ignored (no @UMLClass)
+\end{lstlisting}
+
+Le second chiffre est celui que personne n'avait. Une classe sans \texttt{@UMLClass} est hors du diagramme, et c'est voulu --- le périmètre est choisi. Mais rien ne le disait : une classe volontairement écartée et une classe qu'on a oublié d'annoter se ressemblent trait pour trait, c'est-à-dire qu'elles sont absentes toutes les deux. Le compte permet de faire la différence ; sous une douzaine, elles sont même nommées.
+
 \subsection{Ce que devient la génération précédente}
 \begin{lstlisting}[language=]
 output replace   # le defaut
@@ -902,6 +911,40 @@ output keep
 Sous \texttt{replace}, les diagrammes précédents sont effacés : le dossier décrit toujours l'état courant du code, et une vue retirée du fichier ne laisse pas derrière elle une image que plus rien ne met à jour --- laquelle ment d'autant mieux qu'elle a l'air d'être à sa place. Seuls les fichiers que la bibliothèque écrit sont retirés : un \texttt{LISEZ-MOI} posé dans le dossier y reste.
 
 Sous \texttt{keep}, rien n'est effacé : la génération est écrite dans un dossier voisin numéroté --- \texttt{diagrammes-2}, \texttt{diagrammes-3} ---, ce qui permet de comparer avant et après une modification du code.
+
+\subsection{Lancer la génération}
+Trois façons, selon le contexte.
+
+\paragraph{Depuis Maven}, ce qui est la forme à préférer : le répertoire analysé et le dossier de sortie sont ceux du projet, et la commande se retient.
+\begin{lstlisting}[language=XML]
+<plugin>
+    <groupId>org.codehaus.mojo</groupId>
+    <artifactId>exec-maven-plugin</artifactId>
+    <version>3.1.0</version>
+    <executions>
+        <execution>
+            <id>umlg</id>
+            <goals><goal>java</goal></goals>
+            <configuration>
+                <mainClass>io.github.oliviercailloux.umlg.UMLGenerator</mainClass>
+                <arguments>
+                    <argument>${project.build.outputDirectory}</argument>
+                    <argument>${project.basedir}/diagrammes</argument>
+                </arguments>
+            </configuration>
+        </execution>
+    </executions>
+</plugin>
+\end{lstlisting}
+puis \texttt{mvn compile exec:java@umlg}.
+
+\paragraph{En ligne de commande.}
+\begin{lstlisting}[language=]
+UMLGenerator <repertoire-analyse> [fichier.svg|dossier] [png|svg]
+\end{lstlisting}
+Le second argument dit à lui seul ce qu'on veut : un nom finissant par \texttt{.svg} ou \texttt{.png} demande ce seul fichier, tout autre nom demande un dossier de vues. Deviner ainsi évite une option de plus, et se lit sans documentation --- personne n'appelle « diagrammes » un fichier, ni « architecture.svg » un répertoire.
+
+\paragraph{Par programme}, si l'on veut choisir l'apparence :
 
 \subsection{Demander un dossier}
 \begin{lstlisting}
