@@ -2,21 +2,13 @@ package io.github.oliviercailloux.umlg.extraction;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-import java.util.regex.Pattern;
+import io.github.oliviercailloux.umlg.rendering.syntax.ColorCodec;
 
 // Vérifie ce que @UMLClass déclare : le nom, le stéréotype, la couleur.
 //
 // Ces contrôles vivent dans l'extraction, et non dans le modèle, parce que leurs messages
 // nomment la classe fautive — une information que le modèle n'a pas.
 final class ClassHeaderValidator {
-
-    // Une couleur, contrairement à un nom, n'est pas un texte libre : c'est soit un code
-    // hexadécimal à 3 ou 6 chiffres (« AABBCC », « #FF0000», « #ABC »), soit un nom de
-    // couleur (« red », « LightBlue »). Cette vérification reste purement syntaxique et
-    // indépendante du moteur de rendu ; savoir si « Turquoise » existe vraiment relève du
-    // writer, qui interroge le catalogue de PlantUML.
-    private static final Pattern COLOR_PATTERN =
-        Pattern.compile("^#?([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$|^[A-Za-z][A-Za-z0-9]*$");
 
     private ClassHeaderValidator() {}
 
@@ -47,14 +39,18 @@ final class ClassHeaderValidator {
     // boîte : c'est la même grammaire, et il n'y aurait aucun sens à ce qu'un rectangle accepte
     // ce qu'une boîte refuse. Seul le contexte change, et il change parce que le message doit
     // nommer l'annotation que l'utilisateur a réellement écrite.
+    //
+    // La question est posée au catalogue de PlantUML plutôt qu'à une expression régulière. Une
+    // grammaire écrite ici en doublon paraissait plus sobre — l'extraction n'a pas à connaître le
+    // moteur de dessin —, mais elle divergeait : elle refusait « #FF000080 », que PlantUML
+    // accepte, si bien que le processeur d'annotations laissait compiler du code qui ne pouvait
+    // pas se dessiner. Une seule grammaire, celle du moteur, et l'écart n'existe plus.
     static void validateColor(String color, String contexte) {
         if (color.isEmpty()) {
             return;
         }
-        checkArgument(COLOR_PATTERN.matcher(color).matches(),
-            "%s: color() = \"%s\" is not a valid color (expected: 3 or 6 "
-                + "hexadecimal digits with or without a leading '#', e.g. \"#FF0000\", "
-                + "or a color name, e.g. \"LightBlue\").",
-            contexte, color);
+        // Appel fait pour son effet de bord : ColorCodec lève une IllegalArgumentException dont
+        // le message nomme déjà le contexte et le catalogue.
+        ColorCodec.code(color, contexte);
     }
 }

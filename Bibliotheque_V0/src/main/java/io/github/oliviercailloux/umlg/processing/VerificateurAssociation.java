@@ -130,7 +130,18 @@ final class VerificateurAssociation {
     // dit. Chaque contrôle se tait dès que le type ne permet pas de conclure.
     private void signalerIncoherences(Element champ, AnnotationMirror annotation, String contexte) {
         TypeMirror type = champ.asType();
-        TypeMirror typeCible = (TypeMirror) rapporteur.valeur(annotation, "target").getValue();
+        AnnotationValue cibleEcrite = rapporteur.valeurEcrite(annotation, "target");
+
+        // Confronter la cible au type n'a de sens que si l'utilisateur a écrit les deux. Quand
+        // target() est laissé de côté, la cible EST tirée du type : les comparer reviendrait à
+        // comparer le type à lui-même — et la valeur lue serait la sentinelle void, dont le
+        // message « target = void does not appear in the field's type » n'apprenait rien à
+        // personne, sur chacune des associations du projet.
+        if (cibleEcrite == null) {
+            signalerMultiplicite(champ, annotation, contexte, type);
+            return;
+        }
+        TypeMirror typeCible = (TypeMirror) cibleEcrite.getValue();
 
         if (typeAttribut.comparableALaCible(type) && !typeAttribut.contient(type, typeCible)) {
             rapporteur.avertissement(contexte + ": target = " + typeCible + " does not appear "

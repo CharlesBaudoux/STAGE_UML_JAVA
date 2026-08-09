@@ -26,11 +26,19 @@ final class TypeAttribut {
     // Résolus une fois : ce sont des recherches dans la table des symboles de javac.
     private final TypeMirror collection;
     private final TypeMirror map;
+    // Les enveloppes dont on sait extraire l'élément — les mêmes que TypeAffiche.CONTENEURS,
+    // qui gouverne la déduction à l'exécution. Les deux listes doivent rester identiques :
+    // c'est leur divergence qui faisait refuser à la compilation un « Optional<Commande> » que
+    // la génération dessinait sans broncher.
+    private final TypeMirror iterable;
+    private final TypeMirror optional;
 
     TypeAttribut(Types types, Elements elements) {
         this.types = types;
         this.collection = erasureDe(types, elements, "java.util.Collection");
         this.map = erasureDe(types, elements, "java.util.Map");
+        this.iterable = erasureDe(types, elements, "java.lang.Iterable");
+        this.optional = erasureDe(types, elements, "java.util.Optional");
     }
 
     // « Ce type peut-il en contenir plusieurs ? » : un tableau, une Collection, une Map.
@@ -84,28 +92,41 @@ final class TypeAttribut {
     }
 
     // La classe que ce type désigne, quand il n'en désigne qu'une : le pendant, côté
-    // compilation, de TypeAffiche.elementSeul.
+    // compilation, de TypeAffiche.elementSeul et du repli de CibleDeduite.
     //
-    // « List<Commande> » donne Commande, « Commande » se donne lui-même. Null pour tout ce qui
-    // n'en désigne pas une seule — une Map, un type brut, un tableau, une variable de type —,
-    // auquel cas la cible doit être écrite.
+    // « List<Commande> » et « Optional<Commande> » donnent Commande, « Commande » se donne
+    // lui-même. Null pour tout ce qui n'en désigne pas une seule — un conteneur écrit sans
+    // paramètre, un tableau, une variable de type —, auquel cas la cible doit être écrite.
+    //
+    // Une Map n'est pas un conteneur au sens d'ici : elle se donne elle-même, exactement comme
+    // à l'exécution, et c'est alors l'absence de @UMLClass sur Map qui sera signalée.
     TypeMirror elementSeul(TypeMirror type) {
         if (type.getKind() != TypeKind.DECLARED || indetermine(type)) {
             return null;
         }
         DeclaredType declare = (DeclaredType) type;
-        if (!multivalue(type)) {
+        if (!estUnConteneur(type)) {
             // Un type ordinaire est lui-même la cible ; ses éventuels paramètres ne changent
             // rien à la classe visée.
             return types.erasure(type);
         }
-        // Une collection : c'est son unique paramètre qui nomme la cible. Une Map en a deux, et
-        // rien ne dirait laquelle est visée.
+        // Un conteneur : c'est son unique paramètre qui nomme la cible.
         if (declare.getTypeArguments().size() != 1) {
             return null;
         }
         TypeMirror argument = declare.getTypeArguments().get(0);
         return argument.getKind() == TypeKind.DECLARED ? types.erasure(argument) : null;
+    }
+
+    // « Ce type est-il une enveloppe dont l'élément est la vraie propriété ? » : un Iterable ou
+    // un Optional, c'est-à-dire ce que TypeAffiche.estUnConteneur reconnaît à l'exécution.
+    private boolean estUnConteneur(TypeMirror type) {
+        if (type.getKind() != TypeKind.DECLARED) {
+            return false;
+        }
+        TypeMirror brut = types.erasure(type);
+        return (iterable != null && types.isAssignable(brut, iterable))
+            || (optional != null && types.isAssignable(brut, optional));
     }
 
     // Vrai si l'on peut confronter ce type à la cible déclarée sans risquer un faux reproche.
@@ -118,7 +139,7 @@ final class TypeAttribut {
         if (indetermine(type)) {
             return false;
         }
-        return !(type.getKind() == TypeKind.DECLARED && multivalue(type)
+        return !(type.getKind() == TypeKind.DECLARED && (multivalue(type) || estUnConteneur(type))
             && ((DeclaredType) type).getTypeArguments().isEmpty());
     }
 

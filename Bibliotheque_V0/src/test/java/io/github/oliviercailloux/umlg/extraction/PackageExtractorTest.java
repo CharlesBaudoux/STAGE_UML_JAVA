@@ -76,7 +76,9 @@ class PackageExtractorTest {
             () -> PackageExtractor.extraire(CouleurMalFormee.class));
 
         assertTrue(e.getMessage().contains("@UMLPackage"), e.getMessage());
-        assertTrue(e.getMessage().contains("not a valid color"), e.getMessage());
+        // La grammaire est celle du catalogue de PlantUML, la même qu'au dessin et à la
+        // compilation : une seule question posée à un seul juge.
+        assertTrue(e.getMessage().contains("Color unknown to PlantUML"), e.getMessage());
     }
 
     @Test
