@@ -1,0 +1,55 @@
+# La construction, rejouée à chaque poussée.
+#
+# Elle existe parce que la qualité du projet ne tenait jusqu'ici qu'à la discipline : 944 tests
+# et 96 % de couverture qu'aucune machine ne vérifiait, donc que rien n'empêchait de faire
+# baisser sans que personne le voie.
+#
+# Graphviz est installé explicitement : la bibliothèque le vérifie désormais avant de dessiner et
+# refuse de produire une image portant « Cannot find Graphviz ». Sans lui, les tests de rendu
+# échoueraient — ce qui est le comportement voulu, mais pas ce qu'on veut voir en intégration.
+name: Construction
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  bibliotheque:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Installer Graphviz
+        run: sudo apt-get update && sudo apt-get install --yes graphviz
+
+      - name: Installer le JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: temurin
+          cache: maven
+
+      # « verify » et non « test » : c'est la phase où le seuil de couverture s'applique.
+      - name: Construire et vérifier la bibliothèque
+        run: mvn --batch-mode --file Bibliotheque_V0/pom.xml verify
+
+      # Le plugin dépend de la bibliothèque : il faut donc que celle-ci soit dans le dépôt local
+      # avant de le construire, d'où l'install qui précède.
+      - name: Construire le plugin Maven
+        run: |
+          mvn --batch-mode --file Bibliotheque_V0/pom.xml install -DskipTests
+          mvn --batch-mode --file umlg-maven-plugin/pom.xml install
+
+      # La preuve de bout en bout : la bibliothèque, lancée par le plugin, sur un vrai projet.
+      - name: Engendrer les diagrammes du projet de démonstration
+        run: mvn --batch-mode --file test_collegue/pom.xml compile umlg:generate
+
+      - name: Conserver le rapport de couverture
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: couverture-jacoco
+          path: Bibliotheque_V0/target/site/jacoco/

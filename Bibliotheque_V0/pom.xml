@@ -17,11 +17,36 @@
     <properties>
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
+        <!--
+            La propriété, en plus de la configuration du plugin ci-dessous : l'exécution
+            default-testCompile redéfinit sa configuration, et perdait l'option au passage —
+            les cobayes des tests étaient alors compilés sans leurs noms de paramètres. La
+            propriété, elle, vaut pour toutes les exécutions du compilateur.
+        -->
+        <maven.compiler.parameters>true</maven.compiler.parameters>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
     <dependencies>
 
+        <!--
+            PlantUML reste en 1.2024.4, et c'est un choix contraint, non un oubli.
+
+            À partir de 1.2025.0, le jar publié embarque une copie de Guava (environ deux mille
+            entrées com/google/common/) tout en déclarant un module-info. Les deux ensemble
+            rendent la dépendance inutilisable pour un consommateur modulaire : javac refuse la
+            compilation sur « module io.github.oliviercailloux.umlg reads package
+            com.google.common.base from both com.google.common and net.sourceforge.plantuml ».
+            Un paquetage ne peut venir que d'un module, et il n'y a rien à faire de ce côté-ci —
+            sinon renoncer à notre propre Guava, qui est dans la signature de l'API.
+
+            La 1.2026.6 change de surcroît la signature de GraphvizUtils.addDotStatus, dont
+            PlantUmlWriter se sert pour détecter un Graphviz absent.
+
+            À reprendre si l'amont cesse d'embarquer Guava, ou publie un artefact non ombré. Les
+            89 assertCompile et les 23 rendus SVG de la suite diront aussitôt si la syntaxe a
+            bougé.
+        -->
         <dependency>
             <groupId>net.sourceforge.plantuml</groupId>
             <artifactId>plantuml</artifactId>
@@ -108,6 +133,65 @@
                     <!-- Les tests sont compilés sur le classpath : ils y sont aussi exécutés. -->
                     <useModulePath>false</useModulePath>
                 </configuration>
+            </plugin>
+
+            <!--
+                La couverture, mesurée par la construction plutôt qu'à la main.
+
+                Elle était de 96,9 % des instructions, et rien ne la protégeait : aucun outil ne
+                la calculait, aucun seuil ne la défendait. Une couverture haute qu'on ne mesure
+                pas est une couverture qui baisse sans que personne le voie.
+
+                Le seuil est posé sous la valeur atteinte, et non à la valeur atteinte : il est
+                là pour signaler un décrochage, pas pour interdire d'écrire une ligne difficile à
+                couvrir un jour de refactorisation. « mvn verify » l'applique ; « mvn test » ne
+                fait que mesurer.
+            -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>0.8.12</version>
+                <executions>
+                    <execution>
+                        <id>prepare-agent</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>seuil</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <rule>
+                                    <element>BUNDLE</element>
+                                    <limits>
+                                        <limit>
+                                            <counter>INSTRUCTION</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.92</minimum>
+                                        </limit>
+                                        <limit>
+                                            <counter>BRANCH</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.80</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

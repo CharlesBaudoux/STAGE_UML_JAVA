@@ -1,0 +1,13 @@
+# Les fins de ligne, fixées plutôt que laissées à la configuration de chacun.
+#
+# Le test du diagramme de référence compare le document engendré à un fichier .puml, caractère
+# par caractère, et le rendu y écrit des « \n » en dur. Un clone sous Windows avec
+# core.autocrlf=true réécrivait donc le fichier de référence en CRLF, et le test échouait pour
+# une raison sans aucun rapport avec le code.
+* text=auto eol=lf
+
+# Les images engendrées et les PDF sont binaires : aucune normalisation, sous peine de les
+# corrompre.
+*.png binary
+*.pdf binary
+*.jar binary
