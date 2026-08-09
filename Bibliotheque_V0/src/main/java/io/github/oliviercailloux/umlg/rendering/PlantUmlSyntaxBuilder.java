@@ -142,11 +142,21 @@ final class PlantUmlSyntaxBuilder {
     // Écrit les relations que porte une entité. Suppose que toutes les boîtes ont déjà été
     // déclarées : c'est pour cela que PlantUmlWriter fait deux passes.
     public PlantUmlSyntaxBuilder addRelations(UmlEntity entity) {
+        return addRelations(entity, entity.relations());
+    }
+
+    // Les mêmes relations, mais choisies par l'appelant.
+    //
+    // PlantUmlWriter s'en sert pour écrire les paires réciproques fusionnées : la liste passée
+    // n'est alors plus celle du modèle, qui dit fidèlement ce que chaque classe déclare, mais
+    // celle du dessin, où deux attributs qui se font face n'ont qu'un trait.
+    public PlantUmlSyntaxBuilder addRelations(UmlEntity entity,
+        Iterable<? extends UmlRelation> relations) {
         String aliasSource = alias.aliasSource(entity.qualifiedName());
 
-        // entity.relations() mélange associations et dépendances ; RelationRenderer les
-        // distingue lui-même par un switch de motif.
-        for (UmlRelation relation : entity.relations()) {
+        // Les relations mêlent associations et dépendances ; RelationRenderer les distingue
+        // lui-même par un switch de motif.
+        for (UmlRelation relation : relations) {
             builder.append(liens.ligne(entity, relation, aliasSource, alias));
         }
         return this;

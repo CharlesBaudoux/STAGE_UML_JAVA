@@ -36,6 +36,14 @@ public class PlantUmlWriter {
     private static final String EXTENSION_SVG = ".svg";
     private static final String EXTENSION_PNG = ".png";
 
+    // L'extension de la source PlantUML, conservée à côté de chaque image.
+    //
+    // Sans elle, la source engendrée était irrécupérable : impossible de retoucher un diagramme
+    // à la main pour un essai, et le diff entre deux générations — la seule façon de voir ce
+    // qu'un changement de code a changé au dessin — se faisait sur du SVG illisible. Le fichier
+    // texte est ce qui se relit, se corrige et se versionne.
+    private static final String EXTENSION_PUML = ".puml";
+
     // Côté maximal, en pixels, d'une image matricielle.
     //
     // PlantUML plafonne les siennes à 4096 et rogne au-delà, sans rien signaler : sur un
@@ -155,8 +163,11 @@ public class PlantUmlWriter {
             }
             try (java.util.stream.Stream<Path> fichiers = Files.list(racine)) {
                 for (Path fichier : fichiers.sorted(Comparator.naturalOrder()).toList()) {
+                    String nom = fichier.getFileName().toString();
+                    // Les sources .puml suivent le sort de leurs images : une source dont
+                    // l'image a disparu décrirait un diagramme que rien ne dessine plus.
                     if (Files.isRegularFile(fichier)
-                        && supporte(fichier.getFileName().toString())) {
+                        && (supporte(nom) || nom.endsWith(EXTENSION_PUML))) {
                         Files.delete(fichier);
                     }
                 }
@@ -251,9 +262,15 @@ public class PlantUmlWriter {
 
         // Deux sources gouvernent le fichier engendré, et elles ne viennent pas du même endroit :
         // le style est choisi ici, à l'appel du générateur, tandis que les réglages d'ensemble
-        // ont été lus dans le code annoté, sur le package-info du projet.
+        // viennent du fichier de règles, lu au scan avec le reste du projet.
         ecrire(new PlantUmlSyntaxBuilder(style, project.diagram()), project.entities(),
             outputFileName);
+
+        // La même mesure qu'en mode dossier : le fichier unique est justement le mode de qui n'a
+        // rien configuré, et c'est lui qui produisait des rubans sans que personne ne le dise.
+        // Le message nomme le diagramme comme le nommerait la vue intégrale.
+        Proportions.verifier(Path.of(outputFileName),
+            project.diagram().aUnTitre() ? project.diagram().title() : outputFileName);
     }
 
     // Le tronc commun : des boîtes, un fichier.
@@ -267,8 +284,14 @@ public class PlantUmlWriter {
         // Les boîtes sont déclarées d'un seul appel, et non une par une : c'est ce qui permet
         // d'ouvrir et de refermer au bon endroit les rectangles de @UMLPackage.
         syntax.addClasses(entities);
+        // Deux attributs qui se font face ne sont qu'une association : la paire est fusionnée
+        // avant d'être écrite, faute de quoi le dessin porterait deux traits parallèles là où
+        // UML en veut un, à deux extrémités nommées.
+        com.google.common.collect.ImmutableMap<String,
+            ImmutableList<io.github.oliviercailloux.umlg.model.UmlRelation>> relations =
+                AssociationsReciproques.de(entities);
         for (UmlEntity entity : entities) {
-            syntax.addRelations(entity);
+            syntax.addRelations(entity, relations.get(entity.qualifiedName()));
         }
         // Les notes en dernier : elles désignent les boîtes, et les grouper en fin de fichier
         // garde le texte engendré lisible — les traits d'un côté, les commentaires de l'autre.
@@ -287,6 +310,13 @@ public class PlantUmlWriter {
             SourceStringReader reader = new SourceStringReader(codePlantUml);
 
             verifierAcceptation(reader, codePlantUml);
+            verifierMoteurDeDessin();
+
+            // La source acceptée est conservée à côté de l'image, sous le même nom : c'est elle
+            // qu'on retouche pour un essai, et elle que deux générations comparent utilement.
+            int point = outputFileName.lastIndexOf('.');
+            Files.writeString(Path.of(outputFileName.substring(0, point) + EXTENSION_PUML),
+                codePlantUml);
 
             // Le plafond est posé sur le fil courant — c'est une ThreadLocal chez PlantUML —,
             // puis retiré : la bibliothèque ne laisse pas derrière elle un réglage global que
@@ -324,5 +354,50 @@ public class PlantUmlWriter {
                         + "\n--- rejected source ---\n" + codePlantUml);
             }
         }
+    }
+
+    // Le moteur de dessin est-il en état de dessiner ?
+    //
+    // La garde précédente couvre la source ; celle-ci couvre l'environnement, et c'est un tout
+    // autre défaut. Un diagramme de classes est mis en page par Graphviz, que PlantUML appelle en
+    // sous-processus. Quand il manque, PlantUML ne lève rien et ne rapporte aucune erreur de
+    // diagramme : il dessine une image portant « Cannot find Graphviz », que rien ne distingue
+    // d'un dessin réussi — ni sa taille, ni son format. Le compte rendu annonçait alors un succès.
+    //
+    // La vérification est faite une seule fois par JVM : elle lance « dot -V », et le faire à
+    // chaque vue coûterait un sous-processus par diagramme.
+    private static void verifierMoteurDeDessin() {
+        if (MoteurDeDessin.UTILISABLE) {
+            return;
+        }
+        throw new IllegalStateException("Graphviz is not usable, and a class diagram cannot be "
+            + "laid out without it: " + String.join(" / ", MoteurDeDessin.DIAGNOSTIC)
+            + ". Install Graphviz (\"apt install graphviz\", \"brew install graphviz\"), or point "
+            + "the GRAPHVIZ_DOT environment variable at the dot executable. Without this check "
+            + "the generation would have written an image carrying an error message, and reported "
+            + "it as a success.");
+    }
+
+    // L'état de Graphviz, calculé au premier besoin et retenu.
+    //
+    // Une classe imbriquée plutôt qu'un champ statique de PlantUmlWriter : l'initialisation
+    // paresseuse est alors celle de la JVM, sans verrou à écrire, et le sous-processus n'est
+    // lancé que si une image est réellement demandée — un appelant qui n'utilise que la syntaxe
+    // n'a pas à payer pour un moteur qu'il n'appelle pas.
+    private static final class MoteurDeDessin {
+
+        private static final ImmutableList<String> DIAGNOSTIC;
+        private static final boolean UTILISABLE;
+
+        static {
+            java.util.List<String> lignes = new java.util.ArrayList<>();
+            // Le même contrôle que « java -jar plantuml.jar -testdot » : 0 quand tout va bien.
+            // Le second argument demande un diagnostic en texte nu, sans balisage PlantUML.
+            int statut = GraphvizUtils.addDotStatus(lignes, false);
+            UTILISABLE = statut == 0;
+            DIAGNOSTIC = ImmutableList.copyOf(lignes);
+        }
+
+        private MoteurDeDessin() {}
     }
 }
