@@ -49,7 +49,15 @@ public record UmlEntity(
     // Le rendu la dessine en pointillés : elle échappe à tout ce qui fait la valeur du reste —
     // aucun compilateur ne la vérifie, aucun renommage ne la suit —, et le lecteur doit pouvoir
     // distinguer d'un coup d'œil ce qui a du code derrière de ce qui n'en a pas.
-    boolean declared
+    boolean declared,
+    // Les paramètres de type de la classe, chevrons compris — « <T> », « <K, V extends Number> » —
+    // ou la chaîne vide.
+    //
+    // À part du nom, et non collés dedans, parce que les deux ne servent pas à la même chose :
+    // le nom désigne la boîte — c'est par lui qu'une vue la nomme, et l'alias s'en déduit —,
+    // tandis que ceci ne fait que s'afficher. Les coller aurait rendu « view "X" = Boite »
+    // introuvable dès que Boite devient générique.
+    String typeParameters
 ) {
     // Constructeur compact : s'exécute avant l'affectation des champs, quel que soit le chemin
     // de construction (builder, appel direct, test). C'est ici, et nulle part ailleurs, que les
@@ -79,6 +87,7 @@ public record UmlEntity(
             checkNotNull(notes, "The list of notes cannot be null."));
         constraints = Contraintes.validees(constraints);
         checkNotNull(group, "The group cannot be null (use UmlPackage.aucun()).");
+        checkNotNull(typeParameters, "The type parameters cannot be null (use \"\").");
     }
 
     // Raccourci pour les cas sans relation, où le nom simple sert aussi de nom complet. La
@@ -93,7 +102,7 @@ public record UmlEntity(
             ImmutableList.copyOf(
                 checkNotNull(methods, "The list of methods cannot be null.")),
             ImmutableList.of(), ImmutableList.of(), ImmutableList.of(), UmlPackage.aucun(),
-            false);
+            false, "");
     }
 
     // Rend les relations d'une nature donnée. Le paramètre de type T suit celui du Class<T>
@@ -154,6 +163,7 @@ public record UmlEntity(
         private ImmutableList<String> constraints = ImmutableList.of();
         private UmlPackage group = UmlPackage.aucun();
         private boolean declared;
+        private String typeParameters = "";
         // Un builder de Guava, et non une liste mutable : les relations s'ajoutent en plusieurs
         // fois — une passe par extracteur — et lui seul accumule sans jamais exposer d'état
         // modifiable, ni exiger une recopie au moment de figer.
@@ -239,11 +249,18 @@ public record UmlEntity(
             return relations(dependencies);
         }
 
+        // Les paramètres de type de la classe générique, chevrons compris.
+        public Builder typeParameters(String typeParameters) {
+            this.typeParameters = checkNotNull(typeParameters);
+            return this;
+        }
+
         // Le figeage : la liste mutable devient immuable, et le constructeur compact revalide
         // l'ensemble.
         public UmlEntity build() {
             return new UmlEntity(qualifiedName, name, kind, stereotype, color, strategy, literals,
-                fields, methods, relations.build(), notes, constraints, group, declared);
+                fields, methods, relations.build(), notes, constraints, group, declared,
+                typeParameters);
         }
     }
 }

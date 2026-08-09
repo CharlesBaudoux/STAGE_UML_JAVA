@@ -27,7 +27,13 @@ public record UmlMethod(
     ImmutableList<UmlParameter> parameters,
     // Une méthode dérivée rend une valeur calculée plutôt que stockée. Même notation que pour un
     // attribut : une barre oblique devant le nom.
-    boolean derived
+    boolean derived,
+    // Une opération sans corps : abstraite au sens de Java, ou déclarée par une interface.
+    //
+    // UML l'écrit en italique, et c'est la seule chose qui distingue à l'œil un contrat d'une
+    // implémentation. La composante manquait : dans une classe abstraite ou une interface,
+    // toutes les méthodes se dessinaient comme si elles étaient écrites.
+    boolean isAbstract
 ) {
     public UmlMethod {
         checkNotNull(returnType, "The return type cannot be null (use an empty string).");
@@ -38,6 +44,13 @@ public record UmlMethod(
         // du record ne l'est pas. copyOf refuse au passage les éléments nuls.
         parameters = ImmutableList.copyOf(
             checkNotNull(parameters, "The list of parameters cannot be null."));
+    }
+
+    // Une méthode concrète, qui est le cas ordinaire : l'abstraction est l'exception, et une
+    // classe sur laquelle on ne dit rien est une classe dont les méthodes ont un corps.
+    public UmlMethod(String name, String returnType, String cardinality, String visibility,
+        boolean isStatic, ImmutableList<UmlParameter> parameters, boolean derived) {
+        this(name, returnType, cardinality, visibility, isStatic, parameters, derived, false);
     }
 
     // Le cas ordinaire : une méthode non dérivée, dont on ne connaît que les types des
@@ -52,6 +65,6 @@ public record UmlMethod(
             checkNotNull(parameterTypes, "The list of parameter types cannot be null.").stream()
                 .map(UmlParameter::anonyme)
                 .collect(ImmutableList.toImmutableList()),
-            false);
+            false, false);
     }
 }

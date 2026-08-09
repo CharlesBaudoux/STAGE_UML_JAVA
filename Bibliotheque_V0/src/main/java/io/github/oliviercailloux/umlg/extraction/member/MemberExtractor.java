@@ -25,6 +25,11 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Parameter;
+import java.lang.reflect.RecordComponent;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
 
 // Remplit les deux compartiments d'une boîte : les attributs et les méthodes.
 //
@@ -90,7 +95,7 @@ public final class MemberExtractor {
         ImmutableList.Builder<UmlField> result = ImmutableList.builder();
 
         // Les attributs déclarés par la classe, sans les hérités, dans un ordre stable.
-        for (Field field : MembresOrdonnes.champs(clazz)) {
+        for (Field field : MembresOrdonnes.champs(clazz, regles)) {
 
             // Filtre technique : this$0 des classes internes, $VALUES des enums… du code que
             // l'utilisateur n'a jamais écrit.
@@ -125,6 +130,14 @@ public final class MemberExtractor {
                 continue;
             }
 
+            // Un membre désigné nommément — « hide field Representation.string » — sort quoi
+            // qu'il porte, @UMLInclude compris : une désignation qui nomme la classe et le
+            // membre est aussi individuelle que l'annotation, et elle est écrite au niveau du
+            // diagramme, là où se décide ce que les boîtes déclarées redisent déjà.
+            if (regles.champMasqueNommement(clazz.getSimpleName(), field.getName())) {
+                continue;
+            }
+
             // Un attribut que le projet tient pour du bruit — un logger, un compteur interne —
             // sort ici. Le veto individuel @UMLInclude le ramène, comme pour une méthode.
             if (NoiseFilter.estDuBruit(field, regles)
@@ -155,6 +168,14 @@ public final class MemberExtractor {
         if (association != null) {
             return !field.isAnnotationPresent(UMLExclude.class);
         }
+        // Un composant de record est sa définition même : « record Mnemonic(String
+        // keysymMnemonic) » ne dit rien d'autre que ce composant, et une boîte qui le tairait
+        // serait vide de ce qu'elle est. Il paraît donc quelle que soit la stratégie — y compris
+        // NONE, faite pour choisir parmi des membres ordinaires, pas pour taire une définition.
+        // Seul @UMLExclude, veto individuel, garde le dernier mot, comme pour une association.
+        if (estComposantDeRecord(field)) {
+            return !field.isAnnotationPresent(UMLExclude.class);
+        }
         // getModifiers rend les mots-clés de déclaration sous forme d'entier de bits :
         // public, private, static… C'est ce que VisibilityPolicy sait lire.
         return VisibilityPolicy.estVisible(field.getModifiers(), strategy,
@@ -162,14 +183,32 @@ public final class MemberExtractor {
             field.isAnnotationPresent(UMLExclude.class));
     }
 
+    // Cet attribut est-il le champ d'un composant de record ?
+    //
+    // Le nom suffit : le compilateur fabrique pour chaque composant un champ de même nom, et un
+    // record ne peut pas déclarer d'autre champ d'instance — un champ ajouté est forcément
+    // statique, donc jamais homonyme d'un composant.
+    private static boolean estComposantDeRecord(Field field) {
+        Class<?> classe = field.getDeclaringClass();
+        if (!classe.isRecord()) {
+            return false;
+        }
+        for (RecordComponent composant : classe.getRecordComponents()) {
+            if (composant.getName().equals(field.getName())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     // Un attribut ordinaire : son type est celui que le code déclare, sauf si une règle du projet
     // dit sous quel nom l'afficher — « ImmutableList » écrit « List ». Sa multiplicité, elle, ne
     // se lit nulle part dans le code : seule @UMLMultiplicity la donne.
     private static UmlField champ(Field field, Regles regles) {
         try {
-            String multiplicite = multiplicite(field);
+            String multiplicite = multiplicite(field, field.getGenericType(), regles);
             return new UmlField(
-                field.getName(),
+                nomAffiche(field),
                 // Avec une multiplicité, UML veut le type de l'élément : « aliases: String
                 // [0..*] », et non « Set [0..*] », qui se lirait « plusieurs ensembles ».
                 multiplicite.isEmpty()
@@ -197,23 +236,65 @@ public final class MemberExtractor {
         return annotation == null ? "" : annotation.value();
     }
 
+    // La multiplicité d'une propriété : celle que @UMLMultiplicity déclare, ou, si le projet a
+    // demandé la traduction (« multiplicity brackets »), celle que la forme du type dit.
+    //
+    // L'annotation l'emporte : c'est la décision individuelle, et la règle n'est qu'un défaut —
+    // le même ordre de préséance que partout ailleurs dans la bibliothèque.
+    private static String multiplicite(AnnotatedElement membre, java.lang.reflect.Type type,
+        Regles regles) {
+        String declaree = multiplicite(membre);
+        if (!declaree.isEmpty() || !regles.multiplicitesDeduites()) {
+            return declaree;
+        }
+        return TypeAffiche.multipliciteDeduite(type);
+    }
+
     // Le nom sous lequel un attribut paraît dans la boîte.
     //
-    // C'est celui de l'attribut Java, sauf pour une association écrite dans la boîte qui nomme
-    // son rôle cible : en notation attribut, ce rôle est le nom de la propriété — « physicalKeys:
-    // RectangularKey [0..*] » là où le code déclare un champ « keys ». Le rôle ne se perd donc
-    // pas en changeant de notation, il change seulement de place.
+    // C'est celui de l'attribut Java, sauf deux redéfinitions. Une association écrite dans la
+    // boîte nomme son rôle cible : en notation attribut, ce rôle est le nom de la propriété —
+    // « physicalKeys: RectangularKey [0..*] » là où le code déclare un champ « keys ». Et
+    // @UMLInclude(name = ...) renomme un membre ordinaire, quand le diagramme nomme les choses
+    // plus longuement que le code. Les deux à la fois se contrediraient : c'est refusé, ici et
+    // par le processeur.
     //
     // Public parce que NoteExtractor doit poser la même question : une bulle s'accroche au nom
     // affiché, et à lui seul.
     public static String nomAffiche(Field field) {
         UMLAssociation association = field.getAnnotation(UMLAssociation.class);
+        String renomme = renomme(field, emplacement(field));
 
-        if (association == null || association.notation() != UMLNotation.ATTRIBUTE
-            || association.targetRole().isEmpty()) {
-            return field.getName();
+        if (association != null && association.notation() == UMLNotation.ATTRIBUTE
+            && !association.targetRole().isEmpty()) {
+            checkArgument(renomme.isEmpty(),
+                "%s carries both targetRole = \"%s\" and @UMLInclude(name = \"%s\"): two names "
+                    + "for the same line. Keep only one of the two.",
+                emplacement(field), association.targetRole(), renomme);
+            return association.targetRole();
         }
-        return association.targetRole();
+        return renomme.isEmpty() ? field.getName() : renomme;
+    }
+
+    // Le nom sous lequel une méthode paraît, celui du code ou celui que @UMLInclude redonne.
+    public static String nomAffiche(Method method) {
+        String renomme = renomme(method,
+            method.getDeclaringClass().getName() + "." + method.getName());
+        return renomme.isEmpty() ? method.getName() : renomme;
+    }
+
+    // Le nom que @UMLInclude(name = ...) donne à ce membre, ou la chaîne vide.
+    //
+    // Un nom fait d'espaces est refusé dès la lecture : l'écrire n'a aucun sens, et le laisser
+    // passer dessinerait une ligne au nom invisible.
+    private static String renomme(AnnotatedElement membre, String emplacement) {
+        UMLInclude inclusion = membre.getAnnotation(UMLInclude.class);
+        if (inclusion == null || inclusion.name().isEmpty()) {
+            return "";
+        }
+        checkArgument(!inclusion.name().isBlank(),
+            "%s: @UMLInclude(name = ...) cannot be made of whitespace only.", emplacement);
+        return inclusion.name();
     }
 
     // Une association écrite dans la boîte, par exemple « - Commande commandes [0..*] ».
@@ -313,7 +394,9 @@ public final class MemberExtractor {
             // getParameterizedType, et non getType : « Map<String, Short> » plutôt que « Map ».
             String type = TypeAffiche.de(parametre.getParameterizedType(), regles);
 
-            parametres.add(parametre.isNamePresent()
+            // « hide parameter names » : le projet a choisi les signatures courtes, celles des
+            // diagrammes tenus à la main — le nom est tu même quand la compilation l'a gardé.
+            parametres.add(parametre.isNamePresent() && !regles.masquerNomsParametres()
                 ? new UmlParameter(parametre.getName(), type)
                 : UmlParameter.anonyme(type));
         }
@@ -328,14 +411,32 @@ public final class MemberExtractor {
         Regles regles) {
         ImmutableList.Builder<UmlMethod> result = ImmutableList.builder();
 
-        for (Method method : MembresOrdonnes.methodes(clazz)) {
+        for (Method method : MembresOrdonnes.methodes(clazz, regles)) {
 
             if (method.isSynthetic()) {
                 continue;
             }
 
-            boolean hasInclude = method.isAnnotationPresent(UMLInclude.class);
-            boolean hasExclude = method.isAnnotationPresent(UMLExclude.class);
+            UMLInclude inclusion = method.getAnnotation(UMLInclude.class);
+
+            // Une méthode écrite en notation attribut quitte ce compartiment : elle paraît parmi
+            // les attributs (voir methodesEnAttributs), et la dessiner ici la répéterait.
+            if (inclusion != null && inclusion.asAttribute()) {
+                continue;
+            }
+
+            boolean hasInclude = inclusion != null;
+            // Le veto se lit aussi sur la déclaration que cette méthode redéfinit : un
+            // @UMLExclude posé sur l'interface vaut pour chacune de ses réalisations, sans qu'il
+            // faille le répéter sur chaque override (voir excluParHeritage).
+            boolean hasExclude = method.isAnnotationPresent(UMLExclude.class)
+                || excluParHeritage(clazz, method);
+
+            // Une méthode désignée nommément — « hide method Classe.nom » — sort quoi qu'elle
+            // porte : même règle, et même justification, que pour un attribut.
+            if (regles.methodeMasqueeNommement(clazz.getSimpleName(), method.getName())) {
+                continue;
+            }
 
             // Le bruit ne se juge plus tout seul : seules les familles et les motifs écrits dans
             // le fichier de règles écartent quoi que ce soit. @UMLInclude garde le dernier mot,
@@ -348,15 +449,19 @@ public final class MemberExtractor {
                 hasExclude)) {
 
                 try {
-                    String multiplicite = multiplicite(method);
+                    String multiplicite =
+                        multiplicite(method, method.getGenericReturnType(), regles);
                     result.add(new UmlMethod(
-                        method.getName(),
+                        nomAffiche(method),
                         retour(method, multiplicite, regles),
                         multiplicite,
                         symbole(method.getModifiers(), regles),
                         Modifier.isStatic(method.getModifiers()),
                         parametres(method, regles),
-                        method.isAnnotationPresent(UMLDerived.class)
+                        method.isAnnotationPresent(UMLDerived.class),
+                        // Une méthode d'interface est abstraite sans porter le mot-clé, sauf
+                        // si elle est default ou static : le modificateur, lui, ne ment pas.
+                        Modifier.isAbstract(method.getModifiers())
                     ));
                 } catch (IllegalArgumentException | NullPointerException e) {
                     throw new IllegalArgumentException("@UMLMultiplicity sur "
@@ -366,5 +471,109 @@ public final class MemberExtractor {
             }
         }
         return result.build();
+    }
+
+    // Les méthodes que @UMLInclude(asAttribute = true) écrit en notation attribut :
+    // « xKeycodeByXKeyName : Map<String, Short> », sans parenthèses, parmi les attributs.
+    //
+    // Un accesseur sans paramètre expose une propriété de l'objet ; les diagrammes qui montrent
+    // une structure l'écrivent comme telle, et c'est la forme des diagrammes de référence de
+    // Keyboardd. La conversion exige une méthode sans paramètre qui rend quelque chose : les
+    // parenthèses retirées, il ne reste que le nom et le type, et il faut que les deux existent.
+    // Le processeur refuse le reste à la compilation ; la vérification est refaite ici pour le
+    // code compilé sans lui.
+    //
+    // La dérogation étant du @UMLInclude, la visibilité est acquise ; ne l'écartent que les
+    // mêmes vetos qui écartent une méthode incluse : @UMLExclude — hérité compris — et la
+    // désignation nommément du fichier de règles.
+    public static ImmutableList<UmlField> methodesEnAttributs(Class<?> clazz, Regles regles) {
+        ImmutableList.Builder<UmlField> result = ImmutableList.builder();
+
+        for (Method method : MembresOrdonnes.methodes(clazz, regles)) {
+            UMLInclude inclusion = method.getAnnotation(UMLInclude.class);
+            if (method.isSynthetic() || inclusion == null || !inclusion.asAttribute()) {
+                continue;
+            }
+            if (regles.methodeMasqueeNommement(clazz.getSimpleName(), method.getName())) {
+                continue;
+            }
+            if (method.isAnnotationPresent(UMLExclude.class) || excluParHeritage(clazz, method)) {
+                continue;
+            }
+            String emplacement = clazz.getName() + "." + method.getName();
+            checkArgument(method.getParameterCount() == 0,
+                "%s carries @UMLInclude(asAttribute = true) but takes parameters: an attribute "
+                    + "has none. Remove the parameters, or the notation.", emplacement);
+            checkArgument(method.getReturnType() != void.class,
+                "%s carries @UMLInclude(asAttribute = true) but returns nothing: an attribute "
+                    + "is its type. Return something, or remove the notation.", emplacement);
+
+            try {
+                String multiplicite =
+                    multiplicite(method, method.getGenericReturnType(), regles);
+                result.add(new UmlField(
+                    nomAffiche(method),
+                    // Le type est celui que la méthode rend — écrit comme sur un attribut, sans
+                    // passer par « hide return » : un attribut porte toujours son type.
+                    multiplicite.isEmpty()
+                        ? TypeAffiche.de(method.getGenericReturnType(), regles)
+                        : TypeAffiche.deLElement(method.getGenericReturnType(), regles),
+                    multiplicite,
+                    symbole(method.getModifiers(), regles),
+                    Modifier.isStatic(method.getModifiers()),
+                    method.isAnnotationPresent(UMLDerived.class),
+                    ConstraintExtractor.de(method, emplacement)));
+            } catch (IllegalArgumentException | NullPointerException e) {
+                throw new IllegalArgumentException(
+                    "@UMLMultiplicity sur " + emplacement + " : " + e.getMessage(), e);
+            }
+        }
+        return result.build();
+    }
+
+    // Ce que cette méthode redéfinit porte-t-il @UMLExclude ?
+    //
+    // Un membre déclaré par une interface et réalisé par trois classes s'exclut en un endroit :
+    // sur la déclaration. L'exclure trois fois — une par override — était le coût observé sur un
+    // projet réel, et il ne disait rien de plus. La recherche parcourt tous les surtypes ; une
+    // méthode statique ou privée ne redéfinit rien, elle ne regarde qu'elle-même.
+    private static boolean excluParHeritage(Class<?> clazz, Method method) {
+        if (Modifier.isStatic(method.getModifiers()) || Modifier.isPrivate(method.getModifiers())) {
+            return false;
+        }
+        for (Class<?> surtype : surtypes(clazz)) {
+            try {
+                if (surtype.getDeclaredMethod(method.getName(), method.getParameterTypes())
+                    .isAnnotationPresent(UMLExclude.class)) {
+                    return true;
+                }
+            } catch (NoSuchMethodException e) {
+                // Ce surtype ne déclare pas la méthode : rien à lire chez lui.
+            }
+        }
+        return false;
+    }
+
+    // Tous les surtypes d'une classe, elle exclue : la chaîne des parents et chaque interface,
+    // transitivement. L'ordre de rencontre est conservé, mais il est indifférent — on cherche
+    // une annotation, pas une préséance.
+    private static Set<Class<?>> surtypes(Class<?> clazz) {
+        Set<Class<?>> vus = new LinkedHashSet<>();
+        List<Class<?>> aVisiter = new ArrayList<>();
+        aVisiter.add(clazz);
+
+        while (!aVisiter.isEmpty()) {
+            Class<?> courant = aVisiter.remove(aVisiter.size() - 1);
+            Class<?> parent = courant.getSuperclass();
+            if (parent != null && vus.add(parent)) {
+                aVisiter.add(parent);
+            }
+            for (Class<?> interface_ : courant.getInterfaces()) {
+                if (vus.add(interface_)) {
+                    aVisiter.add(interface_);
+                }
+            }
+        }
+        return vus;
     }
 }

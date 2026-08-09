@@ -59,8 +59,13 @@ public final class ClassBoxRenderer {
         // Le mot-clé dit la nature de l'entité : class, abstract class, interface, enum,
         // annotation. Le nom affiché est mis entre guillemets, ce qui permet espaces et
         // accents ; l'alias, lui, reste un identifiant nu.
+        // Les paramètres de type suivent le nom, comme en Java : « Boite<T> ». UML les dessine
+        // dans un cartouche au coin de la boîte, ce que PlantUML ne sait pas faire ; les écrire
+        // à la suite dit la même chose, et vaut mieux que de les taire — un attribut de type T
+        // dans une boîte nommée « Boite » ne renvoyait à rien.
         boite.append(entity.kind().motCle())
-             .append(" \"").append(PlantUmlEscaper.label(entity.name()))
+             .append(" \"")
+             .append(PlantUmlEscaper.label(entity.name() + entity.typeParameters()))
              .append("\" as ").append(alias);
 
         // Le modèle garantit déjà le non-nul ; le test sur null est une ceinture de sécurité,
@@ -185,6 +190,11 @@ public final class ClassBoxRenderer {
 
             if (method.isStatic()) {
                 compartiment.append("{static} ");
+            }
+            // {abstract} demande à PlantUML l'italique, la notation qu'UML réserve à une
+            // opération sans implémentation.
+            if (method.isAbstract()) {
+                compartiment.append("{abstract} ");
             }
 
             compartiment.append(derive(method.derived(), method.name()))

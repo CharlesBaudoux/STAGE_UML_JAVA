@@ -10,7 +10,7 @@ interface "Identifiable" as Identifiable {
 abstract class "Personne" as Personne {
   # nom : String
   --
-  + valider() : void
+  + {abstract} valider() : void
 }
 
 enum "Statut" as Statut {

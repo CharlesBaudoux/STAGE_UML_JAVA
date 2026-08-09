@@ -19,6 +19,9 @@ import io.github.oliviercailloux.umlg.model.UmlEntityKind;
 import io.github.oliviercailloux.umlg.model.UmlField;
 import io.github.oliviercailloux.umlg.model.UmlMethod;
 import java.lang.reflect.Modifier;
+import java.lang.reflect.Type;
+import java.lang.reflect.TypeVariable;
+import java.util.StringJoiner;
 
 // Traduit une classe annotée en une UmlEntity : c'est le chef d'orchestre de l'extraction.
 //
@@ -66,8 +69,14 @@ public final class EntityExtractor {
 
         // Les membres sont extraits avant la construction du builder : les notes ont besoin de
         // savoir lesquels seront dessinés, car une bulle ne s'accroche qu'à ce qui existe.
-        ImmutableList<UmlField> fields =
-            MemberExtractor.extractFields(clazz, finalStrategy, regles);
+        //
+        // Les méthodes écrites en notation attribut — @UMLInclude(asAttribute = true) —
+        // rejoignent le compartiment des attributs, après les attributs du code : ce que la
+        // classe stocke d'abord, ce qu'elle expose ensuite.
+        ImmutableList<UmlField> fields = ImmutableList.<UmlField>builder()
+            .addAll(MemberExtractor.extractFields(clazz, finalStrategy, regles))
+            .addAll(MemberExtractor.methodesEnAttributs(clazz, regles))
+            .build();
         ImmutableList<UmlMethod> methods =
             MemberExtractor.extractMethods(clazz, finalStrategy, regles);
 
@@ -82,7 +91,8 @@ public final class EntityExtractor {
             .methods(methods)
             .notes(NoteExtractor.extraire(clazz, fields, methods))
             .constraints(ConstraintExtractor.de(clazz, clazz.getName()))
-            .group(PackageExtractor.extraire(clazz, regles));
+            .group(PackageExtractor.extraire(clazz, regles))
+            .typeParameters(parametresDeType(clazz, regles));
 
         for (RelationExtractor extracteur : EXTRACTEURS) {
             builder.relations(extracteur.extraire(clazz));
@@ -113,5 +123,38 @@ public final class EntityExtractor {
             return UmlEntityKind.ABSTRACT_CLASS;
         }
         return UmlEntityKind.CLASS;
+    }
+
+    // Les paramètres de type de la classe, chevrons compris : « <T> », « <K, V extends Number> ».
+    //
+    // UML les dessine dans un cartouche en pointillés au coin de la boîte ; PlantUML les écrit
+    // simplement à la suite du nom, ce qui dit la même chose. Ils manquaient tout à fait : une
+    // « Boite<T> » s'affichait « Boite », avec un attribut de type T que plus rien dans le
+    // diagramme ne définissait.
+    //
+    // Les bornes suivent les règles de nommage du projet, comme partout ailleurs : un
+    // « T extends ImmutableList » s'écrit « T extends List » si le projet le demande.
+    private static String parametresDeType(Class<?> clazz, Regles regles) {
+        TypeVariable<?>[] variables = clazz.getTypeParameters();
+        if (variables.length == 0) {
+            return "";
+        }
+        StringJoiner parametres = new StringJoiner(", ", "<", ">");
+        for (TypeVariable<?> variable : variables) {
+            StringBuilder ecrit = new StringBuilder(variable.getName());
+            // « extends Object » est la borne par défaut : l'écrire n'apprendrait rien, et
+            // allongerait l'en-tête de toutes les classes génériques du projet.
+            StringJoiner bornes = new StringJoiner(" & ");
+            for (Type borne : variable.getBounds()) {
+                if (borne != Object.class) {
+                    bornes.add(TypeAffiche.de(borne, regles));
+                }
+            }
+            if (bornes.length() > 0) {
+                ecrit.append(" extends ").append(bornes);
+            }
+            parametres.add(ecrit);
+        }
+        return parametres.toString();
     }
 }
