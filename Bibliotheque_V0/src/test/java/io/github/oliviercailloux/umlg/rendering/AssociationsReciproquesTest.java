@@ -117,6 +117,38 @@ class AssociationsReciproquesTest {
         assertEquals(1, relationsDe("A", a).size());
     }
 
+    // --- Le document réellement engendré, et non le calcul seul ---
+
+    @Test
+    void leDocumentEngendre_neContientQuUnTrait() {
+        // Le test qui manquait, et dont l'absence a laissé passer une dérive silencieuse.
+        //
+        // Les tests précédents interrogent AssociationsReciproques ; celui-ci passe par le
+        // document, donc par la même séquence de passes que PlantUmlWriter. Tant que le helper
+        // des tests recopiait cette séquence au lieu de l'appeler, il écrivait l'ancien document
+        // — deux traits — sans qu'aucun test ne s'en aperçoive.
+        UmlEntity a = entite("A", UmlAssociation.builder("bs", "dm.B")
+            .targetRole("bs").targetCardinality("0..*").build());
+        UmlEntity b = entite("B", UmlAssociation.builder("a", "dm.A")
+            .targetRole("a").targetCardinality("1").build());
+
+        List<String> traits = PlantUmlAssert.lignesDeLien(PlantUmlAssert.documentPour(a, b));
+
+        assertEquals(1, traits.size(), "Un seul trait attendu, obtenu : " + traits);
+        assertTrue(traits.get(0).contains("\"a 1\""), traits.get(0));
+        assertTrue(traits.get(0).contains("\"bs 0..*\""), traits.get(0));
+    }
+
+    @Test
+    void leDocumentEngendre_gardeLesDeuxTraitsQuandLaFusionPerdrait() {
+        // Le pendant du précédent : ce que la fusion refuse doit se voir sur le dessin aussi.
+        UmlEntity a = entite("A", UmlAssociation.builder("bs", "dm.B").build());
+        UmlEntity b = entite("B", UmlAssociation.builder("a", "dm.A")
+            .type(UMLRelationType.COMPOSITION).build());
+
+        assertEquals(2, PlantUmlAssert.lignesDeLien(PlantUmlAssert.documentPour(a, b)).size());
+    }
+
     @Test
     void uneAssociationVersSoiMeme_nEstPasFusionnee() {
         // Une classe qui se référence elle-même n'a pas de « face » distincte : le trait

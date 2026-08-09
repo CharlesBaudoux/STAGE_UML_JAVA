@@ -118,19 +118,15 @@ public final class PlantUmlAssert {
 
     public static String documentPour(UmlStyle style, UmlDiagram diagramme,
         UmlEntity... entities) {
-        PlantUmlSyntaxBuilder builder = new PlantUmlSyntaxBuilder(style, diagramme);
-        builder.startDocument();
-        // addClasses et non addClass en boucle : c'est ce que fait le writer, et c'est le seul
-        // appel qui ouvre les rectangles de @UMLPackage.
-        builder.addClasses(List.of(entities));
-        for (UmlEntity entity : entities) {
-            builder.addRelations(entity);
-        }
-        for (UmlEntity entity : entities) {
-            builder.addNotes(entity);
-        }
-        builder.endDocument();
-        return builder.build();
+        // La séquence des passes n'est plus recopiée ici : on appelle celle du writer.
+        //
+        // Elle l'était, avec un commentaire qui prévenait qu'il faudrait la tenir à jour. Elle ne
+        // l'a pas été : le jour où la fusion des associations réciproques est entrée dans le
+        // writer, ce helper a continué d'écrire l'ancien document, et les quatre-vingt-neuf tests
+        // qui passent par lui ont continué de mesurer un dessin que la bibliothèque ne produisait
+        // plus — tous verts. Un helper de test qui reproduit le code testé ne teste bientôt plus
+        // que lui-même.
+        return new PlantUmlSyntaxBuilder(style, diagramme).document(List.of(entities)).build();
     }
 
     // Ne garde que les lignes de relation, en éliminant tout le reste par exclusion : lignes

@@ -3,6 +3,7 @@ package io.github.oliviercailloux.umlg.rendering;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.github.oliviercailloux.umlg.UmlStyle;
 import io.github.oliviercailloux.umlg.annotation.UMLFlow;
 import io.github.oliviercailloux.umlg.model.UmlDiagram;
@@ -94,13 +95,56 @@ final class PlantUmlSyntaxBuilder {
         return tete.toString();
     }
 
+    // Le document entier : l'en-tête, les boîtes, les traits, les bulles, le pied.
+    //
+    // POURQUOI CETTE SÉQUENCE N'EXISTE QU'ICI
+    //
+    // Elle vivait à deux endroits : dans PlantUmlWriter, qui produit les vrais fichiers, et dans
+    // le PlantUmlAssert des tests, qui la recopiait pour rendre un document en mémoire. Le
+    // helper le disait lui-même — « toute passe ajoutée au writer doit l'être ici aussi, sans
+    // quoi les tests de rendu mesureraient un document que personne ne produit jamais » — et
+    // c'est exactement ce qui est arrivé le jour où la fusion des associations réciproques est
+    // entrée dans le writer : les tests de rendu ont continué de mesurer l'ancien document, sans
+    // qu'un seul ne passe au rouge.
+    //
+    // Un avertissement écrit en commentaire ne protège de rien. Les passes intermédiaires sont
+    // donc devenues privées, et il n'y a plus qu'une façon d'écrire un document : celle-ci.
+    //
+    // L'ORDRE, QUI EST UNE CONTRAINTE ET NON UN GOÛT
+    //
+    // Les boîtes d'abord, toutes, parce qu'une relation nomme ses extrémités par leur alias, et
+    // qu'un alias n'existe qu'une fois la boîte déclarée : une classe citée trop tôt serait
+    // recréée vide par PlantUML au lieu d'être reliée à la vraie. Les bulles en dernier, pour la
+    // même raison et pour que le texte engendré reste lisible — les traits d'un côté, les
+    // commentaires de l'autre.
+    public PlantUmlSyntaxBuilder document(Iterable<UmlEntity> entities) {
+        checkNotNull(entities);
+
+        startDocument();
+        addClasses(entities);
+
+        // Deux attributs qui se font face ne sont qu'une association : la paire est fusionnée
+        // avant d'être écrite, faute de quoi le dessin porterait deux traits parallèles là où
+        // UML en veut un, à deux extrémités nommées.
+        ImmutableMap<String, ImmutableList<UmlRelation>> relations =
+            AssociationsReciproques.de(entities);
+        for (UmlEntity entity : entities) {
+            addRelations(entity, relations.get(entity.qualifiedName()));
+        }
+        for (UmlEntity entity : entities) {
+            addNotes(entity);
+        }
+        endDocument();
+        return this;
+    }
+
     // Déclare toutes les boîtes, chacune dans le rectangle où @UMLPackage la range.
     //
     // Elles sont déclarées ensemble, et non une par une, parce qu'un groupe n'est pas une
     // propriété de la boîte mais un rectangle qui en contient plusieurs : ouvrir et refermer le
     // bon au bon moment demande de les avoir toutes sous les yeux. C'est PackageRenderer qui les
     // range ; ici, on écrit ce qu'il a rangé.
-    public PlantUmlSyntaxBuilder addClasses(Iterable<UmlEntity> entities) {
+    private PlantUmlSyntaxBuilder addClasses(Iterable<UmlEntity> entities) {
         for (Map.Entry<UmlPackage, ImmutableList<UmlEntity>> groupe
             : PackageRenderer.groupes(entities)) {
 
@@ -139,18 +183,14 @@ final class PlantUmlSyntaxBuilder {
         return this;
     }
 
-    // Écrit les relations que porte une entité. Suppose que toutes les boîtes ont déjà été
-    // déclarées : c'est pour cela que PlantUmlWriter fait deux passes.
-    public PlantUmlSyntaxBuilder addRelations(UmlEntity entity) {
-        return addRelations(entity, entity.relations());
-    }
-
-    // Les mêmes relations, mais choisies par l'appelant.
+    // Écrit les relations d'une entité, telles que le dessin les veut. Suppose toutes les boîtes
+    // déjà déclarées : c'est pour cela que document() écrit d'abord les unes, puis les autres.
     //
-    // PlantUmlWriter s'en sert pour écrire les paires réciproques fusionnées : la liste passée
-    // n'est alors plus celle du modèle, qui dit fidèlement ce que chaque classe déclare, mais
-    // celle du dessin, où deux attributs qui se font face n'ont qu'un trait.
-    public PlantUmlSyntaxBuilder addRelations(UmlEntity entity,
+    // La liste passée n'est pas celle du modèle, qui dit fidèlement ce que chaque classe déclare,
+    // mais celle du dessin, où deux attributs qui se font face n'ont qu'un trait. C'est la raison
+    // pour laquelle elle est un paramètre, et non lue sur l'entité : la différence entre les deux
+    // est précisément ce qu'AssociationsReciproques calcule.
+    private PlantUmlSyntaxBuilder addRelations(UmlEntity entity,
         Iterable<? extends UmlRelation> relations) {
         String aliasSource = alias.aliasSource(entity.qualifiedName());
 
@@ -164,7 +204,7 @@ final class PlantUmlSyntaxBuilder {
 
     // Écrit les bulles de commentaire d'une entité. Comme les relations, elles désignent des
     // boîtes par leur alias et supposent donc toutes les déclarations déjà écrites.
-    public PlantUmlSyntaxBuilder addNotes(UmlEntity entity) {
+    private PlantUmlSyntaxBuilder addNotes(UmlEntity entity) {
         String alias = this.alias.aliasSource(entity.qualifiedName());
 
         for (UmlNote note : entity.notes()) {

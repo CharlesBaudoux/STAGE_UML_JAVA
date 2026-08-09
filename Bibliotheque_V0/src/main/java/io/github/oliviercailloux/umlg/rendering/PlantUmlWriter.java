@@ -276,31 +276,11 @@ public class PlantUmlWriter {
     // Le tronc commun : des boîtes, un fichier.
     private static void ecrire(PlantUmlSyntaxBuilder syntax, Iterable<UmlEntity> entities,
         String outputFileName) throws Exception {
-        syntax.startDocument();
-        // Deux passes : une relation nomme ses extrémités par leur alias, qui n'existe qu'une
-        // fois la classe déclarée. Une classe citée par une association déclarée trop tôt
-        // serait recréée vide par PlantUML au lieu d'être reliée à la vraie boîte.
-        //
-        // Les boîtes sont déclarées d'un seul appel, et non une par une : c'est ce qui permet
-        // d'ouvrir et de refermer au bon endroit les rectangles de @UMLPackage.
-        syntax.addClasses(entities);
-        // Deux attributs qui se font face ne sont qu'une association : la paire est fusionnée
-        // avant d'être écrite, faute de quoi le dessin porterait deux traits parallèles là où
-        // UML en veut un, à deux extrémités nommées.
-        com.google.common.collect.ImmutableMap<String,
-            ImmutableList<io.github.oliviercailloux.umlg.model.UmlRelation>> relations =
-                AssociationsReciproques.de(entities);
-        for (UmlEntity entity : entities) {
-            syntax.addRelations(entity, relations.get(entity.qualifiedName()));
-        }
-        // Les notes en dernier : elles désignent les boîtes, et les grouper en fin de fichier
-        // garde le texte engendré lisible — les traits d'un côté, les commentaires de l'autre.
-        for (UmlEntity entity : entities) {
-            syntax.addNotes(entity);
-        }
-        syntax.endDocument();
-
-        String codePlantUml = syntax.build();
+        // Toute la séquence des passes vit dans PlantUmlSyntaxBuilder.document, et n'y vit
+        // qu'une fois : le writer s'occupe de fichiers et d'images, pas de l'ordre dans lequel un
+        // document PlantUML s'écrit. C'est ce qui empêche les tests de rendu de mesurer un
+        // document que le writer ne produit plus.
+        String codePlantUml = syntax.document(entities).build();
 
         FileFormat format = formatPour(outputFileName);
 
