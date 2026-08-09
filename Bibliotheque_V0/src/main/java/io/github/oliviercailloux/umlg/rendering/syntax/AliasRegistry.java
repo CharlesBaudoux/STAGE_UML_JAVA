@@ -36,10 +36,31 @@ public final class AliasRegistry {
             "Class \"%s\" is declared twice in the same diagram: the associations targeting it "
                 + "could not tell which of the two boxes to point at.", nomQualifie);
 
+        // Deux classes de paquetages différents peuvent porter le même nom simple. Les alias, eux,
+        // ne se marchent pas dessus — le suffixe « _2 » y pourvoit —, mais l'alias ne se lit pas
+        // sur le dessin : le lecteur, lui, voit deux boîtes rigoureusement identiques, et les
+        // traits qui y aboutissent ne lui disent pas laquelle est laquelle. Le diagramme est
+        // exact et illisible, ce qui est la pire des combinaisons.
+        //
+        // Rien n'est renommé d'autorité : le nom affiché appartient à l'utilisateur, et
+        // @UMLClass(name = ...) est là pour qu'il tranche. On le lui dit, et on nomme les deux
+        // classes complètes pour qu'il sache lesquelles.
+        String homonyme = nomsAffichesParNom.put(nomAffiche, nomQualifie);
+        if (homonyme != null) {
+            io.github.oliviercailloux.umlg.Avertissements.dire("\"" + nomAffiche + "\" is the "
+                + "name of two boxes of the same diagram (" + homonyme + " and " + nomQualifie
+                + "). They are distinct classes, but nothing on the drawing tells them apart, "
+                + "nor which one a link reaches. Rename one with @UMLClass(name = ...), or split "
+                + "them into two views.");
+        }
+
         String alias = alias(nomAffiche);
         aliasParNomQualifie.put(nomQualifie, alias);
         return alias;
     }
+
+    // Nom affiché -> la première classe complète à l'avoir porté, pour dénoncer les homonymes.
+    private final Map<String, String> nomsAffichesParNom = new HashMap<>();
 
     // Alias de la classe dont on est en train d'écrire les relations. Une absence ici est une
     // faute de la bibliothèque — les deux passes de PlantUmlWriter ont été mal ordonnées —,

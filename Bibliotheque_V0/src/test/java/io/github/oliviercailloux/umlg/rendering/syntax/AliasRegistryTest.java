@@ -21,6 +21,19 @@ import org.junit.jupiter.api.Test;
 // assertCompile dans chaque test.
 class AliasRegistryTest {
 
+    @Test
+    void deuxHomonymes_recoiventDesAliasDistincts() {
+        // Les alias ne se marchent pas dessus — c'est ce qui garantit que chaque trait aboutit à
+        // la bonne boîte. Mais l'alias ne se lit pas sur le dessin : c'est pourquoi
+        // l'enregistrement avertit en plus, les deux boîtes étant visuellement identiques.
+        AliasRegistry registre = new AliasRegistry();
+
+        String premier = registre.enregistrer("a.Client", "Client");
+        String second = registre.enregistrer("b.Client", "Client");
+
+        org.junit.jupiter.api.Assertions.assertNotEquals(premier, second);
+    }
+
     // Deux noms qui, une fois nettoyés, donnent tous deux « MonClient ».
     @UMLClass(name = "Mon.Client")
     static class NomAvecPoint {}
