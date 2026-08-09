@@ -43,9 +43,26 @@ jobs:
           mvn --batch-mode --file Bibliotheque_V0/pom.xml install -DskipTests
           mvn --batch-mode --file umlg-maven-plugin/pom.xml install
 
-      # La preuve de bout en bout : la bibliothèque, lancée par le plugin, sur un vrai projet.
-      - name: Engendrer les diagrammes du projet de démonstration
-        run: mvn --batch-mode --file test_collegue/pom.xml compile umlg:generate
+      # La preuve de bout en bout, par les deux chemins que la documentation décrit.
+      #
+      # Le goal est écrit en entier, et non « umlg:generate » : le préfixe court n'est résolu que
+      # si le projet déclare le plugin dans son pom, ou si le groupe figure dans les pluginGroups
+      # du settings.xml. Le projet de démonstration, lui, documente la voie exec:java — et c'est
+      # justement cette différence qui a fait échouer cette étape la première fois qu'elle a
+      # tourné sur un dépôt neuf.
+      - name: Engendrer les diagrammes du projet de démonstration, par le plugin
+        working-directory: test_collegue
+        run: >
+          mvn --batch-mode compile
+          io.github.oliviercailloux:umlg-maven-plugin:1.0-SNAPSHOT:generate
+
+      # Depuis le répertoire du projet, et non par --file : les arguments passés à exec:java
+      # sont des chemins relatifs (« target/classes »), que Maven résout depuis le répertoire
+      # d'où il a été lancé et non depuis celui du module. C'est la commande que le README du
+      # projet de démonstration donne, et c'est donc celle qu'il faut éprouver.
+      - name: Engendrer les diagrammes du projet de démonstration, par exec:java
+        working-directory: test_collegue
+        run: mvn --batch-mode compile exec:java
 
       - name: Conserver le rapport de couverture
         if: always()
