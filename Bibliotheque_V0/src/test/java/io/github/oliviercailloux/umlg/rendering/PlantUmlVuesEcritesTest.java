@@ -54,9 +54,10 @@ class PlantUmlVuesEcritesTest {
             UmlStyle.PLANTUML, Regles.Sortie.REPLACE);
 
         assertEquals(3, ecrits.size(), ecrits.toString());
-        assertEquals(List.of("projet.svg", "vues"), fichiers(dossier));
-        assertEquals(List.of("clients.svg", "facturation.svg"),
-            fichiers(dossier.resolve("vues")));
+        // La source .puml accompagne chaque image : c'est elle qu'on retouche et qu'on compare.
+        assertEquals(List.of("projet.puml", "projet.svg", "vues"), fichiers(dossier));
+        assertEquals(List.of("clients.puml", "clients.svg", "facturation.puml",
+            "facturation.svg"), fichiers(dossier.resolve("vues")));
     }
 
     @Test
@@ -122,7 +123,7 @@ class PlantUmlVuesEcritesTest {
         PlantUmlWriter.writeViews(projet(), dossier, ".png", UmlStyle.PLANTUML,
             Regles.Sortie.REPLACE);
 
-        assertEquals(List.of("projet.png", "vues"), fichiers(dossier));
+        assertEquals(List.of("projet.png", "projet.puml", "vues"), fichiers(dossier));
     }
 
     // --- La navigation d'une vue à l'autre ---

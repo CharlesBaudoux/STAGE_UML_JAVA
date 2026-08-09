@@ -37,6 +37,28 @@ final class Membre {
             || membre.getKind() == ElementKind.ENUM_CONSTANT;
     }
 
+    // Cet élément vient-il d'un composant de record — son champ, ou son accesseur ?
+    //
+    // Deux raisons de le demander. Un composant est toujours dessiné, quelle que soit la
+    // stratégie (voir MemberExtractor) : accuser son @UMLExclude d'être « sans effet » sous
+    // strategy NONE serait faux, c'est au contraire le seul moyen de le taire. Et l'annotation
+    // écrite sur un composant est propagée par javac au champ comme à l'accesseur : l'auteur
+    // n'a écrit qu'une annotation, un avertissement sur l'un des deux clones le renverrait à
+    // une ligne qui n'existe pas dans son code.
+    static boolean vientDUnComposant(Element membre) {
+        Element porteuse = membre.getEnclosingElement();
+        if (porteuse == null || porteuse.getKind() != ElementKind.RECORD) {
+            return false;
+        }
+        if (membre.getKind() != ElementKind.FIELD
+            && membre.getKind() != ElementKind.METHOD) {
+            return false;
+        }
+        return porteuse.getEnclosedElements().stream()
+            .filter(element -> element.getKind() == ElementKind.RECORD_COMPONENT)
+            .anyMatch(element -> element.getSimpleName().contentEquals(membre.getSimpleName()));
+    }
+
     static String emplacement(Element membre) {
         return ((TypeElement) membre.getEnclosingElement()).getQualifiedName() + "."
             + membre.getSimpleName();

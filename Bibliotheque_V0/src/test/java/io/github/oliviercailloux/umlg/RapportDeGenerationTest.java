@@ -32,6 +32,18 @@ class RapportDeGenerationTest {
     }
 
     @Test
+    void unFichierSansDossier_estNommeLuiMeme() {
+        // Le cas du fichier unique par défaut, « diagramme_architecture.svg » : un chemin d'un
+        // seul segment n'a pas de parent, et le compte rendu écrivait « written to null » — le
+        // tout premier message que voyait un utilisateur n'ayant rien configuré.
+        String resume = new RapportDeGeneration(5, ImmutableList.of(),
+            ImmutableList.of(Path.of("diagramme_architecture.svg"))).resume();
+
+        assertFalse(resume.contains("null"), resume);
+        assertTrue(resume.contains("diagramme_architecture.svg"), resume);
+    }
+
+    @Test
     void leCompteRendu_ditCeQuiAEteIgnore() {
         // L'information que personne n'avait : une classe sans @UMLClass est hors du diagramme,
         // et rien ne distinguait celle qu'on a écartée de celle qu'on a oubliée.

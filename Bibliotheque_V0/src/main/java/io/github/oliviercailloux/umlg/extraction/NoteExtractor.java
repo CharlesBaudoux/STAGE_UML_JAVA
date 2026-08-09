@@ -58,11 +58,15 @@ final class NoteExtractor {
         }
 
         for (Method method : MembresOrdonnes.methodes(clazz)) {
-            if (method.isSynthetic() || !methodesVisibles.contains(method.getName())) {
+            // Le nom affiché, comme pour un attribut : @UMLInclude(name = ...) peut renommer la
+            // méthode, et la bulle doit s'accrocher au nom qui paraît sur le dessin.
+            String affiche = MemberExtractor.nomAffiche(method);
+
+            if (method.isSynthetic() || !methodesVisibles.contains(affiche)) {
                 continue;
             }
             for (UMLNote annotation : method.getAnnotationsByType(UMLNote.class)) {
-                result.add(traduire(annotation, method.getName(),
+                result.add(traduire(annotation, affiche,
                     clazz.getName() + "." + method.getName()));
             }
         }

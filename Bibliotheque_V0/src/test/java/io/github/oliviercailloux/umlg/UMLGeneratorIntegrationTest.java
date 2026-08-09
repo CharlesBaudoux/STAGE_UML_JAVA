@@ -2,6 +2,7 @@ package io.github.oliviercailloux.umlg;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -160,6 +161,84 @@ class UMLGeneratorIntegrationTest {
             "Le fichier de sortie doit figurer dans le message : " + e.getMessage());
         assertTrue(e.getCause() != null, "La cause d'origine doit être conservée.");
         assertFalse(Files.exists(sortie), "Aucun fichier ne doit être écrit en cas d'échec.");
+    }
+
+    @Test
+    void generate_rendLeCompteRendu_etNommeToutesLesIgnoreesDansUnFichier(@TempDir Path tmp)
+        throws Exception {
+        // Le compte rendu s'arrête de nommer au-delà d'une douzaine ; le fichier écrit dans le
+        // dossier de sortie n'a pas cette limite — il est là pour être ouvert quand le nombre a
+        // donné l'alerte.
+        Path classes = tmp.resolve("classes");
+        compiler(tmp.resolve("src"), classes, "com/banque/Compte.java", """
+            package com.banque;
+
+            import io.github.oliviercailloux.umlg.annotation.UMLClass;
+
+            @UMLClass
+            public class Compte {}
+
+            class Oubliee {}
+
+            class Ecartee {}
+            """);
+        Path dossier = tmp.resolve("diagrammes");
+
+        RapportDeGeneration rapport = UMLGenerator.builder()
+            .sourceDirectory(classes.toString())
+            .outputDirectory(dossier.toString())
+            .build()
+            .generate();
+
+        assertEquals(1, rapport.classesLues());
+        assertEquals(List.of("Ecartee", "Oubliee"), rapport.classesIgnorees());
+
+        Path liste = dossier.resolve(UMLGenerator.FICHIER_DES_CLASSES_IGNOREES);
+        assertTrue(Files.exists(liste), "La liste complète doit être écrite dans le dossier.");
+        String contenu = Files.readString(liste, StandardCharsets.UTF_8);
+        assertTrue(contenu.contains("Oubliee") && contenu.contains("Ecartee"), contenu);
+
+        // La source .puml accompagne l'image, prête à être retouchée ou comparée.
+        String puml = Files.readString(dossier.resolve("projet.puml"), StandardCharsets.UTF_8);
+        assertTrue(puml.startsWith("@startuml"), puml);
+        assertTrue(puml.contains("Compte"), puml);
+    }
+
+    @Test
+    void sansClasseIgnoree_leFichierPerimeEstRetire(@TempDir Path tmp) throws Exception {
+        // Une liste laissée par une génération précédente mentirait d'autant mieux qu'elle a
+        // l'air à sa place.
+        Path classes = tmp.resolve("classes");
+        compiler(tmp.resolve("src"), classes, "com/banque/Compte.java", """
+            package com.banque;
+
+            import io.github.oliviercailloux.umlg.annotation.UMLClass;
+
+            @UMLClass
+            public class Compte {}
+            """);
+        Path dossier = tmp.resolve("diagrammes");
+        Files.createDirectories(dossier);
+        Path liste = dossier.resolve(UMLGenerator.FICHIER_DES_CLASSES_IGNOREES);
+        Files.writeString(liste, "Perimee\n", StandardCharsets.UTF_8);
+
+        UMLGenerator.builder()
+            .sourceDirectory(classes.toString())
+            .outputDirectory(dossier.toString())
+            .build()
+            .generate();
+
+        assertFalse(Files.exists(liste), "La liste périmée doit disparaître.");
+    }
+
+    @Test
+    void lesCouleursConnues_sontExposeesParLaFacade() {
+        // Le catalogue était enfermé dans un paquetage non exporté : l'utilisateur dont la
+        // couleur était refusée ne pouvait pas demander lesquelles existent.
+        var couleurs = UMLGenerator.couleursConnues();
+
+        assertTrue(couleurs.contains("LightBlue"), "Le catalogue de PlantUML doit être exposé.");
+        assertTrue(couleurs.contains("red"));
     }
 
     @Test

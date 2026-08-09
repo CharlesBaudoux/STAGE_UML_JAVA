@@ -1,0 +1,120 @@
+package io.github.oliviercailloux.umlg.extraction.member;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import com.google.common.collect.ImmutableList;
+import io.github.oliviercailloux.umlg.annotation.UMLInclude;
+import io.github.oliviercailloux.umlg.annotation.UMLVisibility;
+import io.github.oliviercailloux.umlg.extraction.rules.Regles;
+import io.github.oliviercailloux.umlg.model.UmlField;
+import io.github.oliviercailloux.umlg.model.UmlMethod;
+import java.util.List;
+import java.util.Map;
+import org.junit.jupiter.api.Test;
+
+// La notation attribut d'un accesseur : @UMLInclude(asAttribute = true).
+//
+// Un accesseur sans paramètre expose une propriété ; les diagrammes qui montrent une structure
+// l'écrivent « xKeycodeByXKeyName : Map<String, Short> », sans parenthèses. La décision est
+// individuelle — le même diagramme de référence garde « latest(): Xkeys », parce qu'une fabrique
+// n'est pas une propriété — d'où une annotation, et non une règle du projet.
+class NotationAttributTest {
+
+    // Sans @UMLClass : voir AffichageDesMembresTest — les tests d'intégration scannent tout
+    // target/test-classes, et MemberExtractor n'en a pas besoin.
+    interface Clavier {
+        @UMLInclude(asAttribute = true, name = "xKeycodeByXKeyName")
+        Map<String, Short> codeByName();
+
+        @UMLInclude
+        Clavier withoutAliases();
+
+        String canonical(String keyName);
+    }
+
+    @Test
+    void unAccesseurEnNotationAttribut_paraitSansParentheses() {
+        List<UmlField> attributs =
+            MemberExtractor.methodesEnAttributs(Clavier.class, Regles.aucune());
+
+        assertEquals(1, attributs.size(), attributs.toString());
+        assertEquals("xKeycodeByXKeyName", attributs.get(0).name());
+        assertEquals("Map<String, Short>", attributs.get(0).type());
+    }
+
+    @Test
+    void laMethodeConvertie_quitteLeCompartimentDesMethodes() {
+        List<UmlMethod> methodes =
+            MemberExtractor.extractMethods(Clavier.class, UMLVisibility.PUBLIC);
+
+        assertTrue(methodes.stream().noneMatch(m -> m.name().equals("xKeycodeByXKeyName")),
+            methodes.toString());
+        assertTrue(methodes.stream().noneMatch(m -> m.name().equals("codeByName")),
+            methodes.toString());
+        // Les autres méthodes, incluses ou non, restent où elles étaient.
+        assertTrue(methodes.stream().anyMatch(m -> m.name().equals("withoutAliases")),
+            methodes.toString());
+    }
+
+    static class Fabrique {
+        @UMLInclude(asAttribute = true)
+        public static Fabrique instance() {
+            return new Fabrique();
+        }
+    }
+
+    @Test
+    void unAccesseurStatique_gardeSonSoulignement() {
+        List<UmlField> attributs =
+            MemberExtractor.methodesEnAttributs(Fabrique.class, Regles.aucune());
+
+        assertTrue(attributs.get(0).isStatic(), attributs.toString());
+    }
+
+    static class AvecParametre {
+        @UMLInclude(asAttribute = true)
+        public String canonical(String keyName) {
+            return keyName;
+        }
+    }
+
+    @Test
+    void uneMethodeAParametres_estRefuseeEnNommantLaMethode() {
+        var refus = assertThrows(IllegalArgumentException.class,
+            () -> MemberExtractor.methodesEnAttributs(AvecParametre.class, Regles.aucune()));
+
+        assertTrue(refus.getMessage().contains("takes parameters"), refus.getMessage());
+        assertTrue(refus.getMessage().contains("canonical"), refus.getMessage());
+    }
+
+    static class SansRetour {
+        @UMLInclude(asAttribute = true)
+        public void valider() {}
+    }
+
+    @Test
+    void uneMethodeSansRetour_estRefusee() {
+        var refus = assertThrows(IllegalArgumentException.class,
+            () -> MemberExtractor.methodesEnAttributs(SansRetour.class, Regles.aucune()));
+
+        assertTrue(refus.getMessage().contains("returns nothing"), refus.getMessage());
+    }
+
+    static class Masquee {
+        @UMLInclude(asAttribute = true)
+        public String etat() {
+            return "";
+        }
+    }
+
+    @Test
+    void laDesignationNommement_lEmporteSurLaNotation() {
+        // La même préséance que pour tout membre inclus : « hide method Classe.nom » est écrit
+        // au niveau du diagramme, et vide une boîte sans toucher au code annoté.
+        Regles regles = Regles.lues(ImmutableList.of("hide method Masquee.etat"), "umlg.rules");
+
+        assertTrue(MemberExtractor.methodesEnAttributs(Masquee.class, regles).isEmpty());
+    }
+}

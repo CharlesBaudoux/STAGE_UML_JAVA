@@ -37,6 +37,17 @@ public final class TypeAffiche {
     private static final Class<?>[] CONTENEURS =
         {Iterable.class, Optional.class};
 
+    // Le nom primitif de chaque type enveloppe, pour le déballage d'un élément de conteneur.
+    //
+    // Java interdit « Optional<int> » : l'enveloppe est une contrainte du langage, pas un choix
+    // de l'auteur. Quand le conteneur est retiré, la garder écrirait « Integer [0..1] » là où la
+    // propriété est un entier — le diagramme doit dire « int », comme l'aurait écrit l'auteur si
+    // le langage l'avait laissé faire.
+    private static final java.util.Map<Class<?>, String> PRIMITIFS = java.util.Map.of(
+        Boolean.class, "boolean", Byte.class, "byte", Character.class, "char",
+        Short.class, "short", Integer.class, "int", Long.class, "long",
+        Float.class, "float", Double.class, "double");
+
     private TypeAffiche() {}
 
     // Le type, écrit avec ses paramètres : « Map<String, Short> », « List<Commande> ».
@@ -100,7 +111,39 @@ public final class TypeAffiche {
         if (arguments.length != 1 || !estUnConteneur(parametre.getRawType())) {
             return de(type, regles);
         }
+        // Un élément enveloppé — Integer dans Optional<Integer> — redevient primitif, sauf si
+        // une règle du projet a donné à l'enveloppe un autre nom : la demande explicite l'emporte.
+        if (arguments[0] instanceof Class<?> classe) {
+            String primitif = PRIMITIFS.get(classe);
+            if (primitif != null && regles.nomAffiche(classe).equals(classe.getSimpleName())) {
+                return primitif;
+            }
+        }
         return de(arguments[0], regles);
+    }
+
+    // La multiplicité que la forme du type déclare, ou la chaîne vide.
+    //
+    // « Optional<X> » dit « zéro ou un », un Iterable paramétré dit « zéro ou plusieurs » : ce
+    // n'est pas deviné, c'est lu — le conteneur est la façon dont Java écrit ces multiplicités.
+    // La règle reste opt-in (« multiplicity brackets » dans umlg.rules) : la traduction change la
+    // forme de toutes les lignes à collection, et c'est au projet de choisir sa notation. Elle ne
+    // dit jamais plus que le type : « 0..* » et non « 1..* », qu'aucun Set ne garantit.
+    //
+    // Les mêmes conditions que deLElement : un conteneur d'un seul paramètre de type. Une Map en
+    // a deux, un type brut n'en a pas — l'élément serait indicible, la multiplicité aussi.
+    public static String multipliciteDeduite(Type type) {
+        checkNotNull(type);
+
+        if (!(type instanceof ParameterizedType parametre)) {
+            return "";
+        }
+        if (parametre.getActualTypeArguments().length != 1
+            || !estUnConteneur(parametre.getRawType())) {
+            return "";
+        }
+        Class<?> brut = (Class<?>) parametre.getRawType();
+        return Optional.class.isAssignableFrom(brut) ? "0..1" : "0..*";
     }
 
     // L'élément d'une collection, quand le type en désigne un seul : « List<Commande> » donne

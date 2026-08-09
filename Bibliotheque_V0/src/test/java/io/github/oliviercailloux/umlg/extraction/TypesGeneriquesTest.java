@@ -146,7 +146,11 @@ class TypesGeneriquesTest {
 
     @Test
     void optional_estUneEnveloppeCommeUneAutre() {
-        assertEquals("Integer", champ(EntityExtractor.extract(AvecMultiplicites.class), "ucp")
+        // Et son élément redevient primitif : Java interdit « Optional<int> », l'enveloppe
+        // Integer est une contrainte du langage, pas un choix de l'auteur. « int [0..1] » est ce
+        // que le diagramme doit dire — « Integer [0..1] » garderait la trace d'une contrainte
+        // que le lecteur n'a pas à connaître.
+        assertEquals("int", champ(EntityExtractor.extract(AvecMultiplicites.class), "ucp")
             .type());
     }
 

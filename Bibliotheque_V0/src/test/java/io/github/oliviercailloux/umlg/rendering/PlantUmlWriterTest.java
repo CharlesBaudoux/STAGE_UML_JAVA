@@ -7,8 +7,12 @@ import io.github.oliviercailloux.umlg.annotation.UMLClass;
 import io.github.oliviercailloux.umlg.extraction.EntityExtractor;
 import io.github.oliviercailloux.umlg.model.UmlEntity;
 import io.github.oliviercailloux.umlg.model.UmlProject;
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.LinkedHashSet;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -47,6 +51,31 @@ class PlantUmlWriterTest {
 
         assertTrue(Files.exists(cheminFichierSortie));
         assertTrue(Files.size(cheminFichierSortie) > 0);
+    }
+
+    @Test
+    void unFichierUniqueEnRuban_estSignaleAussi(@TempDir Path dossierTemporaire)
+        throws Exception {
+        // Le contrôle des proportions n'existait qu'en mode dossier ; or le fichier unique est
+        // précisément le mode de qui n'a rien configuré — celui où le ruban surprenait le plus.
+        // Quatorze boîtes que rien ne relie s'alignent sur une seule rangée : un ruban assuré.
+        Set<UmlEntity> boites = new LinkedHashSet<>();
+        for (int i = 0; i < 14; i++) {
+            String nom = "UneClasseAuNomDeliberementTresLongNumero" + i;
+            boites.add(UmlEntity.builder("com.exemple." + nom, nom).build());
+        }
+        Path fichier = dossierTemporaire.resolve("ruban.svg");
+
+        PrintStream avant = System.err;
+        ByteArrayOutputStream tampon = new ByteArrayOutputStream();
+        try {
+            System.setErr(new PrintStream(tampon, true, StandardCharsets.UTF_8));
+            PlantUmlWriter.write(UmlProject.given(boites), fichier.toString());
+        } finally {
+            System.setErr(avant);
+        }
+        assertTrue(tampon.toString(StandardCharsets.UTF_8).contains("hard to read"),
+            "Le ruban doit être signalé : " + tampon.toString(StandardCharsets.UTF_8));
     }
 
     @Test
