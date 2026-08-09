@@ -8,6 +8,7 @@ import com.google.common.collect.ImmutableSet;
 import io.github.oliviercailloux.umlg.annotation.UMLFlow;
 import io.github.oliviercailloux.umlg.annotation.UMLVisibility;
 import java.io.IOException;
+import java.nio.charset.CharacterCodingException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -56,10 +57,23 @@ import java.nio.file.Path;
 //   show empty members
 //   hide visibility
 //
+//   # Les signatures sans les noms des paramètres : « from(KeyboardMap) » au lieu de
+//   # « from(keyboardMap : KeyboardMap) ». C'est la forme des diagrammes tenus à la main, et
+//   # elle divise presque par deux la largeur des boîtes bavardes.
+//   hide parameter names
+//
+//   # Les membres dans l'ordre du code, et non par ordre alphabétique.
+//   order declaration
+//
 //   # Une boîte qu'aucune classe Java ne porte, dessinée en pointillés.
 //   declare class StringRepresentation extends Representation
 //   declare field StringRepresentation string : String
 //   declare association Animal -> Chien 0..*
+//
+//   # Un membre désigné nommément, sous la forme Classe.membre. À la différence d'un motif
+//   # général, cette désignation l'emporte sur @UMLInclude : elle sert à vider une boîte dont
+//   # les classes déclarées ci-dessus redisent le contenu, sans toucher au code annoté.
+//   hide field Representation.string, Representation.svg
 //
 // Une ligne « type » remplace un nom de type par un autre, partout où ce type paraît dans une
 // boîte : attributs, types de retour, paramètres. Le nom de gauche s'écrit au choix simple
@@ -88,9 +102,10 @@ public final class Regles {
     public static final String NOM_DU_FICHIER = "umlg.rules";
 
     private static final Regles AUCUNE = new Regles(ImmutableMap.of(), ImmutableSet.of(),
-        UMLVisibility.NONE, ImmutableSet.of(), ImmutableList.of(), ImmutableList.of(),
+        UMLVisibility.NONE, false, ImmutableSet.of(), ImmutableList.of(), ImmutableList.of(),
         ImmutableMap.of(), ImmutableList.of(), false, Sortie.REPLACE, "",
-        UMLFlow.TOP_TO_BOTTOM, true, false, ImmutableList.of(), ImmutableList.of());
+        UMLFlow.TOP_TO_BOTTOM, true, false, false, false, false, ImmutableList.of(),
+        ImmutableList.of());
 
     // Clé : le nom de type écrit à gauche de la flèche, simple ou complet. Valeur : ce qui
     // s'affiche à sa place.
@@ -102,6 +117,14 @@ public final class Regles {
     // La stratégie que prennent les classes qui n'en déclarent pas. NONE quand le projet se tait,
     // ce qui redonne exactement le comportement d'un projet sans fichier de règles.
     private final UMLVisibility strategie;
+
+    // Vrai quand une ligne « strategy » a été écrite, fût-ce « strategy none ».
+    //
+    // La distinction ne change rien au dessin — NONE dans les deux cas — mais elle change ce
+    // qu'on peut dire à l'utilisateur : une boîte vide sous un « strategy none » écrit est un
+    // choix, la même boîte sans aucune ligne est presque toujours une surprise, et c'est elle
+    // que la génération signale (voir ProjectScanner).
+    private final boolean strategieDeclaree;
 
     // Les familles de membres que le projet tient pour du bruit. Vide par défaut : la
     // bibliothèque ne décide plus à la place de l'utilisateur de ce qui mérite d'être dessiné.
@@ -142,11 +165,50 @@ public final class Regles {
     // structure plutôt qu'une API, et le projet doit pouvoir en faire autant.
     private final boolean masquerVisibilite;
 
+    // Faut-il taire les noms des paramètres — « from(KeyboardMap) » et non
+    // « from(keyboardMap : KeyboardMap) » ?
+    //
+    // Faux par défaut : un nom écrit dans le code dit quelque chose. Mais les signatures
+    // complètes font des boîtes larges, et un diagramme d'ensemble y perd plus qu'il n'y gagne —
+    // mesuré sur un projet réel, la vue passait de 2522 à quelque 1300 pixels de large.
+    private final boolean masquerNomsParametres;
+
+    // Faut-il ranger les membres dans l'ordre où le code les déclare, plutôt que par alphabet ?
+    //
+    // Faux par défaut : l'ordre alphabétique reste le choix le plus sûr (voir MembresOrdonnes).
+    // Mais l'ordre d'écriture porte souvent une intention — les fabriques d'abord, ou les
+    // attributs importants en tête — que l'alphabet efface, et un projet doit pouvoir le garder.
+    private final boolean ordreDeclaration;
+
+    // Faut-il traduire la forme des conteneurs en multiplicités — « Set<X> » écrit
+    // « X [0..*] », « Optional<X> » écrit « X [0..1] » ?
+    //
+    // Faux par défaut : la traduction change la notation de toutes les lignes à collection, et
+    // c'est au projet de choisir la sienne. Rien n'y est deviné — le conteneur est la façon dont
+    // Java écrit ces multiplicités — mais deux notations qui cohabiteraient sans qu'on l'ait
+    // demandé seraient pires que l'une ou l'autre partout (voir TypeAffiche.multipliciteDeduite).
+    // @UMLMultiplicity, décision individuelle, l'emporte sur la traduction.
+    private final boolean multiplicitesDeduites;
+
     // Les boîtes que le fichier déclare, et qu'aucune classe Java ne porte.
     private final ImmutableList<ClasseDeclaree> classesDeclarees;
 
     // Les liens déclarés entre deux boîtes, réelles ou déclarées : « source -> cible ».
     private final ImmutableList<LienDeclare> liensDeclares;
+
+    // Les règles qui ont servi au moins une fois : la clé d'un alias consulté, le type d'un
+    // retour tu, le paquetage d'un groupe trouvé. Les motifs, eux, se marquent eux-mêmes.
+    //
+    // C'est la seule entorse à l'immuabilité de cette classe, et elle est délibérée : savoir
+    // qu'une ligne du fichier n'a rien fait exige de se souvenir de ce qui a servi, et seule
+    // Regles voit passer toutes les consultations. Des ensembles concurrents, comme la liste
+    // des classes ignorées du scanner : le parcours des classes ne promet pas son fil.
+    private final java.util.Set<String> aliasUtilises =
+        java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private final java.util.Set<String> retoursUtilises =
+        java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private final java.util.Set<String> groupesUtilises =
+        java.util.concurrent.ConcurrentHashMap.newKeySet();
 
     // Ce que devient le dossier des vues d'une génération à la suivante.
     public enum Sortie {
@@ -159,16 +221,19 @@ public final class Regles {
     }
 
     Regles(ImmutableMap<String, String> alias, ImmutableSet<String> retoursMasques,
-        UMLVisibility strategie, ImmutableSet<Bruit> bruits,
+        UMLVisibility strategie, boolean strategieDeclaree, ImmutableSet<Bruit> bruits,
         ImmutableList<Motif> methodesMasquees, ImmutableList<Motif> champsMasques,
         ImmutableMap<String, String> groupesParPaquetage, ImmutableList<DefinitionDeVue> vues,
         boolean vuesParPaquetage, Sortie sortie, String titre, UMLFlow direction,
         boolean masquerMembresVides, boolean masquerVisibilite,
+        boolean masquerNomsParametres, boolean ordreDeclaration,
+        boolean multiplicitesDeduites,
         ImmutableList<ClasseDeclaree> classesDeclarees,
         ImmutableList<LienDeclare> liensDeclares) {
         this.alias = checkNotNull(alias);
         this.retoursMasques = checkNotNull(retoursMasques);
         this.strategie = checkNotNull(strategie);
+        this.strategieDeclaree = strategieDeclaree;
         this.bruits = checkNotNull(bruits);
         this.methodesMasquees = checkNotNull(methodesMasquees);
         this.champsMasques = checkNotNull(champsMasques);
@@ -180,6 +245,9 @@ public final class Regles {
         this.direction = checkNotNull(direction);
         this.masquerMembresVides = masquerMembresVides;
         this.masquerVisibilite = masquerVisibilite;
+        this.masquerNomsParametres = masquerNomsParametres;
+        this.ordreDeclaration = ordreDeclaration;
+        this.multiplicitesDeduites = multiplicitesDeduites;
         this.classesDeclarees = checkNotNull(classesDeclarees);
         this.liensDeclares = checkNotNull(liensDeclares);
     }
@@ -232,6 +300,27 @@ public final class Regles {
         return strategie;
     }
 
+    // Une ligne « strategy » a-t-elle été écrite ? Sert au signalement des boîtes vides : sans
+    // ligne, une boîte vide est une surprise à expliquer ; avec, c'est un choix à respecter.
+    public boolean strategieDeclaree() {
+        return strategieDeclaree;
+    }
+
+    // Les signatures s'écrivent-elles sans les noms des paramètres ?
+    public boolean masquerNomsParametres() {
+        return masquerNomsParametres;
+    }
+
+    // Les membres se rangent-ils dans l'ordre du code plutôt que par alphabet ?
+    public boolean ordreDeclaration() {
+        return ordreDeclaration;
+    }
+
+    // La forme des conteneurs se traduit-elle en multiplicités — « Set<X> » en « X [0..*] » ?
+    public boolean multiplicitesDeduites() {
+        return multiplicitesDeduites;
+    }
+
     // La stratégie effective d'une classe : la sienne, ou celle du projet si elle s'en remet à
     // lui. C'est le seul endroit où UMLVisibility.PROJECT est résolu.
     public UMLVisibility strategieDe(UMLVisibility declaree) {
@@ -254,10 +343,38 @@ public final class Regles {
         return correspond(champsMasques, nom);
     }
 
+    // Cette méthode est-elle désignée nommément — « hide method Classe.nom » ?
+    //
+    // Seuls les motifs qualifiés, ceux qui contiennent un point, répondent ici : ils désignent
+    // un membre d'une classe précise, et non une famille de noms. C'est ce qui justifie leur
+    // pouvoir : une désignation nommément est aussi individuelle qu'une annotation, et c'est la
+    // seule règle du fichier qui l'emporte sur @UMLInclude (voir MemberExtractor).
+    public boolean methodeMasqueeNommement(String classe, String nom) {
+        return correspondQualifie(methodesMasquees, classe, nom);
+    }
+
+    public boolean champMasqueNommement(String classe, String nom) {
+        return correspondQualifie(champsMasques, classe, nom);
+    }
+
     private static boolean correspond(ImmutableList<Motif> motifs, String nom) {
         checkNotNull(nom);
         for (Motif motif : motifs) {
-            if (motif.correspond(nom)) {
+            // Un motif qualifié vise « Classe.membre » ; un nom nu, sans point, ne peut pas lui
+            // correspondre, et le tester quand même laisserait « *x » masquer « Classe.x ».
+            if (!motif.qualifie() && motif.correspond(nom)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean correspondQualifie(ImmutableList<Motif> motifs, String classe,
+        String nom) {
+        checkNotNull(classe);
+        checkNotNull(nom);
+        for (Motif motif : motifs) {
+            if (motif.qualifie() && motif.correspond(classe + "." + nom)) {
                 return true;
             }
         }
@@ -272,7 +389,51 @@ public final class Regles {
     // n'a désigné.
     public String groupeDuPaquetage(String paquetage) {
         checkNotNull(paquetage);
-        return groupesParPaquetage.getOrDefault(paquetage, "");
+        String groupe = groupesParPaquetage.get(paquetage);
+        if (groupe == null) {
+            return "";
+        }
+        groupesUtilises.add(paquetage);
+        return groupe;
+    }
+
+    // Les lignes du fichier qui n'ont servi à rien pendant le scan, telles qu'on les a écrites.
+    //
+    // Une règle qui désigne un nom introuvable est un no-op parfait : le diagramme se dessine,
+    // exact, et rien n'y montre qu'une ligne du fichier est morte — une classe renommée, une
+    // faute de frappe. Les vues, elles, échouent bruyamment dans ce cas ; les règles de nommage
+    // ne le peuvent pas, un motif ayant le droit de ne viser personne aujourd'hui. D'où ce
+    // relevé, que la génération signale en avertissement (voir ProjectScanner) : assez pour
+    // être vu, pas assez pour arrêter un dessin qui reste juste.
+    public ImmutableList<String> reglesSansEffet() {
+        ImmutableList.Builder<String> mortes = ImmutableList.builder();
+        for (var regle : alias.entrySet()) {
+            if (!aliasUtilises.contains(regle.getKey())) {
+                mortes.add("type " + regle.getKey() + " -> " + regle.getValue());
+            }
+        }
+        for (String type : retoursMasques) {
+            if (!retoursUtilises.contains(type)) {
+                mortes.add("hide return " + type);
+            }
+        }
+        for (Motif motif : methodesMasquees) {
+            if (motif.sansEffet()) {
+                mortes.add("hide method " + motif.ecrit());
+            }
+        }
+        for (Motif motif : champsMasques) {
+            if (motif.sansEffet()) {
+                mortes.add("hide field " + motif.ecrit());
+            }
+        }
+        for (var groupe : groupesParPaquetage.entrySet()) {
+            if (!groupesUtilises.contains(groupe.getKey())) {
+                mortes.add("group package " + groupe.getKey() + " -> \"" + groupe.getValue()
+                    + "\"");
+            }
+        }
+        return mortes.build();
     }
 
     // Le jeu vide : ce que rend un projet sans fichier de règles, et ce que passent les appelants
@@ -293,10 +454,7 @@ public final class Regles {
         if (!Files.isRegularFile(fichier)) {
             return aucune();
         }
-        ImmutableList<String> lignes =
-            ImmutableList.copyOf(Files.readAllLines(fichier, StandardCharsets.UTF_8));
-
-        return LecteurDeRegles.lire(lignes, fichier.toString());
+        return LecteurDeRegles.lire(lignesEnUtf8(fichier), fichier.toString());
     }
 
     // Les règles d'un fichier désigné nommément, et non cherché à la racine d'un répertoire.
@@ -307,9 +465,23 @@ public final class Regles {
     // configuration, que l'appelant est seul à pouvoir signaler utilement.
     public static Regles duFichier(Path fichier) throws IOException {
         checkNotNull(fichier);
-        return LecteurDeRegles.lire(
-            ImmutableList.copyOf(Files.readAllLines(fichier, StandardCharsets.UTF_8)),
-            fichier.toString());
+        return LecteurDeRegles.lire(lignesEnUtf8(fichier), fichier.toString());
+    }
+
+    // Les lignes du fichier, qui doit être en UTF-8.
+    //
+    // Un fichier enregistré dans un autre encodage — le CP-1252 d'un éditeur Windows, dès le
+    // premier accent d'un commentaire — levait une MalformedInputException que l'enveloppe
+    // générique de la génération rendait indéchiffrable. C'est une faute du fichier, comme un
+    // mot-clé inconnu : elle mérite le même traitement, un refus qui dit quoi corriger.
+    private static ImmutableList<String> lignesEnUtf8(Path fichier) throws IOException {
+        try {
+            return ImmutableList.copyOf(Files.readAllLines(fichier, StandardCharsets.UTF_8));
+        } catch (CharacterCodingException e) {
+            throw new IllegalArgumentException(fichier + " is not encoded in UTF-8, and the "
+                + "rules file must be. Re-save it as UTF-8 — an accented letter in a comment is "
+                + "enough to reveal another encoding.", e);
+        }
     }
 
     // Les règles d'un contenu déjà lu. Sert aux tests, et à qui tiendrait ses règles ailleurs que
@@ -328,11 +500,15 @@ public final class Regles {
 
         String complet = alias.get(type.getName());
         if (complet != null) {
+            aliasUtilises.add(type.getName());
             return complet;
         }
         String simple = alias.get(type.getSimpleName());
-
-        return simple != null ? simple : type.getSimpleName();
+        if (simple != null) {
+            aliasUtilises.add(type.getSimpleName());
+            return simple;
+        }
+        return type.getSimpleName();
     }
 
     // Le nom sous lequel un type rendu par une méthode paraît, ou la chaîne vide s'il est tu.
@@ -344,8 +520,12 @@ public final class Regles {
     public String nomAfficheRetour(Class<?> type) {
         checkNotNull(type);
 
-        if (retoursMasques.contains(type.getName())
-            || retoursMasques.contains(type.getSimpleName())) {
+        if (retoursMasques.contains(type.getName())) {
+            retoursUtilises.add(type.getName());
+            return "";
+        }
+        if (retoursMasques.contains(type.getSimpleName())) {
+            retoursUtilises.add(type.getSimpleName());
             return "";
         }
         return nomAffiche(type);
@@ -355,10 +535,12 @@ public final class Regles {
     // fichier a été trouvé.
     public boolean vides() {
         return alias.isEmpty() && retoursMasques.isEmpty() && strategie == UMLVisibility.NONE
+            && !strategieDeclaree
             && bruits.isEmpty() && methodesMasquees.isEmpty() && champsMasques.isEmpty()
             && groupesParPaquetage.isEmpty() && vues.isEmpty() && !vuesParPaquetage
             && sortie == Sortie.REPLACE && titre.isEmpty()
             && direction == UMLFlow.TOP_TO_BOTTOM && masquerMembresVides && !masquerVisibilite
+            && !masquerNomsParametres && !ordreDeclaration && !multiplicitesDeduites
             && classesDeclarees.isEmpty() && liensDeclares.isEmpty();
     }
 }

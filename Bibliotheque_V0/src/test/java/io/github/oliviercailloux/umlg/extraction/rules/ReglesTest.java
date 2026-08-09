@@ -1,6 +1,7 @@
 package io.github.oliviercailloux.umlg.extraction.rules;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -245,5 +246,110 @@ class ReglesTest {
             MemberExtractor.extractFields(Clavier.class, UMLVisibility.PRIVATE, Regles.aucune());
 
         assertEquals("ImmutableList<String>", champs.get(0).type());
+    }
+
+    // --- La ligne « strategy », lue ou absente ---
+
+    @Test
+    void strategieEcrite_seDistingueDeLAbsenceDeLigne() {
+        // « strategy none » et l'absence de ligne donnent le même dessin, mais pas le même
+        // signalement : une boîte vide sous une ligne écrite est un choix, la même boîte sans
+        // ligne est une surprise que la génération doit expliquer.
+        assertTrue(regles("strategy none").strategieDeclaree());
+        assertFalse(regles().strategieDeclaree());
+    }
+
+    // --- « order » : l'ordre des membres ---
+
+    @Test
+    void ordreDeDeclaration_seDemande() {
+        assertTrue(regles("order declaration").ordreDeclaration());
+        assertFalse(regles("order alphabetical").ordreDeclaration());
+        assertFalse(regles().ordreDeclaration());
+    }
+
+    @Test
+    void ordreInconnu_estRefuseEnNommantLesDeux() {
+        var refus = assertThrows(IllegalArgumentException.class, () -> regles("order source"));
+
+        assertTrue(refus.getMessage().contains("declaration"), refus.getMessage());
+        assertTrue(refus.getMessage().contains("alphabetical"), refus.getMessage());
+    }
+
+    @Test
+    void deuxLignesOrder_sontRefusees() {
+        // Même quand la seconde redit le défaut : deux lignes qui parlent du même réglage sont
+        // le début d'un fichier que personne ne relit.
+        var refus = assertThrows(IllegalArgumentException.class,
+            () -> regles("order declaration", "order alphabetical"));
+
+        assertTrue(refus.getMessage().contains("already set"), refus.getMessage());
+    }
+
+    // --- « hide parameter names » : les signatures courtes ---
+
+    @Test
+    void nomsDeParametres_seMasquent() {
+        assertTrue(regles("hide parameter names").masquerNomsParametres());
+        assertFalse(regles().masquerNomsParametres());
+    }
+
+    @Test
+    void deuxLignesHideParameterNames_sontRefusees() {
+        var refus = assertThrows(IllegalArgumentException.class,
+            () -> regles("hide parameter names", "hide parameter names"));
+
+        assertTrue(refus.getMessage().contains("already asked for"), refus.getMessage());
+    }
+
+    // --- Les motifs qualifiés : « hide field Classe.membre » ---
+
+    @Test
+    void motifQualifie_designeUnMembreDUneClassePrecise() {
+        Regles lues = regles("hide field Representation.string");
+
+        assertTrue(lues.champMasqueNommement("Representation", "string"));
+        assertFalse(lues.champMasqueNommement("Autre", "string"));
+        // Le motif qualifié ne déborde pas sur les noms nus : « string » d'une classe non
+        // désignée reste affiché.
+        assertFalse(lues.champMasque("string"));
+    }
+
+    @Test
+    void motifOrdinaire_neRepondPasNommement() {
+        // Un motif général — « s* » — masque par famille ; il ne gagne pas au passage le pouvoir
+        // d'une désignation nommément, qui seule l'emporte sur @UMLInclude.
+        Regles lues = regles("hide field s*");
+
+        assertTrue(lues.champMasque("string"));
+        assertFalse(lues.champMasqueNommement("Representation", "string"));
+    }
+
+    // --- L'encodage du fichier ---
+
+    @Test
+    void unFichierQuiNestPasEnUtf8_estRefuseEnLeDisant(@TempDir Path tmp) throws IOException {
+        Path fichier = tmp.resolve("umlg.rules");
+        // « # règles » tel que l'enregistrerait un éditeur Windows : l'accent en CP-1252 est un
+        // octet isolé, invalide en UTF-8. Le premier accent d'un commentaire suffisait donc à
+        // faire échouer la lecture — derrière l'enveloppe générique de la génération, sans que
+        // le message dise jamais le mot « encodage ».
+        Files.write(fichier,
+            "# règles du projet\nstrategy public\n".getBytes(StandardCharsets.ISO_8859_1));
+
+        var refus = assertThrows(IllegalArgumentException.class, () -> Regles.duFichier(fichier));
+
+        assertTrue(refus.getMessage().contains("UTF-8"), refus.getMessage());
+        assertTrue(refus.getMessage().contains(fichier.toString()), refus.getMessage());
+    }
+
+    @Test
+    void motifQualifie_accepteLEtoile() {
+        // « Representation.* » vide la boîte entière : c'est l'usage qui a motivé la forme —
+        // des classes déclarées redisent le contenu du parent, et le parent doit se taire.
+        Regles lues = regles("hide method Representation.*");
+
+        assertTrue(lues.methodeMasqueeNommement("Representation", "nimporteQuoi"));
+        assertFalse(lues.methodeMasqueeNommement("Autre", "nimporteQuoi"));
     }
 }

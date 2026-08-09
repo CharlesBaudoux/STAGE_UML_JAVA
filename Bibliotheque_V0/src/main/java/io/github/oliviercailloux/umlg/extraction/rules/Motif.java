@@ -24,6 +24,14 @@ public final class Motif {
     // membre de chaque classe du projet.
     private final Pattern regex;
 
+    // Le motif a-t-il correspondu à au moins un nom depuis sa lecture ?
+    //
+    // C'est la seule trace qui permette de dire, en fin de scan, qu'une ligne du fichier n'a
+    // rien fait — une classe renommée laisse derrière elle un motif mort que rien d'autre ne
+    // signalerait. Volatile : le parcours des classes peut changer de fil, et un marquage perdu
+    // ferait accuser à tort une règle qui a servi.
+    private volatile boolean aCorrespondu;
+
     private Motif(String ecrit, Pattern regex) {
         this.ecrit = ecrit;
         this.regex = regex;
@@ -67,7 +75,26 @@ public final class Motif {
 
     public boolean correspond(String nom) {
         checkNotNull(nom);
-        return regex.matcher(nom).matches();
+        boolean correspond = regex.matcher(nom).matches();
+        if (correspond) {
+            aCorrespondu = true;
+        }
+        return correspond;
+    }
+
+    // Vrai si le motif n'a encore servi à rien : le fichier porte une ligne morte.
+    public boolean sansEffet() {
+        return !aCorrespondu;
+    }
+
+    // Ce motif désigne-t-il un membre d'une classe précise — « Representation.string » — plutôt
+    // qu'une famille de noms ?
+    //
+    // Le point est ce qui les distingue : un nom de membre Java n'en contient jamais. Un motif
+    // qualifié se compare à « Classe.membre », un motif ordinaire au nom du membre seul, et les
+    // deux ne se croisent pas (voir Regles).
+    public boolean qualifie() {
+        return ecrit.contains(".");
     }
 
     public String ecrit() {

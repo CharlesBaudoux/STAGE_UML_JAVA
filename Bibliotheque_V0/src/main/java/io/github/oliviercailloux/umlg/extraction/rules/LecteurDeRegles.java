@@ -41,6 +41,9 @@ final class LecteurDeRegles {
     private static final String MEMBRES_VIDES = "empty members";
     private static final String VISIBILITE = "visibility";
     private static final String DECLARE = "declare";
+    private static final String ORDER = "order";
+    private static final String MULTIPLICITY = "multiplicity";
+    private static final String NOMS_DE_PARAMETRES = "parameter names";
     private static final String CLASS = "class";
     private static final String EXTENDS = "extends";
     private static final String ASSOCIATION = "association";
@@ -74,6 +77,11 @@ final class LecteurDeRegles {
         UMLFlow[] direction = {UMLFlow.TOP_TO_BOTTOM};
         boolean[] masquerMembresVides = {true};
         boolean[] masquerVisibilite = {false};
+        boolean[] masquerNomsParametres = {false};
+        // Null tant qu'aucune ligne « order » n'est lue : la distinction permet de refuser une
+        // seconde ligne, même quand la première redisait le défaut.
+        Boolean[] ordreDeclaration = {null};
+        boolean[] multiplicitesDeduites = {false};
         // LinkedHashMap : les boîtes déclarées se complètent ligne à ligne — la classe d'abord,
         // ses attributs ensuite — et sortent dans l'ordre d'écriture.
         Map<String, ClasseDeclaree> declarees = new LinkedHashMap<>();
@@ -105,7 +113,7 @@ final class LecteurDeRegles {
             switch (motCle) {
                 case TYPE -> lireType(alias, reste, contexte);
                 case HIDE -> lireHide(retoursMasques, bruits, methodes, champs, masquerVisibilite,
-                    reste, contexte);
+                    masquerNomsParametres, reste, contexte);
                 case STRATEGY -> lireStrategy(strategie, reste, contexte);
                 case GROUP -> lireGroup(groupes, reste, contexte);
                 case VIEW -> lireView(vues, reste, contexte);
@@ -115,19 +123,56 @@ final class LecteurDeRegles {
                 case DIRECTION -> direction[0] = lireFlux(reste, contexte);
                 case SHOW -> lireShow(masquerMembresVides, reste, contexte);
                 case DECLARE -> lireDeclare(declarees, liens, reste, contexte);
+                case ORDER -> lireOrder(ordreDeclaration, reste, contexte);
+                case MULTIPLICITY -> lireMultiplicity(multiplicitesDeduites, reste, contexte);
                 default -> throw new IllegalArgumentException(contexte + ": unknown rule \""
                     + motCle + "\". Known rules: " + TYPE + ", " + HIDE + ", " + STRATEGY + ", "
                     + GROUP + ", " + VIEW + ", " + VIEWS + ", " + OUTPUT + ", " + TITLE + ", "
-                    + DIRECTION + ", " + SHOW + ", " + DECLARE + ".");
+                    + DIRECTION + ", " + SHOW + ", " + DECLARE + ", " + ORDER + ", "
+                    + MULTIPLICITY + ".");
             }
         }
         return new Regles(ImmutableMap.copyOf(alias), ImmutableSet.copyOf(retoursMasques),
-            strategie[0] == null ? UMLVisibility.NONE : strategie[0],
+            strategie[0] == null ? UMLVisibility.NONE : strategie[0], strategie[0] != null,
             ImmutableSet.copyOf(bruits), ImmutableList.copyOf(methodes),
             ImmutableList.copyOf(champs), ImmutableMap.copyOf(groupes),
             ImmutableList.copyOf(vues.values()), parPaquetage[0], sortie[0], titre[0],
             direction[0], masquerMembresVides[0], masquerVisibilite[0],
+            masquerNomsParametres[0],
+            ordreDeclaration[0] != null && ordreDeclaration[0],
+            multiplicitesDeduites[0],
             ImmutableList.copyOf(declarees.values()), ImmutableList.copyOf(liens));
+    }
+
+    // « order declaration » ou « order alphabetical » : l'ordre des membres dans les boîtes.
+    //
+    // L'alphabet reste le défaut, mais il s'écrit aussi : un fichier qui le dit explicitement se
+    // relit mieux qu'un fichier qui compte sur la mémoire du lecteur.
+    private static void lireOrder(Boolean[] ordreDeclaration, String reste, String contexte) {
+        checkArgument(ordreDeclaration[0] == null,
+            "%s: the member order is already set. Keep only one \"order\" line.", contexte);
+
+        ordreDeclaration[0] = switch (reste) {
+            case "declaration" -> true;
+            case "alphabetical" -> false;
+            default -> throw new IllegalArgumentException(contexte + ": expected \"order "
+                + "declaration\" or \"order alphabetical\", got \"order " + reste + "\".");
+        };
+    }
+
+    // « multiplicity brackets » : la forme des conteneurs se traduit en multiplicités.
+    //
+    // « Set<String> aliases » s'écrit alors « aliases : String [0..*] », « Optional<Integer> »
+    // s'écrit « int [0..1] » : le conteneur est la façon dont Java écrit ces multiplicités, et la
+    // règle ne fait que les transcrire en notation UML. Le mot « brackets » nomme ce qu'on
+    // obtient — les crochets — et laisse la place à d'autres formes si l'usage en révèle.
+    private static void lireMultiplicity(boolean[] deduites, String reste, String contexte) {
+        checkArgument("brackets".equals(reste),
+            "%s: expected \"multiplicity brackets\", got \"multiplicity %s\".", contexte, reste);
+        checkArgument(!deduites[0],
+            "%s: \"multiplicity brackets\" is already asked for.", contexte);
+
+        deduites[0] = true;
     }
 
     // « title Architecture du module Facturation » : le titre de la vue intégrale.
@@ -436,14 +481,22 @@ final class LecteurDeRegles {
     // un attribut sans type n'apprendrait plus rien, alors qu'une méthode sans type de retour
     // dit, en UML, qu'elle ne rend rien.
     private static void lireHide(Set<String> retoursMasques, Set<Bruit> bruits,
-        List<Motif> methodes, List<Motif> champs, boolean[] masquerVisibilite, String reste,
-        String contexte) {
+        List<Motif> methodes, List<Motif> champs, boolean[] masquerVisibilite,
+        boolean[] masquerNomsParametres, String reste, String contexte) {
 
         // « hide visibility » : les membres s'écrivent sans « + » ni « - ».
         if (VISIBILITE.equals(reste)) {
             checkArgument(!masquerVisibilite[0],
                 "%s: \"hide visibility\" is already asked for.", contexte);
             masquerVisibilite[0] = true;
+            return;
+        }
+
+        // « hide parameter names » : les signatures s'écrivent avec les seuls types.
+        if (NOMS_DE_PARAMETRES.equals(reste)) {
+            checkArgument(!masquerNomsParametres[0],
+                "%s: \"hide parameter names\" is already asked for.", contexte);
+            masquerNomsParametres[0] = true;
             return;
         }
 
@@ -464,8 +517,8 @@ final class LecteurDeRegles {
         }
         checkArgument(reste.startsWith(RETURN + " "),
             "%s: expected \"hide return <type>\", \"hide method <pattern>\", \"hide field "
-                + "<pattern>\", \"hide visibility\" or one of the noise families (%s); got "
-                + "\"hide %s\".",
+                + "<pattern>\", \"hide visibility\", \"hide parameter names\" or one of the "
+                + "noise families (%s); got \"hide %s\".",
             contexte, Bruit.motsCles(), reste);
 
         String type = reste.substring(RETURN.length()).strip();
