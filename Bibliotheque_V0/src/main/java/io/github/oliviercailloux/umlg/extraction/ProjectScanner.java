@@ -3,12 +3,15 @@ package io.github.oliviercailloux.umlg.extraction;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import io.github.oliviercailloux.umlg.Avertissements;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.github.oliviercailloux.umlg.annotation.UMLClass;
+import io.github.oliviercailloux.umlg.annotation.UMLVisibility;
 import io.github.oliviercailloux.umlg.extraction.rules.Regles;
 import io.github.oliviercailloux.umlg.model.UmlDiagram;
 import io.github.oliviercailloux.umlg.model.UmlEntity;
+import io.github.oliviercailloux.umlg.model.UmlParameter;
 import io.github.oliviercailloux.umlg.model.UmlProject;
 import io.github.oliviercailloux.umlg.model.UmlView;
 import java.io.File;
@@ -27,7 +30,19 @@ public class ProjectScanner {
     private ProjectScanner() {}
 
     public static UmlProject scan(Path rootPath) throws Exception {
+        return scan(rootPath, ImmutableList.of());
+    }
+
+    // La même analyse, avec les dépendances du projet analysé en plus du répertoire lui-même.
+    //
+    // La réflexion ne se contente pas des .class du répertoire : charger une classe résout son
+    // parent et ses interfaces, lire un attribut résout son type — et tout cela peut vivre dans
+    // les jars du projet. Le classpath vide reste le cas ordinaire, celui d'un projet lancé dans
+    // sa propre JVM, où ces jars y sont déjà ; le plugin Maven, lui, tourne dans la JVM de Maven
+    // et doit les apporter.
+    public static UmlProject scan(Path rootPath, ImmutableList<Path> classpath) throws Exception {
         checkNotNull(rootPath);
+        checkNotNull(classpath);
         checkArgument(Files.exists(rootPath) && Files.isDirectory(rootPath),
             "The source directory is not valid: %s", rootPath);
 
@@ -40,17 +55,34 @@ public class ProjectScanner {
         java.util.List<String> ignorees =
             java.util.Collections.synchronizedList(new java.util.ArrayList<>());
 
+        // Les classes annotées dont la boîte sort vide faute d'une stratégie déclarée : la
+        // surprise la plus fréquente d'un premier essai, signalée en fin de scan.
+        java.util.List<String> boitesVides =
+            java.util.Collections.synchronizedList(new java.util.ArrayList<>());
+
+        // Les classes que le chargeur n'a pas su lier : une dépendance « provided » absente du
+        // classpath donné, une compilation partielle. Elles sont mises de côté et signalées en
+        // fin de scan, non plus jetées à la figure de l'utilisateur.
+        java.util.List<String> illisibles =
+            java.util.Collections.synchronizedList(new java.util.ArrayList<>());
+
         // Les règles du projet, lues une fois pour toutes avant la première classe : elles valent
         // pour l'ensemble du diagramme, et les relire par classe n'aurait aucun sens. Absentes,
         // c'est un jeu vide, et le code se décrit tel qu'il est écrit.
         Regles regles = Regles.duProjet(rootPath);
 
-        // Un chargeur dédié, enraciné sur le répertoire analysé : les classes de l'utilisateur
-        // ne sont pas sur notre classpath, il faut les rendre chargeables. Le chargeur de cette
-        // classe sert de parent, pour que les classes de la bibliothèque (dont les annotations)
-        // restent celles-ci et non des copies rechargées — sinon isAnnotationPresent échouerait.
+        // Un chargeur dédié, enraciné sur le répertoire analysé et les dépendances données : les
+        // classes de l'utilisateur ne sont pas sur notre classpath, il faut les rendre
+        // chargeables. Le chargeur de cette classe sert de parent, pour que les classes de la
+        // bibliothèque (dont les annotations) restent celles-ci et non des copies rechargées —
+        // sinon isAnnotationPresent échouerait.
         // try-with-resources : le chargeur est fermé à la sortie, libérant les fichiers ouverts.
-        try (URLClassLoader classLoader = new URLClassLoader(new URL[] {rootPath.toUri().toURL()},
+        URL[] urls = new URL[classpath.size() + 1];
+        urls[0] = rootPath.toUri().toURL();
+        for (int i = 0; i < classpath.size(); i++) {
+            urls[i + 1] = classpath.get(i).toUri().toURL();
+        }
+        try (URLClassLoader classLoader = new URLClassLoader(urls,
             ProjectScanner.class.getClassLoader())) {
 
             // Files.walk descend récursivement ; le flux se ferme lui aussi, sous peine de
@@ -79,7 +111,11 @@ public class ProjectScanner {
 
                              // Le filtre principal : seules les classes annotées entrent.
                              if (clazz.isAnnotationPresent(UMLClass.class)) {
-                                 projectBuilder.add(EntityExtractor.extract(clazz, regles));
+                                 UmlEntity entite = EntityExtractor.extract(clazz, regles);
+                                 projectBuilder.add(entite);
+                                 if (boiteVideFauteDeStrategie(clazz, entite, regles)) {
+                                     boitesVides.add(clazz.getSimpleName());
+                                 }
                              } else if (!clazz.isSynthetic() && !clazz.isAnonymousClass()) {
                                  // Le code que le compilateur fabrique — classes anonymes,
                                  // lambdas — n'a jamais été écrit par personne : le compter
@@ -87,21 +123,31 @@ public class ProjectScanner {
                                  ignorees.add(clazz.getSimpleName());
                              }
                          } catch (ClassNotFoundException | LinkageError e) {
-                             // Un .class illisible signale un répertoire incohérent (dépendance
-                             // manquante, compilation partielle). On enveloppe en exception non
-                             // vérifiée, forcée par la signature de forEach, en conservant le
-                             // fichier fautif et la cause d'origine.
-                             throw new IllegalStateException(
-                                 "Scan failed on class \"" + className + "\" (file: "
-                                     + classFilePath + "): " + e, e);
+                             // POURQUOI ON N'ARRÊTE PLUS TOUT ICI
+                             //
+                             // Charger une classe résout son parent, ses interfaces et les types
+                             // de ses attributs : il suffit qu'une dépendance « provided » ou
+                             // « optional » manque au classpath transmis pour qu'un .class
+                             // devienne illisible. Faire échouer le scan entier rendait alors la
+                             // génération impossible à cause d'une classe dont le diagramme ne
+                             // voulait pas — le cas le plus fréquent sur un projet réel.
+                             //
+                             // On passe donc son chemin, et on le dit. Le doute est nommé dans
+                             // l'avertissement : l'annotation ne se lit que sur une classe
+                             // chargée, donc rien ne permet de savoir si celle-ci portait
+                             // @UMLClass. Un manque signalé vaut mieux qu'une panne totale.
+                             illisibles.add(className + " (" + e + ")");
                          }
                      });
             }
         }
 
-        // Le constructeur d'UmlProject refuse un ensemble vide : c'est là que se signale un
-        // répertoire sans aucune classe annotée.
-        //
+        // Le compte des ignorées est posé dès la fin du parcours, et non juste avant le retour :
+        // le message qui suit s'en sert, et il est émis sur un chemin d'échec.
+        DERNIER_SCAN.set(ImmutableList.sortedCopyOf(ignorees));
+
+        signalerClassesIllisibles(ImmutableList.sortedCopyOf(illisibles));
+
         // L'ORDRE, QUI N'EST PAS UN DÉTAIL
         //
         // Les entités sont triées par nom complet avant d'entrer dans le projet. Files.walk rend
@@ -117,6 +163,31 @@ public class ProjectScanner {
         ImmutableSet<UmlEntity> duCode = projectBuilder.build().stream()
             .sorted(java.util.Comparator.comparing(UmlEntity::qualifiedName))
             .collect(ImmutableSet.toImmutableSet());
+
+        // Le répertoire ne contient aucune classe annotée. C'est le premier essai type, et le
+        // message ne se contentait jusqu'ici de le constater : le scan vient pourtant de lire ces
+        // classes et connaît leurs noms. Les dire, c'est la différence entre « ça ne marche pas »
+        // et « voilà celle sur laquelle écrire @UMLClass ».
+        if (duCode.isEmpty()) {
+            ImmutableList<String> vues = classesIgnorees();
+            String cequonAVu = vues.isEmpty()
+                ? "no class at all was found there"
+                : vues.size() + " class(es) were read, none of them annotated"
+                    + (vues.size() <= SEUIL_ENUMERATION ? " : " + String.join(", ", vues) : "");
+            throw new IllegalArgumentException("No class carries @UMLClass in " + rootPath
+                + ", so there is nothing to draw — " + cequonAVu
+                + ". Annotate the classes the diagram is about, or point the analysis at the "
+                + "directory where their .class files are.");
+        }
+
+        // Les deux surprises d'un premier essai, dites avant le compte rendu : des boîtes vides
+        // parce qu'aucune stratégie n'est déclarée, des signatures sans noms parce que le projet
+        // a été compilé sans -parameters. Ni l'une ni l'autre n'est une faute — le diagramme est
+        // exact — mais dans les deux cas l'utilisateur obtient moins que ce qu'il croit avoir
+        // demandé, et rien d'autre ne le lui dirait.
+        signalerBoitesVides(ImmutableList.sortedCopyOf(boitesVides));
+        signalerParametresAnonymes(duCode, regles);
+        signalerReglesSansEffet(regles);
 
         // Les boîtes que le fichier déclare rejoignent celles du code, après elles : ce qui a du
         // code derrière vient d'abord, ce qui n'en a pas ensuite.
@@ -135,9 +206,113 @@ public class ProjectScanner {
         ImmutableList<UmlView> vues =
             ConstructeurDeVues.construire(entites, diagramme, regles);
 
-        DERNIER_SCAN.set(ImmutableList.sortedCopyOf(ignorees));
-
         return UmlProject.given(entites, diagramme, vues);
+    }
+
+    // Au-delà de ce nombre, les classes sont comptées mais pas nommées : une liste trop longue
+    // noie le message qui la porte. Le même seuil que le compte rendu de génération.
+    static final int SEUIL_ENUMERATION = 12;
+
+    // Signale les .class que le chargeur n'a pas su lier. Rend vrai si un avertissement a été
+    // émis, ce dont les tests se servent.
+    static boolean signalerClassesIllisibles(ImmutableList<String> illisibles) {
+        if (illisibles.isEmpty()) {
+            return false;
+        }
+        String liste = illisibles.size() <= SEUIL_ENUMERATION
+            ? " : " + String.join(", ", illisibles)
+            : "";
+        Avertissements.dire(illisibles.size() + " class(es) could not be loaded and "
+            + "were skipped" + liste + ". A dependency is missing from the analysed classpath, or "
+            + "the compilation is partial. Whether they carried @UMLClass cannot be known — the "
+            + "annotation is only readable on a loaded class — so the diagram may be incomplete.");
+        return true;
+    }
+
+    // Cette boîte est-elle vide parce que personne n'a déclaré de stratégie ?
+    //
+    // Quatre conditions, et chacune écarte un cas où le silence serait juste : une ligne
+    // « strategy » écrite — fût-ce « strategy none » — est un choix ; une stratégie déclarée sur
+    // la classe aussi ; une boîte qui montre quelque chose n'a rien à expliquer ; et une classe
+    // sans aucun membre — une interface marqueur — resterait vide sous toute stratégie, la
+    // signaler accuserait la mauvaise cause.
+    static boolean boiteVideFauteDeStrategie(Class<?> clazz, UmlEntity entite,
+        Regles regles) {
+        if (regles.strategieDeclaree()
+            || clazz.getAnnotation(UMLClass.class).strategy() != UMLVisibility.PROJECT) {
+            return false;
+        }
+        if (!entite.literals().isEmpty() || !entite.fields().isEmpty()
+            || !entite.methods().isEmpty()) {
+            return false;
+        }
+        return java.util.Arrays.stream(clazz.getDeclaredFields()).anyMatch(f -> !f.isSynthetic())
+            || java.util.Arrays.stream(clazz.getDeclaredMethods())
+                .anyMatch(m -> !m.isSynthetic());
+    }
+
+    // Signale les boîtes vides faute de stratégie. Rend vrai si un avertissement a été émis, ce
+    // dont les tests se servent.
+    static boolean signalerBoitesVides(ImmutableList<String> noms) {
+        if (noms.isEmpty()) {
+            return false;
+        }
+        // Le même seuil que le compte rendu : peu de noms se lisent, beaucoup se comptent.
+        String liste = noms.size() <= 12 ? " (" + String.join(", ", noms) + ")" : "";
+
+        Avertissements.dire(noms.size() + " box(es) have no member" + liste
+            + ": no strategy is declared, and the default draws none. Write \"strategy public\" "
+            + "in umlg.rules, declare one with @UMLClass(strategy = ...), or pick members one by "
+            + "one with @UMLInclude.");
+        return true;
+    }
+
+    // Signale des signatures toutes muettes sur leurs paramètres — la marque d'une compilation
+    // sans -parameters. Rend vrai si un avertissement a été émis.
+    //
+    // La condition est stricte pour ne jamais accuser à tort : il faut qu'au moins une méthode
+    // dessinée ait un paramètre, et qu'aucun paramètre d'aucune méthode n'ait de nom. Un projet
+    // compilé avec l'option a tous les noms ; un projet qui les a masqués par la règle « hide
+    // parameter names » les a tus volontairement, et n'est pas signalé.
+    static boolean signalerParametresAnonymes(java.util.Collection<UmlEntity> entites,
+        Regles regles) {
+        if (regles.masquerNomsParametres()) {
+            return false;
+        }
+        java.util.List<UmlParameter> parametres = entites.stream()
+            .flatMap(entite -> entite.methods().stream())
+            .flatMap(methode -> methode.parameters().stream())
+            .toList();
+
+        if (parametres.isEmpty() || parametres.stream().anyMatch(UmlParameter::nomme)) {
+            return false;
+        }
+        Avertissements.dire("no method parameter carries its name: the classes were "
+            + "compiled without the -parameters option, so signatures show types only — "
+            + "\"entries(String)\" instead of \"entries(xKeyName : String)\". Add "
+            + "<maven.compiler.parameters>true</maven.compiler.parameters> to the pom (or "
+            + "-parameters to javac), or say it is on purpose with \"hide parameter names\" in "
+            + "umlg.rules.");
+        return true;
+    }
+
+    // Signale les lignes du fichier de règles qui n'ont servi à rien. Rend vrai si un
+    // avertissement a été émis.
+    //
+    // Les vues échouent bruyamment sur un nom introuvable ; les règles de nommage ne le peuvent
+    // pas — un motif a le droit de ne viser personne. Mais une règle morte est presque toujours
+    // une classe renommée ou une faute de frappe, et le no-op était jusqu'ici parfait : le
+    // diagramme se dessinait, exact, sans que rien ne montre la ligne restée lettre morte.
+    static boolean signalerReglesSansEffet(Regles regles) {
+        ImmutableList<String> mortes = regles.reglesSansEffet();
+        if (mortes.isEmpty()) {
+            return false;
+        }
+        Avertissements.dire(mortes.size() + " rule(s) of " + Regles.NOM_DU_FICHIER
+            + " matched nothing in this project: \"" + String.join("\", \"", mortes)
+            + "\". A renamed class or a typo leaves a dead rule behind; fix the name, or remove "
+            + "the line.");
+        return true;
     }
 
     // Les classes que le dernier scan de ce fil a laissées de côté.

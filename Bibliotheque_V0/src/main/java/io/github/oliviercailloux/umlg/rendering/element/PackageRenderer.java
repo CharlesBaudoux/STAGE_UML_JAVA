@@ -1,5 +1,6 @@
 package io.github.oliviercailloux.umlg.rendering.element;
 
+import io.github.oliviercailloux.umlg.Avertissements;
 import com.google.common.collect.ImmutableList;
 import io.github.oliviercailloux.umlg.model.UmlEntity;
 import io.github.oliviercailloux.umlg.model.UmlPackage;
@@ -106,7 +107,7 @@ public final class PackageRenderer {
     // chose plus tôt, ne voit pas toujours les deux classes dans la même compilation.
     private static void signalerCouleurEnDouble(UmlEntity entite, UmlPackage declare,
         UmlPackage retenu, String premiere) {
-        System.err.println("Warning: @UMLPackage on " + entite.qualifiedName() + ": group \""
+        Avertissements.dire("@UMLPackage on " + entite.qualifiedName() + ": group \""
             + declare.name() + "\" already has the color \"" + retenu.color() + "\""
             + (premiere == null ? "" : ", set by " + premiere)
             + "; a rectangle has only one, so \"" + declare.color() + "\" will not be drawn.");

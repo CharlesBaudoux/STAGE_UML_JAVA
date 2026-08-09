@@ -198,7 +198,11 @@ class ProjectScannerIntegrationTest {
         IllegalArgumentException e =
             assertThrows(IllegalArgumentException.class, () -> ProjectScanner.scan(sortie));
 
-        assertTrue(e.getMessage().contains("at least one annotated class"), e.getMessage());
+        // Le message ne se contente pas de constater : le scan vient de lire cette classe, il
+        // connaît son nom, et c'est celui-là qu'il faut annoter.
+        assertTrue(e.getMessage().contains("No class carries @UMLClass"), e.getMessage());
+        assertTrue(e.getMessage().contains("Rien"),
+            "Le message doit nommer les classes lues : " + e.getMessage());
     }
 
     // Répertoire existant mais vide : le refus vient d'UmlProject, non du scan lui-même.
@@ -208,22 +212,47 @@ class ProjectScannerIntegrationTest {
     }
 
     @Test
-    void fichierClasseIllisible_produitUneErreurQuiNommeLaClasse(@TempDir Path tmp)
+    void fichierClasseIllisible_estIgnoreSansArreterLeScan(@TempDir Path tmp)
         throws Exception {
-        // Un .class corrompu ou compilé pour une JVM plus récente lève une LinkageError au
-        // chargement. Le scan doit l'attraper et dire QUEL fichier pose problème.
+        // Un .class corrompu, compilé pour une JVM plus récente, ou dont une dépendance manque au
+        // classpath, lève une LinkageError au chargement. Le scan doit passer son chemin plutôt
+        // que d'avorter : la classe illisible n'est très probablement pas celle que le diagramme
+        // décrit, et faire échouer toute la génération pour elle rendait l'outil inutilisable sur
+        // un projet réel où une dépendance « provided » manque.
         Path sortie = tmp.resolve("classes");
+        compiler(tmp.resolve("src"), sortie, "com/exemple/Bonne.java", """
+            package com.exemple;
+
+            import io.github.oliviercailloux.umlg.annotation.UMLClass;
+
+            @UMLClass
+            public class Bonne {}
+            """);
         Files.createDirectories(sortie.resolve("com/exemple"));
         // Les quatre premiers octets sont le nombre magique d'un .class (0xCAFEBABE) : le
         // fichier est donc reconnu comme tel, mais la suite ne veut rien dire.
         Files.write(sortie.resolve("com/exemple/Corrompue.class"),
             new byte[] {(byte) 0xCA, (byte) 0xFE, (byte) 0xBA, (byte) 0xBE, 0, 0, 0, 0, 1, 2, 3});
 
-        IllegalStateException e =
-            assertThrows(IllegalStateException.class, () -> ProjectScanner.scan(sortie));
+        UmlProject projet = ProjectScanner.scan(sortie);
 
-        assertTrue(e.getMessage().contains("com.exemple.Corrompue"),
-            "Le message doit nommer la classe fautive : " + e.getMessage());
+        assertEquals(1, projet.entities().size());
+        assertEquals("com.exemple.Bonne",
+            projet.entities().iterator().next().qualifiedName());
+    }
+
+    @Test
+    void toutesLesClassesIllisibles_neDonnentPasUnDiagrammeVideEnSilence(@TempDir Path tmp)
+        throws Exception {
+        // Le cas limite du précédent : si la seule classe du répertoire est illisible, il ne
+        // reste rien à dessiner. Le refus doit rester, sans quoi l'utilisateur recevrait un
+        // diagramme vide sans savoir pourquoi.
+        Path sortie = tmp.resolve("classes");
+        Files.createDirectories(sortie.resolve("com/exemple"));
+        Files.write(sortie.resolve("com/exemple/Corrompue.class"),
+            new byte[] {(byte) 0xCA, (byte) 0xFE, (byte) 0xBA, (byte) 0xBE, 0, 0, 0, 0, 1, 2, 3});
+
+        assertThrows(IllegalArgumentException.class, () -> ProjectScanner.scan(sortie));
     }
 
     @Test

@@ -3,6 +3,7 @@ package io.github.oliviercailloux.umlg.extraction;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import io.github.oliviercailloux.umlg.Avertissements;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.github.oliviercailloux.umlg.annotation.UMLDirection;
@@ -115,6 +116,15 @@ public final class ConstructeurDeVues {
     private static ImmutableList<UmlView> parPaquetage(ImmutableSet<UmlEntity> entites) {
         Map<String, List<UmlEntity>> parNom = new LinkedHashMap<>();
         for (UmlEntity entite : entites) {
+            // Une boîte déclarée n'a pas de paquetage : son nom qualifié est son nom simple.
+            // La ranger ici fabriquait une vue « (défaut) » que personne n'avait demandée,
+            // peuplée de boîtes orphelines — leur parent réel vit dans un vrai paquetage, et
+            // le trait d'héritage, sorti de la vue, disparaissait avec lui. Les vues par
+            // paquetage décrivent le code ; ce que le code ne porte pas reste sur les vues qui
+            // le déclarent.
+            if (entite.declared()) {
+                continue;
+            }
             parNom.computeIfAbsent(paquetageDe(entite), nom -> new ArrayList<>()).add(entite);
         }
         ImmutableList.Builder<UmlView> vues = ImmutableList.builder();
@@ -202,8 +212,33 @@ public final class ConstructeurDeVues {
                 }
             }
         }
+        signalerVoisinageVide(voulus, centres, nom, vue);
+
         return entites.stream().filter(e -> voulus.contains(e.qualifiedName()))
             .collect(ImmutableList.toImmutableList());
+    }
+
+    // Signale un voisinage qui n'a trouvé personne : la vue montrera la classe seule.
+    //
+    // Ce n'est pas une faute — le diagramme est exact — mais c'est presque toujours une
+    // surprise, et sa cause ne se voit pas sur le dessin : les voisins viennent des relations
+    // déclarées, pas des types que le code manipule. Une classe très entourée dans le code peut
+    // n'avoir aucun voisin déclaré, et l'utilisateur doit apprendre pourquoi ici, plutôt que de
+    // chercher un bogue de la vue. Rend vrai si un avertissement a été émis, ce dont les tests
+    // se servent.
+    static boolean signalerVoisinageVide(Set<String> voulus, ImmutableList<UmlEntity> centres,
+        String nom, String vue) {
+        // Le voisinage retient les centres, plus tout ce qu'une relation touche : dès que la
+        // vue compte une boîte de plus que ses centres, elle a quelque chose à montrer.
+        if (voulus.size() > centres.size()) {
+            return false;
+        }
+        Avertissements.dire("view \"" + vue + "\": \"around " + nom + "\" found no "
+            + "neighbour, so the view shows the class alone. Neighbours come from declared "
+            + "relations — @UMLAssociation, @UMLDependency, inheritance between annotated "
+            + "classes — not from the types used by fields or methods. Declare a relation, or "
+            + "name the classes of this view explicitly.");
+        return true;
     }
 
     // Les boîtes qu'une relation touche à son autre bout — deux pour une classe d'association,
@@ -241,7 +276,7 @@ public final class ConstructeurDeVues {
         return new UmlEntity(entite.qualifiedName(), entite.name(), entite.kind(),
             entite.stereotype(), entite.color(), entite.strategy(), entite.literals(),
             entite.fields(), entite.methods(), tenues, entite.notes(), entite.constraints(),
-            entite.group(), entite.declared());
+            entite.group(), entite.declared(), entite.typeParameters());
     }
 
     // Enchaîne par des liens invisibles les blocs de boîtes que rien ne relie entre eux.
@@ -307,7 +342,7 @@ public final class ConstructeurDeVues {
         return new UmlEntity(entite.qualifiedName(), entite.name(), entite.kind(),
             entite.stereotype(), entite.color(), entite.strategy(), entite.literals(),
             entite.fields(), entite.methods(), relations, entite.notes(), entite.constraints(),
-            entite.group(), entite.declared());
+            entite.group(), entite.declared(), entite.typeParameters());
     }
 
     // Les blocs de la vue : des groupes de boîtes que les traits relient, directement ou de

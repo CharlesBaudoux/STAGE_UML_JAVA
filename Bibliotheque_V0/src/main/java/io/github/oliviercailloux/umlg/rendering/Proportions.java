@@ -1,5 +1,6 @@
 package io.github.oliviercailloux.umlg.rendering;
 
+import io.github.oliviercailloux.umlg.Avertissements;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -65,7 +66,7 @@ final class Proportions {
             || Math.max(largeur, hauteur) < TAILLE_SIGNIFICATIVE) {
             return false;
         }
-        System.err.println("Warning: view \"" + vue + "\" is " + largeur + "×" + hauteur
+        Avertissements.dire("view \"" + vue + "\" is " + largeur + "×" + hauteur
             + " pixels, a ratio of " + Math.round(rapport) + ":1. Such a diagram is hard to read"
             + " once printed. Try another reading direction for this view, split it into smaller"
             + " ones, or show fewer members.");
