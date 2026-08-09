@@ -50,6 +50,17 @@ final class Rapporteur {
         messager.printMessage(Diagnostic.Kind.WARNING, message);
     }
 
+    // Un avertissement qui porte sur le processeur lui-même, et non sur le code examiné : il
+    // échappe donc à -Aumlg.warnings=none.
+    //
+    // Faire taire les avertissements veut dire « ne me dis pas ce que tu as trouvé dans mon
+    // code » ; cela ne peut pas vouloir dire « ne me dis pas que tu es mal configuré ». Un
+    // fichier de règles introuvable désarme la moitié des contrôles : le taire ferait passer un
+    // processeur aveugle pour un processeur satisfait, et le silence n'apprendrait plus rien.
+    void avertissementDeConfiguration(String message) {
+        messager.printMessage(Diagnostic.Kind.WARNING, message);
+    }
+
     // Erreur positionnée sur une valeur précise : « target = Commande.class » sera souligné.
     void erreur(String message, Element element, AnnotationMirror annotation,
         AnnotationValue valeur) {

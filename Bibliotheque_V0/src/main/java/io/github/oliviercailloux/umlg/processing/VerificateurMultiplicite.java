@@ -95,6 +95,13 @@ final class VerificateurMultiplicite {
         if (!strategie.connue(classe)) {
             return;
         }
+        // Un composant de record est dessiné quelle que soit la stratégie : le déclarer
+        // invisible serait un contresens, et l'avertissement désignerait de surcroît l'un des
+        // deux clones que javac fabrique — champ et accesseur — donc une ligne que personne
+        // n'a écrite.
+        if (Membre.vientDUnComposant(membre)) {
+            return;
+        }
         boolean visible = VisibilityPolicy.estVisible(Membre.bits(membre),
             strategie.effective(classe),
             rapporteur.miroir(membre, UMLInclude.class) != null,

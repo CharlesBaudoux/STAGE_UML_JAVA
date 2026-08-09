@@ -30,6 +30,7 @@ import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
+import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.TypeElement;
 
 // Le processeur d'annotations de la bibliothèque : il refuse la compilation d'un code annoté à
@@ -100,12 +101,29 @@ public final class UmlgProcessor extends AbstractProcessor {
     public synchronized void init(ProcessingEnvironment environnement) {
         super.init(environnement);
 
-        boolean avertir = !AVERTISSEMENTS_MUETS.equals(
-            environnement.getOptions().get(OPTION_AVERTISSEMENTS));
+        String demande = environnement.getOptions().get(OPTION_AVERTISSEMENTS);
+        boolean avertir = !AVERTISSEMENTS_MUETS.equals(demande);
 
         rapporteur = new Rapporteur(environnement.getMessager(), environnement.getElementUtils(),
             avertir);
 
+        // La valeur de l'option est vérifiée, et l'erreur passe outre le silence demandé.
+        //
+        // « -Aumlg.warnings=NONE », « =off », « =false » ne valaient rien : la seule valeur
+        // reconnue est « none », et toute autre laissait les avertissements passer sans que rien
+        // ne signale la faute de frappe. L'utilisateur croyait avoir fait taire le processeur, et
+        // se demandait pourquoi il parlait encore.
+        if (demande != null && !AVERTISSEMENTS_MUETS.equals(demande)) {
+            rapporteur.erreur("-A" + OPTION_AVERTISSEMENTS + "=" + demande + ": unknown value. "
+                + "The only one this processor understands is \"" + AVERTISSEMENTS_MUETS
+                + "\", which silences its warnings; remove the option to keep them.");
+        }
+
+        // Le fichier de règles est lu avant que le silence ne s'applique à ce qui le concerne :
+        // « -Aumlg.warnings=none » demande de taire ce que le processeur a trouvé dans le code,
+        // pas de taire que le processeur lui-même est mal configuré. Un fichier de règles
+        // introuvable désarme la moitié des contrôles, et le taire ferait passer un processeur
+        // aveugle pour un processeur satisfait.
         Strategie strategie = new Strategie(
             lireRegles(environnement.getOptions().get(OPTION_REGLES)));
         Cible cible = new Cible(rapporteur, environnement.getTypeUtils());
@@ -158,7 +176,7 @@ public final class UmlgProcessor extends AbstractProcessor {
         Path fichier = Paths.get(chemin);
 
         if (!Files.isRegularFile(fichier)) {
-            rapporteur.avertissement("-A" + OPTION_REGLES + "=" + chemin + ": no such file. The "
+            rapporteur.avertissementDeConfiguration("-A" + OPTION_REGLES + "=" + chemin + ": no such file. The "
                 + "checks that depend on the project strategy cannot conclude, and will stay "
                 + "silent.");
             return null;
@@ -169,7 +187,7 @@ public final class UmlgProcessor extends AbstractProcessor {
             rapporteur.erreur(chemin + " : " + e.getMessage());
             return null;
         } catch (IOException e) {
-            rapporteur.avertissement("-A" + OPTION_REGLES + "=" + chemin + ": cannot be read ("
+            rapporteur.avertissementDeConfiguration("-A" + OPTION_REGLES + "=" + chemin + ": cannot be read ("
                 + e.getMessage() + "). The checks that depend on the project strategy will stay "
                 + "silent.");
             return null;
@@ -250,6 +268,34 @@ public final class UmlgProcessor extends AbstractProcessor {
         for (Class<? extends Annotation> annotation : annotations) {
             porteurs.addAll(tour.getElementsAnnotatedWith(annotation));
         }
-        return porteurs.build();
+        return sansLesClonesDeComposants(porteurs.build());
+    }
+
+    // Écarte l'accesseur d'un composant de record quand le champ correspondant est déjà là.
+    //
+    // Une annotation écrite sur un composant — « record T(@UMLInclude(name = "  ") String s) » —
+    // est recopiée par javac sur le champ ET sur l'accesseur. Ce sont deux Element distincts, que
+    // le dédoublonnage par identité laissait donc tous les deux passer : l'utilisateur recevait
+    // deux fois le même message pour une seule annotation écrite, dont la seconde fois sans
+    // fichier ni ligne, l'accesseur engendré n'existant nulle part dans son code.
+    //
+    // Le champ est celui qu'on garde, parce que c'est lui que javac sait situer. Un @UMLInclude
+    // posé sur un accesseur que l'auteur a écrit lui-même n'est pas concerné : il n'a pas de
+    // champ jumeau dans l'ensemble, et rien ne l'écarte.
+    private static ImmutableSet<Element> sansLesClonesDeComposants(ImmutableSet<Element> tous) {
+        ImmutableSet<String> champsDeComposant = tous.stream()
+            .filter(element -> element.getKind() == ElementKind.FIELD)
+            .filter(Membre::vientDUnComposant)
+            .map(Membre::emplacement)
+            .collect(ImmutableSet.toImmutableSet());
+
+        if (champsDeComposant.isEmpty()) {
+            return tous;
+        }
+        return tous.stream()
+            .filter(element -> element.getKind() != ElementKind.METHOD
+                || !Membre.vientDUnComposant(element)
+                || !champsDeComposant.contains(Membre.emplacement(element)))
+            .collect(ImmutableSet.toImmutableSet());
     }
 }
