@@ -226,14 +226,23 @@ ce qui rend au silence sa valeur de preuve.
 
 ## Limites connues du rendu
 
-- Les paramètres de type sont perdus à l'affichage d'un attribut (`List` et non `List<String>`) :
-  l'extraction travaille sur des classes compilées, où l'effacement a déjà eu lieu.
 - PlantUML n'a pas de notation pour le carré d'une association qualifiée ; le qualificatif est
   rendu entre crochets, faute de mieux.
 - Un `record` est dessiné comme une `class`. Ce n'est pas un manque : UML ne lui réserve aucune
   notation, et un record *est* une classe finale.
 
-## Annotations de la spécification non encore implémentées
+Deux limites qui figuraient ici ont été levées, et ce fichier les annonçait encore :
 
-`@UMLAssociationClass`, `@UMLPackage`, `@UMLLayout`. Ce fichier est à compléter au fur et à
-mesure.
+- **les paramètres de type ne sont plus perdus.** L'effacement n'atteint pas les signatures
+  déclarées : le compilateur écrit un attribut `Signature` dans le `.class`, que la réflexion
+  expose. `List<Commande>` s'affiche donc en entier — et c'est aussi ce qui permet à
+  `@UMLAssociation` de déduire sa cible sans qu'on l'écrive.
+- **l'en-tête d'une classe générique porte ses paramètres** : `Boite<T>`, `Table<K, V extends
+  Number>`.
+
+## Ce que ce projet ne couvre pas encore
+
+`@UMLAssociationClass`, `@UMLPackage` et `@UMLLayout` sont implémentées depuis, mais ce projet de
+démonstration ne les exerce pas : les tableaux ci-dessus restent à compléter. Il ne montre pas non
+plus la fusion des associations réciproques — deux attributs qui se font face ne donnent qu'un
+seul trait, à deux extrémités nommées — ni l'italique des opérations abstraites.

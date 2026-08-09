@@ -73,7 +73,7 @@ Loin d'être une limite subie, c'est le fondement du principe retenu : \textbf{r
 
 Une seconde lecture, indépendante, a lieu \textbf{au moment de la compilation} : la bibliothèque embarque un processeur d'annotations qui vérifie ce que le développeur écrit, là où il l'écrit (voir la section \ref{sec:verification}).
 
-Une exception mérite d'être signalée, car elle ne dépend pas de la bibliothèque mais du projet analysé : les \textbf{noms des paramètres de méthode} ne sont écrits dans les \texttt{.class} que si celui-ci est compilé avec l'option \texttt{-parameters}. Le générateur les affiche lorsqu'ils existent, et se limite aux types sinon (section \ref{sec:membres}).
+Une exception mérite d'être signalée, car elle ne dépend pas de la bibliothèque mais du projet analysé : les \textbf{noms des paramètres de méthode} ne sont écrits dans les \texttt{.class} que si celui-ci est compilé avec l'option \texttt{-parameters}. Le générateur les affiche lorsqu'ils existent, et se limite aux types sinon --- en le \textbf{signalant} : quand aucun paramètre d'aucune méthode ne porte de nom, la génération avertit que l'option manque, plutôt que de laisser l'utilisateur découvrir des signatures amputées sans indice sur leur cause (section \ref{sec:membres}).
 
 \subsection{Périmètre}
 La bibliothèque cible exclusivement le \textbf{diagramme de classes}. Les autres types de diagrammes supportés par PlantUML (séquence, composants, états, cas d'utilisation) sont hors périmètre et ne font l'objet d'aucune annotation.
@@ -120,6 +120,12 @@ L'ordre des morceaux est fixe. Pour un attribut : la visibilité, \texttt{\{stat
 </configuration>
 \end{lstlisting}
 
+Cette dégradation était longtemps \textbf{silencieuse} : rien ne distinguait, sur le dessin, un projet compilé sans l'option d'un projet aux signatures naturellement sobres. La génération la \textbf{signale} désormais --- quand au moins une méthode dessinée a des paramètres et qu'aucun n'a de nom, un avertissement nomme l'option manquante et la ligne de pom à ajouter. La condition est stricte pour ne jamais accuser à tort : un projet compilé avec l'option a \textit{tous} les noms, en voir un seul suffit à se taire ; et un projet qui les a masqués par la règle \texttt{hide parameter names} (ci-dessous) les a tus volontairement, et n'est pas signalé.
+
+La forme courte peut aussi être un \textbf{choix} : la plupart des diagrammes tenus à la main écrivent \texttt{from(KeyboardMap)} et non \texttt{from(keyboardMap : KeyboardMap)}, et les signatures complètes font des boîtes larges --- mesuré sur un projet réel, une vue passait du simple au double. La règle \texttt{hide parameter names} du fichier \texttt{umlg.rules} (section \ref{sec:regles-projet}) demande les types seuls, même quand la compilation a gardé les noms.
+
+\paragraph{L'ordre des membres.} Par défaut, les attributs et les méthodes d'une boîte sont rangés par \textbf{ordre alphabétique}. Ce n'est pas un choix esthétique mais une exigence de reproductibilité : la réflexion rend les membres « dans un ordre non spécifié », qui varie réellement d'une exécution à l'autre, et deux générations du même code doivent produire le même fichier. L'ordre de déclaration du source, plus naturel à lire, ne lui est pourtant plus interdit : la règle \texttt{order declaration} (section \ref{sec:regles-projet}) le rétablit en relisant les tables de membres du fichier \texttt{.class}, que les compilateurs écrivent dans l'ordre du source --- un ordre que le fichier, lui, ne change pas entre deux lectures, ce qui préserve la reproductibilité. Les littéraux d'une énumération font exception dans les deux cas : leur ordre est celui des ordinaux, qui a un sens que l'alphabet détruirait.
+
 \paragraph{Le type devant une multiplicité.} Dès qu'une multiplicité est écrite, le type qui la précède est celui de l'\textbf{élément}, jamais celui du conteneur. Un attribut déclaré \texttt{Set<String>} et marqué \texttt{[0..*]} s'écrit \texttt{alias: String [0..*]}, et non \texttt{alias: Set [0..*]} --- lequel se lirait « zéro ou plusieurs ensembles », ce qui est faux : il y a un ensemble, contenant zéro ou plusieurs chaînes. \texttt{Optional<Integer>} suit la même règle. Une \texttt{Map}, en revanche, a deux paramètres et rien ne dirait lequel est la propriété : elle s'écrit en entier.
 
 \paragraph{La multiplicité.} Elle n'est écrite que là où elle est déclarée : par \texttt{targetCardinality} sur une association dessinée dans la boîte (\texttt{notation = ATTRIBUTE}, section \ref{sec:notation}), ou par \texttt{@UMLMultiplicity} sur n'importe quel attribut ou méthode (section \ref{sec:multiplicite}). Une multiplicité absente vaut \textit{exactement un}, et ne s'écrit donc pas.
@@ -164,6 +170,7 @@ Une annotation posée hors de ces cibles est rejetée à la compilation.
 \subsection{Résolution des conflits}
 \begin{itemize}
     \item \textbf{\texttt{@UMLInclude} et \texttt{@UMLExclude} sur le même élément} : \textbf{erreur de compilation}. La bibliothèque saurait départager — la dissimulation l'emporterait — mais appliquer une règle d'arbitrage en silence reviendrait à choisir à la place de l'auteur, dans un code qui se contredit. Le message invite à ne garder que celle des deux qui dit ce que l'on veut.
+    \item \textbf{\texttt{@UMLInclude(name = ...)} et \texttt{targetRole} sur le même attribut, sous \texttt{notation = ATTRIBUTE}} : \textbf{erreur de compilation}. En notation attribut, le rôle cible \textit{est} le nom de la ligne ; deux noms pour la même ligne se contrediraient, et rien ne dirait lequel fait foi.
     \item \textbf{Classe visée par un lien mais dépourvue de \texttt{@UMLClass}} : \textbf{erreur de compilation}, positionnée sur le paramètre \texttt{target} fautif. Le message nomme l'endroit (la classe et l'attribut porteurs), la classe visée, et les deux issues possibles : annoter la cible, ou viser une classe qui l'est déjà. Une cible est en effet toujours écrite exprès : son absence du diagramme est un oubli, jamais une intention.
 
     \textit{Une seule exception} : les liens d'héritage, qui ne sont pas déclarés mais lus dans la signature de la classe. Une classe mère hors du diagramme y est le cas courant — tout hérite d'\texttt{Object}, beaucoup de classes implémentent \texttt{Comparable} — et le lien est alors \textbf{ignoré silencieusement}. Seul le périmètre déclaré par \texttt{@UMLClass} fait foi ; aucune classe n'est créée implicitement, ce qui garantit que le diagramme ne déborde jamais du périmètre choisi.
@@ -191,6 +198,8 @@ Le paramètre \texttt{strategy} définit exactement quels niveaux d'encapsulatio
     \item \textbf{\texttt{PRIVATE}} : Tous les éléments de la classe sont générés, sans aucune restriction.
 \end{itemize}
 
+\paragraph{Les composants d'un record échappent à la stratégie.} \texttt{record Mnemonic(String keysymMnemonic)} ne dit rien d'autre que ce composant : il \textbf{est} la définition du record, et une boîte qui le tairait serait vide de ce qu'elle est. Les composants se dessinent donc quelle que soit la stratégie --- \texttt{NONE} comprise, qui est faite pour choisir parmi des membres ordinaires, pas pour taire une définition. \texttt{@UMLExclude}, veto individuel, garde le dernier mot ; un champ \textit{ajouté} au record (forcément statique) reste un membre ordinaire, soumis à la stratégie. Mesuré sur un projet réel, cet assouplissement a retiré onze lignes d'annotations de trois records triviaux, dont la seule fonction était de faire paraître le composant et de taire le reste.
+
 \subsection{Le filtre anti-bruit : rien n'est masqué sans demande}
 \label{sec:bruit}
 Une classe réelle a plus de membres qu'un diagramme lisible n'en supporte, et certains n'apprennent rien --- un \texttt{getSolde()} ne dit pas davantage que l'attribut \texttt{solde}. La bibliothèque sait les reconnaître, mais \textbf{elle n'en masque aucun de sa propre initiative} : le tri se déclare dans le fichier \texttt{umlg.rules} (section \ref{sec:regles-projet}), et rien ne s'applique tant que rien n'y est écrit.
@@ -207,7 +216,7 @@ Sans cette annotation, le générateur tenterait de dessiner toutes les classes 
 \subsection{Paramètres}
 \begin{itemize}
     \item \texttt{name} (String) : Surcharge le nom affiché (utile pour raccourcir les noms à rallonge).
-    \item \texttt{color} (String) : Applique une couleur de fond.
+    \item \texttt{color} (String) : Applique une couleur de fond --- un code hexadécimal (\texttt{"\#DDEEFF"}) ou un nom de couleur PlantUML (\texttt{"LightBlue"}). Le catalogue des noms, longtemps enfermé dans un paquetage non exporté, s'obtient désormais par \texttt{UMLGenerator.couleursConnues()} : l'utilisateur dont la couleur est refusée peut demander lesquelles existent.
     \item \texttt{stereotype} (String) : Ajoute une étiquette métier (ex: \texttt{"Service"}). Les guillemets français \texttt{<<~>>} sont posés par le générateur : les écrire soi-même les afficherait en double, ce dont le compilateur avertit.
     \item \texttt{strategy} (Enum) : \texttt{PROJECT} (défaut, renvoie au fichier de règles), \texttt{NONE}, \texttt{PUBLIC}, \texttt{PROTECTED}, \texttt{PACKAGE}, \texttt{PRIVATE}.
 \end{itemize}
@@ -241,6 +250,9 @@ Dans le cas où une classe possède une \texttt{strategy = PRIVATE} (tout affich
 \subsection{Paramètres}
 Aucun.
 
+\subsection{L'exclusion se déclare là où le membre est déclaré}
+Posée sur la déclaration d'une méthode --- dans une interface, ou dans une classe parente ---, l'annotation vaut pour \textbf{chacune de ses redéfinitions}. Le besoin vient d'un projet réel : une méthode \texttt{asString()} déclarée par une interface et réalisée par trois records devait être exclue \textit{trois fois}, une par override, sans que la répétition dise rien de plus que la première annotation. Le membre s'exclut désormais une fois, là où il est déclaré ; une méthode statique ou privée, qui ne redéfinit rien, ne regarde qu'elle-même.
+
 \subsection{Exemple}
 \begin{lstlisting}
 @UMLClass(strategy = UMLVisibility.PRIVATE)
@@ -256,25 +268,46 @@ public class ConnexionBase {
 \section{La Dérogation d'Inclusion : \texttt{@UMLInclude}}
 
 \subsection{Principe}
-Cette annotation agit comme une exception positive à la règle de visibilité dictée par \texttt{@UMLClass}. Elle force l'apparition d'un attribut ou d'une méthode sur le diagramme, même si son niveau d'encapsulation aurait dû le masquer.
+Cette annotation agit comme une exception positive à la règle de visibilité dictée par \texttt{@UMLClass}. Elle force l'apparition d'un attribut ou d'une méthode sur le diagramme, même si son niveau d'encapsulation aurait dû le masquer. Elle peut de surcroît \textbf{renommer} le membre qu'elle affiche, par son paramètre \texttt{name}.
 
 \subsection{Pourquoi c'est utile ?}
 Si une classe n'a aucune \texttt{strategy} définie (classe vide par défaut), ou une \texttt{strategy = PUBLIC}, le développeur peut cibler très précisément les éléments internes (privés) cruciaux pour la compréhension de l'architecture sans avoir à exposer le reste.
 
 \subsection{Paramètres}
-Aucun.
+\begin{itemize}
+    \item \texttt{name} (String) : Le nom sous lequel le membre paraît dans la boîte, à la place du sien. La chaîne vide --- le défaut --- veut dire « le nom du code ».
+    \item \texttt{asAttribute} (boolean, \texttt{false} par défaut) : Écrit la méthode en \textbf{notation attribut} --- \texttt{xKeycodeByXKeyName : Map<String, Short>}, sans parenthèses, dans le compartiment des attributs.
+\end{itemize}
+
+\subsection{Le renommage d'un membre}
+Le besoin vient des diagrammes de référence, qui nomment souvent les choses plus longuement que le code : un attribut \texttt{codeByName} qu'un README appelle \texttt{xKeycodeByXKeyName}. Sans renommage, le diagramme engendré ne peut jamais rejoindre le diagramme voulu --- il faudrait renommer le code lui-même, ce qui n'est pas à un outil de dessin d'en décider.
+
+Le renommage est porté par la dérogation d'affichage, et non par une règle du projet, pour la même raison que \texttt{@UMLClass(name = ...)} : c'est une décision sur \textit{un} élément, écrite là où l'élément est écrit. Les notes (\texttt{@UMLNote}) suivent le nom affiché, comme elles suivent déjà le rôle cible d'une association en notation attribut.
+
+Trois écarts sont vérifiés à la compilation : un nom fait d'espaces est une \textbf{erreur} (la ligne serait au nom invisible) ; \texttt{name} et \texttt{targetRole} sur la même ligne sont une \textbf{erreur} (deux noms se contrediraient, section \ref{sec:regles}) ; un nom identique à celui du code est un \textbf{avertissement} (le renommage n'a pas eu lieu, et l'auteur le chercherait sur l'image). Enfin, un \texttt{@UMLInclude} qui renomme n'est jamais signalé « sans effet » : renommer \textit{est} un effet, même quand la stratégie affichait déjà le membre.
+
+\subsection{La notation attribut d'un accesseur}
+Un accesseur sans paramètre expose une \textbf{propriété} de l'objet, et les diagrammes qui montrent une structure l'écrivent comme telle : \texttt{xKeycodeByXKeyName : Map<String, Short>}, sans parenthèses, parmi les attributs. Le dessiner comme une méthode dit « comment on l'obtient » là où le diagramme veut dire « ce que c'est ». \texttt{asAttribute = true} opère cette conversion : la ligne quitte le compartiment des méthodes pour celui des attributs, garde son soulignement si la méthode est statique, sa barre oblique si elle est dérivée, et sa multiplicité si elle en porte une.
+
+La décision est \textbf{individuelle}, et non une règle du projet, parce que le même diagramme mélange les deux formes : le diagramme de référence de Keyboardd écrit ses trois accesseurs de tables en notation attribut mais garde \texttt{latest(): Xkeys} avec ses parenthèses --- une fabrique n'est pas une propriété, et seul l'auteur sait laquelle est laquelle. Une règle globale « tout accesseur sans paramètre devient attribut » aurait précisément converti les fabriques avec le reste, et manqué le diagramme visé.
+
+La notation exige une méthode \textbf{sans paramètre} qui \textbf{rend quelque chose} : les parenthèses retirées, il ne reste que le nom et le type, et il faut que les deux existent. Les trois écarts --- des paramètres, un retour \texttt{void}, l'annotation posée sur un attribut, qui en est déjà un --- sont des \textbf{erreurs} de compilation (section \ref{sec:verification}).
 
 \subsection{Exemple}
 \begin{lstlisting}
 @UMLClass(strategy = UMLVisibility.PUBLIC)
 public class MoteurDeRecherche {
-    
+
     public void chercher() {} // Affiche car public
-    
+
     private int compteur; // Ignore car private
-    
+
     @UMLInclude
     private void algorithmeSecret() {} // Force l'affichage grace a l'annotation
+
+    @UMLInclude(name = "xKeycodeByXKeyName")
+    public Map<String, Short> codeByName() { ... }
+    // Affiche : xKeycodeByXKeyName() : Map<String, Short>
 }
 \end{lstlisting}
 
@@ -426,8 +459,10 @@ La multiplicité d'un \textit{lien} se déclare déjà sur \texttt{@UMLAssociati
 
 Elle reste par ailleurs le seul moyen de qualifier une \textbf{méthode} : \texttt{names(): String [0..*]} se lit « rend zéro, une ou plusieurs chaînes », ce qu'aucune association ne saurait exprimer.
 
-\subsection{Ce qu'elle ne déduit pas}
-Rien, comme partout ailleurs. Un attribut de type \texttt{List} laisse deviner « plusieurs », jamais si c'est \texttt{0..*} ou \texttt{1..*} ; un \texttt{Optional} ne dit pas si l'absence est un cas normal ou un accident. Ces choix relèvent du métier, et les deviner produirait un diagramme faux une fois sur deux.
+\subsection{Ce qu'elle ne déduit pas, et ce que le projet peut traduire}
+L'annotation ne déduit rien, comme partout ailleurs. Mais une partie de la multiplicité \textbf{se lit} : \texttt{Optional<X>} veut dire « zéro ou un », un \texttt{Set<X>} veut dire « zéro ou plusieurs » --- le conteneur est la façon dont Java écrit ces multiplicités-là. La règle \texttt{multiplicity brackets} du fichier \texttt{umlg.rules} (section \ref{sec:regles-projet}) les transcrit en notation UML pour tout le projet : \texttt{aliases : String [0..*]}, \texttt{ucp : int [0..1]}. Elle ne dit jamais \textit{plus} que le type --- \texttt{0..*} et non \texttt{1..*}, qu'aucun \texttt{Set} ne garantit ; c'est précisément ce que l'annotation, elle, sait dire, et elle l'emporte sur la traduction quand les deux sont présentes. Mesuré sur un projet réel, la règle a remplacé les cinq \texttt{@UMLMultiplicity} que le code portait --- tous redisaient ce que le type disait déjà.
+
+Au passage du conteneur à l'élément, un type enveloppe redevient primitif : \texttt{Optional<Integer>} s'écrit \texttt{int [0..1]}, et non \texttt{Integer [0..1]} --- Java interdit \texttt{Optional<int>}, l'enveloppe est une contrainte du langage, pas un choix de l'auteur.
 
 \subsection{Paramètres}
 \begin{itemize}
@@ -652,9 +687,13 @@ Une règle par ligne. Les lignes vides sont ignorées, ainsi que les commentaire
 \texttt{hide enum-methods} & Écarte \texttt{values()} et \texttt{valueOf(String)}. \\[0.4em]
 \texttt{hide method get*, with*} & Écarte les méthodes dont le nom suit l'un des motifs. \\[0.4em]
 \texttt{hide field log, *Cache} & Idem pour les attributs --- le seul moyen d'en filtrer. \\[0.4em]
+\texttt{hide field Representation.string} & Un motif \textbf{qualifié} --- \texttt{Classe.membre} --- désigne un membre nommément ; lui seul l'emporte sur \texttt{@UMLInclude} (section \ref{sec:hide-regles}). \\[0.4em]
 \texttt{hide return void} & Efface le type rendu : \texttt{valider()} et non \texttt{valider(): void}. \\[0.4em]
+\texttt{hide parameter names} & Tait les noms des paramètres : \texttt{from(KeyboardMap)} et non \texttt{from(keyboardMap : KeyboardMap)}. La forme des diagrammes tenus à la main, qui divise la largeur des boîtes bavardes. \\[0.4em]
 \texttt{type ImmutableList -> List} & Renomme un type partout où il paraît dans une boîte, y compris à l'intérieur des chevrons. \\[0.4em]
 \texttt{hide visibility} & Tait les symboles \texttt{+}, \texttt{-}, \texttt{\#}, \texttt{\textasciitilde} devant les membres. UML les demande, mais beaucoup de diagrammes tenus à la main les omettent, parce qu'ils montrent une structure plutôt qu'une API. \\[0.4em]
+\texttt{order declaration} & Range les membres dans l'ordre du code, relu dans le fichier \texttt{.class}, plutôt que par alphabet. Aussi : \texttt{order alphabetical}, le défaut. \\[0.4em]
+\texttt{multiplicity brackets} & Traduit la forme des conteneurs en multiplicités : \texttt{Set<X>} s'écrit \texttt{X [0..*]}, \texttt{Optional<X>} s'écrit \texttt{X [0..1]} --- l'élément déballé, primitif compris. \texttt{@UMLMultiplicity} l'emporte (section \ref{sec:multiplicite}). \\[0.4em]
 \hline
 \multicolumn{2}{@{}l}{\textit{Ce que le dessin d'ensemble montre}} \\[0.3em]
 \texttt{title Mon architecture} & Titre écrit en tête de la vue intégrale. \\[0.4em]
@@ -692,6 +731,9 @@ hide method with*, visit*
 hide field log, LOGGER
 hide return void
 hide visibility
+hide parameter names
+order declaration
+multiplicity brackets
 type ImmutableList -> List
 
 # ---- Le rangement ----
@@ -710,12 +752,17 @@ output replace
 \subsection{\texttt{strategy} : la visibilité de tout le projet}
 Une règle \texttt{strategy} donne la stratégie que prennent les classes qui n'en déclarent pas --- c'est-à-dire celles dont le \texttt{strategy} vaut \texttt{PROJECT}, qui est le défaut de \texttt{@UMLClass}. C'est la règle qui rend vraie la promesse de l'introduction : sans elle, obtenir un diagramme peuplé demandait d'écrire \texttt{@UMLClass(strategy = ...)} sur chacune des classes du projet. Une classe qui déclare la sienne l'emporte, dans les deux sens : \texttt{PRIVATE} pour en montrer davantage, \texttt{NONE} pour la ramener à sa boîte nue.
 
+Sans aucune ligne \texttt{strategy}, le défaut ne dessine aucun membre, et les boîtes sortent vides --- la surprise type d'un premier essai, que la génération \textbf{signale} désormais en nommant les remèdes (section \ref{sec:avertissements-generation}). Un \texttt{strategy none} \textbf{écrit} produit le même dessin sans le signalement : une ligne écrite est un choix, pas un oubli.
+
 \subsection{\texttt{hide} : ce que le projet tient pour du bruit}
+\label{sec:hide-regles}
 Voir la section \ref{sec:bruit} pour le principe --- rien n'est masqué sans demande. Quatre familles se nomment d'un seul mot ; elles sont indépendantes, et demander l'une ne demande pas les autres.
 
 Ce qu'aucune famille ne reconnaît se désigne par un \textbf{motif de nom}. L'étoile y remplace n'importe quelle suite de caractères ; tout le reste est pris au pied de la lettre, et la casse compte. Plusieurs motifs se séparent par des virgules. C'est ainsi qu'on écarte les conventions propres à un projet --- les \texttt{withX} d'un constructeur fluide, les \texttt{visitX} d'un visiteur --- et c'est le seul moyen de filtrer des \textbf{attributs}, qu'aucune forme ne trahit comme la convention JavaBean trahit un accesseur.
 
-\texttt{@UMLInclude} l'emporte toujours sur une règle : le cas particulier, écrit sur le membre, bat le réglage général.
+\texttt{@UMLInclude} l'emporte sur une règle générale : le cas particulier, écrit sur le membre, bat le réglage qui vaut partout.
+
+\paragraph{Le motif qualifié, seule exception.} Un motif contenant un point --- \texttt{Representation.string}, ou \texttt{Representation.*} pour toute la boîte --- ne désigne plus une famille de noms mais \textbf{un membre d'une classe précise}. Cette désignation nommément est aussi individuelle que l'annotation elle-même, et c'est ce qui justifie son pouvoir : elle l'emporte \textit{aussi} sur \texttt{@UMLInclude}. Le cas d'usage est celui des boîtes déclarées (section \ref{sec:declarees}) : quand deux sous-classes déclarées redisent les champs de la classe réelle, la boîte parente doit pouvoir se taire --- et retirer les \texttt{@UMLInclude} du code n'est pas une réponse, ils servent au reste du diagramme. Le motif qualifié se compare à \texttt{Classe.membre}, le motif ordinaire au nom seul, et les deux ne se croisent pas : \texttt{s*} ne gagne aucun pouvoir sur \texttt{Representation.string}.
 
 \subsection{\texttt{type} et \texttt{hide return} : les types affichés}
 Une règle \texttt{type} remplace un nom de type par un autre, \textbf{partout où ce type paraît dans une boîte} : attributs, types de retour, paramètres de méthode. Le nom de gauche s'écrit au choix simple (\texttt{ImmutableList}) ou complet (\texttt{com.google.common.collect.ImmutableList}) ; le nom complet l'emporte sur le nom simple, ce qui permet de viser une classe précise quand deux paquetages en ont une homonyme.
@@ -735,6 +782,8 @@ Le rectangle ainsi obtenu n'a pas de couleur ; \texttt{@UMLPackage} reste le moy
 \subsection{Ce que les règles ne touchent pas}
 Le \textbf{nom d'une boîte} et la \textbf{classe visée par une \texttt{@UMLAssociation}}. Ces deux-là ne sont pas lus dans le code mais écrits dans une annotation --- renommer une boîte, c'est \texttt{@UMLClass(name = ...)}. Une règle qui les atteindrait ferait diverger le type écrit dans une boîte du nom de la boîte d'à côté, sans que rien ne le signale.
 
+Le nom d'un \textbf{membre} suit le même partage : il se change côté code, par \texttt{@UMLInclude(name = ...)}, jamais par une règle --- c'est une décision sur un élément, écrite là où l'élément est écrit.
+
 \subsection{Ce qui est refusé}
 Le fichier est écrit à la main, sans compilateur pour le relire : chaque refus nomme donc le fichier, le numéro de ligne et la forme attendue. Un fichier fautif \textbf{arrête la génération} plutôt que d'être appliqué à moitié --- il a été écrit pour être suivi, l'ignorer produirait un diagramme qui n'est pas celui qu'on a demandé.
 
@@ -743,6 +792,7 @@ Le fichier est écrit à la main, sans compilateur pour le relire : chaque refus
 \hline
 \textbf{Situation} & \textbf{Raison} \\
 \hline
+Fichier qui n'est pas en UTF-8 & Le premier accent d'un commentaire enregistré en CP-1252 rendait la lecture illisible derrière une exception générique ; le refus nomme désormais l'encodage attendu. \\[0.4em]
 Mot-clé inconnu (\texttt{couleur Client -> rouge}) & Le vocabulaire du fichier est fermé ; le message rappelle les mots-clés connus. \\[0.4em]
 Stratégie inconnue (\texttt{strategy publique}), ou \texttt{strategy project} & Les valeurs sont celles de l'énuméré ; \texttt{project} est ce qu'une classe écrit pour renvoyer à cette ligne, qui ne peut pas se renvoyer à elle-même. \\[0.4em]
 Deux lignes \texttt{strategy} & La seconde l'emporterait en silence. \\[0.4em]
@@ -755,12 +805,16 @@ Deux lignes \texttt{title}, ou \texttt{title} sans texte & La seconde l'emporter
 Vue déclarée deux fois, ou \texttt{direction} avant son contenu & La seconde l'emporterait ; le sens de lecture d'une vue inexistante ne s'applique à rien. \\[0.4em]
 Sélecteur ne désignant aucune classe & Une classe renommée laisserait un nom mort, et le diagramme se dessinerait amputé sans que rien ne le signale. \\[0.4em]
 Flèche \texttt{->} absente, ou l'une des deux moitiés vide & La règle ne dit pas ce qu'elle remplace, ou par quoi. \\[0.4em]
-\texttt{hide} sans \texttt{return} (\texttt{hide void}) & La règle ne dit pas où elle s'applique ; seul un type de retour peut être tu. \\[0.4em]
+\texttt{hide} sans \texttt{return} (\texttt{hide void}) & La règle ne dit pas où elle s'applique ; le message rappelle toutes les formes de \texttt{hide}. \\[0.4em]
+\texttt{order} de valeur inconnue, ou deux lignes \texttt{order} & Deux valeurs seulement, \texttt{declaration} et \texttt{alphabetical} ; deux lignes parleraient du même réglage, même quand la seconde redit le défaut. \\[0.4em]
+Deux \texttt{hide parameter names} & La seconde ne demanderait rien de plus ; un fichier qui se répète est un fichier que personne ne relit. \\[0.4em]
 Deux règles sur le même type & La seconde l'emporterait en silence, et l'auteur ignorerait laquelle s'applique. \\[0.4em]
 Espace au milieu d'un nom de type & Trahit une flèche oubliée ou un mot en trop. \\
 \hline
 \end{tabular}
 \end{center}
+
+Un cas échappe à ce tableau parce qu'il ne peut pas être un refus : une règle de nommage dont le nom ne correspond à rien --- \texttt{type ImutableList -> List}, \texttt{hide field LOGGR} --- est syntaxiquement irréprochable, et un motif a le droit de ne viser personne aujourd'hui. Elle n'est donc pas refusée, mais elle n'est plus muette : la génération relève en fin de scan les lignes restées sans effet et les signale en avertissement (section \ref{sec:avertissements-generation}).
 
 \subsection{Une extension prévue}
 Le fichier est fait pour grandir : d'autres natures de règles viendront s'ajouter à celles-ci --- ce qu'on masque partout, ce qu'on abrège, ce qu'on place. Le lecteur du fichier est écrit pour cela : ajouter une règle consiste à reconnaître un mot-clé de plus, et un mot-clé inconnu est refusé plutôt qu'ignoré, ce qui garantit qu'un fichier écrit pour une version ultérieure ne sera jamais appliqué à moitié par une version antérieure.
@@ -854,6 +908,8 @@ Trois façons de désigner des classes, et trois seulement :
 \end{tabular}
 \end{center}
 
+\paragraph{Un voisinage peut être vide.} Les voisins d'\texttt{around} sont les extrémités des \textbf{relations déclarées} --- \texttt{@UMLAssociation}, \texttt{@UMLDependency}, héritages entre classes annotées --- et non les types que le code manipule. Une classe très entourée dans le code peut donc n'avoir aucun voisin déclaré, et la vue se réduit alors à une boîte seule. Ce n'est pas une faute --- le diagramme est exact --- mais c'est presque toujours une surprise, et sa cause ne se lit pas sur le dessin : la génération \textbf{avertit}, en expliquant d'où viennent les voisins et en nommant les deux remèdes --- déclarer une relation, ou nommer explicitement les classes de la vue.
+
 Un sélecteur qui ne désigne aucune classe \textbf{arrête la génération}. Le fichier n'a pas de compilateur pour le relire : une classe renommée y laisserait un nom mort, et le diagramme se dessinerait amputé sans que personne ne le sache.
 
 \subsection{L'ordre d'écriture est l'ordre de lecture}
@@ -877,6 +933,8 @@ views by package
 \end{lstlisting}
 Une vue par paquetage Java, sans rien déclarer. C'est le découpage que suivent la plupart des diagrammes tenus à la main, parce qu'un paquetage rassemble déjà ce qui se comprend ensemble. Il ne dispense pas de déclarer des vues : celles-ci retiennent \textit{tout} le paquetage, là où un auteur en écarterait les classes techniques.
 
+Les boîtes \textbf{déclarées} dans le fichier de règles (section \ref{sec:declarees}) n'y entrent pas : elles n'ont pas de paquetage --- leur nom qualifié est leur nom simple --- et les ranger dans un paquetage « (défaut) » fabriquait une vue entière que personne n'avait demandée, peuplée de boîtes orphelines dont le parent réel, resté dans son vrai paquetage, sortait de la vue avec sa flèche d'héritage. Les vues par paquetage décrivent le code ; ce que le code ne porte pas reste sur la vue intégrale et sur les vues qui le nomment.
+
 \subsection{Les liens qui sortent d'une vue}
 Une relation dont l'autre bout n'est pas dans la vue \textbf{disparaît, sans un mot}. C'est le même arbitrage que pour un héritage dont le parent n'est pas annoté : restreindre la vue \textit{est} la demande de l'auteur, il n'y a donc aucun écart à lui signaler. Le contraire --- dessiner la boîte manquante pour sauver le trait --- ferait déborder chaque vue de proche en proche, jusqu'à ce qu'elles se ressemblent toutes.
 
@@ -892,7 +950,7 @@ Deux garde-fous.
 
 \paragraph{L'enchaînement s'arrête à trois blocs.} Ordonner deux ou trois groupes dit une intention ; en ordonner cinq construit une file indienne que le moteur déroule sur toute la largeur. Au-delà de trois, la vue n'est donc plus contrainte du tout : le moteur compose mieux que l'ordre écrit, et mieux vaut le laisser faire que d'imposer une lecture qui rendrait le dessin inutilisable. Sur un cas réel, cinq blocs donnaient 3570 pixels de large pour 289 de haut ; les mêmes boîtes sans contrainte tenaient dans 1578 sur 824.
 
-\paragraph{Les proportions sont mesurées.} La bibliothèque relit les dimensions de ce qu'elle vient d'écrire, et \textbf{avertit} lorsque le rapport entre la plus grande et la plus petite dépasse quatre pour un, sur une image assez grande pour que cela compte. Elle ne corrige rien : les causes sont plusieurs --- un sens de lecture qui ne convient pas à cette vue-ci, des boîtes trop larges, une vue qui retient trop de classes --- et le choix entre elles appartient à l'auteur. Le message nomme la vue et rappelle les remèdes.
+\paragraph{Les proportions sont mesurées.} La bibliothèque relit les dimensions de ce qu'elle vient d'écrire, et \textbf{avertit} lorsque le rapport entre la plus grande et la plus petite dépasse quatre pour un, sur une image assez grande pour que cela compte. Elle ne corrige rien : les causes sont plusieurs --- un sens de lecture qui ne convient pas à cette vue-ci, des boîtes trop larges, une vue qui retient trop de classes --- et le choix entre elles appartient à l'auteur. Le message nomme la vue et rappelle les remèdes. La mesure vaut pour les \textbf{deux modes de sortie}, le dossier de vues comme le fichier unique --- lequel est précisément le mode de qui n'a rien configuré, celui où le ruban surprenait le plus.
 
 \subsection{Ce que la génération dit d'elle-même}
 Un compte rendu, en deux lignes :
@@ -902,6 +960,30 @@ Un compte rendu, en deux lignes :
 \end{lstlisting}
 
 Le second chiffre est celui que personne n'avait. Une classe sans \texttt{@UMLClass} est hors du diagramme, et c'est voulu --- le périmètre est choisi. Mais rien ne le disait : une classe volontairement écartée et une classe qu'on a oublié d'annoter se ressemblent trait pour trait, c'est-à-dire qu'elles sont absentes toutes les deux. Le compte permet de faire la différence ; sous une douzaine, elles sont même nommées.
+
+\paragraph{La liste complète est écrite, pas seulement comptée.} Au-delà d'une douzaine, le compte rendu s'arrête de nommer --- la liste noierait le reste --- mais c'est précisément le cas qui a motivé la fonctionnalité : sur le projet de référence, quinze classes sur trente et une manquaient au dessin, soit trop pour l'écran. En mode dossier, la génération écrit donc \texttt{ignored-classes.txt} à la racine de la sortie, avec \textbf{toutes} les classes ignorées, une par ligne ; le compte rendu y renvoie, et un fichier périmé d'une génération précédente est retiré. Par programme, \texttt{generate()} \textbf{rend} par ailleurs le \texttt{RapportDeGeneration} au lieu de seulement l'imprimer : un build peut échouer sur « quinze classes ignorées » sans relire la sortie standard --- l'appelant qui ignorait le \texttt{void} d'hier ne voit aucune différence.
+
+\paragraph{La source PlantUML est conservée.} Chaque image est accompagnée de sa source, sous le même nom et l'extension \texttt{.puml} : \texttt{projet.svg} et \texttt{projet.puml}. Sans elle, la source engendrée était irrécupérable --- pas de retouche possible pour un essai, et le diff entre deux générations, seule façon de voir ce qu'un changement de code a changé au dessin, se faisait sur du SVG illisible. Les \texttt{.puml} suivent le sort de leurs images : \texttt{output replace} les efface avec elles.
+
+En mode fichier unique, la destination est nommée même quand le chemin n'a pas de dossier : \texttt{written to architecture.svg}, et non le \texttt{written to null} qu'un chemin d'un seul segment produisait --- le tout premier message que lisait un utilisateur n'ayant rien configuré.
+
+\subsection{Ce que la génération signale}
+\label{sec:avertissements-generation}
+Au compte rendu s'ajoutent des \textbf{avertissements}, émis pendant le scan. Ils partagent une même définition : le diagramme est \textit{exact}, mais il dit moins que ce que son auteur croit avoir demandé, et rien sur le dessin n'en montrerait la cause. Et une même retenue : chacun se tait dès que le silence est juste --- un choix écrit n'est jamais signalé.
+
+\begin{center}
+\begin{tabular}{@{}L{6.5cm}L{8.5cm}@{}}
+\hline
+\textbf{Situation} & \textbf{Ce que l'auteur découvrirait sinon sur l'image} \\
+\hline
+Des boîtes sans membre, alors qu'aucune \texttt{strategy} n'est déclarée nulle part & Le défaut ne dessine aucun membre : la surprise type d'un premier essai. Le message nomme les boîtes et les trois remèdes --- \texttt{strategy public} dans le fichier, \texttt{@UMLClass(strategy = ...)}, ou \texttt{@UMLInclude} membre par membre. Il se tait devant un \texttt{strategy none} \textbf{écrit} --- une ligne écrite est un choix --- et devant une classe sans aucun membre, qui resterait vide sous toute stratégie. \\[0.4em]
+Aucun paramètre d'aucune méthode ne porte de nom & Le projet a été compilé sans \texttt{-parameters} (section \ref{sec:membres}) : les signatures se réduisent aux types sans qu'on l'ait demandé. Tu si un seul nom existe, ou si \texttt{hide parameter names} l'a demandé. \\[0.4em]
+Une vue \texttt{around} sans voisin & La vue montre la classe seule : les voisins viennent des relations déclarées, pas des types du code (section \ref{sec:vues}). \\[0.4em]
+Une règle de nommage restée lettre morte & Un \texttt{type}, \texttt{hide return}, \texttt{hide method}, \texttt{hide field} ou \texttt{group package} qui n'a correspondu à rien pendant le scan. Une classe renommée ou une faute de frappe laisse une ligne morte, et le no-op était jusqu'ici parfait : le diagramme se dessinait, exact, sans montrer la ligne restée sans effet. Les vues, elles, échouent bruyamment sur un nom introuvable ; les règles de nommage ne le peuvent pas — un motif a le droit de ne viser personne — d'où un avertissement, qui cite chaque ligne telle qu'elle a été écrite. \\[0.4em]
+Une vue aux proportions illisibles & Le ruban de quelques milliers de pixels sur quelques centaines, décrit ci-dessus (« Quand le dessin devient illisible »). \\
+\hline
+\end{tabular}
+\end{center}
 
 \subsection{Ce que devient la génération précédente}
 \begin{lstlisting}[language=]
@@ -915,28 +997,22 @@ Sous \texttt{keep}, rien n'est effacé : la génération est écrite dans un dos
 \subsection{Lancer la génération}
 Trois façons, selon le contexte.
 
-\paragraph{Depuis Maven}, ce qui est la forme à préférer : le répertoire analysé et le dossier de sortie sont ceux du projet, et la commande se retient.
+\paragraph{Depuis Maven}, ce qui est la forme à préférer : un \textbf{plugin dédié}, \texttt{umlg-maven-plugin}, dont les défauts disent l'usage --- \texttt{target/classes} analysé (avec le fichier \texttt{umlg.rules} que la construction y recopie), \texttt{diagrammes/} écrit à la racine du projet.
 \begin{lstlisting}[language=XML]
 <plugin>
-    <groupId>org.codehaus.mojo</groupId>
-    <artifactId>exec-maven-plugin</artifactId>
-    <version>3.1.0</version>
+    <groupId>io.github.oliviercailloux</groupId>
+    <artifactId>umlg-maven-plugin</artifactId>
+    <version>1.0-SNAPSHOT</version>
     <executions>
         <execution>
-            <id>umlg</id>
-            <goals><goal>java</goal></goals>
-            <configuration>
-                <mainClass>io.github.oliviercailloux.umlg.UMLGenerator</mainClass>
-                <arguments>
-                    <argument>${project.build.outputDirectory}</argument>
-                    <argument>${project.basedir}/diagrammes</argument>
-                </arguments>
-            </configuration>
+            <goals><goal>generate</goal></goals>
         </execution>
     </executions>
 </plugin>
 \end{lstlisting}
-puis \texttt{mvn compile exec:java@umlg}.
+puis \texttt{mvn compile umlg:generate}. Chaque réglage se surcharge par propriété : \texttt{-Dumlg.outputFile=architecture.svg} (un seul fichier), \texttt{-Dumlg.format=png}, \texttt{-Dumlg.outputDirectory=...}, \texttt{-Dumlg.skip=true}.
+
+Ce plugin remplace l'usage antérieur d'\texttt{exec-maven-plugin}, qui exigeait une \texttt{mainClass} et deux \textbf{arguments positionnels} dont rien ne disait le sens ni l'ordre --- le projet de référence en avait accumulé deux déclarations concurrentes, que Maven signalait. Le plugin transmet de surcroît à la bibliothèque le \textbf{classpath d'exécution} du projet : la réflexion ne s'arrête pas au répertoire des classes --- charger une classe résout son parent, lire un attribut résout son type, qui vivent dans les dépendances du projet --- et \texttt{exec:java} n'apportait ce classpath que par accident de son mode d'exécution.
 
 \paragraph{En ligne de commande.}
 \begin{lstlisting}[language=]
@@ -1008,11 +1084,13 @@ Cible d'un lien dépourvue de \texttt{@UMLClass} & La cible a été écrite expr
 Cible primitive (\texttt{int.class}) ou qui n'est pas une classe & Seule une classe du diagramme peut être une extrémité. \\[0.4em]
 Multiplicité illisible (\texttt{"beaucoup"}) ou inversée (\texttt{"3..1"}) & Le vocabulaire des multiplicités est fermé. \\[0.4em]
 Couleur inconnue de PlantUML & Vérifiée contre le catalogue réel du moteur de rendu, pas contre sa seule forme. \\[0.4em]
-Texte fait uniquement d'espaces (nom, rôle, label, stéréotype, titre) & Produirait une étiquette invisible. \\[0.4em]
+Texte fait uniquement d'espaces (nom, rôle, label, stéréotype, titre, \texttt{name} de \texttt{@UMLInclude}) & Produirait une étiquette invisible. \\[0.4em]
+\texttt{@UMLInclude(name = ...)} et \texttt{targetRole} sur la même ligne & Deux noms pour la même ligne se contrediraient (section \ref{sec:regles}). \\[0.4em]
 \texttt{@UMLPackage(name)} vide ou fait d'espaces & Un groupe est identifié par son nom ; le rectangle porterait une étiquette illisible. \\[0.4em]
 \texttt{@UMLLayout} vers la classe elle-même, ou deux fois vers la même cible & Se placer par rapport à soi ne dit rien ; « en haut » puis « en bas » se contredisent. \\[0.4em]
 \texttt{@UMLAssociationClass} dont une extrémité est la classe annotée & Le lien serait rattaché à la boîte même qui le qualifie. \\[0.4em]
 \texttt{@UMLInclude} et \texttt{@UMLExclude} sur le même membre & Intention contradictoire (section \ref{sec:regles}). \\[0.4em]
+\texttt{asAttribute = true} sur une méthode à paramètres, sur une méthode \texttt{void}, ou sur un attribut & La notation attribut retire les parenthèses : il ne reste que le nom et le type, et il faut que les deux existent --- et un attribut en est déjà un. \\[0.4em]
 \texttt{@UMLMultiplicity} et \texttt{@UMLAssociation} sur le même attribut & Deux multiplicités pour une seule propriété ; \texttt{targetCardinality} la donne déjà. \\[0.4em]
 Annotation posée sur une classe dépourvue de \texttt{@UMLClass} & Le lien serait tracé depuis une boîte inexistante. \\[0.4em]
 Dépendance d'une classe vers elle-même, ou deux fois la même dépendance & N'apprendrait rien, ou dessinerait deux traits superposés. \\
@@ -1026,9 +1104,10 @@ Dépendance d'une classe vers elle-même, ou deux fois la même dépendance & N'
 \hline
 \textbf{Situation} & \textbf{Ce que l'auteur attendait, et n'aura pas} \\
 \hline
-\texttt{@UMLInclude} sur un attribut que la \texttt{strategy} affiche déjà & La dérogation ne déroge à rien. \\[0.4em]
+\texttt{@UMLInclude} sur un attribut que la \texttt{strategy} affiche déjà & La dérogation ne déroge à rien --- sauf si elle \textbf{renomme} : renommer est un effet, et rien n'est alors signalé. \\[0.4em]
 \texttt{@UMLExclude} sur un membre que la \texttt{strategy} masque déjà & Idem, dans l'autre sens. \\[0.4em]
-\texttt{@UMLInclude} sur un attribut porteur de \texttt{@UMLAssociation} & Sous \texttt{ARROW}, l'attribut est dessiné comme un lien et rien ne l'y ramènera ; sous \texttt{ATTRIBUTE}, il est déjà affiché quelle que soit la stratégie. Dans les deux cas la dérogation ne sert à rien. \\[0.4em]
+\texttt{@UMLInclude} sur un attribut porteur de \texttt{@UMLAssociation} & Sous \texttt{ARROW}, l'attribut est dessiné comme un lien et rien ne l'y ramènera ; sous \texttt{ATTRIBUTE}, il est déjà affiché quelle que soit la stratégie. Dans les deux cas la dérogation d'affichage ne sert à rien --- sous \texttt{ATTRIBUTE}, un \texttt{name} qui renomme la ligne reste en revanche un effet réel, et n'est pas signalé. \\[0.4em]
+\texttt{@UMLInclude(name = ...)} reprenant le nom du code & Le membre est renommé vers le nom qu'il a déjà : le renommage n'a pas eu lieu, et l'auteur le chercherait sur l'image. \\[0.4em]
 \texttt{@UMLExclude} sur un attribut porteur de \texttt{@UMLAssociation} & Ce qui disparaît est ce que l'association demandait : le \textbf{lien entre les deux boîtes} sous \texttt{ARROW}, la \textbf{ligne dans la boîte} sous \texttt{ATTRIBUTE}. \\[0.4em]
 Paramètre de trait écrit sous \texttt{notation = ATTRIBUTE} (\texttt{type}, \texttt{label}, \texttt{qualifier}, \texttt{direction}, \texttt{sourceRole}, \texttt{sourceCardinality}) & Une ligne de boîte ne porte qu'un nom, un type et une multiplicité : ces valeurs ne seront dessinées nulle part. Le message les nomme une à une. \\[0.4em]
 \texttt{stereotype} contenant déjà \texttt{<<~>>} & Les guillemets seraient affichés en double. \\[0.4em]
@@ -1075,7 +1154,7 @@ Le processeur lit alors les mêmes règles que la génération, et retrouve la p
     \item \textbf{fichier fautif} : \textbf{erreur}. Le même fichier arrêterait la génération pour la même raison ; le dire ici le dit plus tôt, ce qui est tout l'intérêt du processeur.
 \end{itemize}
 
-Cette option ne change jamais le diagramme produit, et n'ajoute ni ne retire aucune \textit{erreur} : les trente et une que le processeur connaît sont indépendantes de la stratégie, et signalées dans tous les cas.
+Cette option ne change jamais le diagramme produit, et n'ajoute ni ne retire aucune \textit{erreur} : toutes celles que le processeur connaît sont indépendantes de la stratégie, et signalées dans tous les cas.
 
 % ---------------------------------------------------------
 \section{Choix de conception : ce qui est hors périmètre}
