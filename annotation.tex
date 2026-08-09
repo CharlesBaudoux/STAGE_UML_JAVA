@@ -216,7 +216,7 @@ Sans cette annotation, le générateur tenterait de dessiner toutes les classes 
 \subsection{Paramètres}
 \begin{itemize}
     \item \texttt{name} (String) : Surcharge le nom affiché (utile pour raccourcir les noms à rallonge).
-    \item \texttt{color} (String) : Applique une couleur de fond --- un code hexadécimal (\texttt{"\#DDEEFF"}) ou un nom de couleur PlantUML (\texttt{"LightBlue"}). Le catalogue des noms, longtemps enfermé dans un paquetage non exporté, s'obtient désormais par \texttt{UMLGenerator.couleursConnues()} : l'utilisateur dont la couleur est refusée peut demander lesquelles existent.
+    \item \texttt{color} (String) : Applique une couleur de fond --- un code hexadécimal (\texttt{"\#DDEEFF"}, \texttt{"\#ABC"}, \texttt{"\#FF000080"} avec transparence) ou un nom de couleur PlantUML (\texttt{"LightBlue"}). Le catalogue des noms, longtemps enfermé dans un paquetage non exporté, s'obtient par \texttt{UMLGenerator.couleursConnues()} : l'utilisateur dont la couleur est refusée peut demander lesquelles existent, et le message de refus l'y renvoie. La question est posée au catalogue réel de PlantUML, et à lui seul --- une grammaire écrite en doublon côté extraction paraissait plus sobre, mais elle divergeait : elle refusait \texttt{"\#FF000080"}, que le moteur accepte, si bien que le processeur d'annotations laissait compiler du code qui ne pouvait pas se dessiner. Une seule grammaire, celle du moteur, et l'écart ne peut plus exister.
     \item \texttt{stereotype} (String) : Ajoute une étiquette métier (ex: \texttt{"Service"}). Les guillemets français \texttt{<<~>>} sont posés par le générateur : les écrire soi-même les afficherait en double, ce dont le compilateur avertit.
     \item \texttt{strategy} (Enum) : \texttt{PROJECT} (défaut, renvoie au fichier de règles), \texttt{NONE}, \texttt{PUBLIC}, \texttt{PROTECTED}, \texttt{PACKAGE}, \texttt{PRIVATE}.
 \end{itemize}
@@ -400,6 +400,32 @@ protected List<Commande> achats;
 \paragraph{Ce qu'elle laisse de côté.} Les paramètres qui décorent un \textit{trait} n'ont alors nulle part où s'écrire : \texttt{type} (le losange d'une composition), \texttt{sourceCardinality}, \texttt{sourceRole}, \texttt{qualifier}, \texttt{label} et \texttt{direction}. Ce n'est pas une faute --- le diagramme reste valide --- mais l'auteur a écrit ces valeurs pour obtenir un effet qu'il n'aura pas : le compilateur les lui nomme (section \ref{sec:verification}).
 
 \paragraph{Ce qu'elle ne relâche pas.} La classe visée doit porter \texttt{@UMLClass} dans les deux notations, et la grammaire des multiplicités reste la même. La notation choisit une forme de dessin ; elle ne change aucune exigence sur ce qui est dessiné.
+
+\subsection{Deux attributs qui se font face ne sont qu'une association}
+\label{sec:reciproques}
+
+Un modèle métier est plein d'attributs réciproques : \texttt{Eleve} cite \texttt{Cours}, et \texttt{Cours} cite \texttt{Eleve}. Chaque classe déclare alors son \texttt{@UMLAssociation}, et chacune a raison de le faire --- elle décrit ce que son propre code contient.
+
+UML, lui, n'y voit qu'\textbf{une} association. Une association binaire est un objet à deux extrémités, dont chacune porte un rôle et une multiplicité, et dont chacune est nommée \textit{par la classe d'en face} : le rôle de l'extrémité \texttt{Eleve} est le nom sous lequel \texttt{Cours} la désigne. Traduire les deux attributs séparément produisait donc deux traits parallèles là où le lecteur en attend un :
+
+\begin{lstlisting}[language=]
+Eleve --> "cours 0..*" Cours        % ce que disait Eleve
+Cours --> "inscrits 1..*" Eleve     % ce que disait Cours
+\end{lstlisting}
+
+La paire est désormais fusionnée, et le dessin porte le trait unique qu'UML décrit, avec les deux rôles :
+
+\begin{lstlisting}[language=]
+Eleve "inscrits 1..*" --> "cours 0..*" Cours
+\end{lstlisting}
+
+\paragraph{Où la fusion a lieu, et pourquoi pas ailleurs.} Au \textbf{rendu}, et non à l'extraction. Le modèle doit continuer de dire fidèlement ce que chaque classe déclare : c'est lui que le processeur d'annotations reconstruit pour vérifier une annotation, et une classe qui déclare une association en déclare une, que l'autre bout en déclare une aussi ou non. La fusion est une décision de \textit{dessin}, prise quand les deux boîtes sont sous les yeux --- elle n'a d'ailleurs pas de sens pour une cible hors du diagramme, qui n'a pas de côté à faire valoir.
+
+\paragraph{Ce qui empêche la fusion, et c'est le point délicat.} Une extrémité source ne sait porter qu'un rôle, une multiplicité et un qualificatif. Tout ce que le second lien dirait de plus n'aurait nulle part où aller : le losange d'une composition, qui se place à la source du lien qui la déclare et se retrouverait du mauvais côté ; un libellé, qui appartient au trait entier ; une contrainte, un \texttt{\{ordered\}} ou une barre de dérivation, qui qualifient une extrémité que la syntaxe ne sait pas décorer.
+
+La règle est donc étroite : on ne fusionne que si le second lien \textbf{n'ajoute rien qu'un rôle et une multiplicité}, et que si le premier n'a pas déjà écrit son propre côté source --- ce que l'auteur a écrit l'emporte sur ce que la classe d'en face en dirait. Dans tous les autres cas les deux traits restent, et un avertissement le dit en nommant les deux attributs.
+
+Ce n'est pas de la timidité. Perdre en silence ce que l'auteur a écrit serait le seul vrai défaut ; en dessiner deux traits est simplement moins joli, et le reste réparable en déplaçant les décorations d'un seul côté. Le principe est le même que partout ailleurs dans la bibliothèque : quand elle ne peut pas conclure sans risquer d'effacer une intention, elle dessine ce qui a été écrit et le dit.
 
 % ---------------------------------------------------------
 \section{La Classe d'Association : \texttt{@UMLAssociationClass}}
@@ -961,7 +987,11 @@ Un compte rendu, en deux lignes :
 
 Le second chiffre est celui que personne n'avait. Une classe sans \texttt{@UMLClass} est hors du diagramme, et c'est voulu --- le périmètre est choisi. Mais rien ne le disait : une classe volontairement écartée et une classe qu'on a oublié d'annoter se ressemblent trait pour trait, c'est-à-dire qu'elles sont absentes toutes les deux. Le compte permet de faire la différence ; sous une douzaine, elles sont même nommées.
 
-\paragraph{La liste complète est écrite, pas seulement comptée.} Au-delà d'une douzaine, le compte rendu s'arrête de nommer --- la liste noierait le reste --- mais c'est précisément le cas qui a motivé la fonctionnalité : sur le projet de référence, quinze classes sur trente et une manquaient au dessin, soit trop pour l'écran. En mode dossier, la génération écrit donc \texttt{ignored-classes.txt} à la racine de la sortie, avec \textbf{toutes} les classes ignorées, une par ligne ; le compte rendu y renvoie, et un fichier périmé d'une génération précédente est retiré. Par programme, \texttt{generate()} \textbf{rend} par ailleurs le \texttt{RapportDeGeneration} au lieu de seulement l'imprimer : un build peut échouer sur « quinze classes ignorées » sans relire la sortie standard --- l'appelant qui ignorait le \texttt{void} d'hier ne voit aucune différence.
+\paragraph{La liste complète est écrite, pas seulement comptée.} Au-delà d'une douzaine, le compte rendu s'arrête de nommer --- la liste noierait le reste --- mais c'est précisément le cas qui a motivé la fonctionnalité : sur le projet de référence, quinze classes sur trente et une manquaient au dessin, soit trop pour l'écran. La génération écrit donc \texttt{ignored-classes.txt} à la racine de la sortie, avec \textbf{toutes} les classes ignorées, une par ligne ; le compte rendu y renvoie, et un fichier périmé d'une génération précédente est retiré. Le fichier est écrit dans les deux modes : en mode fichier unique, l'utilisateur lisait « 37 ignored » sans aucun moyen de savoir lesquelles.
+
+\paragraph{Le compte rendu est rendu, non imprimé.} \texttt{generate()} rend le \texttt{RapportDeGeneration} et n'écrit nulle part : choisir un canal n'appartient pas à une bibliothèque. La ligne de commande l'écrit sur la sortie standard, le plugin Maven le passe à son log, un appelant programmatique peut échouer sur « quinze classes ignorées » sans relire quoi que ce soit. Il l'imprimait en plus de le rendre, et le plugin relayait alors les mêmes lignes : l'utilisateur d'un build lisait tout en double, et la ligne qui renvoie au fichier des ignorées --- écrite à part, donc absente du rapport --- se perdait au passage.
+
+Les \textbf{avertissements} suivent le même principe. Ils partaient tous sur la sortie d'erreur, écrits là où ils naissent ; sous Maven ils s'y écrivaient tels quels, sans préfixe \texttt{[WARNING]}, hors du log et absents du récapitulatif de fin --- le message le plus utile de l'outil était celui qu'on voyait le moins. L'appelant peut désormais leur donner un canal, et le plugin leur donne celui de Maven.
 
 \paragraph{La source PlantUML est conservée.} Chaque image est accompagnée de sa source, sous le même nom et l'extension \texttt{.puml} : \texttt{projet.svg} et \texttt{projet.puml}. Sans elle, la source engendrée était irrécupérable --- pas de retouche possible pour un essai, et le diff entre deux générations, seule façon de voir ce qu'un changement de code a changé au dessin, se faisait sur du SVG illisible. Les \texttt{.puml} suivent le sort de leurs images : \texttt{output replace} les efface avec elles.
 
@@ -977,13 +1007,19 @@ Au compte rendu s'ajoutent des \textbf{avertissements}, émis pendant le scan. I
 \textbf{Situation} & \textbf{Ce que l'auteur découvrirait sinon sur l'image} \\
 \hline
 Des boîtes sans membre, alors qu'aucune \texttt{strategy} n'est déclarée nulle part & Le défaut ne dessine aucun membre : la surprise type d'un premier essai. Le message nomme les boîtes et les trois remèdes --- \texttt{strategy public} dans le fichier, \texttt{@UMLClass(strategy = ...)}, ou \texttt{@UMLInclude} membre par membre. Il se tait devant un \texttt{strategy none} \textbf{écrit} --- une ligne écrite est un choix --- et devant une classe sans aucun membre, qui resterait vide sous toute stratégie. \\[0.4em]
-Aucun paramètre d'aucune méthode ne porte de nom & Le projet a été compilé sans \texttt{-parameters} (section \ref{sec:membres}) : les signatures se réduisent aux types sans qu'on l'ait demandé. Tu si un seul nom existe, ou si \texttt{hide parameter names} l'a demandé. \\[0.4em]
+Aucun paramètre d'aucune méthode ne porte de nom & Le projet a été compilé sans \texttt{-parameters} (section \ref{sec:membres}) : les signatures se réduisent aux types sans qu'on l'ait demandé. Il se tait si un seul nom existe, ou si \texttt{hide parameter names} l'a demandé. \\[0.4em]
+Des \texttt{.class} que le chargeur n'a pas su lier & Une dépendance \texttt{provided} ou \texttt{optional} absente du classpath transmis, ou une compilation partielle. Ces classes sont écartées et nommées plutôt que de faire échouer le scan entier --- il suffisait d'une classe dont le diagramme ne voulait pas pour rendre la génération impossible. L'avertissement dit aussi ce qu'on \textit{ne peut pas} savoir : l'annotation ne se lit que sur une classe chargée, donc rien ne dit si elles portaient \texttt{@UMLClass}, et le diagramme est peut-être incomplet. \\[0.4em]
+Deux boîtes portant le même nom affiché & Deux classes homonymes de paquetages différents. Les alias qui les désignent restent distincts --- chaque trait aboutit à la bonne boîte --- mais l'alias ne se lit pas sur le dessin : le lecteur voit deux rectangles identiques. Rien n'est renommé d'autorité, \texttt{@UMLClass(name = ...)} est là pour que l'auteur tranche. \\[0.4em]
 Une vue \texttt{around} sans voisin & La vue montre la classe seule : les voisins viennent des relations déclarées, pas des types du code (section \ref{sec:vues}). \\[0.4em]
 Une règle de nommage restée lettre morte & Un \texttt{type}, \texttt{hide return}, \texttt{hide method}, \texttt{hide field} ou \texttt{group package} qui n'a correspondu à rien pendant le scan. Une classe renommée ou une faute de frappe laisse une ligne morte, et le no-op était jusqu'ici parfait : le diagramme se dessinait, exact, sans montrer la ligne restée sans effet. Les vues, elles, échouent bruyamment sur un nom introuvable ; les règles de nommage ne le peuvent pas — un motif a le droit de ne viser personne — d'où un avertissement, qui cite chaque ligne telle qu'elle a été écrite. \\[0.4em]
 Une vue aux proportions illisibles & Le ruban de quelques milliers de pixels sur quelques centaines, décrit ci-dessus (« Quand le dessin devient illisible »). \\
 \hline
 \end{tabular}
 \end{center}
+
+\paragraph{Ce qui l'arrête, en revanche.} Un avertissement dit « le diagramme est exact mais dit moins que tu ne crois » ; une erreur dit qu'aucun diagramme ne peut être produit. Arrêtent donc la génération : une annotation contradictoire, une couleur que PlantUML ne connaît pas, un fichier de règles fautif ou qui n'est pas en UTF-8, une vue nommant une classe absente du diagramme, un répertoire où aucune classe ne porte \texttt{@UMLClass} --- le message nomme alors les classes lues, puisque le scan vient de les lire.
+
+S'y ajoute un cas qui n'est pas une faute de l'auteur : \textbf{Graphviz introuvable}. Un diagramme de classes est mis en page par Graphviz, que PlantUML appelle en sous-processus. Quand il manque, PlantUML ne lève rien et ne rapporte aucune erreur de diagramme : il dessine une image portant « Cannot find Graphviz », que ni sa taille ni son format ne distinguent d'un dessin réussi, et le compte rendu annonçait un succès. La génération vérifie donc que le moteur est en état avant de dessiner, une fois par exécution, et dit quoi installer. Le principe est le même que pour la source elle-même, dont l'acceptation par PlantUML est vérifiée avant l'écriture : une image d'erreur livrée comme un diagramme est le pire des résultats, puisque rien ne la dénonce.
 
 \subsection{Ce que devient la génération précédente}
 \begin{lstlisting}[language=]
@@ -1010,7 +1046,11 @@ Trois façons, selon le contexte.
     </executions>
 </plugin>
 \end{lstlisting}
-puis \texttt{mvn compile umlg:generate}. Chaque réglage se surcharge par propriété : \texttt{-Dumlg.outputFile=architecture.svg} (un seul fichier), \texttt{-Dumlg.format=png}, \texttt{-Dumlg.outputDirectory=...}, \texttt{-Dumlg.skip=true}.
+puis \texttt{mvn compile umlg:generate}. Chaque réglage se surcharge par propriété : \texttt{-Dumlg.outputFile=architecture.svg} (un seul fichier), \texttt{-Dumlg.format=png}, \texttt{-Dumlg.outputDirectory=...}, \texttt{-Dumlg.skip=true}. Les chemins relatifs s'entendent depuis la racine du module, et non depuis le répertoire d'où Maven a été lancé : dans un réacteur, tous les modules écriraient sinon le même fichier. Le goal \texttt{umlg:help} énumère ces réglages.
+
+Deux exigences pèsent sur le \texttt{pom} du projet analysé, et l'une est un piège. Il faut \texttt{maven.compiler.parameters} pour que les signatures portent le nom de leurs paramètres --- mais il faut aussi \textbf{épingler la version} de \texttt{maven-compiler-plugin} : sans elle, Maven résout la 3.1, publiée en 2013 et antérieure au paramètre \texttt{parameters}, qui est alors ignoré en silence. La génération signale des signatures anonymes, et conseille d'ajouter ce que l'auteur a déjà écrit. Il faut enfin \texttt{showWarnings}, sans quoi Maven passe \texttt{-nowarn} à \texttt{javac} et fait taire tout ce que le processeur d'annotations a à dire, ses erreurs mises à part.
+
+\paragraph{Consommer la bibliothèque depuis un module.} Les trois paquetages exportés rendent des types Guava dans leurs signatures --- \texttt{RapportDeGeneration.classesIgnorees()} une \texttt{ImmutableList}, \texttt{UMLGenerator.couleursConnues()} une \texttt{ImmutableSortedSet}. Le \texttt{module-info} les rend donc lisibles par ses clients (\texttt{requires transitive}) : exporter un type sans exporter de quoi le lire laisserait un module client compiler l'appel et échouer sur le type de retour.
 
 Ce plugin remplace l'usage antérieur d'\texttt{exec-maven-plugin}, qui exigeait une \texttt{mainClass} et deux \textbf{arguments positionnels} dont rien ne disait le sens ni l'ordre --- le projet de référence en avait accumulé deux déclarations concurrentes, que Maven signalait. Le plugin transmet de surcroît à la bibliothèque le \textbf{classpath d'exécution} du projet : la réflexion ne s'arrête pas au répertoire des classes --- charger une classe résout son parent, lire un attribut résout son type, qui vivent dans les dépendances du projet --- et \texttt{exec:java} n'apportait ce classpath que par accident de son mode d'exécution.
 
@@ -1018,7 +1058,7 @@ Ce plugin remplace l'usage antérieur d'\texttt{exec-maven-plugin}, qui exigeait
 \begin{lstlisting}[language=]
 UMLGenerator <repertoire-analyse> [fichier.svg|dossier] [png|svg]
 \end{lstlisting}
-Le second argument dit à lui seul ce qu'on veut : un nom finissant par \texttt{.svg} ou \texttt{.png} demande ce seul fichier, tout autre nom demande un dossier de vues. Deviner ainsi évite une option de plus, et se lit sans documentation --- personne n'appelle « diagrammes » un fichier, ni « architecture.svg » un répertoire.
+Le second argument dit à lui seul ce qu'on veut : un nom finissant par \texttt{.svg} ou \texttt{.png} demande ce seul fichier, tout autre nom demande un dossier de vues. Deviner ainsi évite une option de plus, et se lit sans documentation --- personne n'appelle « diagrammes » un fichier, ni « architecture.svg » un répertoire. Une faute de l'utilisateur --- répertoire inexistant, fichier de règles fautif, couleur inconnue --- y ressort comme un message et non comme une trace d'exécution : ces messages sont écrits pour être lus, et douze lignes de pile les noyaient alors même que la ligne utile s'y trouvait, en tête.
 
 \paragraph{Par programme}, si l'on veut choisir l'apparence :
 
@@ -1132,8 +1172,16 @@ Deux classes du même groupe déclarant deux couleurs & Un rectangle n'en a qu'u
 
 Chacun de ces contrôles \textbf{se tait dès qu'il ne peut pas conclure} : une collection écrite sans paramètre de type (\texttt{List} nu) ne se voit jamais reprocher sa cible, puisque c'est exactement le manque que \texttt{target} vient combler. Un avertissement qui se trompe coûte plus cher que celui qui manque un cas : le premier apprend à ne plus les lire.
 
+\paragraph{Deux exemptions, tirées de cas où le reproche était faux.} Les \textbf{composants d'un record} échappent à tous les contrôles qui disent « ce membre n'est pas affiché » : un composant est dessiné quelle que soit la stratégie, et le déclarer invisible est un contresens. L'annotation qu'il porte est de surcroît recopiée par \texttt{javac} sur le champ \textit{et} sur l'accesseur, si bien qu'un message désignait l'un des deux clones --- donc une ligne que l'auteur n'a jamais écrite, et le disait deux fois.
+
+Un \texttt{@UMLInclude} qui déroge à une règle \texttt{hide field} du projet n'est pas davantage « sans effet » : il en est le seul remède. Le contrôle ne regardait que la stratégie, et reprochait à la dérogation ce qui la justifiait.
+
 \subsection{Faire taire les avertissements}
 L'option \texttt{-Aumlg.warnings=none} les éteint tous. Les erreurs, elles, ne s'éteignent pas : elles disent qu'aucun diagramme ne peut être produit, ce dont personne ne peut vouloir être dispensé.
+
+\texttt{none} est la seule valeur reconnue, et toute autre est \textbf{refusée}. Elle ne l'était pas : \texttt{NONE}, \texttt{off}, \texttt{false} laissaient les avertissements passer sans que rien ne signale la faute de frappe, et l'auteur croyait avoir fait taire le processeur en se demandant pourquoi il parlait encore.
+
+Le silence porte par ailleurs sur ce que le processeur a trouvé dans le code, et non sur son propre état : un \texttt{-Aumlg.rules} désignant un fichier introuvable reste signalé même sous \texttt{none}. L'option demande « ne me dis pas ce que tu as trouvé chez moi », ce qui ne peut pas vouloir dire « ne me dis pas que tu es mal configuré » --- un fichier de règles hors de portée désarme six contrôles, et le taire ferait passer un processeur aveugle pour un processeur satisfait.
 
 \subsection{Donner le fichier de règles au compilateur}
 \label{sec:option-regles}
@@ -1174,6 +1222,10 @@ Certaines possibilités de PlantUML ont été délibérément écartées. Les me
 
 \subsection{Ce qui relève de l'analyse automatique, non des annotations}
 Les éléments suivants sont déduits du code compilé et ne nécessitent aucune annotation : la nature de l'entité (classe, classe abstraite, interface, énumération, type annotation, \textit{record}), les liens d'héritage lus dans \texttt{extends} et \texttt{implements}, les littéraux d'une énumération, le modificateur \texttt{static}, la visibilité de chaque membre, et les signatures de méthodes (type de retour, types des paramètres, et leurs noms lorsque le projet est compilé avec \texttt{-parameters}).
+
+Deux s'y ajoutent, qui touchent à la notation UML elle-même. Les \textbf{paramètres de type} d'une classe générique sont écrits à la suite de son nom --- \texttt{Boite<T>}, \texttt{Table<K, V extends Number>} --- avec leurs bornes, celles-ci passant par les règles de nommage du projet comme n'importe quel autre type. UML les dessine dans un cartouche au coin de la boîte, que PlantUML ne sait pas produire ; les écrire à la suite dit la même chose. Ils restent distincts du nom, qui désigne la boîte : c'est par lui qu'une vue la nomme, et les y coller rendrait \texttt{view "X" = Boite} introuvable dès que \texttt{Boite} devient générique.
+
+Une \textbf{opération sans corps} --- \texttt{abstract} au sens de Java, ou déclarée par une interface sans être \texttt{default} --- est écrite en italique, comme UML l'exige. C'est la seule chose qui distingue à l'\oe il un contrat d'une implémentation, et le modificateur suffit à le savoir : une méthode d'interface est abstraite sans porter le mot-clé, une \texttt{default} ne l'est pas bien qu'elle vive au même endroit.
 
 \subsection{Ce qui ne peut pas être déduit, et pourquoi}
 La lecture ayant lieu après compilation (section \ref{sec:lecture}), deux informations ont déjà disparu et ne sont donc \textit{pas} déductibles : les \textbf{valeurs d'initialisation des attributs}, et le \textbf{corps des méthodes} --- d'où \texttt{@UMLDependency}, seule façon de déclarer un lien qui ne se lit que dans un appel.
