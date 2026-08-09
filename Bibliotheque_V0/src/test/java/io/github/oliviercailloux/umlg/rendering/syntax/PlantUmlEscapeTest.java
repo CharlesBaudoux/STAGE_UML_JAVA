@@ -54,6 +54,16 @@ class PlantUmlEscapeTest {
             "ligne1\r\nligne2",
             "@enduml\n@startuml\nclass Intruse",
             "}\nclass Intruse {",
+            // Le balisage que PlantUML lit en plus des chevrons : le Creole, et la syntaxe de
+            // lien. Ces entrées manquaient au catalogue, et elles passaient toutes — « [[…]] »
+            // engendrait un href dans le SVG, les autres escamotaient leurs propres marqueurs.
+            "Compte [[http://ailleurs.example]]",
+            "[[http://ailleurs.example{infobulle} etiquette]]",
+            "**gras**",
+            "//pente//",
+            "~~barre~~",
+            "__souligne__",
+            "--barre--",
             "avec nul \u0000 et bip \u0007");
     }
 
@@ -101,6 +111,10 @@ class PlantUmlEscapeTest {
     @ValueSource(strings = {
         "Compte (bancaire)", "L'Utilisateur", "Client<T>", "Nom\"Injecte", "A&B",
         "&#60;b&#62;", "C:\\Users", "Reservation n°42",
+        // Le Creole était consommé sans laisser de trace : « **Compte** » s'affichait
+        // « Compte » en gras, et les astérisques que l'utilisateur avait écrites manquaient.
+        "**gras**", "//pente//", "~~barre~~", "__souligne__", "--barre--",
+        "Compte [[http://ailleurs.example]]",
     })
     void nomQuelconque_estAfficheTelQuel(String nom) throws Exception {
         String rendu = PlantUmlAssert.texteRendu(nommee(nom));
@@ -251,6 +265,36 @@ class PlantUmlEscapeTest {
     void encodeur_supprimeLesCaracteresDeControle() {
         assertEquals("ab", PlantUmlEscaper.label("a\u0000b"));
         assertEquals("ab", PlantUmlEscaper.stereotype("a\u0007b"));
+    }
+
+    // --- Le balisage Creole, et la syntaxe de lien ---
+
+    @Test
+    void unNomPorteurDunLien_neProduitAucunHref() throws Exception {
+        // La brèche : PlantUML lit « [[url]] » comme un lien, et l'échappement ne connaissait
+        // que les chevrons. Le SVG produit portait un href vers une adresse arbitraire — et la
+        // boîte en portait deux quand la bibliothèque y posait déjà son lien de navigation.
+        String svg = PlantUmlAssert.svg(nommee("Compte [[http://ailleurs.example]]"));
+
+        assertFalse(svg.contains("ailleurs.example\""),
+            "Le nom a engendré un lien dans le SVG :\n" + svg);
+        assertFalse(svg.contains("<a href="), "Le nom a engendré un lien dans le SVG :\n" + svg);
+    }
+
+    @Test
+    void encodeur_neCassSeQueLaPaire_etLaisseLeCaractereIsole() {
+        // Encoder toutes les occurrences aurait suffi à fermer la brèche, mais aurait rendu le
+        // fichier engendré illisible : un tiret bas ou un astérisque isolé est un caractère
+        // ordinaire, présent dans quantité d'identifiants. Seule la paire est cassée.
+        assertEquals("nom_de_champ", PlantUmlEscaper.label("nom_de_champ"));
+        assertEquals("a * b", PlantUmlEscaper.label("a * b"));
+        assertEquals("et/ou", PlantUmlEscaper.label("et/ou"));
+
+        // Les deux paires sont cassées, l'ouvrante et la fermante : PlantUML n'exige pas
+        // qu'elles soient appariées pour reconnaître un marqueur.
+        assertEquals("&#95;_souligne&#95;_", PlantUmlEscaper.label("__souligne__"));
+        // Le crochet fermant n'ouvre rien : seul « [[ » engendre un lien.
+        assertEquals("&#91;[lien]]", PlantUmlEscaper.label("[[lien]]"));
     }
 
     @Test

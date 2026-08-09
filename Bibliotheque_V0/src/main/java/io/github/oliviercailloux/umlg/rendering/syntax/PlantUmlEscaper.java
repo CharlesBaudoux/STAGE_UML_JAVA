@@ -17,7 +17,48 @@ public final class PlantUmlEscaper {
     private static final String CHEVRON_FERMANT = "&#62;";
     private static final String GUILLEMET = "&#34;";
 
+    // Les caractères qui ouvrent un balisage dès qu'ils sont doublés : « **gras** »,
+    // « //pente// », « ~~barré~~ », « --barré-- », « __souligné__ », et « [[lien]] ».
+    //
+    // CE QUE LES CHEVRONS NE COUVRAIENT PAS
+    //
+    // L'échappement ne connaissait que le balisage à chevrons — <b>, <img>, <size> — et laissait
+    // passer celui du Creole, que PlantUML lit aussi. Deux conséquences, également fâcheuses.
+    //
+    // Le texte était altéré en silence : un nom valant « **Compte** » s'affichait « Compte » en
+    // gras, les astérisques disparues. La bibliothèque promet pourtant de dessiner ce qui est
+    // écrit, et rien d'autre.
+    //
+    // Surtout, « [[…]] » engendrait un lien. Un nom de classe contenant « [[http://ailleurs]] »
+    // se retrouvait en href cliquable dans le SVG — et entrait en concurrence avec les liens de
+    // navigation que ClassBoxRenderer pose lui-même sur la boîte, laquelle en portait alors deux.
+    //
+    // LA RÈGLE RETENUE
+    //
+    // Seule la première occurrence d'une paire est encodée, et non toutes les occurrences du
+    // caractère. Un tiret bas ou un astérisque isolé est un caractère ordinaire, présent dans
+    // quantité d'identifiants : les encoder tous rendrait le fichier engendré illisible pour rien.
+    // Casser la paire suffit à ce qu'aucun marqueur ne soit reconnu, et l'affichage est identique
+    // puisque PlantUML décode l'entité.
+    private static final String MARQUEURS_DOUBLES = "*/~-_[";
+
     private PlantUmlEscaper() {}
+
+    // Vrai si le caractère à cet indice ouvre une paire de marqueurs.
+    private static boolean ouvreUnBalisage(String texte, int i) {
+        char c = texte.charAt(i);
+        return MARQUEURS_DOUBLES.indexOf(c) >= 0
+            && i + 1 < texte.length() && texte.charAt(i + 1) == c;
+    }
+
+    // Le caractère, ou son entité numérique s'il ouvre un balisage.
+    private static void appendNeutralise(StringBuilder sortie, String texte, int i) {
+        if (ouvreUnBalisage(texte, i)) {
+            sortie.append("&#").append((int) texte.charAt(i)).append(';');
+            return;
+        }
+        appendSiImprimable(sortie, texte.charAt(i));
+    }
 
     // Pour les textes posés sur les traits et dans les boîtes, où les retours à la ligne sont
     // permis (PlantUML les note "\n" dans le fichier).
@@ -48,7 +89,7 @@ public final class PlantUmlEscaper {
                     }
                     sortie.append("\\n");
                 }
-                default -> appendSiImprimable(sortie, c);
+                default -> appendNeutralise(sortie, texte, i);
             }
         }
         return sortie.toString();
@@ -124,7 +165,7 @@ public final class PlantUmlEscaper {
                 case '>' -> sortie.append(CHEVRON_FERMANT);
                 case '"' -> sortie.append(GUILLEMET);
                 case '\n', '\r' -> sortie.append(' ');
-                default -> appendSiImprimable(sortie, c);
+                default -> appendNeutralise(sortie, texte, i);
             }
         }
         return sortie.toString();
