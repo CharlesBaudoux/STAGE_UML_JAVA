@@ -5,9 +5,11 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-// Conteneur technique de @UMLConstraint, exigé par le mécanisme @Repeatable de Java.
-//
-// L'utilisateur ne l'écrit jamais. Voir UMLDependencies et UMLNotes, qui jouent le même rôle.
+/**
+ * Conteneur technique de @UMLConstraint, exigé par le mécanisme @Repeatable de Java.
+ *
+ * <p>L'utilisateur ne l'écrit jamais. Voir UMLDependencies et UMLNotes, qui jouent le même rôle.
+ */
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.TYPE, ElementType.FIELD})
 public @interface UMLConstraints {
