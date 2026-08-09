@@ -12,23 +12,26 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-// La façade : le seul point d'entrée de la bibliothèque.
-//
-// Usage typique :
-//   UMLGenerator.builder()
-//       .sourceDirectory("target/classes")
-//       .outputFile("architecture.svg")
-//       .build()
-//       .generate();
-//
-// Elle ne fait qu'enchaîner les deux moitiés du travail : ProjectScanner lit le code annoté et
-// en tire un modèle, PlantUmlWriter transforme ce modèle en image.
-//
-// Deux choses gouvernent le diagramme, et elles ne se déclarent pas au même endroit. Les
-// annotations disent ce qui vaut pour un élément — cette classe-ci est une boîte, cet attribut-là
-// est un lien. Le fichier « umlg.rules », posé à la racine du répertoire analysé, dit ce qui vaut
-// pour le projet entier : par exemple qu'un ImmutableList s'affiche « List ». Il est facultatif ;
-// voir Regles pour sa forme.
+/**
+ * La façade : le seul point d'entrée de la bibliothèque.
+ *
+ * <p>Usage typique :
+ * <pre>{@code
+ * UMLGenerator.builder()
+ *     .sourceDirectory("target/classes")
+ *     .outputFile("architecture.svg")
+ *     .build()
+ *     .generate();
+ * }</pre>
+ *
+ * <p>Elle ne fait qu'enchaîner les deux moitiés du travail : ProjectScanner lit le code annoté et
+ * en tire un modèle, PlantUmlWriter transforme ce modèle en image.
+ *
+ * <p>Deux choses gouvernent le diagramme, et elles ne se déclarent pas au même endroit. Les
+ * annotations disent ce qui vaut pour un élément — cette classe-ci est une boîte, cet attribut-là
+ * est un lien. Le fichier « umlg.rules », posé à la racine du répertoire analysé, dit ce qui vaut
+ * pour le projet entier : par exemple qu'un ImmutableList s'affiche « List ». Il est facultatif.
+ */
 public final class UMLGenerator {
 
     private final Path sourceDirectory;
@@ -36,6 +39,7 @@ public final class UMLGenerator {
     private final Path outputDirectory;
     private final String extension;
     private final UmlStyle style;
+    private final ImmutableList<Path> classpath;
 
     // Privé : on ne passe que par le builder, seul à valider les paramètres.
     private UMLGenerator(Builder builder) {
@@ -44,34 +48,79 @@ public final class UMLGenerator {
         this.outputDirectory = builder.outputDirectory;
         this.extension = builder.extension;
         this.style = builder.style;
+        this.classpath = builder.classpath;
     }
 
     public static Builder builder() {
         return new Builder();
     }
 
-    public void generate() {
+    // Les noms de couleurs que @UMLClass(color = ...) accepte, en plus des codes hexadécimaux.
+    //
+    // Le vocabulaire est celui de PlantUML, et il était jusqu'ici enfermé dans un paquetage non
+    // exporté : l'utilisateur dont la couleur était refusée apprenait qu'elle n'existe pas, sans
+    // pouvoir demander lesquelles existent. La liste passe par la façade parce que c'est le seul
+    // endroit exporté d'où la poser — et qu'une question sur ce que la bibliothèque accepte est
+    // une question à la bibliothèque, pas à un de ses rouages.
+    public static com.google.common.collect.ImmutableSortedSet<String> couleursConnues() {
+        return io.github.oliviercailloux.umlg.rendering.syntax.ColorCodec.nomsConnus();
+    }
+
+    // Le nom du fichier qui, dans le dossier de sortie, nomme toutes les classes ignorées.
+    //
+    // Le compte rendu, lui, s'arrête de les nommer au-delà d'une douzaine — c'est juste pour un
+    // affichage, et c'est trop tôt pour le cas qui a motivé la fonctionnalité : un projet réel
+    // de trente et une classes en avait quinze hors du diagramme, soit précisément trop pour
+    // être nommées. Le fichier n'a pas cette limite ; il est là pour être ouvert quand le nombre
+    // a donné l'alerte.
+    public static final String FICHIER_DES_CLASSES_IGNOREES = "ignored-classes.txt";
+
+    // Rend le compte rendu, et ne l'affiche pas.
+    //
+    // POURQUOI LA BIBLIOTHÈQUE N'ÉCRIT PLUS SUR LA SORTIE STANDARD
+    //
+    // Elle y écrivait, et le plugin Maven relayait les mêmes lignes dans son log : l'utilisateur
+    // d'un build lisait tout en double, et la dernière ligne — celle qui dit où trouver la liste
+    // des ignorées — se perdait au passage, faute d'appartenir au compte rendu.
+    //
+    // Choisir le canal n'appartient pas à une bibliothèque. Elle rend ce qu'elle a à dire ; la
+    // ligne de commande l'écrit sur la sortie standard, le plugin Maven le passe à son log, et un
+    // appelant programmatique en fait ce qu'il veut — échouer sur « 15 classes ignorées », par
+    // exemple.
+    public RapportDeGeneration generate() {
         try {
             // Étape 1 : le code annoté devient un modèle, vues comprises.
-            UmlProject project = ProjectScanner.scan(sourceDirectory);
+            UmlProject project = ProjectScanner.scan(sourceDirectory, classpath);
 
             // Étape 2 : le modèle devient une ou plusieurs images sur le disque.
             //
             // Un dossier a été demandé : toutes les vues sont écrites, l'intégrale à la racine et
             // les autres dans un sous-dossier. Sinon, on écrit le seul diagramme d'ensemble dans
             // le fichier nommé — la forme d'origine, que rien n'oblige à abandonner.
+            ImmutableList<Path> ecrits;
             if (outputDirectory != null) {
-                ImmutableList<Path> ecrits = PlantUmlWriter.writeViews(project,
-                    outputDirectory, extension, style, Regles.duProjet(sourceDirectory).sortie());
-
-                System.out.println(new RapportDeGeneration(project.entities().size(),
-                    ProjectScanner.classesIgnorees(), ecrits).resume());
-                return;
+                ecrits = PlantUmlWriter.writeViews(project, outputDirectory, extension, style,
+                    Regles.duProjet(sourceDirectory).sortie());
+            } else {
+                PlantUmlWriter.write(project, outputFileName, style);
+                ecrits = ImmutableList.of(Paths.get(outputFileName));
             }
-            PlantUmlWriter.write(project, outputFileName, style);
-            System.out.println(new RapportDeGeneration(project.entities().size(),
-                ProjectScanner.classesIgnorees(),
-                ImmutableList.of(Paths.get(outputFileName))).resume());
+
+            // La liste complète est écrite dans les deux modes. Elle ne l'était que pour un
+            // dossier, si bien qu'un utilisateur du mode fichier unique lisait « 37 ignored »
+            // sans aucun moyen de savoir lesquelles.
+            ImmutableList<String> ignorees = ProjectScanner.classesIgnorees();
+            Path liste = ecrireListeDesIgnorees(ignorees, ecrits);
+
+            return new RapportDeGeneration(project.entities().size(), ignorees, ecrits, liste);
+        } catch (java.nio.file.FileSystemException e) {
+            // Le message d'une FileSystemException se réduit au chemin — « /tmp/ro/x » —, et
+            // l'enveloppe générique le répétait donc sans rien apprendre à personne. La raison
+            // vit dans le type de l'exception et dans son « reason », pas dans son message.
+            throw new RuntimeException("Failed to generate the UML diagram: the output path "
+                + e.getFile() + " cannot be written ("
+                + (e.getReason() == null ? e.getClass().getSimpleName() : e.getReason())
+                + "). Check the directory exists and that you have permission to write in it.", e);
         } catch (Exception e) {
             // Les deux étapes déclarent « throws Exception » (entrées-sorties, chargement de
             // classes). On les enveloppe en exception non vérifiée pour ne pas l'imposer à
@@ -82,6 +131,33 @@ public final class UMLGenerator {
                     + ", output: " + (outputDirectory != null ? outputDirectory : outputFileName)
                     + "): " + e.getMessage(), e);
         }
+    }
+
+    // Écrit la liste complète des classes ignorées à la racine du dossier de sortie, ou rend
+    // null s'il n'y a rien à nommer.
+    //
+    // Le fichier périmé d'une génération précédente est retiré d'abord : une liste qui ne
+    // correspond plus au dessin d'à côté mentirait d'autant mieux qu'elle a l'air à sa place.
+    private static Path ecrireListeDesIgnorees(ImmutableList<String> ignorees,
+        ImmutableList<Path> ecrits) throws java.io.IOException {
+        Path racine = ecrits.get(0).getParent();
+        if (racine == null) {
+            return null;
+        }
+        Path fichier = racine.resolve(FICHIER_DES_CLASSES_IGNOREES);
+        Files.deleteIfExists(fichier);
+
+        if (ignorees.isEmpty()) {
+            return null;
+        }
+        StringBuilder contenu = new StringBuilder();
+        contenu.append("Classes seen without @UMLClass, hence not drawn (")
+               .append(ignorees.size()).append("):\n");
+        for (String classe : ignorees) {
+            contenu.append(classe).append('\n');
+        }
+        Files.writeString(fichier, contenu.toString());
+        return fichier;
     }
 
     // Utilisation en ligne de commande.
@@ -103,19 +179,36 @@ public final class UMLGenerator {
             return;
         }
 
-        Builder builder = builder().sourceDirectory(args[0]);
+        // Tout ce qui suit peut échouer sur une faute de l'utilisateur : un répertoire qui
+        // n'existe pas, un fichier de règles fautif, une couleur inconnue. Ces messages-là sont
+        // écrits pour être lus, et une trace d'exécution de douze lignes les noyait — alors même
+        // que la ligne utile s'y trouvait, en tête. On dit le message, et la trace n'est
+        // conservée que pour ce qu'elle explique vraiment : un défaut de la bibliothèque.
+        try {
+            Builder builder = builder().sourceDirectory(args[0]);
 
-        if (args.length >= 2) {
-            if (PlantUmlWriter.supporte(args[1])) {
-                builder.outputFile(args[1]);
-            } else {
-                builder.outputDirectory(args[1]);
+            if (args.length >= 2) {
+                if (PlantUmlWriter.supporte(args[1])) {
+                    builder.outputFile(args[1]);
+                } else {
+                    builder.outputDirectory(args[1]);
+                }
             }
+            if (args.length >= 3) {
+                builder.outputFormat(args[2]);
+            }
+            System.out.println(builder.build().generate().resume());
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            // Une faute de l'appelant, ou un environnement incomplet : le message dit quoi faire.
+            System.err.println("Error: " + e.getMessage());
+            System.exit(1);
+        } catch (RuntimeException e) {
+            // L'enveloppe de generate(), dont la cause porte le vrai message.
+            Throwable cause = e.getCause() == null ? e : e.getCause();
+            System.err.println("Error: " + (cause.getMessage() == null
+                ? e.getMessage() : cause.getMessage()));
+            System.exit(1);
         }
-        if (args.length >= 3) {
-            builder.outputFormat(args[2]);
-        }
-        builder.build().generate();
     }
 
     // Le builder valide au fur et à mesure : une erreur de chemin ou d'extension se signale dès
@@ -128,6 +221,9 @@ public final class UMLGenerator {
         private String extension = ".svg";
         // L'apparence de PlantUML : ne rien imposer est le défaut le moins présomptueux.
         private UmlStyle style = UmlStyle.PLANTUML;
+        // Vide par défaut : le répertoire analysé se suffit quand ses classes ne mentionnent
+        // que le JDK et les annotations de la bibliothèque.
+        private ImmutableList<Path> classpath = ImmutableList.of();
 
         private Builder() {}
 
@@ -186,6 +282,22 @@ public final class UMLGenerator {
         // change jamais ce que le diagramme dit, seulement son apparence — voir UmlStyle.
         public Builder style(UmlStyle style) {
             this.style = checkNotNull(style, "The style cannot be null. Use UmlStyle.PLANTUML.");
+            return this;
+        }
+
+        // Les dépendances du projet analysé : jars et répertoires de classes, en plus du
+        // répertoire source lui-même.
+        //
+        // Nécessaire dès que les classes analysées mentionnent autre chose que le JDK et les
+        // annotations de la bibliothèque : la réflexion doit pouvoir charger le parent d'une
+        // classe, le type d'un attribut — et ils vivent dans les dépendances du projet, pas dans
+        // les nôtres. C'est le plugin Maven qui s'en sert : il connaît le classpath d'exécution
+        // du projet et le passe ici tel quel.
+        public Builder classpath(java.util.List<String> entrees) {
+            checkNotNull(entrees, "The classpath cannot be null (use an empty list).");
+            this.classpath = entrees.stream()
+                .map(Paths::get)
+                .collect(ImmutableList.toImmutableList());
             return this;
         }
 
