@@ -19,7 +19,14 @@
 module io.github.oliviercailloux.umlg {
 
     // Guava, pour les collections immuables et les Preconditions.
-    requires com.google.common;
+    //
+    // « transitive », et c'est obligatoire : les trois paquetages exportés rendent des types
+    // Guava dans leurs signatures publiques — RapportDeGeneration.classesIgnorees() une
+    // ImmutableList, UmlProject une ImmutableSet, UMLGenerator.couleursConnues() une
+    // ImmutableSortedSet. Sans le mot-clé, un module client lit ces méthodes sans pouvoir lire
+    // leur type de retour, et échoue à la compilation sur « List.size() is defined in an
+    // inaccessible class ». Exporter un type, c'est s'engager à ce qu'il soit utilisable.
+    requires transitive com.google.common;
     // PlantUML, pour le dessin proprement dit.
     requires net.sourceforge.plantuml;
     // java.compiler : l'API des processeurs d'annotations (JSR 269), dont UmlgProcessor est une
