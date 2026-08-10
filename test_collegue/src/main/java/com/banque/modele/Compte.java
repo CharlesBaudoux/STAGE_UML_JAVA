@@ -6,8 +6,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Couvre : strategy = PACKAGE, @UMLInclude sur un attribut et sur une méthode que le filtre
- * anti-bruit aurait écartée, @UMLConstraint répétée sur une classe et posée sur un attribut,
+ * Couvre : strategy = PACKAGE, @UMLInclude sur un attribut et sur une méthode qu'un motif
+ * « hide get* » écarterait, @UMLConstraint répétée sur une classe et posée sur un attribut,
  * @UMLNote orientée vers le bas, l'association qualifiée, et la cible portée par une Map comme
  * par un attribut simple.
  */
@@ -70,7 +70,7 @@ public class Compte implements Identifiable {
     public void cloturer() {}
 
     /**
-     * Dérogation positive sur une méthode que le filtre anti-bruit aurait écartée : c'est un
+     * Dérogation positive sur une méthode qu'un motif « hide get* » écarterait : c'est un
      * getter en bonne et due forme, et il est pourtant affiché.
      */
     @UMLInclude
@@ -78,7 +78,8 @@ public class Compte implements Identifiable {
         return soldeSecret;
     }
 
-    // Bruit : un setter, et une méthode héritée d'Object.
+    // Du bruit typique : un setter, et une méthode héritée d'Object. Ce projet n'écrit pas de
+    // fichier de règles, donc rien ne les masque — elles paraissent sur le diagramme.
     public void setSoldeSecret(double solde) {
         this.soldeSecret = solde;
     }

@@ -98,8 +98,8 @@ class MemberExtractorTest {
         }
     }
 
-    // Un record expose ses composants comme attributs (côté champs) mais pas ses accesseurs
-    // (côté méthodes, filtrés par NoiseFilter) : la donnée n'est montrée qu'une fois.
+    // Un record expose ses composants comme attributs, quelle que soit la stratégie : le
+    // composant est la définition même du record.
     @Test
     void record_exposeSesComposantsCommeChamps() {
         UmlEntity entity = EntityExtractor.extract(Coordonnees.class);

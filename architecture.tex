@@ -410,25 +410,26 @@ Documentation du paquetage : statut de chaque classe, et le point d'extension. \
 \midrule
 \endhead
 \texttt{MemberExtractor} &
-Parcourt attributs et méthodes, et traduit ceux qui sont retenus. Écarte au passage un attribut
-promu en lien : en UML, une propriété se note dans la boîte \emph{ou} comme un trait, jamais les
-deux. \\
+Parcourt attributs et méthodes, et traduit ceux qui sont retenus. Trois questions écartent un
+membre, dans cet ordre : le compilateur l'a-t-il fabriqué (\texttt{isSynthetic}), le projet le
+tient-il pour du bruit (les motifs \texttt{hide}, demandés à \texttt{Regles}), l'utilisateur
+veut-il le voir (\texttt{VisibilityPolicy}). Écarte au passage un attribut promu en lien : en
+UML, une propriété se note dans la boîte \emph{ou} comme un trait, jamais les deux. \\
 \addlinespace
 \texttt{VisibilityPolicy} &
 Répond à « ce membre paraît-il ? », et « sous quel symbole ? ». Applique d'abord les
 dérogations, puis le seuil. Écrit avec un \texttt{switch} exhaustif : ajouter une valeur à
 \texttt{UMLVisibility} sans dire ce qu'elle retient devient une erreur de compilation. \\
-\addlinespace
-\texttt{NoiseFilter} &
-\emph{Reconnaît} la plomberie — getters, setters, \texttt{toString}, accesseurs de
-\texttt{record}, méthodes que \texttt{javac} ajoute aux \texttt{enum} — sans jamais décider de la
-masquer : c'est le fichier de règles qui le demande, famille par famille. Détail crucial : la
-détection exige la convention JavaBean \emph{complète} (préfixe suivi d'une majuscule, arité,
-type de retour). Un simple test de préfixe faisait disparaître silencieusement
-\texttt{setup()}, \texttt{issue()}, \texttt{getaway()}, \texttt{isoler()} — de vraies méthodes
-métier. \\
 \bottomrule
 \end{longtable}
+
+\noindent Ce paquetage a compté un troisième décideur, \texttt{NoiseFilter}, qui reconnaissait à
+leur \emph{forme} quatre familles de plomberie : accesseurs JavaBean, méthodes d'\texttt{Object},
+accesseurs de \texttt{record}, méthodes que \texttt{javac} ajoute aux \texttt{enum}. Il a été
+retiré avec elles. Le tri par la forme était plus fin que le tri par le nom --- il distinguait un
+\texttt{getPrix(Client)} d'un getter --- mais il demandait au lecteur du fichier de règles
+d'apprendre quatre mots réservés en plus des motifs, pour un mécanisme qui en dit moins qu'une
+ligne écrite en clair. Ce qu'un motif emporte à tort se ramène par \texttt{@UMLInclude}.
 
 \subsection{\texttt{extraction/relation/} — ce qui tend un trait}
 
@@ -486,10 +487,10 @@ Le résultat de cette lecture, interrogé par tout le reste de l'extraction. Ret
 quelles lignes ont \emph{servi} : une règle qui ne vise plus rien — une classe renommée, une
 faute de frappe — est un no-op parfait, que rien d'autre ne signalerait. \\
 \addlinespace
-\texttt{Motif} \newline \texttt{Bruit} &
-Les deux façons de désigner des membres : un motif de noms (\texttt{get*}, \texttt{*Cache}), et
-les quatre familles reconnues à leur \emph{forme}. Un motif ne peut pas contenir de point :
-désigner un membre par son nom est le travail d'une annotation. \\
+\texttt{Motif} &
+La seule façon de désigner des membres : un motif de noms, où \texttt{*} remplace n'importe
+quelle suite de caractères (\texttt{get*}, \texttt{*Cache}, \texttt{log}). Il ne peut pas
+contenir de point : désigner un membre par son nom est le travail d'une annotation. \\
 \addlinespace
 \texttt{DefinitionDeVue} \newline \texttt{Selecteur} &
 Ce qu'une vue retient, et comment on le désigne : une classe, un paquetage entier, ou le
@@ -671,9 +672,9 @@ d'une famille entière de traits — l'erreur la plus coûteuse, puisque rien ne
 
 Les tests suivent exactement le découpage des sources : à chaque classe qui porte une
 responsabilité correspond un fichier de tests qui la vérifie, dans le même sous-dossier. Cela
-vaut mode d'emploi : pour comprendre ce que fait \texttt{NoiseFilter}, \texttt{NoiseFilterTest}
-est souvent plus instructif que le code lui-même, parce qu'il montre les cas limites qui ont
-motivé chaque ligne. Le fichier à ouvrir se déduit donc du nom de la classe, et il n'y a pas de
+vaut mode d'emploi : pour comprendre ce que fait \texttt{LecteurDeRegles},
+\texttt{ReglesDuProjetTest} est souvent plus instructif que le code lui-même, parce qu'il montre
+les cas limites qui ont motivé chaque ligne. Le fichier à ouvrir se déduit donc du nom de la classe, et il n'y a pas de
 catalogue à tenir à jour ici.
 
 Deux familles échappent à ce miroir, et c'est délibéré.

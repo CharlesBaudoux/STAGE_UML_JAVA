@@ -29,7 +29,8 @@ public abstract class Personne {
 
     public abstract String identifiant();
 
-    // Bruit : un accesseur n'apprend rien de plus que l'attribut qu'il rend.
+    // Un accesseur n'apprend rien de plus que l'attribut qu'il rend : c'est ce qu'un
+    // « hide get* » écarterait, si ce projet écrivait un fichier de règles.
     public String getNomComplet() {
         return nomComplet;
     }

@@ -4,16 +4,13 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.github.oliviercailloux.umlg.annotation.UMLFlow;
 import io.github.oliviercailloux.umlg.annotation.UMLVisibility;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 
 // Lit le fichier de règles, ligne à ligne.
 //
@@ -61,8 +58,6 @@ final class LecteurDeRegles {
         // nommant la ligne fautive. Le builder de Guava, lui, ne se plaindrait qu'au build, sans
         // savoir où.
         Map<String, String> alias = new LinkedHashMap<>();
-        // LinkedHashSet pour la même raison, et pour que l'ordre de lecture soit conservé.
-        Set<Bruit> bruits = new LinkedHashSet<>();
         List<Motif> membres = new ArrayList<>();
         // LinkedHashMap : l'ordre d'écriture des vues est celui des fichiers produits.
         Map<String, DefinitionDeVue> vues = new LinkedHashMap<>();
@@ -103,7 +98,7 @@ final class LecteurDeRegles {
 
             switch (motCle) {
                 case TYPE -> lireType(alias, reste, contexte);
-                case HIDE -> lireHide(bruits, membres, reste, contexte);
+                case HIDE -> lireHide(membres, reste, contexte);
                 case OMIT -> lireOmit(omettreVisibilite, omettreNomsDeParametres,
                     omettreRetourVoid, reste, contexte);
                 case STRATEGY -> lireStrategy(strategie, reste, contexte);
@@ -122,7 +117,7 @@ final class LecteurDeRegles {
         }
         return new Regles(ImmutableMap.copyOf(alias), omettreRetourVoid[0],
             strategie[0] == null ? UMLVisibility.NONE : strategie[0], strategie[0] != null,
-            ImmutableSet.copyOf(bruits), ImmutableList.copyOf(membres),
+            ImmutableList.copyOf(membres),
             ImmutableList.copyOf(vues.values()), parPaquetage[0], titre[0],
             direction[0], masquerMembresVides[0], omettreVisibilite[0],
             omettreNomsDeParametres[0],
@@ -315,27 +310,17 @@ final class LecteurDeRegles {
         strategie[0] = lue;
     }
 
-    // « hide accessors » ou « hide get*, log, *Cache » : ce qui disparaît de la boîte.
+    // « hide get*, log, *Cache » : ce qui disparaît de la boîte.
     //
-    // Deux formes, et une seule liste de motifs : un motif vise les méthodes et les attributs
+    // Une seule forme, et une seule liste de motifs : un motif vise les méthodes et les attributs
     // indifféremment. Il n'y a pas de « hide method » ni de « hide field » — un nom appartient
     // presque toujours à l'un ou à l'autre, et le rare membre pris à tort par un motif se ramène
     // par @UMLInclude, qui est fait pour cela. Deux mots-clés pour distinguer ce que le lecteur
     // ne distingue pas auraient coûté plus que le cas qu'ils réglaient.
-    private static void lireHide(Set<Bruit> bruits, List<Motif> membres, String reste,
-        String contexte) {
-
-        // Une famille de bruit s'écrit d'un seul mot : « hide accessors ». Elle est reconnue
-        // avant les motifs, faute de quoi « accessors » serait pris pour un nom de membre.
-        Bruit famille = Bruit.parMotCle(reste);
-        if (famille != null) {
-            checkArgument(bruits.add(famille),
-                "%s: \"%s\" is already hidden. Keep only one of the two lines.", contexte, reste);
-            return;
-        }
+    private static void lireHide(List<Motif> membres, String reste, String contexte) {
         checkArgument(!reste.isEmpty(),
-            "%s: expected \"hide <patterns>\" or one of the noise families (%s); got \"hide\".",
-            contexte, Bruit.motsCles());
+            "%s: expected \"hide <patterns>\", for example \"hide get*, log\"; got \"hide\".",
+            contexte);
 
         lireMotifs(membres, reste, contexte);
     }
@@ -354,9 +339,9 @@ final class LecteurDeRegles {
                 "%s: an empty pattern was read in \"hide %s\"; a stray comma, most likely.",
                 contexte, reste);
             checkArgument(!motif.contains(" "),
-                "%s: a name pattern cannot contain a space (read \"%s\"). Did you mean one of "
-                    + "the noise families (%s), or \"omit\"?",
-                contexte, motif, Bruit.motsCles());
+                "%s: a name pattern cannot contain a space (read \"%s\"). Separate several "
+                    + "patterns with commas, or did you mean \"omit\"?",
+                contexte, motif);
             // Le point est ce qui distingue un nom qualifié d'un nom de membre, qui n'en contient
             // jamais. Une règle ne désigne pas un élément par son nom : c'est le partage même
             // entre le fichier et les annotations, et @UMLExclude est fait pour ce cas-là.

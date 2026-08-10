@@ -9,8 +9,8 @@ import java.lang.annotation.Target;
  * Force l'affichage d'un membre, quelle que soit la stratégie de la classe.
  *
  * <p>Sert dans deux cas : montrer un membre trop peu visible pour la stratégie choisie (un private
- * avec strategy = PUBLIC), et rattraper une méthode écartée par NoiseFilter — un getter que
- * l'on juge, exceptionnellement, digne du diagramme.
+ * avec strategy = PUBLIC), et rattraper un membre écarté par un motif « hide » du fichier de
+ * règles — un getter que l'on juge, exceptionnellement, digne du diagramme.
  *
  * <p>Les deux dérogations sur le même membre sont une erreur de compilation : l'intention est
  * contradictoire, et le processeur refuse de choisir à la place de l'auteur (VerificateurMembre).

@@ -57,17 +57,16 @@ class DiagrammeDeReferenceTest {
 
     private static final String FICHIER_DE_REFERENCE = "/diagramme-de-reference.puml";
 
-    // Les règles du projet cobaye : les quatre familles de bruit, demandées explicitement.
+    // Les règles du projet cobaye : ce qu'il tient pour du bruit, nommé par des motifs.
     //
-    // Elles ne sont plus appliquées d'office — rien ne l'est —, et ce test est le meilleur endroit
-    // pour le vérifier : le document attendu n'a pas changé d'une ligne le jour où le filtre est
-    // devenu configurable. C'est la preuve que les familles nommées ici font exactement ce que la
-    // bibliothèque faisait seule auparavant, ni plus ni moins.
+    // Rien n'est masqué d'office, et ce test est le meilleur endroit pour le vérifier : trois
+    // motifs suffisent à écarter tout ce que ce cobaye-là compte de plomberie — l'accesseur
+    // getNom(), et les deux méthodes que javac ajoute à l'énumération Statut. Le document attendu
+    // n'a pas changé d'une ligne le jour où le fichier de règles a cessé de connaître des
+    // « familles » et n'a plus lu que des noms.
     private static final Regles REGLES = Regles.lues(ImmutableList.of(
-        "hide accessors",
-        "hide object-methods",
-        "hide record-accessors",
-        "hide enum-methods"), "les règles du projet de référence");
+        "hide get*",
+        "hide values, valueOf"), "les règles du projet de référence");
 
     // Les entités du diagramme, dans l'ordre où elles seront déclarées : les cibles avant ce qui
     // les vise, ce qui rend le fichier engendré lisible de haut en bas.

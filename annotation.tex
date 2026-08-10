@@ -209,15 +209,17 @@ Placée sur une classe, interface ou énumération, elle indique que l'entité d
 
 \paragraph{Les composants d'un record échappent à la stratégie.} \texttt{record Mnemonic(String keysymMnemonic)} ne dit rien d'autre que ce composant : il \textbf{est} la définition du record. Les composants se dessinent donc quelle que soit la stratégie, \texttt{NONE} comprise. \texttt{@UMLExclude} garde le dernier mot ; un champ \textit{ajouté} au record (forcément statique) reste un membre ordinaire.
 
-\subsection{Le filtre anti-bruit : rien n'est masqué sans demande}
+\subsection{Le bruit : rien n'est masqué sans demande}
 \label{sec:bruit}
-Une classe réelle a plus de membres qu'un diagramme lisible n'en supporte, et certains n'apprennent rien. La bibliothèque sait les reconnaître, mais \textbf{elle n'en masque aucun de sa propre initiative} : le tri se déclare dans \texttt{umlg.rules} (section \ref{sec:regles-projet}).
+Une classe réelle a plus de membres qu'un diagramme lisible n'en supporte, et certains n'apprennent rien. La bibliothèque \textbf{n'en masque aucun de sa propre initiative}, et ne cherche même pas à les reconnaître : le tri se déclare dans \texttt{umlg.rules}, en nommant les membres à écarter (section \ref{sec:regles-projet}).
 
-Ce n'est pas une commodité : le jugement « ceci n'apprend rien » est bon dans beaucoup de projets et mauvais dans d'autres --- sur un code immuable écrit à la manière de Guava, il n'y a pas un accesseur à écarter, et ce qui encombre est ailleurs. Une exception, et une seule : ce que le compilateur a fabriqué et que le développeur n'a jamais écrit --- attributs synthétiques, référence à la classe englobante --- reste écarté sans qu'on le demande. Les constructeurs, eux, ne sont jamais lus : aucune annotation ne peut en faire apparaître un.
+Ce n'est pas une commodité : le jugement « ceci n'apprend rien » est bon dans beaucoup de projets et mauvais dans d'autres --- sur un code immuable écrit à la manière de Guava, il n'y a pas un accesseur à écarter, et ce qui encombre est ailleurs. Seul l'auteur du projet le sait, et c'est lui qui l'écrit. Une exception, et une seule : ce que le compilateur a fabriqué et que le développeur n'a jamais écrit --- attributs synthétiques, référence à la classe englobante --- reste écarté sans qu'on le demande. Les constructeurs, eux, ne sont jamais lus : aucune annotation ne peut en faire apparaître un.
 
 \subsection{Exemple}
+Ci-dessous, le projet a écrit \texttt{hide get*} dans son \texttt{umlg.rules} ; sans cette ligne, \texttt{getPseudo()} paraîtrait comme n'importe quelle autre méthode publique.
 \begin{lstlisting}
-// Affiche automatiquement les elements autorises, mais filtre le bruit
+// Affiche les membres que la strategie autorise, moins ce que le
+// fichier de regles ecarte.
 @UMLClass(stereotype = "Entity", strategy = UMLVisibility.PACKAGE)
 public class Utilisateur {
     public String pseudo;       // Sera affiche
@@ -225,8 +227,8 @@ public class Utilisateur {
     protected int age;          // Sera ignore (hors strategie)
     private String motDePasse;  // Sera ignore (hors strategie)
 
-    public Utilisateur() {}     // Sera ignore (Filtre anti-bruit : constructeur)
-    public String getPseudo() {}// Sera ignore (Filtre anti-bruit : getter)
+    public Utilisateur() {}     // Sera ignore (jamais de constructeur)
+    public String getPseudo() {}// Sera ignore (motif "hide get*")
 
     public void valider() {}    // Sera affiche (methode metier publique)
 }
@@ -636,10 +638,6 @@ Onze mots-clés, et \textbf{aucun} qui refasse ce qu'une annotation sait faire. 
 \textbf{Forme de la règle} & \textbf{Ce qu'elle fait} \\
 \hline
 \endhead
-\texttt{hide accessors} & Écarte \texttt{getX()}, \texttt{isX()}, \texttt{setX(v)} (JavaBean strict). \\
-\texttt{hide object-methods} & Écarte \texttt{toString()}, \texttt{hashCode()}, \texttt{equals(Object)}. \\
-\texttt{hide record-accessors} & Écarte les accesseurs engendrés d'un \textit{record}. \\
-\texttt{hide enum-methods} & Écarte \texttt{values()} et \texttt{valueOf(String)}. \\
 \texttt{hide }\meta{motif}\texttt{, }\meta{motif}\ldots & Écarte les \textbf{membres} --- méthodes comme attributs --- dont le nom suit l'un des motifs, où \texttt{*} remplace n'importe quelle suite de caractères. Ex. : \texttt{hide get*, log, *Cache} \\
 \texttt{omit visibility} & Tait les symboles \texttt{+}, \texttt{-}, \texttt{\#}, \texttt{\textasciitilde}. \\
 \texttt{omit parameter names} & Tait les noms des paramètres : \texttt{from(KeyboardMap)}. \\
@@ -670,24 +668,17 @@ strategy public     # aussi : none, protected, package, private
 \end{lstlisting}
 Sans aucune ligne \texttt{strategy}, le défaut ne dessine aucun membre et les boîtes sortent vides --- la surprise type d'un premier essai, que la génération \textbf{signale}. Un \texttt{strategy none} \textbf{écrit} produit le même dessin sans le signalement : une ligne écrite est un choix, pas un oubli.
 
-\paragraph{\texttt{hide} : ce que le projet tient pour du bruit.} Rien n'est masqué sans demande (section \ref{sec:bruit}). Un \texttt{hide} fait toujours la même chose --- le membre \textbf{disparaît de la boîte} --- et ne s'écrit que de deux façons. Quatre \textbf{familles}, indépendantes --- demander l'une ne demande pas les autres :
-
-\begin{lstlisting}[language=]
-hide accessors         # getSolde(), isActif(), setNom(v)
-hide object-methods    # toString(), hashCode(), equals(Object)
-hide record-accessors  # nom(), ucp(), svg() d'un record
-hide enum-methods      # values(), valueOf(String)
-\end{lstlisting}
-Chacune reconnaît une \textit{forme} : \texttt{hide accessors} vérifie le nombre de paramètres et le type de retour, si bien qu'un \texttt{getPrix(Client)} reste une méthode métier, et \texttt{hide object-methods} vérifie les trois signatures exactes d'\texttt{Object}, si bien qu'un \texttt{equals(Client)} surchargé reste affiché. Une famille n'est donc pas un raccourci d'écriture, c'est le seul moyen de dire l'intention : \texttt{hide toString, hashCode, equals} obligerait à connaître par cœur les méthodes d'\texttt{Object} et frapperait la surcharge avec l'originale ; quant aux accesseurs d'un \textit{record}, aucun motif ne peut les décrire.
-
-Ce qu'aucune famille ne reconnaît se désigne par un \textbf{motif de nom}. L'étoile y remplace n'importe quelle suite de caractères, y compris aucune ; tout le reste est pris au pied de la lettre, et la casse compte. Plusieurs motifs se séparent par des virgules.
+\paragraph{\texttt{hide} : ce que le projet tient pour du bruit.} Rien n'est masqué sans demande (section \ref{sec:bruit}). Un \texttt{hide} fait toujours la même chose --- le membre \textbf{disparaît de la boîte} --- et ne s'écrit que d'une seule façon : un ou plusieurs \textbf{motifs de noms}, séparés par des virgules. L'étoile y remplace n'importe quelle suite de caractères, y compris aucune ; tout le reste est pris au pied de la lettre, et la casse compte.
 
 \begin{lstlisting}[language=]
 # Forme : hide <motif>, <motif>... Les motifs sont les noms du projet.
-hide with*, visit*, log, *Cache
-# with... et visit... quel que soit le suffixe, le membre nomme
-# exactement "log", et tout ce qui finit par "Cache".
+hide get*, set*, is*        # les accesseurs, par leur convention de nom
+hide toString, hashCode     # les methodes d'Object qu'on ne lit pas
+hide with*, visit*, *Cache  # les conventions propres au projet
 \end{lstlisting}
+La bibliothèque ne connaît donc aucune famille de membres ; elle ne connaît que les noms du projet analysé, et c'est l'auteur du fichier qui décide ce qu'ils désignent. Un seul mécanisme à comprendre, et il se relit sans documentation : la ligne dit exactement ce qu'elle masque.
+
+Le prix de cette simplicité est à connaître. Un motif ne regarde que le \textbf{nom}, jamais la signature : \texttt{hide get*} emporte aussi un \texttt{getPrix(Client)} qui est une méthode métier, et \texttt{hide equals} emporte la surcharge \texttt{equals(Client)} avec l'\texttt{equals(Object)} d'origine. Le rattrapage est le même que partout ailleurs, et il tient en une annotation : \texttt{@UMLInclude} sur le membre à conserver l'emporte sur la règle.
 Un motif vise \textbf{les méthodes et les attributs indifféremment} : il n'y a pas de \texttt{hide method} ni de \texttt{hide field}, et le rare membre pris à tort se ramène par \texttt{@UMLInclude}. L'étoile s'écrit : \texttt{hide get} ne masque que le membre nommé exactement \texttt{get}, \texttt{getName} demande \texttt{hide get*}. L'oubli n'est pas silencieux --- une ligne qui n'a rien masqué de tout le scan est signalée en fin de génération. Enfin, aucun motif ne désigne un membre précis : \texttt{hide Representation.string} est refusé, \texttt{@UMLExclude} est fait pour cela.
 
 \paragraph{\texttt{omit} : ce qui n'est pas écrit sur la ligne.} Trois réglages ne font disparaître aucun membre : ils retirent \textbf{un morceau de la ligne} d'un membre qui reste affiché.
@@ -747,7 +738,7 @@ views by package
 Le tableau se lit d'un bout à l'autre, mais personne n'a besoin de tout. Trois lignes suffisent au cas nominal :
 \begin{lstlisting}[language=]
 strategy public
-hide accessors
+hide get*, set*
 type ImmutableList -> List
 \end{lstlisting}
 La première peuple les boîtes, la deuxième les allège, la troisième dit que l'implémentation ne regarde pas le lecteur. Tout le reste est de l'ajustement, à écrire le jour où le dessin le réclame.
@@ -760,8 +751,8 @@ direction left-to-right
 
 # ---- Ce que les boites montrent ----
 strategy public
-hide accessors
-hide object-methods
+hide get*, set*, is*
+hide toString, hashCode, equals
 hide with*, visit*, log, LOGGER
 omit return void
 omit visibility
@@ -790,8 +781,9 @@ Le fichier est écrit à la main, sans compilateur pour le relire : chaque refus
 Fichier qui n'est pas en UTF-8 & Le premier accent d'un commentaire en CP-1252 rendait la lecture illisible derrière une exception générique. \\[0.4em]
 Mot-clé inconnu (\texttt{couleur Client -> rouge}) & Le vocabulaire est fermé ; le message rappelle les mots-clés connus. \\[0.4em]
 Stratégie inconnue, ou \texttt{strategy project} & \texttt{project} est ce qu'une classe écrit pour renvoyer à cette ligne, qui ne peut pas se renvoyer à elle-même. \\[0.4em]
-Deux lignes \texttt{strategy}, deux \texttt{title}, deux \texttt{order}, deux fois le même \texttt{omit}, deux règles sur le même type, une famille de bruit demandée deux fois & La seconde l'emporterait en silence, ou ne demanderait rien de plus ; un fichier qui se répète est un fichier que personne ne relit. \\[0.4em]
+Deux lignes \texttt{strategy}, deux \texttt{title}, deux \texttt{order}, deux fois le même \texttt{omit}, deux règles sur le même type & La seconde l'emporterait en silence, ou ne demanderait rien de plus ; un fichier qui se répète est un fichier que personne ne relit. \\[0.4em]
 \texttt{title} sans texte & Un titre vide ne s'écrit pas. \\[0.4em]
+\texttt{hide} sans aucun motif & La ligne ne dit pas ce qu'elle masque ; le message rappelle la forme attendue. \\[0.4em]
 Motif vide, ou réduit à \texttt{*} & Une virgule orpheline, le plus souvent ; \texttt{*} masquerait toute la boîte. \\[0.4em]
 Motif contenant un point (\texttt{hide Representation.string}) & Une règle ne désigne pas un membre nommément ; le message renvoie à \texttt{@UMLExclude}. \\[0.4em]
 \texttt{omit}, \texttt{order}, \texttt{direction}, \texttt{show} ou \texttt{multiplicity} de valeur inconnue & Vocabulaire fermé ; le message rappelle les formes admises. \\[0.4em]

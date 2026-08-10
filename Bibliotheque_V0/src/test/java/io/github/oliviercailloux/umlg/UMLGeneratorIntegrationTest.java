@@ -112,7 +112,7 @@ class UMLGeneratorIntegrationTest {
         // Le fichier de règles, posé à la racine du répertoire analysé — là où la construction
         // Maven le recopierait. Sans lui, aucun accesseur ne serait masqué : c'est justement ce
         // que ce test doit prouver de bout en bout, du fichier écrit à la main jusqu'au SVG.
-        Files.writeString(classes.resolve("umlg.rules"), "hide accessors\n",
+        Files.writeString(classes.resolve("umlg.rules"), "hide get*\n",
             StandardCharsets.UTF_8);
 
         Path sortie = tmp.resolve("architecture.svg");
@@ -134,7 +134,7 @@ class UMLGeneratorIntegrationTest {
         assertFalse(svg.contains("traceInterne"),
             "@UMLExclude doit masquer l'attribut jusqu'au SVG.");
         assertFalse(svg.contains("getSolde"),
-            "\"hide accessors\" doit tenir depuis le fichier de règles jusqu'au SVG.");
+            "\"hide get*\" doit tenir depuis le fichier de règles jusqu'au SVG.");
     }
 
     @Test

@@ -54,8 +54,8 @@
 //
 //   @UMLInclude, @UMLExclude
 //       model        aucun — ce sont des filtres, ils ne laissent aucune trace dans le modèle
-//       extraction   MemberExtractor, VisibilityPolicy (la règle), NoiseFilter (ce que
-//                    @UMLInclude rattrape)
+//       extraction   MemberExtractor, VisibilityPolicy (la règle), Regles (les motifs « hide »
+//                    que @UMLInclude rattrape)
 //       rendering    aucun
 //       processing   VerificateurMembre
 //
