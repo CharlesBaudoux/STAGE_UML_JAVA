@@ -195,16 +195,12 @@ final class VerificateurMembre {
             // filtre travaille sur des Method, que le processeur n'a pas ; plutôt que de
             // réécrire sa règle, on se tait sur les méthodes.
             //
-            // Les attributs, eux, ont leur propre façon d'être écartés : « hide field log* » et
-            // « hide field Classe.membre ». Un @UMLInclude qui y déroge n'est pas sans effet, il
-            // est même le seul moyen de ramener le champ — le reproche visait exactement le
-            // remède.
+            // Les attributs, eux, ont leur propre façon d'être écartés : un motif « hide log* ».
+            // Un @UMLInclude qui y déroge n'est pas sans effet, il est même le seul moyen de
+            // ramener le champ — le reproche visait exactement le remède.
             if (!renomme && strategieConnue && Membre.estAttribut(membre)
                 && visibleSansDerogation
-                && !strategie.champMasqueParUneRegle(
-                    ((javax.lang.model.element.TypeElement) membre.getEnclosingElement())
-                        .getQualifiedName().toString(),
-                    membre.getSimpleName().toString())) {
+                && !strategie.champMasqueParUneRegle(membre.getSimpleName().toString())) {
                 rapporteur.avertissement(Membre.emplacement(membre) + ": @UMLInclude has no "
                     + "effect, the field is already shown by strategy = "
                     + strategie.effective(classe)

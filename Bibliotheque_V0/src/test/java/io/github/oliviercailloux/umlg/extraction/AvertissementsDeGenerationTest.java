@@ -111,9 +111,9 @@ class AvertissementsDeGenerationTest {
 
     @Test
     void desNomsMasquesParLaRegle_neSontPasSignales() {
-        // « hide parameter names » les a tus volontairement : rien à expliquer.
+        // « omit parameter names » les a tus volontairement : rien à expliquer.
         assertFalse(ProjectScanner.signalerParametresAnonymes(
-            List.of(entite(methodeAnonyme())), regles("hide parameter names")));
+            List.of(entite(methodeAnonyme())), regles("omit parameter names")));
     }
 
     @Test
@@ -158,33 +158,28 @@ class AvertissementsDeGenerationTest {
 
     @Test
     void uneRegleQuiAServi_nEstPasRelevee() {
-        Regles lues = regles("type ImmutableList -> List", "hide field log");
+        Regles lues = regles("type ImmutableList -> List", "hide log");
         lues.nomAffiche(ImmutableList.class);
-        assertTrue(lues.champMasque("log"));
+        assertTrue(lues.membreMasque("log"));
 
         assertTrue(lues.reglesSansEffet().isEmpty(), lues.reglesSansEffet().toString());
     }
 
     @Test
-    void motifsRetoursEtGroupesMorts_sontTousReleves() {
-        // Les quatre natures de règles de nommage, chacune visant un nom que rien ne porte.
-        Regles lues = regles("hide method get*", "hide field LOGGR",
-            "group package com.exmple -> \"Modele\"", "hide return void");
-        lues.methodeMasquee("calculer");
-        lues.champMasque("log");
-        lues.groupeDuPaquetage("com.exemple");
-        lues.nomAfficheRetour(String.class);
+    void motifsMorts_sontTousReleves() {
+        // Les deux natures de règles de nommage, chacune visant un nom que rien ne porte.
+        Regles lues = regles("type ImutableList -> List", "hide get*", "hide LOGGR");
+        lues.membreMasque("calculer");
+        lues.membreMasque("log");
 
-        // L'ordre du relevé suit celui des natures de règles : types, retours, méthodes,
-        // champs, groupes.
-        assertEquals(List.of("hide return void", "hide method get*", "hide field LOGGR",
-            "group package com.exmple -> \"Modele\""),
+        // L'ordre du relevé suit celui des natures de règles : les types, puis les motifs.
+        assertEquals(List.of("type ImutableList -> List", "hide get*", "hide LOGGR"),
             lues.reglesSansEffet());
     }
 
     @Test
     void leSignalementDesReglesMortes_neSurgitQueSiUneLigneEstMorte() {
-        assertTrue(ProjectScanner.signalerReglesSansEffet(regles("hide field LOGGR")));
+        assertTrue(ProjectScanner.signalerReglesSansEffet(regles("hide LOGGR")));
         assertFalse(ProjectScanner.signalerReglesSansEffet(regles()));
     }
 

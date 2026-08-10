@@ -33,17 +33,16 @@ public class Compte implements Identifiable {
     private double plafondAutorise;
 
     /**
-     * Association qualifiée : la clé de la Map identifie l'opération à l'autre bout, et la
-     * cible est celle écrite dans target, ici le type de la <em>valeur</em>.
+     * Cible portée par une Map : rien dans le type ne dirait laquelle des deux moitiés est
+     * visée, d'où le target explicite, ici le type de la <em>valeur</em>.
      */
     @UMLAssociation(
         target = Operation.class,
         type = UMLRelationType.COMPOSITION,
-        qualifier = "dateOperation",
         targetCardinality = "0..*",
         targetRole = "historique",
-        isOrdered = true,
         label = "enregistre")
+    @UMLConstraint(rule = "ordered")
     private Map<String, Operation> operations;
 
     /** Cible portée par un attribut simple ; cardinalité côté source non triviale. */

@@ -24,8 +24,6 @@ public record UmlAssociation(
     String targetCardinality,
     String sourceRole,
     String targetRole,
-    boolean ordered,
-    String qualifier,
     String label,
     UMLDirection direction,
     // Un lien dérivé : la propriété qu'il porte se calcule au lieu d'être stockée. La barre
@@ -34,6 +32,11 @@ public record UmlAssociation(
     // Les règles formelles portées par le lien, sans leurs accolades — « subset », « ordered ».
     // Une contrainte écrite sur l'attribut atterrit ici dès lors qu'il porte @UMLAssociation :
     // c'est le lien qu'elle vise, et non la ligne dans la boîte, qui n'existe plus.
+    //
+    // « ordered » n'a pas de champ à lui : c'est une contrainte UML comme une autre, et
+    // @UMLAssociation portait un isOrdered qui produisait exactement le même « {ordered} », à la
+    // même place, indiscernable de celui qu'écrivait @UMLConstraint. Deux façons d'obtenir le
+    // même dessin ne valaient pas le paramètre qu'elles coûtaient.
     ImmutableList<String> constraints
 ) implements UmlRelation {
 
@@ -56,7 +59,6 @@ public record UmlAssociation(
             "The target cardinality cannot be null (use an empty string).");
         checkNotNull(sourceRole, "The source role cannot be null (use an empty string).");
         checkNotNull(targetRole, "The target role cannot be null (use an empty string).");
-        checkNotNull(qualifier, "The qualifier cannot be null (use an empty string).");
         checkNotNull(label, "The label cannot be null (use an empty string).");
         checkNotNull(direction, "The direction cannot be null (use UMLDirection.NONE).");
 
@@ -68,7 +70,6 @@ public record UmlAssociation(
 
         validateTexteLibre(sourceRole, "sourceRole");
         validateTexteLibre(targetRole, "targetRole");
-        validateTexteLibre(qualifier, "qualifier");
         validateTexteLibre(label, "label");
 
         constraints = Contraintes.validees(constraints);
@@ -117,8 +118,6 @@ public record UmlAssociation(
         private String targetCardinality = "";
         private String sourceRole = "";
         private String targetRole = "";
-        private boolean ordered = false;
-        private String qualifier = "";
         private String label = "";
         private UMLDirection direction = UMLDirection.NONE;
         private boolean derived = false;
@@ -156,16 +155,6 @@ public record UmlAssociation(
             return this;
         }
 
-        public Builder ordered(boolean ordered) {
-            this.ordered = ordered;
-            return this;
-        }
-
-        public Builder qualifier(String qualifier) {
-            this.qualifier = checkNotNull(qualifier);
-            return this;
-        }
-
         public Builder label(String label) {
             this.label = checkNotNull(label);
             return this;
@@ -188,8 +177,7 @@ public record UmlAssociation(
 
         public UmlAssociation build() {
             return new UmlAssociation(fieldName, targetQualifiedName, type, sourceCardinality,
-                targetCardinality, sourceRole, targetRole, ordered, qualifier, label, direction,
-                derived, constraints);
+                targetCardinality, sourceRole, targetRole, label, direction, derived, constraints);
         }
     }
 }

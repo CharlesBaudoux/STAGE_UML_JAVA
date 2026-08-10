@@ -50,9 +50,9 @@ public @interface UMLAssociation {
      * <p>ATTRIBUTE ne garde que ce qu'une ligne d'attribut sait porter : la cible, qui en donne le
      * type, targetCardinality, qui en donne la multiplicité, et targetRole, qui devient le nom
      * même de la propriété — en notation attribut, c'est le rôle que l'on lit. Les paramètres
-     * qui décorent un trait — type, direction, label, qualifier, le rôle et la multiplicité
-     * côté source — n'ont alors nulle part où s'écrire ; le processeur d'annotations le signale
-     * plutôt que de les laisser disparaître en silence.
+     * qui décorent un trait — type, direction, label, le rôle et la multiplicité côté source —
+     * n'ont alors nulle part où s'écrire ; le processeur d'annotations le signale plutôt que de
+     * les laisser disparaître en silence.
      */
     UMLNotation notation() default UMLNotation.ARROW;
 
@@ -75,19 +75,6 @@ public @interface UMLAssociation {
     String sourceRole() default "";
 
     String targetRole() default "";
-
-    /**
-     * true ajoute la contrainte UML {ordered} : l'ordre des éléments est signifiant.
-     */
-    boolean isOrdered() default false;
-
-    /**
-     * Qualificateur UML : la donnée par laquelle on désigne un objet à l'autre bout, par exemple
-     * le numéro qui identifie une commande au sein d'un client. UML le dessine dans un petit carré
-     * accolé à la source ; PlantUML ne sachant pas le faire, il est écrit entre crochets sur
-     * l'extrémité du trait.
-     */
-    String qualifier() default "";
 
     /**
      * Texte posé au milieu du trait, pour nommer l'association elle-même.

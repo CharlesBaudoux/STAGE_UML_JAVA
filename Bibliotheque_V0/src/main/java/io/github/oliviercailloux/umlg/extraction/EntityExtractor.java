@@ -11,7 +11,6 @@ import io.github.oliviercailloux.umlg.extraction.relation.AssociationClassExtrac
 import io.github.oliviercailloux.umlg.extraction.relation.AssociationExtractor;
 import io.github.oliviercailloux.umlg.extraction.relation.DependencyExtractor;
 import io.github.oliviercailloux.umlg.extraction.relation.InheritanceExtractor;
-import io.github.oliviercailloux.umlg.extraction.relation.LayoutExtractor;
 import io.github.oliviercailloux.umlg.extraction.relation.RelationExtractor;
 import io.github.oliviercailloux.umlg.extraction.rules.Regles;
 import io.github.oliviercailloux.umlg.model.UmlEntity;
@@ -33,8 +32,7 @@ public final class EntityExtractor {
         new AssociationExtractor(),
         new DependencyExtractor(),
         new InheritanceExtractor(),
-        new AssociationClassExtractor(),
-        new LayoutExtractor());
+        new AssociationClassExtractor());
 
     private EntityExtractor() {}
 

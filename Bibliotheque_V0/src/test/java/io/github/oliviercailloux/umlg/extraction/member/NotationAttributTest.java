@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.common.collect.ImmutableList;
+import io.github.oliviercailloux.umlg.annotation.UMLExclude;
 import io.github.oliviercailloux.umlg.annotation.UMLInclude;
 import io.github.oliviercailloux.umlg.annotation.UMLVisibility;
 import io.github.oliviercailloux.umlg.extraction.rules.Regles;
@@ -104,17 +105,26 @@ class NotationAttributTest {
 
     static class Masquee {
         @UMLInclude(asAttribute = true)
+        @UMLExclude
         public String etat() {
             return "";
         }
     }
 
     @Test
-    void laDesignationNommement_lEmporteSurLaNotation() {
-        // La même préséance que pour tout membre inclus : « hide method Classe.nom » est écrit
-        // au niveau du diagramme, et vide une boîte sans toucher au code annoté.
-        Regles regles = Regles.lues(ImmutableList.of("hide method Masquee.etat"), "umlg.rules");
+    void seulUmlExcludeLEmporteSurLaNotation() {
+        // Aucune règle ne peut vider cette boîte : une règle ne désigne jamais un élément par son
+        // nom. Le veto s'écrit donc sur le membre, où il se lit à côté de ce qu'il annule.
+        Regles regles = Regles.lues(ImmutableList.of("hide *tat"), "umlg.rules");
 
         assertTrue(MemberExtractor.methodesEnAttributs(Masquee.class, regles).isEmpty());
+    }
+
+    @Test
+    void unMotifQualifie_estRefuseEnRenvoyantVersUmlExclude() {
+        var refus = assertThrows(IllegalArgumentException.class,
+            () -> Regles.lues(ImmutableList.of("hide Masquee.etat"), "umlg.rules"));
+
+        assertTrue(refus.getMessage().contains("@UMLExclude"), refus.getMessage());
     }
 }

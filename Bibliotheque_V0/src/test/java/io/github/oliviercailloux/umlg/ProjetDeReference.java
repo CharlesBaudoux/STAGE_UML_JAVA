@@ -117,8 +117,11 @@ public final class ProjetDeReference {
             notation = UMLNotation.ATTRIBUTE)
         private List<Commande> archivees;
 
-        // L'association, avec ses onze paramètres. La contrainte posée sur le même attribut part
-        // sur le lien et non dans la boîte : l'attribut n'y figure plus.
+        // L'association, avec ses neuf paramètres. Les contraintes posées sur le même attribut
+        // partent sur le lien et non dans la boîte : l'attribut n'y figure plus. « ordered » en
+        // est une comme une autre, depuis que le paramètre isOrdered — qui produisait le même
+        // {ordered} par un second chemin — a été retiré.
+        @UMLConstraint(rule = "ordered")
         @UMLConstraint(rule = "non vide")
         @UMLAssociation(
             target = Commande.class,
@@ -128,8 +131,6 @@ public final class ProjetDeReference {
             targetCardinality = "0..*",
             sourceRole = "acheteur",
             targetRole = "achats",
-            isOrdered = true,
-            qualifier = "numero",
             label = "passe",
             direction = UMLDirection.DOWN)
         private List<Commande> commandes;

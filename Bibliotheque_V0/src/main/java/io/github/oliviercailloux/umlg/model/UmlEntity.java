@@ -44,12 +44,6 @@ public record UmlEntity(
     // au premier niveau. Vient de @UMLPackage, et ne dit rien du modèle : deux diagrammes qui ne
     // différeraient que par leurs groupes disent la même chose.
     UmlPackage group,
-    // Vrai pour une boîte que le fichier de règles déclare, et qu'aucune classe Java ne porte.
-    //
-    // Le rendu la dessine en pointillés : elle échappe à tout ce qui fait la valeur du reste —
-    // aucun compilateur ne la vérifie, aucun renommage ne la suit —, et le lecteur doit pouvoir
-    // distinguer d'un coup d'œil ce qui a du code derrière de ce qui n'en a pas.
-    boolean declared,
     // Les paramètres de type de la classe, chevrons compris — « <T> », « <K, V extends Number> » —
     // ou la chaîne vide.
     //
@@ -102,7 +96,7 @@ public record UmlEntity(
             ImmutableList.copyOf(
                 checkNotNull(methods, "The list of methods cannot be null.")),
             ImmutableList.of(), ImmutableList.of(), ImmutableList.of(), UmlPackage.aucun(),
-            false, "");
+            "");
     }
 
     // Rend les relations d'une nature donnée. Le paramètre de type T suit celui du Class<T>
@@ -226,11 +220,6 @@ public record UmlEntity(
             return this;
         }
 
-        public Builder declared(boolean declared) {
-            this.declared = declared;
-            return this;
-        }
-
         // Contrairement aux autres, cette méthode ajoute au lieu de remplacer : deux appels
         // successifs cumulent leurs relations.
         public Builder relations(List<? extends UmlRelation> relations) {
@@ -259,7 +248,7 @@ public record UmlEntity(
         // l'ensemble.
         public UmlEntity build() {
             return new UmlEntity(qualifiedName, name, kind, stereotype, color, strategy, literals,
-                fields, methods, relations.build(), notes, constraints, group, declared,
+                fields, methods, relations.build(), notes, constraints, group,
                 typeParameters);
         }
     }

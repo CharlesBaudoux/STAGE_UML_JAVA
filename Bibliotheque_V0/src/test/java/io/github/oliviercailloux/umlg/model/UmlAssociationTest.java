@@ -45,11 +45,11 @@ class UmlAssociationTest {
     @ParameterizedTest
     @ValueSource(strings = {"rôle (principal)", "n°42", "L'acheteur", "a<b>c", "\"guillemets\""})
     void texteLibreQuelconque_estAccepte(String texte) {
-        // Un rôle, un label ou un qualificatif sont destinés à être lus par un humain :
-        // interdire les caractères qui gênent le moteur de rendu placerait le défaut au
-        // mauvais endroit. Leur sûreté est obtenue par encodage à la sortie.
+        // Un rôle ou un label sont destinés à être lus par un humain : interdire les caractères
+        // qui gênent le moteur de rendu placerait le défaut au mauvais endroit. Leur sûreté est
+        // obtenue par encodage à la sortie.
         UmlAssociation.builder("champ", "Cible")
-            .sourceRole(texte).targetRole(texte).label(texte).qualifier(texte).build();
+            .sourceRole(texte).targetRole(texte).label(texte).build();
     }
 
     @ParameterizedTest

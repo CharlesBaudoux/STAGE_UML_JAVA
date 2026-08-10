@@ -21,8 +21,8 @@ import org.junit.jupiter.api.Test;
 // Quatre libertés récentes, et une même raison d'être : permettre au diagramme engendré de
 // rejoindre le diagramme de référence d'un projet — celui du README, tenu à la main — sans
 // réécrire le code. Renommer un membre (@UMLInclude(name = ...)), garder l'ordre d'écriture
-// (« order declaration »), abréger les signatures (« hide parameter names »), et taire un membre
-// nommément (« hide field Classe.nom »), même inclus.
+// (« order declaration »), abréger les signatures (« omit parameter names »), et taire un membre
+// général, jamais un membre désigné nommément — cela, c'est @UMLExclude.
 class AffichageDesMembresTest {
 
     private static Regles regles(String... lignes) {
@@ -155,7 +155,7 @@ class AffichageDesMembresTest {
         assertEquals("avant", methodes.get(2).name());
     }
 
-    // --- Les signatures courtes : « hide parameter names » ---
+    // --- Les signatures courtes : « omit parameter names » ---
 
     static class Bavarde {
         public void configurer(String cheminDuFichier, int nombreDeColonnes) {}
@@ -164,7 +164,7 @@ class AffichageDesMembresTest {
     @Test
     void lesNomsDesParametres_seTaisentSurDemande() {
         List<UmlMethod> methodes = MemberExtractor.extractMethods(Bavarde.class,
-            UMLVisibility.PUBLIC, regles("hide parameter names"));
+            UMLVisibility.PUBLIC, regles("omit parameter names"));
 
         // Le type reste — c'est lui qui porte l'information — mais le nom disparaît, comme dans
         // un diagramme tenu à la main : « configurer(String, int) ».
@@ -173,7 +173,7 @@ class AffichageDesMembresTest {
         assertEquals("String", methodes.get(0).parameters().get(0).type());
     }
 
-    // --- La désignation nommément : « hide field Classe.nom » ---
+    // --- L'annotation l'emporte toujours sur la règle, sans exception ---
 
     static class Parent {
         @UMLInclude
@@ -187,24 +187,24 @@ class AffichageDesMembresTest {
     }
 
     @Test
-    void unMembreDesigneNommement_sortMemeInclus() {
-        // Le cas qui a motivé la forme : des classes déclarées dans umlg.rules redisent le
-        // contenu du parent, et la boîte parente doit pouvoir se taire sans qu'on retire les
-        // @UMLInclude du code — ils servent aux autres vues.
+    void unMotif_nEmportePasSurUnInclude() {
+        // La règle de toujours, et désormais sans exception à retenir : la décision individuelle
+        // bat le réglage général. Un motif est une famille de noms, et @UMLInclude ramène tout ce
+        // qu'il écarte.
         List<UmlField> champs = MemberExtractor.extractFields(Parent.class, UMLVisibility.NONE,
-            regles("hide field Parent.string, Parent.svg"));
-
-        assertEquals(List.of("reste"), champs.stream().map(UmlField::name).toList());
-    }
-
-    @Test
-    void unMotifGeneral_nEmportePasSurUnInclude() {
-        // La règle de toujours : la décision individuelle bat la règle générale. Seule la
-        // désignation nommément, aussi individuelle que l'annotation, fait exception.
-        List<UmlField> champs = MemberExtractor.extractFields(Parent.class, UMLVisibility.NONE,
-            regles("hide field s*"));
+            regles("hide s*"));
 
         assertEquals(List.of("reste", "string", "svg"),
             champs.stream().map(UmlField::name).toList());
+    }
+
+    @Test
+    void unMotifQualifie_estRefuseEnRenvoyantVersUmlExclude() {
+        // C'était la seule règle qui battait @UMLInclude, et l'unique exception à la phrase
+        // « l'annotation l'emporte toujours ». Elle est partie avec l'exception.
+        var refus = assertThrows(IllegalArgumentException.class,
+            () -> regles("hide Parent.string"));
+
+        assertTrue(refus.getMessage().contains("@UMLExclude"), refus.getMessage());
     }
 }

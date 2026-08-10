@@ -9,8 +9,8 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-// Ce que le processeur dit de @UMLPackage, @UMLLayout et @UMLAssociationClass.
-class UmlgGroupesEtPlacementsTest {
+// Ce que le processeur dit de @UMLPackage et de @UMLAssociationClass.
+class UmlgGroupesEtClassesDAssociationTest {
 
     private static final String ENTETE = "import io.github.oliviercailloux.umlg.annotation.*;\n";
 
@@ -33,10 +33,6 @@ class UmlgGroupesEtPlacementsTest {
 
             @UMLClass
             class Moteur {}
-
-            @UMLClass
-            @UMLLayout(target = Moteur.class, direction = UMLDirection.DOWN)
-            class Voiture {}
 
             @UMLClass
             @UMLAssociationClass(source = Facture.class, target = Moteur.class)
@@ -102,83 +98,6 @@ class UmlgGroupesEtPlacementsTest {
 
         assertTrue(verdict.reussie(), "Le diagramme reste juste, seule la couleur change.");
         assertTrue(verdict.avertissementContient("already coloured"), verdict.rapport());
-    }
-
-    // --- @UMLLayout ---
-
-    @Test
-    void placementSurClasseNonAnnotee_arreteLaCompilation(@TempDir Path tmp) throws IOException {
-        Verdict verdict = compiler(tmp, """
-            @UMLClass
-            class Moteur {}
-
-            @UMLLayout(target = Moteur.class)
-            class HorsDiagramme {}
-            """);
-
-        assertFalse(verdict.reussie(), verdict.rapport());
-        assertTrue(verdict.erreurContient("no box to place"), verdict.rapport());
-    }
-
-    @Test
-    void placementVersSoiMeme_arreteLaCompilation(@TempDir Path tmp) throws IOException {
-        Verdict verdict = compiler(tmp, """
-            @UMLClass
-            @UMLLayout(target = Voiture.class, direction = UMLDirection.DOWN)
-            class Voiture {}
-            """);
-
-        assertFalse(verdict.reussie(), verdict.rapport());
-        assertTrue(verdict.erreurContient("relative to itself"), verdict.rapport());
-    }
-
-    @Test
-    void memeCiblePlaceeDeuxFois_arreteLaCompilation(@TempDir Path tmp) throws IOException {
-        Verdict verdict = compiler(tmp, """
-            @UMLClass
-            class Moteur {}
-
-            @UMLClass
-            @UMLLayout(target = Moteur.class, direction = UMLDirection.UP)
-            @UMLLayout(target = Moteur.class, direction = UMLDirection.DOWN)
-            class Voiture {}
-            """);
-
-        assertFalse(verdict.reussie(), "En haut et en bas à la fois : indécidable.");
-        assertTrue(verdict.erreurContient("declared twice"), verdict.rapport());
-    }
-
-    @Test
-    void placementSansDirection_neSignaleRien(@TempDir Path tmp) throws IOException {
-        // Un lien invisible sans direction n'est pas sans effet : la mesure montre qu'il empile
-        // bien les deux boîtes l'une sous l'autre. C'est même la forme la plus courante sur les
-        // diagrammes tenus à la main, où elle sert à ordonner des boîtes que rien ne relie.
-        Verdict verdict = compiler(tmp, """
-            @UMLClass
-            class Moteur {}
-
-            @UMLClass
-            @UMLLayout(target = Moteur.class)
-            class Voiture {}
-            """);
-
-        assertTrue(verdict.reussie(), verdict.rapport());
-        assertTrue(verdict.avertissements().isEmpty(), verdict.rapport());
-    }
-
-    @Test
-    void placementVersUneClasseHorsDiagramme_arreteLaCompilation(@TempDir Path tmp)
-        throws IOException {
-        Verdict verdict = compiler(tmp, """
-            class HorsDiagramme {}
-
-            @UMLClass
-            @UMLLayout(target = HorsDiagramme.class, direction = UMLDirection.DOWN)
-            class Voiture {}
-            """);
-
-        assertFalse(verdict.reussie(), verdict.rapport());
-        assertTrue(verdict.erreurContient("does not carry @UMLClass"), verdict.rapport());
     }
 
     // --- @UMLAssociationClass ---

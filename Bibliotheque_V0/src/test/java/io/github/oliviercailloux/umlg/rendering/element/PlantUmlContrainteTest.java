@@ -95,12 +95,13 @@ class PlantUmlContrainteTest {
     }
 
     @Test
-    void contrainteDeLien_coexisteAvecOrdered() {
-        // {ordered} vient du paramètre isOrdered, {subset} de l'utilisateur : sur le dessin, rien
-        // ne les distingue, et rien ne doit les distinguer.
+    void plusieursContraintes_seSuiventDansLOrdreEcrit() {
+        // « ordered » est une contrainte comme une autre depuis que le paramètre isOrdered a
+        // disparu : sur le dessin, rien ne la distingue d'un {subset} écrit par l'auteur, et rien
+        // ne doit l'en distinguer. Elle s'écrit donc à la place où on l'a écrite.
         UmlAssociation association = UmlAssociation.builder("commandes", "com.exemple.Commande")
-            .targetCardinality("0..*").ordered(true)
-            .constraints(List.of("subset")).build();
+            .targetCardinality("0..*")
+            .constraints(List.of("ordered", "subset")).build();
 
         assertTrue(ligneDeLien(association).contains("\"0..* {ordered} {subset}\""),
             ligneDeLien(association));

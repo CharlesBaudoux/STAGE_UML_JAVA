@@ -67,8 +67,6 @@ public final class AssociationExtractor implements RelationExtractor {
                 .targetCardinality(annotation.targetCardinality())
                 .sourceRole(annotation.sourceRole())
                 .targetRole(annotation.targetRole())
-                .ordered(annotation.isOrdered())
-                .qualifier(annotation.qualifier())
                 .label(annotation.label())
                 .direction(annotation.direction())
                 .derived(derived)

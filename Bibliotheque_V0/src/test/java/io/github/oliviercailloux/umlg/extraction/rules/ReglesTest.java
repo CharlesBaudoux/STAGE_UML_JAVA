@@ -116,48 +116,68 @@ class ReglesTest {
         assertTrue(e.getMessage().contains("List"), e.getMessage());
     }
 
-    // --- Le type de retour que l'on tait ---
+    // --- « omit return void » : le type de retour que l'on tait ---
 
     @Test
-    void hideReturn_effaceLeTypeRendu() {
+    void omitReturnVoid_effaceLeTypeRendu() {
         // UML tient le type de retour pour facultatif, et l'omettre veut dire « ne rend rien ».
-        assertEquals("", regles("hide return void").nomAfficheRetour(void.class));
+        assertEquals("", regles("omit return void").nomAfficheRetour(void.class));
     }
 
     @Test
-    void hideReturn_neToucheQueLeRetour() {
-        Regles regles = regles("hide return void");
+    void omitReturnVoid_neToucheQueLeRetour() {
+        Regles regles = regles("omit return void");
 
         // Le même type demandé pour un attribut ou un paramètre garde son nom : là, il porte ce
         // que la ligne a à dire.
         assertEquals("void", regles.nomAffiche(void.class));
-        assertEquals("String", regles.nomAfficheRetour(String.class));
     }
 
     @Test
-    void sansHideReturn_leVoidResteEcrit() {
+    void omitReturnVoid_neToucheAucunAutreType() {
+        // La règle ne vaut que pour void : effacer un retour utile — « names(): String » devenant
+        // « names() » — ferait perdre au dessin ce que la boîte existe pour montrer.
+        assertEquals("String", regles("omit return void").nomAfficheRetour(String.class));
+    }
+
+    @Test
+    void sansOmitReturnVoid_leVoidResteEcrit() {
         assertEquals("void", Regles.aucune().nomAfficheRetour(void.class));
     }
 
     @Test
-    void hideReturn_seCombineAvecUnAlias() {
+    void omitReturnVoid_seCombineAvecUnAlias() {
         // Les deux règles cohabitent : l'une efface un retour, l'autre renomme un type.
-        Regles regles = regles("hide return void", "type ImmutableList -> List");
+        Regles regles = regles("omit return void", "type ImmutableList -> List");
 
         assertEquals("", regles.nomAfficheRetour(void.class));
         assertEquals("List", regles.nomAfficheRetour(ImmutableList.class));
     }
 
     @Test
-    void hideMalEcrit_estRefuse() {
-        // « hide » sans « return » : la règle ne dit pas où elle s'applique.
+    void omitDeValeurInconnue_estRefuseEnRappelantLesTroisFormes() {
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
-            () -> regles("hide void"));
-        assertTrue(e.getMessage().contains("hide return <type>"), e.getMessage());
+            () -> regles("omit types"));
 
-        assertThrows(IllegalArgumentException.class, () -> regles("hide return"));
-        assertThrows(IllegalArgumentException.class,
-            () -> regles("hide return void", "hide return void"));
+        assertTrue(e.getMessage().contains("visibility"), e.getMessage());
+        assertTrue(e.getMessage().contains("parameter names"), e.getMessage());
+        assertTrue(e.getMessage().contains("return void"), e.getMessage());
+    }
+
+    @Test
+    void deuxFoisLeMemeOmit_sontRefuses() {
+        // La seconde ne demanderait rien de plus ; un fichier qui se répète est un fichier que
+        // personne ne relit.
+        var refus = assertThrows(IllegalArgumentException.class,
+            () -> regles("omit return void", "omit return void"));
+
+        assertTrue(refus.getMessage().contains("already asked for"), refus.getMessage());
+    }
+
+    @Test
+    void hideReturn_nExistePlus() {
+        // Le retour n'est plus affaire de « hide » : il ne fait disparaître aucun membre.
+        assertThrows(IllegalArgumentException.class, () -> regles("omit return String"));
     }
 
     // --- Le fichier, sur le disque ---
@@ -207,9 +227,9 @@ class ReglesTest {
     }
 
     @Test
-    void hideReturnVoid_effaceLeVoidDeLaBoiteEtLuiSeul() {
+    void omitReturnVoid_effaceLeVoidDeLaBoiteEtLuiSeul() {
         String source = PlantUmlAssert.documentPour(EntityExtractor.extract(Interrupteur.class,
-            regles("hide return void")));
+            regles("omit return void")));
 
         assertTrue(source.contains("+ basculer()\n"),
             "Le void ne doit laisser ni type ni deux-points :\n" + source);
@@ -286,43 +306,54 @@ class ReglesTest {
         assertTrue(refus.getMessage().contains("already set"), refus.getMessage());
     }
 
-    // --- « hide parameter names » : les signatures courtes ---
+    // --- « omit parameter names » : les signatures courtes ---
 
     @Test
-    void nomsDeParametres_seMasquent() {
-        assertTrue(regles("hide parameter names").masquerNomsParametres());
-        assertFalse(regles().masquerNomsParametres());
+    void nomsDeParametres_seTaisent() {
+        assertTrue(regles("omit parameter names").omettreNomsDeParametres());
+        assertFalse(regles().omettreNomsDeParametres());
+    }
+
+    // --- Un motif vise les méthodes et les attributs indifféremment ---
+
+    @Test
+    void unMotif_viseLesDeuxSortesDeMembres() {
+        // Il n'y a plus de « hide method » ni de « hide field » : un nom appartient presque
+        // toujours à l'un ou à l'autre, et la ligne dit ce qu'elle veut dire sans les distinguer.
+        Regles lues = regles("hide log, get*");
+
+        assertTrue(lues.membreMasque("log"));
+        assertTrue(lues.membreMasque("getNom"));
+        assertFalse(lues.membreMasque("calculer"));
     }
 
     @Test
-    void deuxLignesHideParameterNames_sontRefusees() {
+    void hideMethodEtHideField_neSontPlusDesMotsCles() {
+        // Ils passent maintenant pour des motifs séparés par une espace, ce que le message
+        // relève en renvoyant vers les familles de bruit et vers « omit ».
         var refus = assertThrows(IllegalArgumentException.class,
-            () -> regles("hide parameter names", "hide parameter names"));
+            () -> regles("hide method get*"));
 
-        assertTrue(refus.getMessage().contains("already asked for"), refus.getMessage());
+        assertTrue(refus.getMessage().contains("cannot contain a space"), refus.getMessage());
     }
 
-    // --- Les motifs qualifiés : « hide field Classe.membre » ---
+    // --- Aucune règle ne désigne un membre nommément ---
 
     @Test
-    void motifQualifie_designeUnMembreDUneClassePrecise() {
-        Regles lues = regles("hide field Representation.string");
+    void motifQualifie_estRefuseEnRenvoyantVersUmlExclude() {
+        // Une règle ne désigne pas un élément par son nom : c'est le partage même entre le
+        // fichier et les annotations, et @UMLExclude est fait pour ce cas-là.
+        var refus = assertThrows(IllegalArgumentException.class,
+            () -> regles("hide Representation.string"));
 
-        assertTrue(lues.champMasqueNommement("Representation", "string"));
-        assertFalse(lues.champMasqueNommement("Autre", "string"));
-        // Le motif qualifié ne déborde pas sur les noms nus : « string » d'une classe non
-        // désignée reste affiché.
-        assertFalse(lues.champMasque("string"));
+        assertTrue(refus.getMessage().contains("@UMLExclude"), refus.getMessage());
+        assertTrue(refus.getMessage().contains("Representation.string"), refus.getMessage());
     }
 
     @Test
-    void motifOrdinaire_neRepondPasNommement() {
-        // Un motif général — « s* » — masque par famille ; il ne gagne pas au passage le pouvoir
-        // d'une désignation nommément, qui seule l'emporte sur @UMLInclude.
-        Regles lues = regles("hide field s*");
-
-        assertTrue(lues.champMasque("string"));
-        assertFalse(lues.champMasqueNommement("Representation", "string"));
+    void motifOrdinaire_resteAccepte() {
+        // Le point est le seul caractère refusé : « s* » décrit bien une famille de noms.
+        assertTrue(regles("hide s*").membreMasque("string"));
     }
 
     // --- L'encodage du fichier ---
@@ -344,12 +375,9 @@ class ReglesTest {
     }
 
     @Test
-    void motifQualifie_accepteLEtoile() {
-        // « Representation.* » vide la boîte entière : c'est l'usage qui a motivé la forme —
-        // des classes déclarées redisent le contenu du parent, et le parent doit se taire.
-        Regles lues = regles("hide method Representation.*");
-
-        assertTrue(lues.methodeMasqueeNommement("Representation", "nimporteQuoi"));
-        assertFalse(lues.methodeMasqueeNommement("Autre", "nimporteQuoi"));
+    void motifQualifieAvecEtoile_estRefuseAussi() {
+        // « Representation.* » désignait la boîte entière d'une classe nommée : c'est encore une
+        // désignation nommément, et le point suffit à la reconnaître.
+        assertThrows(IllegalArgumentException.class, () -> regles("hide Representation.*"));
     }
 }

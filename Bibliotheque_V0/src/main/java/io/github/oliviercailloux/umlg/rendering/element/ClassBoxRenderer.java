@@ -73,22 +73,18 @@ public final class ClassBoxRenderer {
         if (entity.stereotype() != null && !entity.stereotype().isBlank()) {
             boite.append(" <<").append(PlantUmlEscaper.stereotype(entity.stereotype()))
                  .append(">>");
-        } else if (entity.declared()) {
-            // Une boîte déclarée dans le fichier de règles porte sa marque, faute de quoi le
-            // lecteur la croirait adossée à du code. Le stéréotype le dit en toutes lettres ; le
-            // contour pointillé, plus bas, le dit d'un coup d'œil.
-            boite.append(" <<declared>>");
         }
 
-        // La couleur n'est pas échappée mais validée : son vocabulaire est fermé, et ColorCodec
-        // rejette tout ce que PlantUML ne connaît pas. Le nom complet sert au message d'erreur.
-        if (entity.color() != null && !entity.color().isBlank()) {
-            boite.append(" ").append(ColorCodec.code(entity.color(), entity.qualifiedName()));
-        }
-
-        // L'ordre de ces deux morceaux n'est pas libre, et le moteur ne pardonne pas : il
-        // accepte « <<stéréotype>> [[lien]] #style » et refuse « <<stéréotype>> #style [[lien]] ».
-        // Mesuré, faute de l'avoir lu nulle part.
+        // L'ORDRE DE CES DEUX MORCEAUX N'EST PAS LIBRE
+        //
+        // Le moteur accepte « [[lien]] #couleur » et refuse « #couleur [[lien]] » — devant la
+        // seconde forme, il ne lève rien et écrit une image d'erreur, que seule la garde du
+        // writer distingue d'un dessin réussi. Rien ne le documente ; mesuré.
+        //
+        // Le lien vient donc en premier. Le cas n'apparaît que sur une boîte qui porte à la fois
+        // une couleur et un lien de navigation, c'est-à-dire dès qu'un projet à plusieurs vues
+        // écrit @UMLClass(color = ...) : tous les tests qui éprouvaient l'un sans l'autre
+        // passaient.
         //
         // Le chemin du lien n'est pas échappé : il est calculé par la bibliothèque à partir des
         // noms de fichiers qu'elle a elle-même formés, jamais écrit par l'utilisateur.
@@ -96,9 +92,10 @@ public final class ClassBoxRenderer {
             boite.append(" [[").append(lien).append("]]");
         }
 
-        // Le contour pointillé des boîtes déclarées : c'est la marque qu'on voit sans lire.
-        if (entity.declared()) {
-            boite.append(" #line.dashed");
+        // La couleur n'est pas échappée mais validée : son vocabulaire est fermé, et ColorCodec
+        // rejette tout ce que PlantUML ne connaît pas. Le nom complet sert au message d'erreur.
+        if (entity.color() != null && !entity.color().isBlank()) {
+            boite.append(" ").append(ColorCodec.code(entity.color(), entity.qualifiedName()));
         }
 
         boite.append(" {\n");
@@ -118,7 +115,7 @@ public final class ClassBoxRenderer {
 
     // Le symbole de visibilité et l'espace qui le suit, ou rien du tout.
     //
-    // Un projet peut demander à taire les visibilités (« hide visibility ») : le symbole est
+    // Un projet peut demander à taire les visibilités (« omit visibility ») : le symbole est
     // alors vide, et l'espace doit disparaître avec lui — sans quoi chaque ligne commencerait
     // par un blanc que rien ne justifie.
     private static String prefixe(String visibilite) {

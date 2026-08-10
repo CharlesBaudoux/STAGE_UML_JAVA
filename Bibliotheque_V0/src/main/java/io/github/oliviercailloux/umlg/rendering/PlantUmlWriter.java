@@ -6,7 +6,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.collect.ImmutableList;
 
 import io.github.oliviercailloux.umlg.UmlStyle;
-import io.github.oliviercailloux.umlg.extraction.rules.Regles;
 import io.github.oliviercailloux.umlg.model.UmlDiagram;
 import io.github.oliviercailloux.umlg.model.UmlEntity;
 import io.github.oliviercailloux.umlg.model.UmlProject;
@@ -81,17 +80,16 @@ public class PlantUmlWriter {
     //
     // Rend la liste des fichiers écrits, dans l'ordre où ils l'ont été.
     public static ImmutableList<Path> writeViews(UmlProject project, Path dossier, String extension,
-        UmlStyle style, Regles.Sortie sortie) throws Exception {
+        UmlStyle style, boolean keepPrevious) throws Exception {
         checkNotNull(project);
         checkNotNull(dossier);
         checkNotNull(style);
-        checkNotNull(sortie);
         checkArgument(supporte("x" + extension),
             "The output format must be .png or .svg (got: %s)", extension);
         checkArgument(!project.views().isEmpty(),
             "This project describes no view; nothing would be written.");
 
-        Path racine = destination(dossier, sortie);
+        Path racine = destination(dossier, keepPrevious);
         Path desVues = racine.resolve(DOSSIER_DES_VUES);
         Files.createDirectories(desVues);
 
@@ -121,14 +119,14 @@ public class PlantUmlWriter {
 
     // Le dossier où écrire cette génération.
     //
-    // Sous REPLACE, c'est celui qu'on a demandé, vidé de ce qu'une génération précédente y aurait
+    // Par défaut, c'est celui qu'on a demandé, vidé de ce qu'une génération précédente y aurait
     // laissé : sans cela, une vue retirée du fichier de règles laisserait derrière elle une image
     // que plus rien ne met à jour, et qui ment d'autant mieux qu'elle a l'air d'être à sa place.
     //
-    // Sous KEEP, c'est un dossier voisin numéroté — « diagrammes-2 », « diagrammes-3 » —, ce qui
-    // laisse la génération précédente intacte et permet de comparer les deux.
-    private static Path destination(Path dossier, Regles.Sortie sortie) throws IOException {
-        if (sortie == Regles.Sortie.REPLACE) {
+    // Sous keepPrevious, c'est un dossier voisin numéroté — « diagrammes-2 », « diagrammes-3 » —,
+    // ce qui laisse la génération précédente intacte et permet de comparer les deux.
+    private static Path destination(Path dossier, boolean keepPrevious) throws IOException {
+        if (!keepPrevious) {
             viderLesVues(dossier);
             return dossier;
         }
@@ -144,7 +142,7 @@ public class PlantUmlWriter {
             }
         }
         throw new IllegalStateException("Too many kept generations next to " + dossier
-            + ". Remove the old ones, or switch to \"output replace\".");
+            + ". Remove the old ones, or drop keepPrevious.");
     }
 
     // Efface les diagrammes de la génération précédente, et eux seuls.

@@ -12,8 +12,16 @@ import io.github.oliviercailloux.umlg.annotation.UMLDirection;
 // résout par les mêmes alias, et s'écrit sur une ligne du même fichier. La ranger ailleurs
 // obligerait à dupliquer tout cela pour un cas unique.
 //
-// Record à deux composantes, donc equals() fourni : c'est ce qui permet à LayoutExtractor de
-// repérer deux contraintes identiques avec un simple ensemble.
+// AUCUNE ANNOTATION NE LA PRODUIT
+//
+// Elle l'était, par une @UMLLayout que le développeur posait sur une classe pour corriger un
+// placement. L'annotation a été retirée : elle ne disait rien qu'un diagramme puisse signifier,
+// et l'enchaînement des blocs d'une vue (ConstructeurDeVues) fait désormais mieux le peu qu'elle
+// faisait bien — il ordonne ce que le moteur ne peut pas deviner, sans demander à l'auteur de
+// tenir à jour une carte de placements que le moindre ajout de classe périme.
+//
+// Ce qui subsiste ici est donc engendré, jamais écrit : ConstructeurDeVues en pose un entre deux
+// blocs consécutifs d'une vue, avec UMLDirection.NONE.
 public record UmlLayout(String targetQualifiedName, UMLDirection direction)
     implements UmlRelation {
 

@@ -115,7 +115,7 @@ class PlantUmlLisibiliteTest {
         String long_ = PlantUmlAssert.documentPour(paire(
             UmlAssociation.builder("champ", "Cible")
                 .targetRole("comptesDuTitulaire").targetCardinality("1..*")
-                .ordered(true).build()));
+                .constraints(ImmutableList.of("ordered")).build()));
 
         assertTrue(nodesep(long_) > nodesep(court),
             () -> "Une étiquette d'extrémité se dessine entre deux boîtes : plus elle est "

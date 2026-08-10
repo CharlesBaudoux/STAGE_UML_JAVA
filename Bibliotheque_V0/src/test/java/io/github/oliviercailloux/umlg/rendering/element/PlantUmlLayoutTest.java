@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
-// Le lien invisible de @UMLLayout : présent dans la source, absent du dessin.
+// Le lien invisible qu'une vue pose entre deux blocs : présent dans la source, absent du dessin.
 class PlantUmlLayoutTest {
 
     private static UmlEntity cible() {

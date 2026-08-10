@@ -18,7 +18,7 @@ final class VerificateurAssociation {
     // affiché —, targetCardinality — la multiplicité entre crochets — et targetRole, qui est
     // alors le nom même de la propriété.
     private static final ImmutableList<String> PARAMETRES_DE_TRAIT = ImmutableList.of(
-        "type", "sourceCardinality", "sourceRole", "qualifier", "label", "direction");
+        "type", "sourceCardinality", "sourceRole", "label", "direction");
 
     private final Rapporteur rapporteur;
     private final Cible cible;
@@ -95,13 +95,13 @@ final class VerificateurAssociation {
             rapporteur.valeurEcrite(annotation, "notation"));
     }
 
-    // Les multiplicités, les rôles, le qualificateur et le label sont validés en construisant
-    // l'objet du modèle avec ces mêmes valeurs.
+    // Les multiplicités, les rôles et le label sont validés en construisant l'objet du modèle
+    // avec ces mêmes valeurs.
     //
     // Aucune règle n'est donc réécrite ici : la grammaire des multiplicités reste écrite une
     // seule fois, dans UmlAssociation, et le message affiché par javac est mot pour mot celui
     // que la génération aurait produit. Les paramètres qui ne participent à aucune validation
-    // — type, direction, isOrdered — sont laissés à leur défaut, leur lecture serait inutile.
+    // — type, direction — sont laissés à leur défaut, leur lecture serait inutile.
     private boolean verifierValeurs(Element champ, AnnotationMirror annotation, String contexte,
         String nomCible) {
         try {
@@ -110,7 +110,6 @@ final class VerificateurAssociation {
                 .targetCardinality(rapporteur.texte(annotation, "targetCardinality"))
                 .sourceRole(rapporteur.texte(annotation, "sourceRole"))
                 .targetRole(rapporteur.texte(annotation, "targetRole"))
-                .qualifier(rapporteur.texte(annotation, "qualifier"))
                 .label(rapporteur.texte(annotation, "label"))
                 .build();
             return true;

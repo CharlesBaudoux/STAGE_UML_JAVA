@@ -59,6 +59,13 @@ public class GenerateMojo extends AbstractMojo {
     @Parameter(defaultValue = "svg", property = "umlg.format")
     private String format;
 
+    // « -Dumlg.keepPrevious=true » : la génération précédente est conservée, et celle-ci écrite
+    // dans un dossier voisin numéroté — « diagrammes-2 », « diagrammes-3 ». De quoi comparer le
+    // dessin d'avant et celui d'après une modification du code. Par défaut, le dossier demandé
+    // décrit toujours l'état courant, et ce que nous y avions écrit est remplacé.
+    @Parameter(defaultValue = "false", property = "umlg.keepPrevious")
+    private boolean keepPrevious;
+
     // « -Dumlg.skip=true » : la génération est sautée, la construction continue.
     @Parameter(defaultValue = "false", property = "umlg.skip")
     private boolean skip;
@@ -110,7 +117,10 @@ public class GenerateMojo extends AbstractMojo {
                 // fichier à la racine, chacun écrasant le précédent.
                 builder.outputFile(project.getBasedir().toPath().resolve(outputFile).toString());
             } else {
-                builder.outputDirectory(outputDirectory).outputFormat(format);
+                // keepPrevious ne vaut que pour le dossier : en mode fichier unique, il n'y a
+                // rien à numéroter, et le nom donné est celui qu'on veut voir écrit.
+                builder.outputDirectory(outputDirectory).outputFormat(format)
+                       .keepPrevious(keepPrevious);
             }
 
             RapportDeGeneration rapport = builder.build().generate();

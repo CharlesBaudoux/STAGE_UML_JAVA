@@ -87,16 +87,6 @@ public final class Motif {
         return !aCorrespondu;
     }
 
-    // Ce motif désigne-t-il un membre d'une classe précise — « Representation.string » — plutôt
-    // qu'une famille de noms ?
-    //
-    // Le point est ce qui les distingue : un nom de membre Java n'en contient jamais. Un motif
-    // qualifié se compare à « Classe.membre », un motif ordinaire au nom du membre seul, et les
-    // deux ne se croisent pas (voir Regles).
-    public boolean qualifie() {
-        return ecrit.contains(".");
-    }
-
     public String ecrit() {
         return ecrit;
     }

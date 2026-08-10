@@ -189,12 +189,10 @@ public class ProjectScanner {
         signalerParametresAnonymes(duCode, regles);
         signalerReglesSansEffet(regles);
 
-        // Les boîtes que le fichier déclare rejoignent celles du code, après elles : ce qui a du
-        // code derrière vient d'abord, ce qui n'en a pas ensuite.
-        ImmutableSet<UmlEntity> entites = ImmutableSet.<UmlEntity>builder()
-            .addAll(duCode)
-            .addAll(EntitesDeclarees.de(duCode, regles))
-            .build();
+        // Les boîtes du diagramme sont celles du code, et rien d'autre : aucune règle n'en
+        // fabrique. Ce qui n'est pas dans le code n'est pas sur le dessin — c'est ce qui garantit
+        // qu'une boîte ne survivra pas au renommage de la classe qu'elle décrit.
+        ImmutableSet<UmlEntity> entites = duCode;
 
         // Les réglages du dessin d'ensemble viennent du fichier de règles, comme tout ce qui vaut
         // pour le projet entier plutôt que pour un élément.
@@ -272,11 +270,11 @@ public class ProjectScanner {
     //
     // La condition est stricte pour ne jamais accuser à tort : il faut qu'au moins une méthode
     // dessinée ait un paramètre, et qu'aucun paramètre d'aucune méthode n'ait de nom. Un projet
-    // compilé avec l'option a tous les noms ; un projet qui les a masqués par la règle « hide
+    // compilé avec l'option a tous les noms ; un projet qui les a tus par la règle « omit
     // parameter names » les a tus volontairement, et n'est pas signalé.
     static boolean signalerParametresAnonymes(java.util.Collection<UmlEntity> entites,
         Regles regles) {
-        if (regles.masquerNomsParametres()) {
+        if (regles.omettreNomsDeParametres()) {
             return false;
         }
         java.util.List<UmlParameter> parametres = entites.stream()
@@ -291,7 +289,7 @@ public class ProjectScanner {
             + "compiled without the -parameters option, so signatures show types only — "
             + "\"entries(String)\" instead of \"entries(xKeyName : String)\". Add "
             + "<maven.compiler.parameters>true</maven.compiler.parameters> to the pom (or "
-            + "-parameters to javac), or say it is on purpose with \"hide parameter names\" in "
+            + "-parameters to javac), or say it is on purpose with \"omit parameter names\" in "
             + "umlg.rules.");
         return true;
     }

@@ -18,10 +18,15 @@ import java.util.Set;
 // Lit le fichier de règles, ligne à ligne.
 //
 // La grammaire tient en trois cas : une ligne vide, un commentaire ouvert par « # », ou une
-// règle. Une règle commence par un mot-clé qui dit sa nature — « type » et « hide » aujourd'hui —
-// et c'est ce mot-clé qui décide comment lire le reste de la ligne. Ajouter une nature de règle
-// se fait donc ici, et à un seul endroit : une branche de plus dans le switch, et la méthode qui
-// va avec.
+// règle. Une règle commence par un mot-clé qui dit sa nature — onze aujourd'hui, de « type » à
+// « views » — et c'est ce mot-clé qui décide comment lire le reste de la ligne. Ajouter une
+// nature de règle se fait donc ici, et à un seul endroit : une branche de plus dans le switch, et
+// la méthode qui va avec.
+//
+// Le vocabulaire s'est raccourci plus souvent qu'il ne s'est allongé. Trois mots-clés en sont
+// sortis — « group », « output » et « declare » —, et « hide method »/« hide field » ont fondu en
+// un seul motif : une règle ne désigne jamais un élément par son nom (c'est une annotation), et
+// ce qui ne dit rien du modèle se règle à l'appel du générateur.
 //
 // Le fichier étant écrit à la main, chaque refus nomme le fichier et le numéro de ligne, puis
 // rappelle la forme attendue. C'est le seul retour que l'auteur du fichier aura : il n'y a pas de
@@ -31,27 +36,20 @@ final class LecteurDeRegles {
     // Les mots-clés connus, et ce qui sépare les deux moitiés d'une règle « type ».
     private static final String TYPE = "type";
     private static final String HIDE = "hide";
+    private static final String OMIT = "omit";
     private static final String STRATEGY = "strategy";
-    private static final String GROUP = "group";
     private static final String VIEW = "view";
     private static final String VIEWS = "views";
-    private static final String OUTPUT = "output";
     private static final String TITLE = "title";
     private static final String SHOW = "show";
     private static final String MEMBRES_VIDES = "empty members";
     private static final String VISIBILITE = "visibility";
-    private static final String DECLARE = "declare";
     private static final String ORDER = "order";
     private static final String MULTIPLICITY = "multiplicity";
     private static final String NOMS_DE_PARAMETRES = "parameter names";
-    private static final String CLASS = "class";
-    private static final String EXTENDS = "extends";
-    private static final String ASSOCIATION = "association";
+    private static final String RETOUR_VOID = "return void";
     private static final String DIRECTION = "direction";
     private static final String AROUND = "around";
-    private static final String RETURN = "return";
-    private static final String METHOD = "method";
-    private static final String FIELD = "field";
     private static final String PACKAGE = "package";
     private static final String FLECHE = "->";
 
@@ -64,28 +62,21 @@ final class LecteurDeRegles {
         // savoir où.
         Map<String, String> alias = new LinkedHashMap<>();
         // LinkedHashSet pour la même raison, et pour que l'ordre de lecture soit conservé.
-        Set<String> retoursMasques = new LinkedHashSet<>();
         Set<Bruit> bruits = new LinkedHashSet<>();
-        List<Motif> methodes = new ArrayList<>();
-        List<Motif> champs = new ArrayList<>();
-        Map<String, String> groupes = new LinkedHashMap<>();
+        List<Motif> membres = new ArrayList<>();
         // LinkedHashMap : l'ordre d'écriture des vues est celui des fichiers produits.
         Map<String, DefinitionDeVue> vues = new LinkedHashMap<>();
         boolean[] parPaquetage = {false};
-        Regles.Sortie[] sortie = {Regles.Sortie.REPLACE};
         String[] titre = {""};
         UMLFlow[] direction = {UMLFlow.TOP_TO_BOTTOM};
         boolean[] masquerMembresVides = {true};
-        boolean[] masquerVisibilite = {false};
-        boolean[] masquerNomsParametres = {false};
+        boolean[] omettreVisibilite = {false};
+        boolean[] omettreNomsDeParametres = {false};
+        boolean[] omettreRetourVoid = {false};
         // Null tant qu'aucune ligne « order » n'est lue : la distinction permet de refuser une
         // seconde ligne, même quand la première redisait le défaut.
         Boolean[] ordreDeclaration = {null};
         boolean[] multiplicitesDeduites = {false};
-        // LinkedHashMap : les boîtes déclarées se complètent ligne à ligne — la classe d'abord,
-        // ses attributs ensuite — et sortent dans l'ordre d'écriture.
-        Map<String, ClasseDeclaree> declarees = new LinkedHashMap<>();
-        List<Regles.LienDeclare> liens = new ArrayList<>();
         // Un tableau d'une case : une variable locale ne peut pas être réaffectée depuis une
         // méthode appelée, et la stratégie est lue par lireStrategy. Un objet mutable d'une seule
         // case est le moyen le plus court de lui laisser rendre sa valeur sans inventer un type.
@@ -112,36 +103,31 @@ final class LecteurDeRegles {
 
             switch (motCle) {
                 case TYPE -> lireType(alias, reste, contexte);
-                case HIDE -> lireHide(retoursMasques, bruits, methodes, champs, masquerVisibilite,
-                    masquerNomsParametres, reste, contexte);
+                case HIDE -> lireHide(bruits, membres, reste, contexte);
+                case OMIT -> lireOmit(omettreVisibilite, omettreNomsDeParametres,
+                    omettreRetourVoid, reste, contexte);
                 case STRATEGY -> lireStrategy(strategie, reste, contexte);
-                case GROUP -> lireGroup(groupes, reste, contexte);
                 case VIEW -> lireView(vues, reste, contexte);
                 case VIEWS -> lireViews(parPaquetage, reste, contexte);
-                case OUTPUT -> lireOutput(sortie, reste, contexte);
                 case TITLE -> lireTitle(titre, reste, contexte);
                 case DIRECTION -> direction[0] = lireFlux(reste, contexte);
                 case SHOW -> lireShow(masquerMembresVides, reste, contexte);
-                case DECLARE -> lireDeclare(declarees, liens, reste, contexte);
                 case ORDER -> lireOrder(ordreDeclaration, reste, contexte);
                 case MULTIPLICITY -> lireMultiplicity(multiplicitesDeduites, reste, contexte);
                 default -> throw new IllegalArgumentException(contexte + ": unknown rule \""
-                    + motCle + "\". Known rules: " + TYPE + ", " + HIDE + ", " + STRATEGY + ", "
-                    + GROUP + ", " + VIEW + ", " + VIEWS + ", " + OUTPUT + ", " + TITLE + ", "
-                    + DIRECTION + ", " + SHOW + ", " + DECLARE + ", " + ORDER + ", "
-                    + MULTIPLICITY + ".");
+                    + motCle + "\". Known rules: " + TYPE + ", " + HIDE + ", " + OMIT + ", "
+                    + STRATEGY + ", " + VIEW + ", " + VIEWS + ", " + TITLE + ", "
+                    + DIRECTION + ", " + SHOW + ", " + ORDER + ", " + MULTIPLICITY + ".");
             }
         }
-        return new Regles(ImmutableMap.copyOf(alias), ImmutableSet.copyOf(retoursMasques),
+        return new Regles(ImmutableMap.copyOf(alias), omettreRetourVoid[0],
             strategie[0] == null ? UMLVisibility.NONE : strategie[0], strategie[0] != null,
-            ImmutableSet.copyOf(bruits), ImmutableList.copyOf(methodes),
-            ImmutableList.copyOf(champs), ImmutableMap.copyOf(groupes),
-            ImmutableList.copyOf(vues.values()), parPaquetage[0], sortie[0], titre[0],
-            direction[0], masquerMembresVides[0], masquerVisibilite[0],
-            masquerNomsParametres[0],
+            ImmutableSet.copyOf(bruits), ImmutableList.copyOf(membres),
+            ImmutableList.copyOf(vues.values()), parPaquetage[0], titre[0],
+            direction[0], masquerMembresVides[0], omettreVisibilite[0],
+            omettreNomsDeParametres[0],
             ordreDeclaration[0] != null && ordreDeclaration[0],
-            multiplicitesDeduites[0],
-            ImmutableList.copyOf(declarees.values()), ImmutableList.copyOf(liens));
+            multiplicitesDeduites[0]);
     }
 
     // « order declaration » ou « order alphabetical » : l'ordre des membres dans les boîtes.
@@ -294,17 +280,6 @@ final class LecteurDeRegles {
         parPaquetage[0] = true;
     }
 
-    // « output replace » ou « output keep ».
-    private static void lireOutput(Regles.Sortie[] sortie, String reste, String contexte) {
-        Regles.Sortie lue = switch (reste) {
-            case "replace" -> Regles.Sortie.REPLACE;
-            case "keep" -> Regles.Sortie.KEEP;
-            default -> throw new IllegalArgumentException(contexte + ": expected \"output "
-                + "replace\" or \"output keep\", got \"output " + reste + "\".");
-        };
-        sortie[0] = lue;
-    }
-
     // Le sens de lecture, écrit comme on le lit : « left-to-right ».
     private static UMLFlow lireFlux(String reste, String contexte) {
         return switch (reste) {
@@ -313,107 +288,6 @@ final class LecteurDeRegles {
             default -> throw new IllegalArgumentException(contexte + ": expected \"top-to-bottom\""
                 + " or \"left-to-right\", got \"" + reste + "\".");
         };
-    }
-
-    // Les trois formes de « declare » : une boîte, un de ses attributs, un lien.
-    //
-    //   declare class StringRepresentation extends Representation
-    //   declare field StringRepresentation string : String
-    //   declare association Animal -> Chien 0..*
-    //
-    // Elles se lisent dans cet ordre : une boîte doit exister avant qu'on lui pose un attribut,
-    // faute de quoi la ligne désignerait une boîte que rien ne dessine.
-    private static void lireDeclare(Map<String, ClasseDeclaree> declarees,
-        List<Regles.LienDeclare> liens, String reste, String contexte) {
-
-        if (reste.startsWith(CLASS + " ")) {
-            lireDeclareClass(declarees, reste.substring(CLASS.length()).strip(), contexte);
-            return;
-        }
-        if (reste.startsWith(FIELD + " ")) {
-            lireDeclareField(declarees, reste.substring(FIELD.length()).strip(), contexte);
-            return;
-        }
-        if (reste.startsWith(ASSOCIATION + " ")) {
-            lireDeclareAssociation(liens, reste.substring(ASSOCIATION.length()).strip(), contexte);
-            return;
-        }
-        throw new IllegalArgumentException(contexte + ": expected \"declare class …\", \"declare "
-            + "field …\" or \"declare association …\", got \"declare " + reste + "\".");
-    }
-
-    // « declare class Animal » ou « declare class Chien extends Animal ».
-    private static void lireDeclareClass(Map<String, ClasseDeclaree> declarees, String reste,
-        String contexte) {
-        String nom = reste;
-        String parent = "";
-
-        int mot = reste.indexOf(" " + EXTENDS + " ");
-        if (mot >= 0) {
-            nom = reste.substring(0, mot).strip();
-            parent = reste.substring(mot + EXTENDS.length() + 2).strip();
-            checkArgument(!parent.isEmpty() && !parent.contains(" "),
-                "%s: expected a single parent name after \"extends\", read \"%s\".",
-                contexte, parent);
-        }
-        checkArgument(!nom.isEmpty() && !nom.contains(" "),
-            "%s: expected \"declare class <Name> [extends <Name>]\", got \"declare class %s\".",
-            contexte, reste);
-        checkArgument(!declarees.containsKey(nom),
-            "%s: class \"%s\" is already declared. Keep only one of the two.", contexte, nom);
-
-        declarees.put(nom, ClasseDeclaree.de(nom, parent));
-    }
-
-    // « declare field StringRepresentation string : String ».
-    private static void lireDeclareField(Map<String, ClasseDeclaree> declarees, String reste,
-        String contexte) {
-        int espace = reste.indexOf(' ');
-        checkArgument(espace > 0,
-            "%s: expected \"declare field <Class> <name> : <Type>\", got \"declare field %s\".",
-            contexte, reste);
-
-        String classe = reste.substring(0, espace);
-        String champ = reste.substring(espace + 1).strip();
-        int deuxPoints = champ.indexOf(':');
-        checkArgument(deuxPoints > 0,
-            "%s: expected \"<name> : <Type>\" after the class name, got \"%s\".",
-            contexte, champ);
-
-        String nom = champ.substring(0, deuxPoints).strip();
-        String type = champ.substring(deuxPoints + 1).strip();
-        ClasseDeclaree porteuse = declarees.get(classe);
-        checkArgument(porteuse != null,
-            "%s: class \"%s\" is not declared. Write \"declare class %s\" first.",
-            contexte, classe, classe);
-        checkArgument(!nom.isEmpty() && !type.isEmpty(),
-            "%s: the field name or its type is missing, in \"%s\".", contexte, champ);
-
-        declarees.put(classe, porteuse.avec(new ClasseDeclaree.ChampDeclare(nom, type)));
-    }
-
-    // « declare association Animal -> Chien 0..* » : la cardinalité est facultative.
-    private static void lireDeclareAssociation(List<Regles.LienDeclare> liens, String reste,
-        String contexte) {
-        int fleche = reste.indexOf(FLECHE);
-        checkArgument(fleche >= 0,
-            "%s: expected \"declare association <Source> -> <Target> [cardinality]\", got "
-                + "\"declare association %s\".",
-            contexte, reste);
-
-        String source = reste.substring(0, fleche).strip();
-        String suite = reste.substring(fleche + FLECHE.length()).strip();
-        int espace = suite.indexOf(' ');
-        String cible = espace < 0 ? suite : suite.substring(0, espace);
-        String cardinalite = espace < 0 ? "" : suite.substring(espace + 1).strip();
-
-        checkArgument(!source.isEmpty() && !cible.isEmpty(),
-            "%s: the source or the target is missing, in \"declare association %s\".",
-            contexte, reste);
-        checkArgument(!source.contains(" "),
-            "%s: a class name cannot contain a space (read \"%s\").", contexte, source);
-
-        liens.add(new Regles.LienDeclare(source, cible, cardinalite));
     }
 
     // « strategy public » : ce que prennent les classes qui ne déclarent pas la leur.
@@ -441,123 +315,91 @@ final class LecteurDeRegles {
         strategie[0] = lue;
     }
 
-    // « group package com.exemple.modele -> \"Modèle\" » : tout un paquetage dans un rectangle.
-    private static void lireGroup(Map<String, String> groupes, String reste, String contexte) {
-        checkArgument(reste.startsWith(PACKAGE + " "),
-            "%s: expected \"group package <package> -> <group name>\", got \"group %s\". Only a "
-                + "package can be grouped by a rule; a single class is grouped by @UMLPackage.",
-            contexte, reste);
-
-        String apresPackage = reste.substring(PACKAGE.length()).strip();
-        int fleche = apresPackage.indexOf(FLECHE);
-        checkArgument(fleche >= 0,
-            "%s: expected \"group package <package> -> <group name>\", got \"group %s\".",
-            contexte, reste);
-
-        String paquetage = apresPackage.substring(0, fleche).strip();
-        String groupe = apresPackage.substring(fleche + FLECHE.length()).strip();
-        // Les guillemets sont facultatifs : ils servent à écrire un nom qui contient des espaces.
-        if (groupe.length() >= 2 && groupe.startsWith("\"") && groupe.endsWith("\"")) {
-            groupe = groupe.substring(1, groupe.length() - 1);
-        }
-
-        checkArgument(!paquetage.isEmpty(),
-            "%s: the package is missing, before the arrow.", contexte);
-        checkArgument(!groupe.isBlank(),
-            "%s: the group name is missing, after the arrow.", contexte);
-        checkArgument(!paquetage.contains(" "),
-            "%s: a package name cannot contain a space (read \"%s\").", contexte, paquetage);
-        checkArgument(!groupes.containsKey(paquetage),
-            "%s: package \"%s\" already belongs to group \"%s\". Keep only one of the two.",
-            contexte, paquetage, groupes.get(paquetage));
-
-        groupes.put(paquetage, groupe);
-    }
-
-    // « hide return void » : le type rendu par une méthode n'est pas écrit.
+    // « hide accessors » ou « hide get*, log, *Cache » : ce qui disparaît de la boîte.
     //
-    // Le mot « return » n'est pas une décoration : il dit où la règle s'applique, et laisse la
-    // place à d'autres endroits si l'usage en révèle. Ne rien masquer ailleurs est délibéré —
-    // un attribut sans type n'apprendrait plus rien, alors qu'une méthode sans type de retour
-    // dit, en UML, qu'elle ne rend rien.
-    private static void lireHide(Set<String> retoursMasques, Set<Bruit> bruits,
-        List<Motif> methodes, List<Motif> champs, boolean[] masquerVisibilite,
-        boolean[] masquerNomsParametres, String reste, String contexte) {
+    // Deux formes, et une seule liste de motifs : un motif vise les méthodes et les attributs
+    // indifféremment. Il n'y a pas de « hide method » ni de « hide field » — un nom appartient
+    // presque toujours à l'un ou à l'autre, et le rare membre pris à tort par un motif se ramène
+    // par @UMLInclude, qui est fait pour cela. Deux mots-clés pour distinguer ce que le lecteur
+    // ne distingue pas auraient coûté plus que le cas qu'ils réglaient.
+    private static void lireHide(Set<Bruit> bruits, List<Motif> membres, String reste,
+        String contexte) {
 
-        // « hide visibility » : les membres s'écrivent sans « + » ni « - ».
-        if (VISIBILITE.equals(reste)) {
-            checkArgument(!masquerVisibilite[0],
-                "%s: \"hide visibility\" is already asked for.", contexte);
-            masquerVisibilite[0] = true;
-            return;
-        }
-
-        // « hide parameter names » : les signatures s'écrivent avec les seuls types.
-        if (NOMS_DE_PARAMETRES.equals(reste)) {
-            checkArgument(!masquerNomsParametres[0],
-                "%s: \"hide parameter names\" is already asked for.", contexte);
-            masquerNomsParametres[0] = true;
-            return;
-        }
-
-        // Une famille de bruit s'écrit d'un seul mot : « hide accessors ».
+        // Une famille de bruit s'écrit d'un seul mot : « hide accessors ». Elle est reconnue
+        // avant les motifs, faute de quoi « accessors » serait pris pour un nom de membre.
         Bruit famille = Bruit.parMotCle(reste);
         if (famille != null) {
             checkArgument(bruits.add(famille),
                 "%s: \"%s\" is already hidden. Keep only one of the two lines.", contexte, reste);
             return;
         }
-        if (reste.startsWith(METHOD + " ")) {
-            lireMotifs(methodes, reste.substring(METHOD.length()).strip(), contexte, METHOD);
-            return;
-        }
-        if (reste.startsWith(FIELD + " ")) {
-            lireMotifs(champs, reste.substring(FIELD.length()).strip(), contexte, FIELD);
-            return;
-        }
-        checkArgument(reste.startsWith(RETURN + " "),
-            "%s: expected \"hide return <type>\", \"hide method <pattern>\", \"hide field "
-                + "<pattern>\", \"hide visibility\", \"hide parameter names\" or one of the "
-                + "noise families (%s); got \"hide %s\".",
-            contexte, Bruit.motsCles(), reste);
+        checkArgument(!reste.isEmpty(),
+            "%s: expected \"hide <patterns>\" or one of the noise families (%s); got \"hide\".",
+            contexte, Bruit.motsCles());
 
-        String type = reste.substring(RETURN.length()).strip();
-
-        checkArgument(!type.isEmpty(), "%s: the type to hide is missing, after \"return\".",
-            contexte);
-        checkArgument(!type.contains(" "),
-            "%s: a type name cannot contain a space (read \"%s\").", contexte, type);
-        checkArgument(retoursMasques.add(type),
-            "%s: the return type \"%s\" is already hidden. Keep only one of the two lines.",
-            contexte, type);
+        lireMotifs(membres, reste, contexte);
     }
 
-    // « hide method get*, is* » : un ou plusieurs motifs, séparés par des virgules.
+    // « hide get*, is*, LOGGER » : un ou plusieurs motifs, séparés par des virgules.
     //
-    // La virgule évite de répéter « hide method » sur chaque ligne quand on écarte une famille de
-    // noms d'un seul tenant. Chaque morceau est un motif à part entière, avec sa propre étoile.
-    private static void lireMotifs(List<Motif> motifs, String reste, String contexte,
-        String nature) {
-        checkArgument(!reste.isEmpty(),
-            "%s: the pattern is missing, after \"%s\".", contexte, nature);
-
+    // La virgule évite de répéter « hide » sur chaque ligne quand on écarte une famille de noms
+    // d'un seul tenant. Chaque morceau est un motif à part entière, avec sa propre étoile.
+    private static void lireMotifs(List<Motif> motifs, String reste, String contexte) {
         // La limite négative conserve les morceaux vides, y compris celui que laisse une virgule
-        // finale : « hide method get*, » est une faute de frappe, et le fichier n'a pas de
-        // compilateur pour la relever à notre place.
+        // finale : « hide get*, » est une faute de frappe, et le fichier n'a pas de compilateur
+        // pour la relever à notre place.
         for (String morceau : reste.split(",", -1)) {
             String motif = morceau.strip();
             checkArgument(!motif.isEmpty(),
-                "%s: an empty pattern was read in \"hide %s %s\"; a stray comma, most likely.",
-                contexte, nature, reste);
+                "%s: an empty pattern was read in \"hide %s\"; a stray comma, most likely.",
+                contexte, reste);
             checkArgument(!motif.contains(" "),
-                "%s: a name pattern cannot contain a space (read \"%s\").", contexte, motif);
+                "%s: a name pattern cannot contain a space (read \"%s\"). Did you mean one of "
+                    + "the noise families (%s), or \"omit\"?",
+                contexte, motif, Bruit.motsCles());
+            // Le point est ce qui distingue un nom qualifié d'un nom de membre, qui n'en contient
+            // jamais. Une règle ne désigne pas un élément par son nom : c'est le partage même
+            // entre le fichier et les annotations, et @UMLExclude est fait pour ce cas-là.
+            checkArgument(!motif.contains("."),
+                "%s: \"%s\" names a member of one class, and a rule never designates an element "
+                    + "by name. Put @UMLExclude on that member instead, or write a pattern that "
+                    + "describes a family of names.",
+                contexte, motif);
             // « * » seul masquerait tout le compartiment : c'est licite, mais assez inattendu
             // pour mériter d'être écrit autrement le jour où la règle existera.
             checkArgument(!motif.equals("*"),
-                "%s: the pattern \"*\" would hide every %s of every class.", contexte, nature);
+                "%s: the pattern \"*\" would hide every member of every class.", contexte);
 
             motifs.add(Motif.de(motif));
         }
+    }
+
+    // « omit visibility », « omit parameter names », « omit return void ».
+    //
+    // Un verbe distinct de « hide », et c'est délibéré : ces trois-là ne font disparaître aucun
+    // membre, ils retirent un morceau de la ligne d'un membre qui reste affiché. Le mot dit à lui
+    // seul qu'aucun @UMLInclude ne les contredira, puisqu'il n'y a rien à ramener.
+    //
+    // « return void » ne vaut que pour le retour, et que pour void : UML tient ce type pour
+    // facultatif, et l'omettre veut dire « ne rend rien ». Un attribut ou un paramètre privé de
+    // son type laisserait au contraire une ligne incompréhensible, et effacer un type de retour
+    // utile ferait perdre au dessin ce que la boîte existe pour montrer.
+    private static void lireOmit(boolean[] omettreVisibilite, boolean[] omettreNomsDeParametres,
+        boolean[] omettreRetourVoid, String reste, String contexte) {
+
+        boolean[] demande = switch (reste) {
+            case VISIBILITE -> omettreVisibilite;
+            case NOMS_DE_PARAMETRES -> omettreNomsDeParametres;
+            case RETOUR_VOID -> omettreRetourVoid;
+            default -> throw new IllegalArgumentException(contexte + ": expected \"omit "
+                + VISIBILITE + "\", \"omit " + NOMS_DE_PARAMETRES + "\" or \"omit " + RETOUR_VOID
+                + "\", got \"omit " + reste + "\".");
+        };
+        // La seconde ligne ne demanderait rien de plus ; un fichier qui se répète est un fichier
+        // que personne ne relit.
+        checkArgument(!demande[0], "%s: \"omit %s\" is already asked for.", contexte, reste);
+
+        demande[0] = true;
     }
 
     // « type ImmutableList -> List » : le nom lu dans le code, puis celui qui s'affiche.

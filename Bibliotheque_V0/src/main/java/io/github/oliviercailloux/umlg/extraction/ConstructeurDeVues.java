@@ -116,15 +116,6 @@ public final class ConstructeurDeVues {
     private static ImmutableList<UmlView> parPaquetage(ImmutableSet<UmlEntity> entites) {
         Map<String, List<UmlEntity>> parNom = new LinkedHashMap<>();
         for (UmlEntity entite : entites) {
-            // Une boîte déclarée n'a pas de paquetage : son nom qualifié est son nom simple.
-            // La ranger ici fabriquait une vue « (défaut) » que personne n'avait demandée,
-            // peuplée de boîtes orphelines — leur parent réel vit dans un vrai paquetage, et
-            // le trait d'héritage, sorti de la vue, disparaissait avec lui. Les vues par
-            // paquetage décrivent le code ; ce que le code ne porte pas reste sur les vues qui
-            // le déclarent.
-            if (entite.declared()) {
-                continue;
-            }
             parNom.computeIfAbsent(paquetageDe(entite), nom -> new ArrayList<>()).add(entite);
         }
         ImmutableList.Builder<UmlView> vues = ImmutableList.builder();
@@ -276,7 +267,7 @@ public final class ConstructeurDeVues {
         return new UmlEntity(entite.qualifiedName(), entite.name(), entite.kind(),
             entite.stereotype(), entite.color(), entite.strategy(), entite.literals(),
             entite.fields(), entite.methods(), tenues, entite.notes(), entite.constraints(),
-            entite.group(), entite.declared(), entite.typeParameters());
+            entite.group(), entite.typeParameters());
     }
 
     // Enchaîne par des liens invisibles les blocs de boîtes que rien ne relie entre eux.
@@ -342,7 +333,7 @@ public final class ConstructeurDeVues {
         return new UmlEntity(entite.qualifiedName(), entite.name(), entite.kind(),
             entite.stereotype(), entite.color(), entite.strategy(), entite.literals(),
             entite.fields(), entite.methods(), relations, entite.notes(), entite.constraints(),
-            entite.group(), entite.declared(), entite.typeParameters());
+            entite.group(), entite.typeParameters());
     }
 
     // Les blocs de la vue : des groupes de boîtes que les traits relient, directement ou de

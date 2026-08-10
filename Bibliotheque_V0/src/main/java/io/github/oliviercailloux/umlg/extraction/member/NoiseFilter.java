@@ -39,7 +39,7 @@ final class NoiseFilter {
             || (regles.masque(Bruit.ACCESSORS) && isAccessor(method))
             || (regles.masque(Bruit.RECORD_ACCESSORS) && isRecordAccessor(method, clazz))
             || (regles.masque(Bruit.ENUM_METHODS) && isEnumGenerated(method, clazz))
-            || regles.methodeMasquee(method.getName());
+            || regles.membreMasque(method.getName());
     }
 
     // Cet attribut est-il du bruit ?
@@ -47,8 +47,9 @@ final class NoiseFilter {
     // Les attributs n'ont pas de famille : aucune forme ne les trahit comme la convention
     // JavaBean trahit un getter. Un logger ne se reconnaît qu'à son nom ou à son type, tous deux
     // affaires de convention locale — d'où les seuls motifs, écrits par qui connaît le projet.
+    // Ce sont les mêmes que pour les méthodes : le fichier n'écrit qu'une sorte de motif.
     static boolean estDuBruit(Field field, Regles regles) {
-        return regles.champMasque(field.getName());
+        return regles.membreMasque(field.getName());
     }
 
     // Les trois formes de la convention JavaBean, réunies : c'est ainsi que le fichier les

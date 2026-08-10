@@ -176,7 +176,7 @@ class ReglesDuProjetTest {
         // « withNom » n'est ni un accesseur ni une méthode d'Object : aucune famille ne le voit.
         // C'est exactement ce que les motifs viennent couvrir — les conventions propres au projet.
         List<String> methodes =
-            nomsDesMethodes(EntityExtractor.extract(Bavarde.class, regles("hide method with*")));
+            nomsDesMethodes(EntityExtractor.extract(Bavarde.class, regles("hide with*")));
 
         assertFalse(methodes.contains("withNom"), methodes.toString());
         assertTrue(methodes.contains("valider"), methodes.toString());
@@ -185,7 +185,7 @@ class ReglesDuProjetTest {
     @Test
     void plusieursMotifs_seSeparentParDesVirgules() {
         List<String> methodes = nomsDesMethodes(
-            EntityExtractor.extract(Bavarde.class, regles("hide method with*, valider")));
+            EntityExtractor.extract(Bavarde.class, regles("hide with*, valider")));
 
         assertFalse(methodes.contains("withNom"), methodes.toString());
         assertFalse(methodes.contains("valider"), methodes.toString());
@@ -194,9 +194,10 @@ class ReglesDuProjetTest {
     @Test
     void motifDeChamp_masqueUnAttribut() {
         // Le manque le plus criant de l'ancien filtre : il ne regardait que les méthodes, si bien
-        // qu'un logger ne se cachait qu'avec un @UMLExclude écrit à la main sur chaque classe.
+        // qu'un logger ne se cachait qu'avec un @UMLExclude écrit à la main sur chaque classe. Le
+        // motif est le même que pour une méthode : la ligne ne distingue pas les deux sortes.
         List<String> champs =
-            nomsDesChamps(EntityExtractor.extract(Bavarde.class, regles("hide field log*")));
+            nomsDesChamps(EntityExtractor.extract(Bavarde.class, regles("hide log*")));
 
         assertFalse(champs.contains("logger"), champs.toString());
         assertTrue(champs.contains("nom"), champs.toString());
@@ -215,19 +216,28 @@ class ReglesDuProjetTest {
     void includeLEmporteSurLaRegle() {
         // La règle de priorité : le cas particulier écrit sur le membre bat le réglage général.
         UmlEntity entity = EntityExtractor.extract(RepecheeALaMain.class,
-            regles("hide accessors", "hide field log*"));
+            regles("hide accessors", "hide log*"));
 
         assertTrue(nomsDesChamps(entity).contains("logger"), entity.fields().toString());
         assertTrue(nomsDesMethodes(entity).contains("getNom"), entity.methods().toString());
     }
 
     @Test
-    void familleInconnue_estRefusee() {
-        IllegalArgumentException e =
-            assertThrows(IllegalArgumentException.class, () -> regles("hide accesseurs"));
+    void familleMalOrthographiee_estUnMotif_etSeReleveEnFinDeScan() {
+        // Depuis que « hide » prend directement des motifs, « accesseurs » est un nom de membre
+        // parfaitement licite : rien ne distingue la faute de frappe de l'intention. Le refus est
+        // donc impossible, et c'est le relevé des règles mortes qui prend le relais — le même
+        // filet que pour « hide LOGGR » ou l'étoile oubliée d'un « hide get ».
+        Regles lues = regles("hide accesseurs");
 
-        assertTrue(e.getMessage().contains("accessors"),
-            "Le message doit rappeler les familles connues : " + e.getMessage());
+        assertFalse(lues.masque(Bruit.ACCESSORS));
+        assertEquals(List.of("hide accesseurs"), lues.reglesSansEffet());
+    }
+
+    @Test
+    void uneFamille_resteReconnueAvantLesMotifs() {
+        // L'ordre de lecture compte : sans lui, « accessors » passerait pour un nom de membre.
+        assertTrue(regles("hide accessors").masque(Bruit.ACCESSORS));
     }
 
     @Test
@@ -240,13 +250,13 @@ class ReglesDuProjetTest {
     void motifToutSeul_estRefuse() {
         // « * » masquerait tout le compartiment : licite en théorie, assez inattendu pour qu'on
         // refuse de le deviner.
-        assertThrows(IllegalArgumentException.class, () -> regles("hide method *"));
+        assertThrows(IllegalArgumentException.class, () -> regles("hide *"));
     }
 
     @Test
     void motifVide_estRefuse() {
-        assertThrows(IllegalArgumentException.class, () -> regles("hide method get*,"));
-        assertThrows(IllegalArgumentException.class, () -> regles("hide method"));
+        assertThrows(IllegalArgumentException.class, () -> regles("hide get*,"));
+        assertThrows(IllegalArgumentException.class, () -> regles("hide"));
     }
 
     // --- Les symboles de visibilité ---
@@ -259,10 +269,10 @@ class ReglesDuProjetTest {
     }
 
     @Test
-    void hideVisibility_lesTait() {
+    void omitVisibility_lesTait() {
         // Beaucoup de diagrammes tenus à la main les omettent, parce qu'ils montrent une
         // structure plutôt qu'une API. Le projet doit pouvoir en faire autant.
-        UmlEntity entity = EntityExtractor.extract(Bavarde.class, regles("hide visibility"));
+        UmlEntity entity = EntityExtractor.extract(Bavarde.class, regles("omit visibility"));
 
         assertTrue(entity.fields().stream().allMatch(f -> f.visibility().isEmpty()),
             entity.fields().toString());
@@ -271,23 +281,23 @@ class ReglesDuProjetTest {
     }
 
     @Test
-    void hideVisibility_neLaisseAucunEspaceDansLeDessin() {
+    void omitVisibility_neLaisseAucunEspaceDansLeDessin() {
         // Le symbole disparaît, et l'espace qui le suivait avec lui : sans quoi chaque ligne
         // commencerait par un blanc que rien ne justifie.
         String source = io.github.oliviercailloux.umlg.rendering.PlantUmlAssert.documentPour(
-            EntityExtractor.extract(Bavarde.class, regles("hide visibility")));
+            EntityExtractor.extract(Bavarde.class, regles("omit visibility")));
 
         assertTrue(source.contains("  nom : String"), source);
         assertFalse(source.contains("   nom"), "Pas d'espace surnuméraire : " + source);
     }
 
     @Test
-    void hideVisibility_deuxFois_estRefuse() {
+    void omitVisibility_deuxFois_estRefuse() {
         assertThrows(IllegalArgumentException.class,
-            () -> regles("hide visibility", "hide visibility"));
+            () -> regles("omit visibility", "omit visibility"));
     }
 
-    // --- Le rangement d'un paquetage ---
+    // --- Le rangement d'un paquetage : @UMLPackage, et lui seul ---
 
     @UMLClass
     static class Rangee {}
@@ -299,45 +309,27 @@ class ReglesDuProjetTest {
     private static final String PAQUETAGE = ReglesDuProjetTest.class.getPackageName();
 
     @Test
-    void groupPackage_rangeLesClassesDuPaquetage() {
-        UmlEntity entity = EntityExtractor.extract(Rangee.class,
-            regles("group package " + PAQUETAGE + " -> \"Règles\""));
+    void groupPackage_nExistePlus() {
+        // Un paquetage est un nom, et un rectangle posé sur des classes nommées est un cas
+        // particulier, pas un réglage de projet : c'est @UMLPackage qui le dit, sur l'élément.
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+            () -> regles("group package " + PAQUETAGE + " -> \"Règles\""));
 
-        assertEquals("Règles", entity.group().name());
+        assertTrue(e.getMessage().contains("unknown rule"), e.getMessage());
     }
 
     @Test
-    void groupPackage_neTouchePasAuxAutresPaquetages() {
-        UmlEntity entity = EntityExtractor.extract(Rangee.class,
-            regles("group package com.autre.paquetage -> \"Ailleurs\""));
+    void sansAnnotation_aucuneRegleNeRangeUneClasse() {
+        UmlEntity entity = EntityExtractor.extract(Rangee.class, regles("strategy public"));
 
         assertFalse(entity.group().estGroupee(), entity.group().toString());
     }
 
     @Test
-    void annotationLEmporteSurLaRegle() {
-        UmlEntity entity = EntityExtractor.extract(DejaRangee.class,
-            regles("group package " + PAQUETAGE + " -> \"Règles\""));
+    void lAnnotationRangeLaClasse() {
+        UmlEntity entity = EntityExtractor.extract(DejaRangee.class, regles("strategy public"));
 
         assertEquals("Écrit à la main", entity.group().name());
-    }
-
-    @Test
-    void groupPackage_maleCrit_estRefuse() {
-        assertThrows(IllegalArgumentException.class, () -> regles("group com.exemple -> \"X\""));
-        assertThrows(IllegalArgumentException.class, () -> regles("group package com.exemple"));
-        assertThrows(IllegalArgumentException.class, () -> regles("group package -> \"X\""));
-        assertThrows(IllegalArgumentException.class,
-            () -> regles("group package com.exemple -> \"  \""));
-    }
-
-    @Test
-    void deuxGroupesPourUnPaquetage_sontRefuses() {
-        IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
-            () -> regles("group package com.exemple -> \"A\"",
-                "group package com.exemple -> \"B\""));
-
-        assertTrue(e.getMessage().contains("already belongs"), e.getMessage());
     }
 
     // --- Le fichier dans son ensemble ---
@@ -350,18 +342,18 @@ class ReglesDuProjetTest {
             "",
             "hide accessors",
             "hide object-methods",
-            "hide method with*, visit*",
-            "hide field log, LOGGER",
-            "hide return void",
-            "type ImmutableList -> List",
-            "group package com.exemple.modele -> \"Modèle\"");
+            "hide with*, visit*, log, LOGGER",
+            "omit return void",
+            "omit visibility",
+            "type ImmutableList -> List");
 
         assertFalse(lues.vides());
         assertEquals(UMLVisibility.PUBLIC, lues.strategie());
         assertTrue(lues.masque(Bruit.ACCESSORS));
-        assertTrue(lues.methodeMasquee("withNom"));
-        assertTrue(lues.champMasque("LOGGER"));
-        assertEquals("Modèle", lues.groupeDuPaquetage("com.exemple.modele"));
+        assertTrue(lues.membreMasque("withNom"));
+        assertTrue(lues.membreMasque("LOGGER"));
+        assertTrue(lues.omettreVisibilite());
+        assertEquals("", lues.nomAfficheRetour(void.class));
         assertEquals("List", lues.nomAffiche(com.google.common.collect.ImmutableList.class));
     }
 

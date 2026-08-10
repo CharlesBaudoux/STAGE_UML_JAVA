@@ -38,53 +38,55 @@ import java.nio.file.Path;
 //   # Le bruit : rien n'est masqué tant qu'on ne l'a pas demandé.
 //   hide accessors
 //   hide object-methods
-//   hide method with*
-//   hide field log, LOGGER
+//   hide with*, log, LOGGER
 //
 //   # Les types de Guava n'apprennent rien au lecteur du diagramme.
 //   type ImmutableList -> List
 //   type com.google.common.collect.ImmutableSet -> Set
 //
-//   # Un retour void ne s'écrit pas, comme dans les diagrammes tenus à la main.
-//   hide return void
-//
-//   # Un paquetage entier dans un rectangle, sans annoter chaque classe.
-//   group package com.exemple.modele -> "Modèle"
-//
 //   # Les réglages du dessin d'ensemble.
 //   title Architecture du module Facturation
 //   direction left-to-right
 //   show empty members
-//   hide visibility
 //
-//   # Les signatures sans les noms des paramètres : « from(KeyboardMap) » au lieu de
-//   # « from(keyboardMap : KeyboardMap) ». C'est la forme des diagrammes tenus à la main, et
-//   # elle divise presque par deux la largeur des boîtes bavardes.
-//   hide parameter names
+//   # Ce qui n'est pas écrit sur la ligne d'un membre qui, lui, reste affiché.
+//   omit visibility
+//   omit parameter names
+//   omit return void
 //
 //   # Les membres dans l'ordre du code, et non par ordre alphabétique.
 //   order declaration
-//
-//   # Une boîte qu'aucune classe Java ne porte, dessinée en pointillés.
-//   declare class StringRepresentation extends Representation
-//   declare field StringRepresentation string : String
-//   declare association Animal -> Chien 0..*
-//
-//   # Un membre désigné nommément, sous la forme Classe.membre. À la différence d'un motif
-//   # général, cette désignation l'emporte sur @UMLInclude : elle sert à vider une boîte dont
-//   # les classes déclarées ci-dessus redisent le contenu, sans toucher au code annoté.
-//   hide field Representation.string, Representation.svg
 //
 // Une ligne « type » remplace un nom de type par un autre, partout où ce type paraît dans une
 // boîte : attributs, types de retour, paramètres. Le nom de gauche s'écrit au choix simple
 // (ImmutableList) ou complet (com.google.common.collect.ImmutableList) ; le second lève
 // l'ambiguïté quand deux paquetages ont une classe de même nom.
 //
-// Une ligne « hide return » efface un type de retour : la méthode s'écrit alors « valider() »
-// et non « valider(): void ». UML tient ce type pour facultatif, et l'omettre veut dire « ne rend
-// rien » — c'est la forme qu'emploient la plupart des diagrammes écrits à la main. La règle vaut
-// pour le seul retour : le type reste écrit partout où il dit quelque chose, sur un attribut
-// comme sur un paramètre. Par défaut, rien n'est masqué et le void est écrit.
+// DEUX VERBES, ET CE QUI LES SÉPARE
+//
+// « hide » fait disparaître un membre de la boîte ; « omit » retire un morceau de la ligne d'un
+// membre qui, lui, reste affiché. La distinction n'est pas cosmétique : @UMLInclude ramène tout
+// ce qu'un « hide » écarte, tandis qu'un « omit » n'a rien à ramener — le membre est déjà là. Un
+// seul verbe pour les deux obligerait le lecteur à se demander, à chaque ligne, si la règle de
+// priorité s'y applique.
+//
+// « omit return void » efface le type rendu : la méthode s'écrit alors « valider() » et non
+// « valider(): void ». UML tient ce type pour facultatif, et l'omettre veut dire « ne rend rien »
+// — c'est la forme qu'emploient la plupart des diagrammes écrits à la main. La règle vaut pour le
+// seul retour, et pour le seul void : un attribut ou un paramètre privé de son type laisserait
+// une ligne incompréhensible, et effacer un type de retour utile — « names(): String » devenant
+// « names() » — ferait perdre au dessin ce que la boîte existe pour montrer.
+//
+// CE QUI NE S'ÉCRIT PAS ICI
+//
+// Une règle ne désigne jamais un élément par son nom : c'est le partage avec les annotations
+// (voir le paquetage annotation). Un motif est une famille de noms, jamais un nom qualifié —
+// « hide Representation.string » n'existe pas, et @UMLExclude est le seul moyen de taire ce
+// champ-là. De même, aucune règle ne range une classe nommée (@UMLPackage seul), et aucune ne
+// fabrique une boîte ni un lien : ce qui n'est pas dans le code n'est pas sur le diagramme.
+//
+// Le sort de la génération précédente ne s'écrit pas ici non plus : il ne dit rien du modèle, et
+// se règle à l'appel du générateur (UMLGenerator.Builder.keepPrevious).
 //
 // Le fichier est fait pour grandir : d'autres mots-clés viendront s'ajouter à « type », et c'est
 // LecteurDeRegles qui les accueillera. Un mot-clé inconnu est refusé, avec le numéro de ligne —
@@ -101,18 +103,20 @@ public final class Regles {
     // Le nom du fichier, à la racine du répertoire analysé.
     public static final String NOM_DU_FICHIER = "umlg.rules";
 
-    private static final Regles AUCUNE = new Regles(ImmutableMap.of(), ImmutableSet.of(),
-        UMLVisibility.NONE, false, ImmutableSet.of(), ImmutableList.of(), ImmutableList.of(),
-        ImmutableMap.of(), ImmutableList.of(), false, Sortie.REPLACE, "",
-        UMLFlow.TOP_TO_BOTTOM, true, false, false, false, false, ImmutableList.of(),
-        ImmutableList.of());
+    private static final Regles AUCUNE = new Regles(ImmutableMap.of(), false,
+        UMLVisibility.NONE, false, ImmutableSet.of(), ImmutableList.of(),
+        ImmutableList.of(), false, "",
+        UMLFlow.TOP_TO_BOTTOM, true, false, false, false, false);
 
     // Clé : le nom de type écrit à gauche de la flèche, simple ou complet. Valeur : ce qui
     // s'affiche à sa place.
     private final ImmutableMap<String, String> alias;
 
-    // Les types que l'on tait quand ils sont rendus par une méthode, écrits simples ou complets.
-    private final ImmutableSet<String> retoursMasques;
+    // Faut-il effacer le « void » d'une méthode qui ne rend rien ?
+    //
+    // Faux par défaut : le type de retour est écrit, void compris. La règle « omit return void »
+    // le tait, et elle ne vaut que pour ce type-là — voir l'en-tête de cette classe.
+    private final boolean omettreRetourVoid;
 
     // La stratégie que prennent les classes qui n'en déclarent pas. NONE quand le projet se tait,
     // ce qui redonne exactement le comportement d'un projet sans fichier de règles.
@@ -130,21 +134,18 @@ public final class Regles {
     // bibliothèque ne décide plus à la place de l'utilisateur de ce qui mérite d'être dessiné.
     private final ImmutableSet<Bruit> bruits;
 
-    // Les motifs de noms, façon « get* » : méthodes d'un côté, attributs de l'autre.
-    private final ImmutableList<Motif> methodesMasquees;
-    private final ImmutableList<Motif> champsMasques;
-
-    // Paquetage Java -> nom du groupe visuel qui l'entoure.
-    private final ImmutableMap<String, String> groupesParPaquetage;
+    // Les motifs de noms, façon « get* ». Une seule liste : un motif vise les méthodes et les
+    // attributs indifféremment, un nom appartenant presque toujours à l'un ou à l'autre. Le rare
+    // membre pris à tort se ramène par @UMLInclude, qui est fait pour cela — deux mots-clés pour
+    // distinguer ce que le lecteur ne distingue pas auraient coûté plus que le cas qu'ils
+    // réglaient.
+    private final ImmutableList<Motif> membresMasques;
 
     // Les vues déclarées, dans l'ordre d'écriture : c'est celui des fichiers produits.
     private final ImmutableList<DefinitionDeVue> vues;
 
     // Vrai quand le projet demande une vue par paquetage, calculée sans rien déclarer.
     private final boolean vuesParPaquetage;
-
-    // Ce qu'on fait des diagrammes de la génération précédente.
-    private final Sortie sortie;
 
     // Le titre de la vue intégrale. Vide = aucun titre écrit en tête du dessin.
     private final String titre;
@@ -163,7 +164,7 @@ public final class Regles {
     // Faux par défaut : UML les demande, et ils disent quelque chose qu'aucune autre marque ne
     // dit. Mais beaucoup de diagrammes tenus à la main les omettent, parce qu'ils exposent une
     // structure plutôt qu'une API, et le projet doit pouvoir en faire autant.
-    private final boolean masquerVisibilite;
+    private final boolean omettreVisibilite;
 
     // Faut-il taire les noms des paramètres — « from(KeyboardMap) » et non
     // « from(keyboardMap : KeyboardMap) » ?
@@ -171,7 +172,7 @@ public final class Regles {
     // Faux par défaut : un nom écrit dans le code dit quelque chose. Mais les signatures
     // complètes font des boîtes larges, et un diagramme d'ensemble y perd plus qu'il n'y gagne —
     // mesuré sur un projet réel, la vue passait de 2522 à quelque 1300 pixels de large.
-    private final boolean masquerNomsParametres;
+    private final boolean omettreNomsDeParametres;
 
     // Faut-il ranger les membres dans l'ordre où le code les déclare, plutôt que par alphabet ?
     //
@@ -190,81 +191,41 @@ public final class Regles {
     // @UMLMultiplicity, décision individuelle, l'emporte sur la traduction.
     private final boolean multiplicitesDeduites;
 
-    // Les boîtes que le fichier déclare, et qu'aucune classe Java ne porte.
-    private final ImmutableList<ClasseDeclaree> classesDeclarees;
-
-    // Les liens déclarés entre deux boîtes, réelles ou déclarées : « source -> cible ».
-    private final ImmutableList<LienDeclare> liensDeclares;
-
-    // Les règles qui ont servi au moins une fois : la clé d'un alias consulté, le type d'un
-    // retour tu, le paquetage d'un groupe trouvé. Les motifs, eux, se marquent eux-mêmes.
+    // Les alias qui ont servi au moins une fois. Les motifs, eux, se marquent eux-mêmes.
     //
     // C'est la seule entorse à l'immuabilité de cette classe, et elle est délibérée : savoir
     // qu'une ligne du fichier n'a rien fait exige de se souvenir de ce qui a servi, et seule
-    // Regles voit passer toutes les consultations. Des ensembles concurrents, comme la liste
-    // des classes ignorées du scanner : le parcours des classes ne promet pas son fil.
+    // Regles voit passer toutes les consultations. Un ensemble concurrent, comme la liste des
+    // classes ignorées du scanner : le parcours des classes ne promet pas son fil.
     private final java.util.Set<String> aliasUtilises =
         java.util.concurrent.ConcurrentHashMap.newKeySet();
-    private final java.util.Set<String> retoursUtilises =
-        java.util.concurrent.ConcurrentHashMap.newKeySet();
-    private final java.util.Set<String> groupesUtilises =
-        java.util.concurrent.ConcurrentHashMap.newKeySet();
 
-    // Ce que devient le dossier des vues d'une génération à la suivante.
-    public enum Sortie {
-        // Les diagrammes précédents sont effacés : le dossier décrit toujours l'état courant du
-        // code, et une vue supprimée du fichier ne laisse pas derrière elle une image qui ment.
-        REPLACE,
-        // Rien n'est effacé : la génération précédente est conservée à côté, sous un nom
-        // numéroté, ce qui permet de comparer avant et après une modification du code.
-        KEEP
-    }
-
-    Regles(ImmutableMap<String, String> alias, ImmutableSet<String> retoursMasques,
+    Regles(ImmutableMap<String, String> alias, boolean omettreRetourVoid,
         UMLVisibility strategie, boolean strategieDeclaree, ImmutableSet<Bruit> bruits,
-        ImmutableList<Motif> methodesMasquees, ImmutableList<Motif> champsMasques,
-        ImmutableMap<String, String> groupesParPaquetage, ImmutableList<DefinitionDeVue> vues,
-        boolean vuesParPaquetage, Sortie sortie, String titre, UMLFlow direction,
-        boolean masquerMembresVides, boolean masquerVisibilite,
-        boolean masquerNomsParametres, boolean ordreDeclaration,
-        boolean multiplicitesDeduites,
-        ImmutableList<ClasseDeclaree> classesDeclarees,
-        ImmutableList<LienDeclare> liensDeclares) {
+        ImmutableList<Motif> membresMasques, ImmutableList<DefinitionDeVue> vues,
+        boolean vuesParPaquetage, String titre, UMLFlow direction,
+        boolean masquerMembresVides, boolean omettreVisibilite,
+        boolean omettreNomsDeParametres, boolean ordreDeclaration,
+        boolean multiplicitesDeduites) {
         this.alias = checkNotNull(alias);
-        this.retoursMasques = checkNotNull(retoursMasques);
+        this.omettreRetourVoid = omettreRetourVoid;
         this.strategie = checkNotNull(strategie);
         this.strategieDeclaree = strategieDeclaree;
         this.bruits = checkNotNull(bruits);
-        this.methodesMasquees = checkNotNull(methodesMasquees);
-        this.champsMasques = checkNotNull(champsMasques);
-        this.groupesParPaquetage = checkNotNull(groupesParPaquetage);
+        this.membresMasques = checkNotNull(membresMasques);
         this.vues = checkNotNull(vues);
         this.vuesParPaquetage = vuesParPaquetage;
-        this.sortie = checkNotNull(sortie);
         this.titre = checkNotNull(titre);
         this.direction = checkNotNull(direction);
         this.masquerMembresVides = masquerMembresVides;
-        this.masquerVisibilite = masquerVisibilite;
-        this.masquerNomsParametres = masquerNomsParametres;
+        this.omettreVisibilite = omettreVisibilite;
+        this.omettreNomsDeParametres = omettreNomsDeParametres;
         this.ordreDeclaration = ordreDeclaration;
         this.multiplicitesDeduites = multiplicitesDeduites;
-        this.classesDeclarees = checkNotNull(classesDeclarees);
-        this.liensDeclares = checkNotNull(liensDeclares);
     }
 
-    public ImmutableList<ClasseDeclaree> classesDeclarees() {
-        return classesDeclarees;
-    }
-
-    public ImmutableList<LienDeclare> liensDeclares() {
-        return liensDeclares;
-    }
-
-    // Un lien déclaré dans le fichier, entre deux boîtes désignées par leur nom.
-    public record LienDeclare(String source, String cible, String cardinalite) {}
-
-    public boolean masquerVisibilite() {
-        return masquerVisibilite;
+    public boolean omettreVisibilite() {
+        return omettreVisibilite;
     }
 
     // Le titre écrit en tête de la vue intégrale, ou la chaîne vide.
@@ -291,10 +252,6 @@ public final class Regles {
         return vuesParPaquetage;
     }
 
-    public Sortie sortie() {
-        return sortie;
-    }
-
     // Ce que la stratégie du projet vaut pour une classe qui ne déclare rien.
     public UMLVisibility strategie() {
         return strategie;
@@ -307,8 +264,8 @@ public final class Regles {
     }
 
     // Les signatures s'écrivent-elles sans les noms des paramètres ?
-    public boolean masquerNomsParametres() {
-        return masquerNomsParametres;
+    public boolean omettreNomsDeParametres() {
+        return omettreNomsDeParametres;
     }
 
     // Les membres se rangent-ils dans l'ordre du code plutôt que par alphabet ?
@@ -334,67 +291,18 @@ public final class Regles {
         return bruits.contains(famille);
     }
 
-    // Ce nom de méthode correspond-il à l'un des motifs masqués ?
-    public boolean methodeMasquee(String nom) {
-        return correspond(methodesMasquees, nom);
-    }
-
-    public boolean champMasque(String nom) {
-        return correspond(champsMasques, nom);
-    }
-
-    // Cette méthode est-elle désignée nommément — « hide method Classe.nom » ?
+    // Ce nom de membre — méthode ou attribut — correspond-il à l'un des motifs masqués ?
     //
-    // Seuls les motifs qualifiés, ceux qui contiennent un point, répondent ici : ils désignent
-    // un membre d'une classe précise, et non une famille de noms. C'est ce qui justifie leur
-    // pouvoir : une désignation nommément est aussi individuelle qu'une annotation, et c'est la
-    // seule règle du fichier qui l'emporte sur @UMLInclude (voir MemberExtractor).
-    public boolean methodeMasqueeNommement(String classe, String nom) {
-        return correspondQualifie(methodesMasquees, classe, nom);
-    }
-
-    public boolean champMasqueNommement(String classe, String nom) {
-        return correspondQualifie(champsMasques, classe, nom);
-    }
-
-    private static boolean correspond(ImmutableList<Motif> motifs, String nom) {
+    // Une seule question pour les deux, parce que le fichier n'écrit qu'une seule sorte de motif :
+    // « hide log » tait le champ log comme la méthode log, et c'est ce que veut dire la ligne.
+    public boolean membreMasque(String nom) {
         checkNotNull(nom);
-        for (Motif motif : motifs) {
-            // Un motif qualifié vise « Classe.membre » ; un nom nu, sans point, ne peut pas lui
-            // correspondre, et le tester quand même laisserait « *x » masquer « Classe.x ».
-            if (!motif.qualifie() && motif.correspond(nom)) {
+        for (Motif motif : membresMasques) {
+            if (motif.correspond(nom)) {
                 return true;
             }
         }
         return false;
-    }
-
-    private static boolean correspondQualifie(ImmutableList<Motif> motifs, String classe,
-        String nom) {
-        checkNotNull(classe);
-        checkNotNull(nom);
-        for (Motif motif : motifs) {
-            if (motif.qualifie() && motif.correspond(classe + "." + nom)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    // Le groupe visuel d'un paquetage, ou la chaîne vide s'il n'en a pas.
-    //
-    // La correspondance est exacte : « com.exemple.modele » ne range pas les classes de
-    // « com.exemple.modele.detail ». Deux règles qui se recouvriraient demanderaient une règle de
-    // priorité, et un sous-paquetage ajouté entrerait en silence dans un rectangle que personne
-    // n'a désigné.
-    public String groupeDuPaquetage(String paquetage) {
-        checkNotNull(paquetage);
-        String groupe = groupesParPaquetage.get(paquetage);
-        if (groupe == null) {
-            return "";
-        }
-        groupesUtilises.add(paquetage);
-        return groupe;
     }
 
     // Les lignes du fichier qui n'ont servi à rien pendant le scan, telles qu'on les a écrites.
@@ -412,25 +320,9 @@ public final class Regles {
                 mortes.add("type " + regle.getKey() + " -> " + regle.getValue());
             }
         }
-        for (String type : retoursMasques) {
-            if (!retoursUtilises.contains(type)) {
-                mortes.add("hide return " + type);
-            }
-        }
-        for (Motif motif : methodesMasquees) {
+        for (Motif motif : membresMasques) {
             if (motif.sansEffet()) {
-                mortes.add("hide method " + motif.ecrit());
-            }
-        }
-        for (Motif motif : champsMasques) {
-            if (motif.sansEffet()) {
-                mortes.add("hide field " + motif.ecrit());
-            }
-        }
-        for (var groupe : groupesParPaquetage.entrySet()) {
-            if (!groupesUtilises.contains(groupe.getKey())) {
-                mortes.add("group package " + groupe.getKey() + " -> \"" + groupe.getValue()
-                    + "\"");
+                mortes.add("hide " + motif.ecrit());
             }
         }
         return mortes.build();
@@ -513,19 +405,15 @@ public final class Regles {
 
     // Le nom sous lequel un type rendu par une méthode paraît, ou la chaîne vide s'il est tu.
     //
-    // Une méthode est le seul endroit où un type peut n'être pas écrit du tout : « valider() »
-    // dit déjà qu'il n'y a rien à rendre. Ailleurs — un attribut, un paramètre — le type porte
-    // l'information principale, et le taire laisserait une ligne incompréhensible ; c'est
-    // pourquoi la règle est réservée au retour, et non offerte partout.
+    // Une méthode est le seul endroit où un type peut n'être pas écrit du tout, et void le seul
+    // type qui s'y prête : « valider() » dit déjà qu'il n'y a rien à rendre. Ailleurs — un
+    // attribut, un paramètre — le type porte l'information principale, et le taire laisserait une
+    // ligne incompréhensible ; ailleurs qu'à void, effacer le retour retirerait au dessin ce que
+    // la boîte existe pour montrer.
     public String nomAfficheRetour(Class<?> type) {
         checkNotNull(type);
 
-        if (retoursMasques.contains(type.getName())) {
-            retoursUtilises.add(type.getName());
-            return "";
-        }
-        if (retoursMasques.contains(type.getSimpleName())) {
-            retoursUtilises.add(type.getSimpleName());
+        if (omettreRetourVoid && type == void.class) {
             return "";
         }
         return nomAffiche(type);
@@ -534,13 +422,11 @@ public final class Regles {
     // Vrai quand aucune règle n'a été écrite. Lu par les tests, et par qui veut savoir si un
     // fichier a été trouvé.
     public boolean vides() {
-        return alias.isEmpty() && retoursMasques.isEmpty() && strategie == UMLVisibility.NONE
+        return alias.isEmpty() && !omettreRetourVoid && strategie == UMLVisibility.NONE
             && !strategieDeclaree
-            && bruits.isEmpty() && methodesMasquees.isEmpty() && champsMasques.isEmpty()
-            && groupesParPaquetage.isEmpty() && vues.isEmpty() && !vuesParPaquetage
-            && sortie == Sortie.REPLACE && titre.isEmpty()
-            && direction == UMLFlow.TOP_TO_BOTTOM && masquerMembresVides && !masquerVisibilite
-            && !masquerNomsParametres && !ordreDeclaration && !multiplicitesDeduites
-            && classesDeclarees.isEmpty() && liensDeclares.isEmpty();
+            && bruits.isEmpty() && membresMasques.isEmpty()
+            && vues.isEmpty() && !vuesParPaquetage && titre.isEmpty()
+            && direction == UMLFlow.TOP_TO_BOTTOM && masquerMembresVides && !omettreVisibilite
+            && !omettreNomsDeParametres && !ordreDeclaration && !multiplicitesDeduites;
     }
 }

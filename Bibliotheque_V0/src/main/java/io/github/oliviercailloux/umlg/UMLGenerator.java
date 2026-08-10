@@ -5,7 +5,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableList;
 import io.github.oliviercailloux.umlg.extraction.ProjectScanner;
-import io.github.oliviercailloux.umlg.extraction.rules.Regles;
 import io.github.oliviercailloux.umlg.model.UmlProject;
 import io.github.oliviercailloux.umlg.rendering.PlantUmlWriter;
 import java.nio.file.Files;
@@ -40,6 +39,7 @@ public final class UMLGenerator {
     private final String extension;
     private final UmlStyle style;
     private final ImmutableList<Path> classpath;
+    private final boolean keepPrevious;
 
     // Privé : on ne passe que par le builder, seul à valider les paramètres.
     private UMLGenerator(Builder builder) {
@@ -49,6 +49,7 @@ public final class UMLGenerator {
         this.extension = builder.extension;
         this.style = builder.style;
         this.classpath = builder.classpath;
+        this.keepPrevious = builder.keepPrevious;
     }
 
     public static Builder builder() {
@@ -100,7 +101,7 @@ public final class UMLGenerator {
             ImmutableList<Path> ecrits;
             if (outputDirectory != null) {
                 ecrits = PlantUmlWriter.writeViews(project, outputDirectory, extension, style,
-                    Regles.duProjet(sourceDirectory).sortie());
+                    keepPrevious);
             } else {
                 PlantUmlWriter.write(project, outputFileName, style);
                 ecrits = ImmutableList.of(Paths.get(outputFileName));
@@ -224,6 +225,9 @@ public final class UMLGenerator {
         // Vide par défaut : le répertoire analysé se suffit quand ses classes ne mentionnent
         // que le JDK et les annotations de la bibliothèque.
         private ImmutableList<Path> classpath = ImmutableList.of();
+        // Faux par défaut : le dossier décrit l'état courant du code, et une vue retirée du
+        // fichier de règles ne laisse pas derrière elle une image que plus rien ne met à jour.
+        private boolean keepPrevious;
 
         private Builder() {}
 
@@ -255,10 +259,29 @@ public final class UMLGenerator {
         //
         // C'est la forme à préférer dès qu'un projet déclare des vues, et la seule qui les écrive
         // toutes. Le dossier est créé s'il n'existe pas ; ce qu'il advient de la génération
-        // précédente se règle dans umlg.rules, par « output replace » ou « output keep ».
+        // précédente se règle par keepPrevious.
         public Builder outputDirectory(String path) {
             checkNotNull(path, "The output directory cannot be null.");
             this.outputDirectory = Paths.get(path);
+            return this;
+        }
+
+        // Conserver la génération précédente au lieu de l'effacer.
+        //
+        // Sous keepPrevious, rien n'est écrasé : cette génération-ci est écrite dans un dossier
+        // voisin numéroté — « diagrammes-2 », « diagrammes-3 » —, ce qui permet de comparer avant
+        // et après une modification du code. Sans elle, le dossier demandé est vidé des seuls
+        // fichiers que nous y avons écrits, et décrit donc toujours l'état courant.
+        //
+        // POURQUOI CE RÉGLAGE N'EST PAS DANS umlg.rules
+        //
+        // Il y a été, sous « output replace » et « output keep », et il en est sorti au test qui
+        // décide de tout ce qu'on y écrit : la ligne dit-elle quelque chose du modèle ? Le sort
+        // des fichiers de la fois précédente n'en dit rien — mêmes boîtes, mêmes traits, mêmes
+        // membres. C'est une option d'appel, au même titre qu'UmlStyle, et elle varie d'ailleurs
+        // d'un appel à l'autre là où le fichier de règles, lui, est versionné avec le code.
+        public Builder keepPrevious(boolean keepPrevious) {
+            this.keepPrevious = keepPrevious;
             return this;
         }
 

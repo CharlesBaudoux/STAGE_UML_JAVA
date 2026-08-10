@@ -91,7 +91,6 @@ class DuCodeCompileAuPumlTest {
     private static final String REGLES = """
         title École
         view "Scolarite" = Eleve, Cours
-        output replace
         """;
 
     /**

@@ -40,7 +40,7 @@ class "Client" as Client <<Entity>> #LightBlue {
 }
 
 Identifiable <|.. Personne
-Client "[numero] acheteur 1" *-down- "achats 0..* {ordered} {non vide}" Commande : <i>passe</i>
+Client "acheteur 1" *-down- "achats 0..* {ordered} {non vide}" Commande : <i>passe</i>
 Client ..> ServiceBancaire : <i>facture via</i>
 Personne <|-- Client
 note top of Client : Coeur du domaine, ne pas exposer hors du module

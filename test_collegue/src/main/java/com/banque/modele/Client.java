@@ -34,11 +34,12 @@ public class Client extends Personne implements Auditable {
     private String traceInterne;
 
     /**
-     * Tous les paramètres de @UMLAssociation sauf qualifier, avec une cible explicite : le cas
-     * de la spécification.
+     * Tous les paramètres de @UMLAssociation, avec une cible explicite : le cas de la
+     * spécification.
      *
-     * <p>La contrainte, posée sur un attribut promu en lien, s'applique au lien : elle s'écrit
-     * à l'extrémité cible, à côté de « {ordered} », et non dans la boîte.
+     * <p>Les contraintes, posées sur un attribut promu en lien, s'appliquent au lien : elles
+     * s'écrivent à l'extrémité cible, et non dans la boîte. « ordered » en est une comme une
+     * autre — le paramètre isOrdered qui la doublait a été retiré.
      */
     @UMLAssociation(
         target = Compte.class,
@@ -47,9 +48,9 @@ public class Client extends Personne implements Auditable {
         targetCardinality = "1..*",
         sourceRole = "titulaire",
         targetRole = "comptes",
-        isOrdered = true,
         label = "détient",
         direction = UMLDirection.DOWN)
+    @UMLConstraint(rule = "ordered")
     @UMLConstraint(rule = "un compte courant au moins")
     private List<Compte> comptes;
 

@@ -51,7 +51,7 @@ class PlantUmlVuesEcritesTest {
         Path dossier = tmp.resolve("diagrammes");
 
         ImmutableList<Path> ecrits = PlantUmlWriter.writeViews(projet(), dossier, ".svg",
-            UmlStyle.PLANTUML, Regles.Sortie.REPLACE);
+            UmlStyle.PLANTUML, false);
 
         assertEquals(3, ecrits.size(), ecrits.toString());
         // La source .puml accompagne chaque image : c'est elle qu'on retouche et qu'on compare.
@@ -64,7 +64,7 @@ class PlantUmlVuesEcritesTest {
     void chaqueFichier_contientSaSeuleVue(@TempDir Path tmp) throws Exception {
         Path dossier = tmp.resolve("diagrammes");
         PlantUmlWriter.writeViews(projet(), dossier, ".svg", UmlStyle.PLANTUML,
-            Regles.Sortie.REPLACE);
+            false);
 
         String facturation =
             Files.readString(dossier.resolve("vues/facturation.svg"), StandardCharsets.UTF_8);
@@ -77,7 +77,7 @@ class PlantUmlVuesEcritesTest {
     void chaqueVue_porteSonTitre(@TempDir Path tmp) throws Exception {
         Path dossier = tmp.resolve("diagrammes");
         PlantUmlWriter.writeViews(projet(), dossier, ".svg", UmlStyle.PLANTUML,
-            Regles.Sortie.REPLACE);
+            false);
 
         assertTrue(Files.readString(dossier.resolve("vues/clients.svg"), StandardCharsets.UTF_8)
             .contains("Clients"), "Le nom de la vue lui sert de titre.");
@@ -87,7 +87,7 @@ class PlantUmlVuesEcritesTest {
     void aucuneImageDErreur(@TempDir Path tmp) throws Exception {
         Path dossier = tmp.resolve("diagrammes");
         PlantUmlWriter.writeViews(projet(), dossier, ".svg", UmlStyle.PLANTUML,
-            Regles.Sortie.REPLACE);
+            false);
 
         for (Path fichier : List.of(dossier.resolve("projet.svg"),
             dossier.resolve("vues/facturation.svg"))) {
@@ -109,7 +109,7 @@ class PlantUmlVuesEcritesTest {
         Path dossier = tmp.resolve("diagrammes");
 
         PlantUmlWriter.writeViews(projet, dossier, ".svg", UmlStyle.PLANTUML,
-            Regles.Sortie.REPLACE);
+            false);
 
         assertTrue(Files.exists(dossier.resolve("projet.svg")), fichiers(dossier).toString());
         assertTrue(Files.readString(dossier.resolve("projet.svg"), StandardCharsets.UTF_8)
@@ -121,7 +121,7 @@ class PlantUmlVuesEcritesTest {
         Path dossier = tmp.resolve("diagrammes");
 
         PlantUmlWriter.writeViews(projet(), dossier, ".png", UmlStyle.PLANTUML,
-            Regles.Sortie.REPLACE);
+            false);
 
         assertEquals(List.of("projet.png", "projet.puml", "vues"), fichiers(dossier));
     }
@@ -135,7 +135,7 @@ class PlantUmlVuesEcritesTest {
         // ouvrir celle qui la détaille.
         Path dossier = tmp.resolve("diagrammes");
         PlantUmlWriter.writeViews(projet(), dossier, ".svg", UmlStyle.PLANTUML,
-            Regles.Sortie.REPLACE);
+            false);
 
         String integrale =
             Files.readString(dossier.resolve("projet.svg"), StandardCharsets.UTF_8);
@@ -150,7 +150,7 @@ class PlantUmlVuesEcritesTest {
         // repasse pas par la racine.
         Path dossier = tmp.resolve("diagrammes");
         PlantUmlWriter.writeViews(projet(), dossier, ".svg", UmlStyle.PLANTUML,
-            Regles.Sortie.REPLACE);
+            false);
 
         String clients =
             Files.readString(dossier.resolve("vues/clients.svg"), StandardCharsets.UTF_8);
@@ -163,7 +163,7 @@ class PlantUmlVuesEcritesTest {
         // Le lien ne mènerait nulle part, et laisserait croire qu'il y a autre chose à voir.
         Path dossier = tmp.resolve("diagrammes");
         PlantUmlWriter.writeViews(projet(), dossier, ".svg", UmlStyle.PLANTUML,
-            Regles.Sortie.REPLACE);
+            false);
 
         String facturation =
             Files.readString(dossier.resolve("vues/facturation.svg"), StandardCharsets.UTF_8);
@@ -172,29 +172,30 @@ class PlantUmlVuesEcritesTest {
     }
 
     @Test
-    void uneBoiteDeclareeEtCliquable_estAccepteeParLeMoteur(@TempDir Path tmp) throws Exception {
-        // Le piège que ce test protège : le moteur accepte « <<stéréotype>> [[lien]] #style » et
-        // refuse « <<stéréotype>> #style [[lien]] ». Rien ne le documente, et seul le cas où une
-        // boîte déclarée porte AUSSI un lien de navigation le révèle — les tests qui éprouvaient
-        // l'un sans l'autre passaient tous.
-        UmlEntity declaree = UmlEntity.builder("Animal", "Animal").declared(true).build();
-        ImmutableList<UmlEntity> toutes = ImmutableList.of(boite("Facture"), declaree);
+    void uneBoiteOrneeEtCliquable_estAccepteeParLeMoteur(@TempDir Path tmp) throws Exception {
+        // Le piège que ce test protège : l'ordre des morceaux d'un en-tête de boîte n'est pas
+        // libre, et le moteur ne pardonne pas. Rien ne le documente, et seul le cas où une boîte
+        // porte à la fois un stéréotype, une couleur ET un lien de navigation le révèle — les
+        // tests qui éprouvaient l'un sans les autres passaient tous.
+        UmlEntity ornee = UmlEntity.builder("com.exemple.Animal", "Animal")
+            .stereotype("entity").color("#EEEEEE").build();
+        ImmutableList<UmlEntity> toutes = ImmutableList.of(boite("Facture"), ornee);
 
         UmlProject projet = UmlProject.given(Set.copyOf(toutes), UmlDiagram.defaut(), List.of(
             new UmlView("Projet", toutes, UMLFlow.TOP_TO_BOTTOM),
-            new UmlView("Le vivant", ImmutableList.of(declaree), UMLFlow.TOP_TO_BOTTOM)));
+            new UmlView("Le vivant", ImmutableList.of(ornee), UMLFlow.TOP_TO_BOTTOM)));
         Path dossier = tmp.resolve("diagrammes");
 
         // writeViews échoue si le moteur rejette la source : la vérification est dans le writer,
         // et c'est elle qui a attrapé le défaut au lieu de livrer une image d'erreur.
         PlantUmlWriter.writeViews(projet, dossier, ".svg", UmlStyle.PLANTUML,
-            Regles.Sortie.REPLACE);
+            false);
 
         String integrale =
             Files.readString(dossier.resolve("projet.svg"), StandardCharsets.UTF_8);
 
         assertTrue(integrale.contains("vues/le-vivant.svg"), "Le lien est bien posé.");
-        assertTrue(integrale.contains("stroke-dasharray"), "Et la boîte reste en pointillés.");
+        assertTrue(integrale.contains("entity"), "Et le stéréotype reste écrit.");
         assertFalse(integrale.toLowerCase().contains("syntax error"), "Aucune image d'erreur.");
     }
 
@@ -209,7 +210,7 @@ class PlantUmlVuesEcritesTest {
         Files.writeString(fantome, "<svg/>", StandardCharsets.UTF_8);
 
         PlantUmlWriter.writeViews(projet(), dossier, ".svg", UmlStyle.PLANTUML,
-            Regles.Sortie.REPLACE);
+            false);
 
         assertFalse(Files.exists(fantome),
             "Une image que plus rien ne met à jour ment d'autant mieux qu'elle est à sa place.");
@@ -223,7 +224,7 @@ class PlantUmlVuesEcritesTest {
         Files.writeString(lisezMoi, "ces diagrammes sont engendrés", StandardCharsets.UTF_8);
 
         PlantUmlWriter.writeViews(projet(), dossier, ".svg", UmlStyle.PLANTUML,
-            Regles.Sortie.REPLACE);
+            false);
 
         assertTrue(Files.exists(lisezMoi),
             "Le dossier de sortie n'est pas vidé de ce qui ne nous appartient pas.");
@@ -234,9 +235,9 @@ class PlantUmlVuesEcritesTest {
         Path dossier = tmp.resolve("diagrammes");
 
         PlantUmlWriter.writeViews(projet(), dossier, ".svg", UmlStyle.PLANTUML,
-            Regles.Sortie.KEEP);
+            true);
         PlantUmlWriter.writeViews(projet(), dossier, ".svg", UmlStyle.PLANTUML,
-            Regles.Sortie.KEEP);
+            true);
 
         assertTrue(Files.exists(dossier.resolve("projet.svg")), "La première reste.");
         assertTrue(Files.exists(tmp.resolve("diagrammes-2/projet.svg")),
@@ -248,7 +249,7 @@ class PlantUmlVuesEcritesTest {
         Path dossier = tmp.resolve("diagrammes");
         for (int i = 0; i < 3; i++) {
             PlantUmlWriter.writeViews(projet(), dossier, ".svg", UmlStyle.PLANTUML,
-                Regles.Sortie.KEEP);
+                true);
         }
         assertTrue(Files.exists(tmp.resolve("diagrammes-3/projet.svg")), fichiers(tmp).toString());
     }

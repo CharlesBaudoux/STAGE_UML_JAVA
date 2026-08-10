@@ -32,10 +32,10 @@ import java.util.Map;
 //
 // Le modèle dit fidèlement ce que chaque classe déclare ; la fusion a donc lieu au rendu, et
 // non à l'extraction. Elle est de surcroît prudente : une extrémité source ne sait porter qu'un
-// rôle, une multiplicité et un qualificatif. Tout ce que le second lien dirait de plus — un
-// libellé, un losange, une contrainte, « ordered », une barre de dérivation — se perdrait en
-// route. On ne fusionne donc que lorsque le second lien n'ajoute rien d'autre qu'un rôle et une
-// multiplicité ; sinon les deux traits restent, et l'utilisateur en est averti.
+// rôle et une multiplicité. Tout ce que le second lien dirait de plus — un libellé, un losange,
+// une contrainte, une barre de dérivation — se perdrait en route. On ne fusionne donc que
+// lorsque le second lien n'ajoute rien d'autre qu'un rôle et une multiplicité ; sinon les deux
+// traits restent, et l'utilisateur en est averti.
 //
 // Perdre une information sans le dire serait le seul vrai défaut ; en dessiner deux traits est
 // simplement moins joli.
@@ -90,8 +90,8 @@ public final class AssociationsReciproques {
                     Avertissements.dire(entite.qualifiedName() + "." + association.fieldName()
                         + " and " + enFace.qualifiedName() + "." + partenaire.fieldName()
                         + " declare the same association from both sides, and both carry more "
-                        + "than a role and a multiplicity (a type, a label, a qualifier, an "
-                        + "ordering, a constraint or a slash). UML would draw one line with two "
+                        + "than a role and a multiplicity (a type, a label, a constraint or a "
+                        + "slash). UML would draw one line with two "
                         + "ends; two are drawn, because merging them would silently drop what "
                         + "the second one says. Keep the decorations on one side only to get a "
                         + "single line.");
@@ -146,15 +146,13 @@ public final class AssociationsReciproques {
 
     // Le second lien n'ajoute-t-il rien qu'une extrémité source sache porter ?
     //
-    // Il faut que le partenaire soit une association nue — ni losange, ni libellé, ni
-    // qualificatif, ni contrainte, ni ordre, ni dérivation — et que le lien conservé n'ait pas
-    // déjà écrit son propre côté source, qui l'emporterait alors sur ce que dit l'autre.
+    // Il faut que le partenaire soit une association nue — ni losange, ni libellé, ni contrainte,
+    // ni dérivation — et que le lien conservé n'ait pas déjà écrit son propre côté source, qui
+    // l'emporterait alors sur ce que dit l'autre.
     private static boolean fusionnable(UmlAssociation gardee, UmlAssociation partenaire) {
         return partenaire.type() == UMLRelationType.ASSOCIATION
             && partenaire.label().isEmpty()
-            && partenaire.qualifier().isEmpty()
             && partenaire.constraints().isEmpty()
-            && !partenaire.ordered()
             && !partenaire.derived()
             && gardee.sourceRole().isEmpty()
             && gardee.sourceCardinality().isEmpty();
@@ -168,8 +166,7 @@ public final class AssociationsReciproques {
         return new UmlAssociation(gardee.fieldName(), gardee.targetQualifiedName(), gardee.type(),
             partenaire.targetCardinality(), gardee.targetCardinality(),
             partenaire.targetRole(), gardee.targetRole(),
-            gardee.ordered(), gardee.qualifier(), gardee.label(), gardee.direction(),
-            gardee.derived(), gardee.constraints());
+            gardee.label(), gardee.direction(), gardee.derived(), gardee.constraints());
     }
 
     private static String clef(String nomSource, UmlAssociation association) {

@@ -56,15 +56,14 @@ final class Strategie {
 
     // Une règle du projet écarte-t-elle cet attribut, indépendamment de la stratégie ?
     //
-    // Le filtre anti-bruit ne travaille pas que sur les méthodes : « hide field log, LOGGER » et
-    // « hide field Classe.membre » retirent aussi des attributs. Sans cette question, le
-    // processeur reprochait à un @UMLInclude d'être « sans effet, le champ est déjà montré par la
-    // stratégie » alors que c'était précisément la règle à laquelle il dérogeait — sans lui, le
-    // champ aurait disparu.
+    // Le filtre anti-bruit ne travaille pas que sur les méthodes : « hide log, LOGGER » retire
+    // aussi des attributs, un motif visant les deux sortes de membres indifféremment. Sans cette
+    // question, le processeur reprochait à un @UMLInclude d'être « sans effet, le champ est déjà
+    // montré par la stratégie » alors que c'était précisément la règle à laquelle il dérogeait —
+    // sans lui, le champ aurait disparu.
     //
     // Faux quand les règles sont hors de portée : ne pas savoir, c'est ne pas conclure.
-    boolean champMasqueParUneRegle(String classe, String nom) {
-        return regles != null
-            && (regles.champMasque(nom) || regles.champMasqueNommement(classe, nom));
+    boolean champMasqueParUneRegle(String nom) {
+        return regles != null && regles.membreMasque(nom);
     }
 }

@@ -318,26 +318,4 @@ class ConstructeurDeVuesTest {
         assertFalse(dansLaVue.relations().isEmpty());
     }
 
-    // --- Les boîtes déclarées et les vues par paquetage ---
-
-    @Test
-    void uneBoiteDeclaree_nEntreDansAucuneVueParPaquetage() {
-        // Une boîte déclarée n'a pas de paquetage : son nom qualifié est son nom simple. La
-        // ranger dans un paquetage « (défaut) » fabriquait une vue entière que personne n'avait
-        // demandée — deux boîtes orphelines, sans leur parent ni la flèche d'héritage, sortis
-        // de la vue avec lui.
-        UmlEntity declaree = UmlEntity.builder("StringRepresentation", "StringRepresentation")
-            .declared(true).build();
-        ImmutableSet<UmlEntity> entites = ImmutableSet.<UmlEntity>builder()
-            .addAll(projet()).add(declaree).build();
-
-        ImmutableList<UmlView> toutes = ConstructeurDeVues.construire(entites,
-            UmlDiagram.defaut(),
-            Regles.lues(ImmutableList.of("views by package"), "les règles du test"));
-
-        assertTrue(toutes.stream().noneMatch(v -> v.name().equals("(défaut)")),
-            toutes.stream().map(UmlView::name).toList().toString());
-        // La boîte n'est pas perdue pour autant : la vue intégrale la montre, avec sa marque.
-        assertTrue(noms(toutes.get(0)).contains("StringRepresentation"));
-    }
 }

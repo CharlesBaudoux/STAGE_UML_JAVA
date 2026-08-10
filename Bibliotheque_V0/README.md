@@ -147,7 +147,7 @@ chaque annotation porte sa Javadoc :
 |---|---|
 | `@UMLClass(name, stereotype, color, strategy)` | cette classe est une boîte ; sa stratégie dit quels membres se dessinent |
 | `@UMLAssociation(target, notation, type, …)` | cet attribut est un lien — un trait (`ARROW`) ou une ligne dans la boîte (`ATTRIBUTE`) |
-| `@UMLDependency`, `@UMLAssociationClass`, `@UMLLayout` | dépendances, classes d'association, placements |
+| `@UMLDependency`, `@UMLAssociationClass` | dépendances, classes d'association |
 | `@UMLInclude(name, asAttribute)` | montre ce membre quelle que soit la stratégie ; `name` le renomme, `asAttribute = true` écrit un accesseur en notation attribut (`xKeycodeByXKeyName : Map<String, Short>`, sans parenthèses) |
 | `@UMLExclude` | tais ce membre — le veto de plus haute priorité ; posé sur la déclaration d'une interface, il vaut pour tous les overrides |
 | `@UMLMultiplicity("0..*")` | la multiplicité d'une propriété, quand le type ne la dit pas |
@@ -166,27 +166,36 @@ génération, et une règle restée sans effet est signalée en fin de scan. L'e
 strategy public                 # ce que les boîtes montrent, sans annoter chaque classe
 hide accessors                  # les familles de bruit : accessors, object-methods,
 hide record-accessors           #   record-accessors, enum-methods
-hide method with*, is*          # des motifs de noms ; hide field log, LOGGER
-hide method Classe.membre       # une désignation nommément, qui l'emporte même sur @UMLInclude
-hide return void                # un retour void ne s'écrit pas
-hide visibility                 # ni « + » ni « - » devant les membres
-hide parameter names            # « from(KeyboardMap) » au lieu de « from(map : KeyboardMap) »
+hide with*, is*, log, LOGGER    # des motifs de noms : méthodes et attributs indifféremment
+omit return void                # un retour void ne s'écrit pas
+omit visibility                 # ni « + » ni « - » devant les membres
+omit parameter names            # « from(KeyboardMap) » au lieu de « from(map : KeyboardMap) »
 type ImmutableList -> List      # le nom sous lequel un type s'affiche
 order declaration               # les membres dans l'ordre du code, plutôt qu'alphabétique
 multiplicity brackets           # Set<X> s'écrit « X [0..*] », Optional<X> « X [0..1] »
 title Architecture du module    # le titre de la vue d'ensemble
 direction left-to-right         # son sens de lecture
 show empty members              # rétablit les compartiments vides
-group package com.ex.modele -> "Modèle"
 view "Mapping" = KeysymEntry, KeyboardMap - XkbSymbolsReader
 view "Mapping" direction left-to-right
 view "Autour de X" = around X   # une classe et ses voisins déclarés
 views by package                # une vue par paquetage, sans rien déclarer
-declare class StringRepresentation extends Representation
-declare field StringRepresentation string : String
-declare association Animal -> Chien 0..*
-output replace                  # ou « output keep », qui numérote les générations
 ```
+
+Onze mots-clés, et **aucun** qui refasse ce qu'une annotation sait faire. Le critère est unique :
+*si la décision désigne un élément par son nom, c'est une annotation ; sinon c'est une règle.* D'où
+la règle de priorité, sans exception à retenir : **l'annotation l'emporte toujours sur la règle.**
+
+Trois conséquences : aucune règle ne désigne un membre nommément — `hide Representation.string`
+est refusé, `@UMLExclude` est fait pour cela ; aucune règle ne range une classe nommée —
+`@UMLPackage` seul ; aucune règle ne fabrique une boîte ni un lien — ce qui n'est pas dans le code
+n'est pas sur le diagramme. Et ce qui ne dit rien du modèle se règle à l'appel plutôt qu'ici :
+`.keepPrevious(true)`, ou `-Dumlg.keepPrevious=true`, conserve la génération précédente dans un
+dossier voisin numéroté au lieu de la remplacer.
+
+Deux verbes, et ce qui les sépare : `hide` fait disparaître un membre, `omit` retire un morceau de
+la ligne d'un membre qui reste affiché. Le mot dit à lui seul si `@UMLInclude` peut le contredire —
+il le peut pour `hide`, et il n'y a rien à ramener pour `omit`.
 
 ## Les couleurs
 

@@ -119,17 +119,18 @@ class PlantUmlNotationTest {
 
     @UMLClass
     static class Decoree {
+        @UMLConstraint(rule = "ordered")
         @UMLConstraint(rule = "non vide")
         @UMLDerived
         @UMLAssociation(target = Commande.class, targetCardinality = "1..*",
-            isOrdered = true, notation = UMLNotation.ATTRIBUTE)
+            notation = UMLNotation.ATTRIBUTE)
         protected List<Commande> achats;
     }
 
     @Test
     void barreObliqueMultipliciteEtContraintes_seSuiventDansLOrdreUml() {
         // L'ordre est celui d'UML, et le même que sur un trait : le nom, sa multiplicité, puis
-        // les règles — {ordered} avant celles de l'utilisateur.
+        // les règles, dans l'ordre où elles sont écrites.
         String source = document(Decoree.class, Commande.class);
 
         assertTrue(source.contains("# /achats : Commande [1..*] {ordered} {non vide}"),

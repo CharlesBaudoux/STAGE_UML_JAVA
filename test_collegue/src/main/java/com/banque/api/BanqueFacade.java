@@ -29,10 +29,9 @@ public class BanqueFacade {
     @UMLInclude
     private String secretInterne;
 
-    /** Association qualifiée : chaque client est retrouvé par son numéro. */
+    /** Cible portée par une Map : le target dit laquelle des deux moitiés est visée. */
     @UMLAssociation(
         target = Client.class,
-        qualifier = "numeroClient",
         targetCardinality = "0..*",
         targetRole = "clients",
         label = "expose")

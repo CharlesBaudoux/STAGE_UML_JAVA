@@ -20,8 +20,8 @@ public class JournalAudit {
         sourceCardinality = "1",
         sourceRole = "journal",
         targetCardinality = "0..*",
-        targetRole = "consignées",
-        isOrdered = true)
+        targetRole = "consignées")
+    @UMLConstraint(rule = "ordered")
     @UMLConstraint(rule = "lecture seule")
     private List<? extends Operation> operationsSuspectes;
 

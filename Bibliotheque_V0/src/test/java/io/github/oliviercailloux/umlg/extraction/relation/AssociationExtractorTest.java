@@ -114,9 +114,7 @@ class AssociationExtractorTest {
             sourceCardinality = "1",
             targetCardinality = "0..*",
             targetRole = "achats",
-            isOrdered = true,
             label = "passe",
-            qualifier = "reference",
             sourceRole = "client",
             direction = UMLDirection.DOWN)
         private List<Ligne> lignes;
@@ -133,8 +131,6 @@ class AssociationExtractorTest {
         assertEquals("0..*", association.targetCardinality());
         assertEquals("client", association.sourceRole());
         assertEquals("achats", association.targetRole());
-        assertTrue(association.ordered());
-        assertEquals("reference", association.qualifier());
         assertEquals("passe", association.label());
         assertEquals(UMLDirection.DOWN, association.direction());
     }
@@ -146,20 +142,19 @@ class AssociationExtractorTest {
     }
 
     // Le pendant du test précédent : hormis target, obligatoire, tout doit valoir « rien » —
-    // chaîne vide, NONE, false — et jamais null, que le rendu aurait à tester partout.
+    // chaîne vide, NONE — et jamais null, que le rendu aurait à tester partout.
     @Test
     void parDefaut_touteValeurFacultativeEstNeutre() {
         UmlAssociation association = seuleAssociation(AnnotationNue.class);
 
         assertEquals(UMLRelationType.ASSOCIATION, association.type());
         assertEquals(UMLDirection.NONE, association.direction());
-        assertFalse(association.ordered());
         assertEquals("", association.sourceCardinality());
         assertEquals("", association.targetCardinality());
         assertEquals("", association.sourceRole());
         assertEquals("", association.targetRole());
-        assertEquals("", association.qualifier());
         assertEquals("", association.label());
+        assertTrue(association.constraints().isEmpty());
     }
 
     // --- Le « où » ajouté au « quoi » ---

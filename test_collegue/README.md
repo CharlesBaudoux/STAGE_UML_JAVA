@@ -125,8 +125,6 @@ En revanche `Client.getaway()` **est** affichée : le préfixe seul ne fait pas 
 | `sourceCardinality` | `"titulaire 1"`, `"journal 1"`, et `"*"` côté `Compte`/`Devise` |
 | `targetCardinality` | `"comptes 1..*"`, `"domicile 0..1"`, `"historique 0..*"` |
 | `sourceRole` / `targetRole` | `titulaire`, `journal`, `comptes`, `domicile`, `historique`, `consignées`, `cartesActives` |
-| `isOrdered` | `{ordered}` sur trois liens |
-| `qualifier` | `[dateOperation]` et `[numeroClient]`, entre crochets côté source |
 | `label` | `détient`, `enregistre`, `expose`, `de type` |
 | `direction` | `DOWN`, `RIGHT`, `LEFT`, `UP`, et `NONE` — les cinq sont utilisées |
 
@@ -242,7 +240,7 @@ Deux limites qui figuraient ici ont été levées, et ce fichier les annonçait 
 
 ## Ce que ce projet ne couvre pas encore
 
-`@UMLAssociationClass`, `@UMLPackage` et `@UMLLayout` sont implémentées depuis, mais ce projet de
+`@UMLAssociationClass` et `@UMLPackage` sont implémentées depuis, mais ce projet de
 démonstration ne les exerce pas : les tableaux ci-dessus restent à compléter. Il ne montre pas non
 plus la fusion des associations réciproques — deux attributs qui se font face ne donnent qu'un
 seul trait, à deux extrémités nommées — ni l'italique des opérations abstraites.

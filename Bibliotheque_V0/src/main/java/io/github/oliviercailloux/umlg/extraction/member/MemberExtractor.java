@@ -130,14 +130,6 @@ public final class MemberExtractor {
                 continue;
             }
 
-            // Un membre désigné nommément — « hide field Representation.string » — sort quoi
-            // qu'il porte, @UMLInclude compris : une désignation qui nomme la classe et le
-            // membre est aussi individuelle que l'annotation, et elle est écrite au niveau du
-            // diagramme, là où se décide ce que les boîtes déclarées redisent déjà.
-            if (regles.champMasqueNommement(clazz.getSimpleName(), field.getName())) {
-                continue;
-            }
-
             // Un attribut que le projet tient pour du bruit — un logger, un compteur interne —
             // sort ici. Le veto individuel @UMLInclude le ramène, comme pour une méthode.
             if (NoiseFilter.estDuBruit(field, regles)
@@ -322,18 +314,13 @@ public final class MemberExtractor {
                 UmlAssociation.builder(field.getName(), cible.getName())
                     .targetRole(association.targetRole())
                     .targetCardinality(association.targetCardinality())
-                    .ordered(association.isOrdered())
                     .constraints(ConstraintExtractor.de(field, emplacement(field)))
                     .build();
 
-            // {ordered} d'abord, les règles de l'utilisateur ensuite : le même ordre que sur un
+            // Les contraintes s'écrivent dans l'ordre où elles sont déclarées, le même que sur un
             // trait (voir Extremite), pour que déplacer un lien d'une notation à l'autre ne
-            // réarrange rien.
-            ImmutableList.Builder<String> contraintes = ImmutableList.builder();
-            if (lien.ordered()) {
-                contraintes.add("ordered");
-            }
-            contraintes.addAll(lien.constraints());
+            // réarrange rien. « ordered » est l'une d'elles, et n'a plus de traitement à part.
+            ImmutableList<String> contraintes = lien.constraints();
 
             return new UmlField(
                 nomAffiche(field),
@@ -345,7 +332,7 @@ public final class MemberExtractor {
                 symbole(field.getModifiers(), regles),
                 Modifier.isStatic(field.getModifiers()),
                 field.isAnnotationPresent(UMLDerived.class),
-                contraintes.build());
+                contraintes);
         } catch (IllegalArgumentException | NullPointerException e) {
             // Le modèle a détecté la faute — une multiplicité « 3..1 », par exemple — mais ignore
             // d'où elle vient : on rejoue son message en le préfixant de l'emplacement.
@@ -355,8 +342,9 @@ public final class MemberExtractor {
 
     // Le type rendu par une méthode, tel qu'il paraît après les deux-points.
     //
-    // Une règle « hide return » peut l'effacer tout à fait — c'est le seul endroit où un type
-    // peut ne pas être écrit du tout, « valider() » disant déjà qu'il n'y a rien à rendre. Sinon,
+    // La règle « omit return void » peut l'effacer tout à fait — c'est le seul endroit où un
+    // type peut ne pas être écrit du tout, « valider() » disant déjà qu'il n'y a rien à rendre.
+    // Sinon,
     // il s'écrit avec ses paramètres de type, et se réduit à l'élément quand une multiplicité le
     // suit : « names(): String [0..*] » se lit « rend zéro ou plusieurs chaînes ».
     private static String retour(Method method, String multiplicite, Regles regles) {
@@ -373,7 +361,7 @@ public final class MemberExtractor {
     // Le taire est un choix de lecture : UML le demande, mais beaucoup de diagrammes tenus à la
     // main l'omettent, parce qu'ils montrent une structure plutôt qu'une API.
     private static String symbole(int modifiers, Regles regles) {
-        return regles.masquerVisibilite() ? "" : VisibilityPolicy.symbole(modifiers);
+        return regles.omettreVisibilite() ? "" : VisibilityPolicy.symbole(modifiers);
     }
 
     // Désigne un attribut dans un message d'erreur, sous la forme « com.banque.Client.solde ».
@@ -394,9 +382,9 @@ public final class MemberExtractor {
             // getParameterizedType, et non getType : « Map<String, Short> » plutôt que « Map ».
             String type = TypeAffiche.de(parametre.getParameterizedType(), regles);
 
-            // « hide parameter names » : le projet a choisi les signatures courtes, celles des
+            // « omit parameter names » : le projet a choisi les signatures courtes, celles des
             // diagrammes tenus à la main — le nom est tu même quand la compilation l'a gardé.
-            parametres.add(parametre.isNamePresent() && !regles.masquerNomsParametres()
+            parametres.add(parametre.isNamePresent() && !regles.omettreNomsDeParametres()
                 ? new UmlParameter(parametre.getName(), type)
                 : UmlParameter.anonyme(type));
         }
@@ -431,12 +419,6 @@ public final class MemberExtractor {
             // faille le répéter sur chaque override (voir excluParHeritage).
             boolean hasExclude = method.isAnnotationPresent(UMLExclude.class)
                 || excluParHeritage(clazz, method);
-
-            // Une méthode désignée nommément — « hide method Classe.nom » — sort quoi qu'elle
-            // porte : même règle, et même justification, que pour un attribut.
-            if (regles.methodeMasqueeNommement(clazz.getSimpleName(), method.getName())) {
-                continue;
-            }
 
             // Le bruit ne se juge plus tout seul : seules les familles et les motifs écrits dans
             // le fichier de règles écartent quoi que ce soit. @UMLInclude garde le dernier mot,
@@ -483,18 +465,14 @@ public final class MemberExtractor {
     // Le processeur refuse le reste à la compilation ; la vérification est refaite ici pour le
     // code compilé sans lui.
     //
-    // La dérogation étant du @UMLInclude, la visibilité est acquise ; ne l'écartent que les
-    // mêmes vetos qui écartent une méthode incluse : @UMLExclude — hérité compris — et la
-    // désignation nommément du fichier de règles.
+    // La dérogation étant du @UMLInclude, la visibilité est acquise ; ne l'écarte que le seul veto
+    // qui écarte une méthode incluse : @UMLExclude, hérité compris.
     public static ImmutableList<UmlField> methodesEnAttributs(Class<?> clazz, Regles regles) {
         ImmutableList.Builder<UmlField> result = ImmutableList.builder();
 
         for (Method method : MembresOrdonnes.methodes(clazz, regles)) {
             UMLInclude inclusion = method.getAnnotation(UMLInclude.class);
             if (method.isSynthetic() || inclusion == null || !inclusion.asAttribute()) {
-                continue;
-            }
-            if (regles.methodeMasqueeNommement(clazz.getSimpleName(), method.getName())) {
                 continue;
             }
             if (method.isAnnotationPresent(UMLExclude.class) || excluParHeritage(clazz, method)) {
@@ -514,7 +492,7 @@ public final class MemberExtractor {
                 result.add(new UmlField(
                     nomAffiche(method),
                     // Le type est celui que la méthode rend — écrit comme sur un attribut, sans
-                    // passer par « hide return » : un attribut porte toujours son type.
+                    // passer par « omit return void » : un attribut porte toujours son type.
                     multiplicite.isEmpty()
                         ? TypeAffiche.de(method.getGenericReturnType(), regles)
                         : TypeAffiche.deLElement(method.getGenericReturnType(), regles),

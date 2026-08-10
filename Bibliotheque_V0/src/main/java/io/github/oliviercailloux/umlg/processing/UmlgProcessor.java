@@ -12,8 +12,6 @@ import io.github.oliviercailloux.umlg.annotation.UMLDependency;
 import io.github.oliviercailloux.umlg.annotation.UMLDerived;
 import io.github.oliviercailloux.umlg.annotation.UMLExclude;
 import io.github.oliviercailloux.umlg.annotation.UMLInclude;
-import io.github.oliviercailloux.umlg.annotation.UMLLayout;
-import io.github.oliviercailloux.umlg.annotation.UMLLayouts;
 import io.github.oliviercailloux.umlg.annotation.UMLMultiplicity;
 import io.github.oliviercailloux.umlg.annotation.UMLNote;
 import io.github.oliviercailloux.umlg.annotation.UMLNotes;
@@ -64,9 +62,7 @@ public final class UmlgProcessor extends AbstractProcessor {
         UMLConstraint.class,
         UMLConstraints.class,
         UMLPackage.class,
-        UMLAssociationClass.class,
-        UMLLayout.class,
-        UMLLayouts.class);
+        UMLAssociationClass.class);
 
     // L'option qui fait taire les avertissements : -Aumlg.warnings=none sur la ligne de javac,
     // ou <compilerArgs> dans le pom. Les erreurs, elles, restent : elles disent qu'aucun
@@ -95,7 +91,6 @@ public final class UmlgProcessor extends AbstractProcessor {
     private VerificateurContrainte contraintes;
     private VerificateurPackage groupes;
     private VerificateurClasseDAssociation classesDAssociation;
-    private VerificateurLayout placements;
 
     @Override
     public synchronized void init(ProcessingEnvironment environnement) {
@@ -140,7 +135,6 @@ public final class UmlgProcessor extends AbstractProcessor {
         contraintes = new VerificateurContrainte(rapporteur, strategie);
         groupes = new VerificateurPackage(rapporteur);
         classesDAssociation = new VerificateurClasseDAssociation(rapporteur, cible);
-        placements = new VerificateurLayout(rapporteur, cible);
     }
 
     @Override
@@ -210,13 +204,11 @@ public final class UmlgProcessor extends AbstractProcessor {
         // Les types à examiner : ceux qui portent @UMLClass, et ceux qui portent une dépendance
         // sans porter @UMLClass — ce sont justement ceux-là qu'il faut signaler.
         for (Element classe : porteurs(tour, UMLClass.class, UMLDependency.class,
-            UMLDependencies.class, UMLPackage.class, UMLAssociationClass.class, UMLLayout.class,
-            UMLLayouts.class)) {
+            UMLDependencies.class, UMLPackage.class, UMLAssociationClass.class)) {
             classes.verifier((TypeElement) classe);
             dependances.verifier((TypeElement) classe);
             groupes.verifier((TypeElement) classe);
             classesDAssociation.verifier((TypeElement) classe);
-            placements.verifier((TypeElement) classe);
         }
 
         for (Element champ : porteurs(tour, UMLAssociation.class)) {
