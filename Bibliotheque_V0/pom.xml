@@ -136,6 +136,69 @@
             </plugin>
 
             <!--
+                La Javadoc de l'API publique, engendrée par la construction.
+
+                Ce que ce bloc répare. Le pom parent configure bien le plugin, mais en
+                pluginManagement seul : rien ne l'exécutait, et la documentation n'existait
+                nulle part. Pire, l'appeler à la main échouait sur un message opaque —
+                « Creating an aggregated report for both named and unnamed modules is not
+                possible » — qui accusait le projet lui-même.
+
+                La cause. Le goal « javadoc » ne déclenche que la phase generate-sources : il ne
+                compile pas. Sans target/classes/module-info.class, le plugin ne voit pas que
+                cette bibliothèque est un module nommé, la range parmi les modules anonymes, et
+                refuse de mélanger les deux. D'où l'exécution ci-dessous, liée à « package » :
+                la phase implique compile, le descripteur de module est là, et la question ne se
+                pose plus. « mvn verify » produit donc la documentation, et la CI vérifie du même
+                coup qu'elle s'engendre toujours.
+
+                En ligne de commande, écrire « mvn compile javadoc:javadoc » et non
+                « mvn javadoc:javadoc » : la même raison, et le même message si on l'oublie.
+
+                Seuls les trois paquetages exportés par module-info.java paraissent — la façade,
+                les annotations, le modèle. Le reste est fermé, donc hors sujet pour qui lit
+                cette documentation : ses commentaires s'adressent au mainteneur, et sont écrits
+                en « // » pour cela.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>apidocs</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>javadoc</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <!--
+                        Le français de la documentation, et l'UTF-8 de bout en bout : sans ces
+                        trois lignes, les accents des commentaires ressortent en mojibake dans le
+                        HTML produit.
+                    -->
+                    <locale>fr_FR</locale>
+                    <encoding>UTF-8</encoding>
+                    <docencoding>UTF-8</docencoding>
+                    <charset>UTF-8</charset>
+                    <!--
+                        L'horodatage retiré : sans lui, deux générations du même code donnent des
+                        fichiers identiques, et un diff ne montre que ce qui a vraiment changé.
+                    -->
+                    <notimestamp>true</notimestamp>
+                    <!--
+                        doclint reste entier — « missing » compris. Un membre public sans
+                        commentaire est signalé, ce qui est le seul moyen de voir venir la
+                        prochaine classe publique qu'on oublierait de documenter. Il avertit sans
+                        rompre la construction : failOnWarnings resterait à discuter le jour où
+                        le compte sera durablement à zéro.
+                    -->
+                    <doclint>all</doclint>
+                </configuration>
+            </plugin>
+
+            <!--
                 La couverture, mesurée par la construction plutôt qu'à la main.
 
                 Elle était de 96,9 % des instructions, et rien ne la protégeait : aucun outil ne
