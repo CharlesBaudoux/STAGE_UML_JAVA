@@ -15,5 +15,8 @@ import java.lang.annotation.Target;
 @Target({ElementType.TYPE, ElementType.FIELD, ElementType.METHOD})
 public @interface UMLNotes {
 
+    /**
+     * {@return les notes regroupées}. Le nom {@code value} est imposé par {@code @Repeatable}.
+     */
     UMLNote[] value();
 }

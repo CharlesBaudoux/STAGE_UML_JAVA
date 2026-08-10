@@ -33,6 +33,8 @@ public @interface UMLInclude {
      *
      * <p>La chaîne vide — le défaut — veut dire « le nom du code ». Un nom réduit à des espaces est
      * refusé, et un nom identique à celui du code ne change rien, ce que le processeur signale.
+     *
+     * @return le nom de remplacement ; vide = le nom du code.
      */
     String name() default "";
 
@@ -50,6 +52,8 @@ public @interface UMLInclude {
      *
      * <p>Réservé aux méthodes sans paramètre qui rendent quelque chose : un paramètre ou un retour
      * void n'ont pas de forme attribut, et le processeur le refuse à la compilation.
+     *
+     * @return vrai pour écrire la méthode parmi les attributs.
      */
     boolean asAttribute() default false;
 }

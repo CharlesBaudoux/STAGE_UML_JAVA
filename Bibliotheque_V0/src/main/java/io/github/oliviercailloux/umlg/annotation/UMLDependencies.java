@@ -16,6 +16,9 @@ import java.lang.annotation.Target;
 @Target(ElementType.TYPE)
 public @interface UMLDependencies {
 
-    // Le tableau des annotations regroupées. Le nom « value » est imposé par @Repeatable.
+    /**
+     * {@return les dépendances regroupées}. Le nom {@code value} est imposé par
+     * {@code @Repeatable}.
+     */
     UMLDependency[] value();
 }

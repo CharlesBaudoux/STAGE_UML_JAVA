@@ -37,6 +37,8 @@ public @interface UMLAssociation {
      *
      * <p>void.class est la sentinelle « rien d'écrit » : une annotation Java ne peut pas avoir null
      * pour défaut, et void n'a jamais pu être une extrémité de lien.
+     *
+     * @return la classe visée, ou {@code void.class} pour la déduire du type de l'attribut.
      */
     Class<?> target() default void.class;
 
@@ -53,37 +55,60 @@ public @interface UMLAssociation {
      * qui décorent un trait — type, direction, label, le rôle et la multiplicité côté source —
      * n'ont alors nulle part où s'écrire ; le processeur d'annotations le signale plutôt que de
      * les laisser disparaître en silence.
+     *
+     * @return la notation retenue.
      */
     UMLNotation notation() default UMLNotation.ARROW;
 
     /**
      * Nature du lien : simple association, composition (losange plein) ou agrégation (creux).
+     *
+     * @return la nature du lien.
      */
     UMLRelationType type() default UMLRelationType.ASSOCIATION;
 
     /**
-     * Multiplicités affichées à chaque extrémité, par exemple "1", "0..1", "*", "1..*".
-     * Vide = rien d'affiché de ce côté.
+     * Multiplicité affichée du côté de la source, par exemple {@code 1}, {@code 0..1},
+     * {@code *}, {@code 1..*}.
+     *
+     * @return la multiplicité côté source ; vide = rien d'affiché de ce côté.
      */
     String sourceCardinality() default "";
 
+    /**
+     * Multiplicité affichée du côté de la cible, écrite comme celle de la source.
+     *
+     * @return la multiplicité côté cible ; vide = rien d'affiché de ce côté.
+     */
     String targetCardinality() default "";
 
     /**
-     * Rôles : le nom que joue chaque extrémité, écrit le long du trait. Vide = rien d'affiché.
+     * Rôle : le nom que joue l'extrémité de départ, écrit le long du trait.
+     *
+     * @return le rôle côté source ; vide = rien d'affiché.
      */
     String sourceRole() default "";
 
+    /**
+     * Rôle de l'extrémité d'arrivée. En notation attribut, c'est lui qui devient le nom même de
+     * la propriété affichée dans la boîte.
+     *
+     * @return le rôle côté cible ; vide = rien d'affiché.
+     */
     String targetRole() default "";
 
     /**
      * Texte posé au milieu du trait, pour nommer l'association elle-même.
+     *
+     * @return le texte du trait ; vide = rien d'affiché.
      */
     String label() default "";
 
     /**
      * Contrainte de mise en page : force PlantUML à placer la cible en haut, en bas, à gauche ou
      * à droite. NONE laisse l'outil décider.
+     *
+     * @return la contrainte de placement.
      */
     UMLDirection direction() default UMLDirection.NONE;
 }

@@ -30,19 +30,23 @@ package io.github.oliviercailloux.umlg;
  */
 public enum UmlStyle {
 
-    // Ce que PlantUML dessine quand on ne lui dit rien : boîtes grises, pastille « C » verte ou
-    // « I » violette accolée au nom, traits et flèches par défaut.
-    //
-    // C'est le défaut de la bibliothèque. Un utilisateur qui n'a rien demandé obtient le rendu
-    // habituel de PlantUML, celui qu'il reconnaîtra de tous les diagrammes qu'il a déjà vus, et
-    // celui auquel ressemblent les diagrammes écrits à la main.
+    /**
+     * Ce que PlantUML dessine quand on ne lui dit rien : boîtes grises, pastille « C » verte ou
+     * « I » violette accolée au nom, traits et flèches par défaut.
+     *
+     * <p>C'est le défaut de la bibliothèque. Un utilisateur qui n'a rien demandé obtient le rendu
+     * habituel de PlantUML, celui qu'il reconnaîtra de tous les diagrammes qu'il a déjà vus, et
+     * celui auquel ressemblent les diagrammes écrits à la main.
+     */
     PLANTUML,
 
-    // Le thème propre à la bibliothèque : bandeau bleu pâle sur fond blanc cassé, bords bleu
-    // foncé, coins arrondis, pas d'ombre, nom des liens en italique coloré, et pastille masquée
-    // — le mot-clé « interface » ou « abstract class » écrit dans la boîte dit déjà la même
-    // chose.
-    //
-    // Plus sobre à l'impression et sur un fond clair, au prix d'un repère visuel en moins.
+    /**
+     * Le thème propre à la bibliothèque : bandeau bleu pâle sur fond blanc cassé, bords bleu
+     * foncé, coins arrondis, pas d'ombre, nom des liens en italique coloré, et pastille masquée
+     * — le mot-clé « interface » ou « abstract class » écrit dans la boîte dit déjà la même
+     * chose.
+     *
+     * <p>Plus sobre à l'impression et sur un fond clair, au prix d'un repère visuel en moins.
+     */
     UMLG
 }

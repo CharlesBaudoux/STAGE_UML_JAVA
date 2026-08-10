@@ -30,12 +30,16 @@ public @interface UMLPackage {
     /**
      * Le nom du groupe, écrit sur le rectangle. Sans valeur par défaut, donc obligatoire : un
      * groupe anonyme ne dirait pas ce qu'il rassemble, et c'est tout ce qu'on lui demande.
+     *
+     * @return le nom du groupe. Obligatoire.
      */
     String name();
 
     /**
      * Couleur de fond du rectangle, décodée par ColorCodec comme celle d'une boîte (nom PlantUML
-     * ou #RRGGBB). Vide = pas de couleur imposée.
+     * ou #RRGGBB).
+     *
+     * @return la couleur du rectangle ; vide = pas de couleur imposée.
      */
     String color() default "";
 }

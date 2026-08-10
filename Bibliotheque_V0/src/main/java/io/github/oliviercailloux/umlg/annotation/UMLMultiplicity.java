@@ -41,6 +41,8 @@ public @interface UMLMultiplicity {
      * « @UMLMultiplicity("0..*") » se lit mieux que la même chose écrite deux fois. La grammaire
      * est celle des multiplicités de lien, et c'est la même règle qui la vérifie — il n'y en a
      * qu'une en UML, qu'elle se lise le long d'un trait ou à côté d'un nom.
+     *
+     * @return la multiplicité, dans le vocabulaire d'UML.
      */
     String value();
 }

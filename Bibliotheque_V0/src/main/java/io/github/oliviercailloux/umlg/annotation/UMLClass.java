@@ -19,19 +19,25 @@ import java.lang.annotation.Target;
 public @interface UMLClass {
 
     /**
-     * Nom affiché dans la boîte. Vide = on garde le nom simple de la classe Java.
+     * Nom affiché dans la boîte.
+     *
+     * @return le nom à afficher ; vide = on garde le nom simple de la classe Java.
      */
     String name() default "";
 
     /**
      * Couleur de fond de la boîte, décodée par ColorCodec (nom PlantUML ou #RRGGBB).
      * Vide = pas de couleur imposée, PlantUML applique son thème.
+     *
+     * @return la couleur de fond de la boîte.
      */
     String color() default "";
 
     /**
      * Stéréotype UML affiché entre guillemets au-dessus du nom, par exemple « service ».
      * Vide = aucun stéréotype.
+     *
+     * @return le stéréotype à afficher.
      */
     String stereotype() default "";
 
@@ -44,6 +50,8 @@ public @interface UMLClass {
      *
      * <p>NONE : aucun membre ; seuls ceux explicitement marqués @UMLInclude apparaissent. C'est ce
      * qu'on écrit pour ramener une classe à sa boîte nue dans un projet qui montre le reste.
+     *
+     * @return la stratégie de visibilité de cette classe.
      */
     UMLVisibility strategy() default UMLVisibility.PROJECT;
 }

@@ -40,8 +40,15 @@ public @interface UMLAssociationClass {
      *
      * <p>« source » et « target » sont les noms qu'emploient toutes les annotations désignant les
      * bouts d'un lien : une convention uniforme évite d'avoir à se rappeler laquelle dit quoi.
+     *
+     * @return l'extrémité de départ du lien qualifié. Obligatoire.
      */
     Class<?> source();
 
+    /**
+     * L'autre extrémité du lien que cette classe qualifie.
+     *
+     * @return l'extrémité d'arrivée du lien qualifié. Obligatoire.
+     */
     Class<?> target();
 }
