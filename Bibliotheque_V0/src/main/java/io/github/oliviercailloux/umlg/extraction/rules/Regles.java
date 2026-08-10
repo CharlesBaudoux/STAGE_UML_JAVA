@@ -4,7 +4,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.github.oliviercailloux.umlg.annotation.UMLFlow;
 import io.github.oliviercailloux.umlg.annotation.UMLVisibility;
 import java.io.IOException;
@@ -36,8 +35,7 @@ import java.nio.file.Path;
 //   strategy public
 //
 //   # Le bruit : rien n'est masqué tant qu'on ne l'a pas demandé.
-//   hide accessors
-//   hide object-methods
+//   hide get*, set*, is*
 //   hide with*, log, LOGGER
 //
 //   # Les types de Guava n'apprennent rien au lecteur du diagramme.
@@ -104,7 +102,7 @@ public final class Regles {
     public static final String NOM_DU_FICHIER = "umlg.rules";
 
     private static final Regles AUCUNE = new Regles(ImmutableMap.of(), false,
-        UMLVisibility.NONE, false, ImmutableSet.of(), ImmutableList.of(),
+        UMLVisibility.NONE, false, ImmutableList.of(),
         ImmutableList.of(), false, "",
         UMLFlow.TOP_TO_BOTTOM, true, false, false, false, false);
 
@@ -129,10 +127,6 @@ public final class Regles {
     // choix, la même boîte sans aucune ligne est presque toujours une surprise, et c'est elle
     // que la génération signale (voir ProjectScanner).
     private final boolean strategieDeclaree;
-
-    // Les familles de membres que le projet tient pour du bruit. Vide par défaut : la
-    // bibliothèque ne décide plus à la place de l'utilisateur de ce qui mérite d'être dessiné.
-    private final ImmutableSet<Bruit> bruits;
 
     // Les motifs de noms, façon « get* ». Une seule liste : un motif vise les méthodes et les
     // attributs indifféremment, un nom appartenant presque toujours à l'un ou à l'autre. Le rare
@@ -201,7 +195,7 @@ public final class Regles {
         java.util.concurrent.ConcurrentHashMap.newKeySet();
 
     Regles(ImmutableMap<String, String> alias, boolean omettreRetourVoid,
-        UMLVisibility strategie, boolean strategieDeclaree, ImmutableSet<Bruit> bruits,
+        UMLVisibility strategie, boolean strategieDeclaree,
         ImmutableList<Motif> membresMasques, ImmutableList<DefinitionDeVue> vues,
         boolean vuesParPaquetage, String titre, UMLFlow direction,
         boolean masquerMembresVides, boolean omettreVisibilite,
@@ -211,7 +205,6 @@ public final class Regles {
         this.omettreRetourVoid = omettreRetourVoid;
         this.strategie = checkNotNull(strategie);
         this.strategieDeclaree = strategieDeclaree;
-        this.bruits = checkNotNull(bruits);
         this.membresMasques = checkNotNull(membresMasques);
         this.vues = checkNotNull(vues);
         this.vuesParPaquetage = vuesParPaquetage;
@@ -283,12 +276,6 @@ public final class Regles {
     public UMLVisibility strategieDe(UMLVisibility declaree) {
         checkNotNull(declaree);
         return declaree == UMLVisibility.PROJECT ? strategie : declaree;
-    }
-
-    // Cette famille de bruit est-elle masquée par le projet ?
-    public boolean masque(Bruit famille) {
-        checkNotNull(famille);
-        return bruits.contains(famille);
     }
 
     // Ce nom de membre — méthode ou attribut — correspond-il à l'un des motifs masqués ?
@@ -424,7 +411,7 @@ public final class Regles {
     public boolean vides() {
         return alias.isEmpty() && !omettreRetourVoid && strategie == UMLVisibility.NONE
             && !strategieDeclaree
-            && bruits.isEmpty() && membresMasques.isEmpty()
+            && membresMasques.isEmpty()
             && vues.isEmpty() && !vuesParPaquetage && titre.isEmpty()
             && direction == UMLFlow.TOP_TO_BOTTOM && masquerMembresVides && !omettreVisibilite
             && !omettreNomsDeParametres && !ordreDeclaration && !multiplicitesDeduites;

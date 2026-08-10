@@ -150,31 +150,34 @@ class ReglesDuProjetTest {
     }
 
     @Test
-    void hideAccessors_masqueLesTroisFormes() {
-        List<String> methodes =
-            nomsDesMethodes(EntityExtractor.extract(Bavarde.class, regles("hide accessors")));
+    void motifDAccesseurs_masqueLesGettersEtLesSetters() {
+        // Les accesseurs se désignent comme tout le reste, par leurs noms : le fichier n'a pas de
+        // mot réservé pour eux. Chaque motif est indépendant — « get* » ne dit rien de « set* ».
+        List<String> methodes = nomsDesMethodes(
+            EntityExtractor.extract(Bavarde.class, regles("hide get*, set*")));
 
         assertFalse(methodes.contains("getNom"), methodes.toString());
         assertFalse(methodes.contains("setNom"), methodes.toString());
         assertTrue(methodes.contains("valider"), "La méthode métier reste.");
         assertTrue(methodes.contains("toString"),
-            "Une autre famille n'est pas masquée pour autant.");
+            "Ce qu'aucun motif ne vise reste affiché.");
     }
 
     @Test
-    void hideObjectMethods_neMasquePasLesAccesseurs() {
-        // Les familles sont indépendantes : demander l'une ne demande pas les autres.
+    void motifExact_neMasqueQueLeNomEcrit() {
+        // Sans étoile, le motif ne vaut que pour le nom exact : masquer « toString » ne touche
+        // pas aux accesseurs.
         List<String> methodes =
-            nomsDesMethodes(EntityExtractor.extract(Bavarde.class, regles("hide object-methods")));
+            nomsDesMethodes(EntityExtractor.extract(Bavarde.class, regles("hide toString")));
 
         assertFalse(methodes.contains("toString"), methodes.toString());
         assertTrue(methodes.contains("getNom"), methodes.toString());
     }
 
     @Test
-    void motifDeMethode_masqueCeQuAucuneFamilleNeReconnait() {
-        // « withNom » n'est ni un accesseur ni une méthode d'Object : aucune famille ne le voit.
-        // C'est exactement ce que les motifs viennent couvrir — les conventions propres au projet.
+    void motifDeMethode_masqueLesConventionsDuProjet() {
+        // « withNom » ne suit aucune convention que la bibliothèque connaîtrait : c'est
+        // exactement ce que les motifs viennent couvrir — les conventions propres au projet.
         List<String> methodes =
             nomsDesMethodes(EntityExtractor.extract(Bavarde.class, regles("hide with*")));
 
@@ -216,34 +219,29 @@ class ReglesDuProjetTest {
     void includeLEmporteSurLaRegle() {
         // La règle de priorité : le cas particulier écrit sur le membre bat le réglage général.
         UmlEntity entity = EntityExtractor.extract(RepecheeALaMain.class,
-            regles("hide accessors", "hide log*"));
+            regles("hide get*", "hide log*"));
 
         assertTrue(nomsDesChamps(entity).contains("logger"), entity.fields().toString());
         assertTrue(nomsDesMethodes(entity).contains("getNom"), entity.methods().toString());
     }
 
     @Test
-    void familleMalOrthographiee_estUnMotif_etSeReleveEnFinDeScan() {
-        // Depuis que « hide » prend directement des motifs, « accesseurs » est un nom de membre
-        // parfaitement licite : rien ne distingue la faute de frappe de l'intention. Le refus est
-        // donc impossible, et c'est le relevé des règles mortes qui prend le relais — le même
-        // filet que pour « hide LOGGR » ou l'étoile oubliée d'un « hide get ».
+    void motifQuiNeViseRien_seReleveEnFinDeScan() {
+        // « hide » ne prend que des motifs, et tout nom de membre en est un : rien ne distingue
+        // une faute de frappe d'une intention, et le refus est donc impossible. C'est le relevé
+        // des règles mortes qui prend le relais — le même filet que pour « hide LOGGR » ou
+        // l'étoile oubliée d'un « hide get ».
         Regles lues = regles("hide accesseurs");
 
-        assertFalse(lues.masque(Bruit.ACCESSORS));
         assertEquals(List.of("hide accesseurs"), lues.reglesSansEffet());
     }
 
     @Test
-    void uneFamille_resteReconnueAvantLesMotifs() {
-        // L'ordre de lecture compte : sans lui, « accessors » passerait pour un nom de membre.
-        assertTrue(regles("hide accessors").masque(Bruit.ACCESSORS));
-    }
+    void hideSansMotif_estRefuse() {
+        IllegalArgumentException e =
+            assertThrows(IllegalArgumentException.class, () -> regles("hide"));
 
-    @Test
-    void familleDemandeeDeuxFois_estRefusee() {
-        assertThrows(IllegalArgumentException.class,
-            () -> regles("hide accessors", "hide accessors"));
+        assertTrue(e.getMessage().contains("hide <patterns>"), e.getMessage());
     }
 
     @Test
@@ -256,7 +254,6 @@ class ReglesDuProjetTest {
     @Test
     void motifVide_estRefuse() {
         assertThrows(IllegalArgumentException.class, () -> regles("hide get*,"));
-        assertThrows(IllegalArgumentException.class, () -> regles("hide"));
     }
 
     // --- Les symboles de visibilité ---
@@ -340,8 +337,7 @@ class ReglesDuProjetTest {
             "# Les réglages de tout le projet",
             "strategy public",
             "",
-            "hide accessors",
-            "hide object-methods",
+            "hide get*, set*",
             "hide with*, visit*, log, LOGGER",
             "omit return void",
             "omit visibility",
@@ -349,7 +345,7 @@ class ReglesDuProjetTest {
 
         assertFalse(lues.vides());
         assertEquals(UMLVisibility.PUBLIC, lues.strategie());
-        assertTrue(lues.masque(Bruit.ACCESSORS));
+        assertTrue(lues.membreMasque("getNom"));
         assertTrue(lues.membreMasque("withNom"));
         assertTrue(lues.membreMasque("LOGGER"));
         assertTrue(lues.omettreVisibilite());

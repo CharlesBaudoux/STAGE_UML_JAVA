@@ -164,9 +164,8 @@ génération, et une règle restée sans effet est signalée en fin de scan. L'e
 
 ```
 strategy public                 # ce que les boîtes montrent, sans annoter chaque classe
-hide accessors                  # les familles de bruit : accessors, object-methods,
-hide record-accessors           #   record-accessors, enum-methods
-hide with*, is*, log, LOGGER    # des motifs de noms : méthodes et attributs indifféremment
+hide get*, set*, toString       # des motifs de noms : méthodes et attributs indifféremment
+hide with*, is*, log, LOGGER    #   « * » remplace n'importe quelle suite de caractères
 omit return void                # un retour void ne s'écrit pas
 omit visibility                 # ni « + » ni « - » devant les membres
 omit parameter names            # « from(KeyboardMap) » au lieu de « from(map : KeyboardMap) »

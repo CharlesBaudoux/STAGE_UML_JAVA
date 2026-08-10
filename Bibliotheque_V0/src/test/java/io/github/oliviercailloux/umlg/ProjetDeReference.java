@@ -50,7 +50,8 @@ public final class ProjetDeReference {
     }
 
     // Une énumération : ses littéraux occupent leur propre compartiment, sans type ni visibilité.
-    // values() et valueOf(), que le compilateur ajoute, sont écartés par le filtre anti-bruit.
+    // values() et valueOf(), que le compilateur ajoute, sont écartés par un motif du fichier de
+    // règles — elles ne sont pas synthétiques, rien ne les retirerait sans qu'on le demande.
     @UMLClass(strategy = UMLVisibility.PUBLIC)
     public enum Statut {
         ACTIF, SUSPENDU
@@ -162,7 +163,7 @@ public final class ProjetDeReference {
             return "";
         }
 
-        // Un accesseur : le filtre anti-bruit l'écarte, il n'apparaît pas sur le diagramme.
+        // Un accesseur : le motif « hide get* » l'écarte, il n'apparaît pas sur le diagramme.
         public String getNom() {
             return nom;
         }
