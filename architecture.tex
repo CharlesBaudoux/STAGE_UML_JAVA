@@ -83,7 +83,7 @@ chercher.
 \begin{tabular}{c}
 \hline
 \\
-\texttt{annotation/} \quad ce que l'utilisateur écrit dans son code \\
+\texttt{annotation/} \; et le fichier \texttt{umlg.rules} \quad ce que l'utilisateur écrit \\
 $\downarrow$ \\
 \texttt{extraction/} \quad lecture du code compilé, par réflexion \\
 $\downarrow$ \\
@@ -94,6 +94,26 @@ $\downarrow$ \\
 \hline
 \end{tabular}
 \end{center}
+
+\noindent Un cinquième dossier, \texttt{processing/}, est \emph{hors} de cette chaîne : il
+s'exécute à l'intérieur du compilateur, et non à la génération. Il est décrit à part.
+
+\subsection{Les trois endroits où quelque chose se décide}
+
+Cette question revient sans cesse : \emph{où écrit-on ce réglage ?} La réponse tient en une
+phrase, et elle explique la présence du fichier de règles à côté des annotations.
+
+\begin{itemize}
+  \item Si la décision \textbf{désigne un élément par son nom} — cette classe-ci s'appelle ainsi,
+        cet attribut-là est un lien — c'est une \textbf{annotation}.
+  \item Si elle vaut pour \textbf{tout le projet, ou pour une vue}, c'est une règle du fichier
+        \texttt{umlg.rules}.
+  \item Si elle ne dit \textbf{rien du diagramme} — son habillage, le sort de la génération
+        précédente — c'est une \textbf{option d'appel} du générateur.
+\end{itemize}
+
+\noindent D'où une règle de priorité sans exception : \textbf{l'annotation l'emporte toujours sur
+la règle}. Le cas particulier, écrit sur l'élément, bat le réglage qui vaut partout.
 
 \subsection{Pourquoi séparer \texttt{model} de \texttt{rendering} ?}
 
@@ -142,7 +162,7 @@ C'est pourquoi la bibliothèque vérifie elle-même, en amont, et refuse bruyamm
 % =========================================================
 \section{Le dossier racine : \texttt{umlg/}}
 
-Un seul fichier, et c'est voulu : c'est la porte d'entrée.
+Peu de fichiers, et c'est voulu : c'est la porte d'entrée, et tout ce qui s'y trouve est public.
 
 \begin{longtable}{L{4.2cm} L{10cm}}
 \toprule
@@ -152,9 +172,24 @@ Un seul fichier, et c'est voulu : c'est la porte d'entrée.
 \texttt{UMLGenerator} &
 La façade publique. C'est la seule classe qu'un utilisateur de la bibliothèque a besoin de
 connaître. Elle enchaîne les deux grandes étapes — scanner, puis écrire — et rien d'autre.
-Elle se construit par un \emph{builder} (\texttt{sourceDirectory}, \texttt{outputFile}), ce qui
-permet de vérifier tôt que le dossier existe et que le format demandé est bien du \texttt{.png}
-ou du \texttt{.svg}. Contient aussi un \texttt{main}, pour un usage en ligne de commande. \\
+Elle se construit par un \emph{builder} (\texttt{sourceDirectory}, puis \texttt{outputFile} pour
+un seul dessin ou \texttt{outputDirectory} pour toutes les vues), ce qui permet de vérifier tôt
+que le dossier existe et que le format demandé est bien du \texttt{.png} ou du \texttt{.svg}.
+C'est aussi là que se posent les options d'appel — \texttt{style}, \texttt{keepPrevious} —, celles
+qui ne disent rien du diagramme. Contient un \texttt{main}, pour la ligne de commande. \\
+\addlinespace
+\texttt{UmlStyle} &
+L'habillage : couleurs, épaisseur des traits, police. Ne change jamais ce que le diagramme
+\emph{dit} — les mêmes boîtes, les mêmes traits — seulement son apparence. \\
+\addlinespace
+\texttt{RapportDeGeneration} &
+Ce que la génération a fait : combien de diagrammes, où, combien de classes dessinées et
+ignorées. La bibliothèque le \emph{rend} au lieu de l'afficher : choisir le canal n'appartient
+pas à une bibliothèque, mais à celui qui l'appelle. \\
+\addlinespace
+\texttt{Avertissements} &
+Où partent les avertissements, pour la même raison. Le plugin Maven les dirige vers son
+\emph{log}, la ligne de commande vers la sortie d'erreur. \\
 \bottomrule
 \end{longtable}
 
@@ -188,7 +223,7 @@ masque ce qu'elle afficherait. En cas de conflit, \texttt{@UMLExclude} gagne. \\
 \addlinespace
 \texttt{UMLAssociation} &
 Posée sur un \emph{attribut}, elle le transforme en trait entre deux boîtes. Tous ses
-paramètres sont facultatifs : cardinalités, rôles, qualificatif, étiquette, sens du trait, et
+paramètres sont facultatifs : cardinalités, rôles, étiquette, sens du trait, et
 \texttt{target} pour désigner explicitement la classe visée quand elle ne peut pas se déduire. \\
 \addlinespace
 \texttt{UMLRelationType} &
@@ -206,9 +241,29 @@ C'est la seule façon de faire apparaître un lien que le code ne porte pas stru
 un service appelé dans le corps d'une méthode n'est pas un attribut, rien ne pourrait en être
 déduit. \\
 \addlinespace
-\texttt{UMLDependencies} &
-Purement technique, jamais écrite à la main. Java exige ce conteneur pour qu'une annotation
-puisse être \emph{répétée} sur la même classe. C'est ce qui permet d'écrire plusieurs
+\texttt{UMLAssociationClass} &
+Une classe qui qualifie un lien — ce que Java ne sait pas exprimer autrement que par une classe
+intermédiaire. UML la relie au trait par un pointillé. \\
+\addlinespace
+\texttt{UMLMultiplicity} \newline \texttt{UMLDerived} \newline \texttt{UMLNotation} &
+Trois précisions sur une ligne de boîte : combien d'éléments (\texttt{0..*}), si la propriété est
+\emph{calculée} plutôt que stockée (la barre oblique d'UML), et sous quelle forme un lien se
+dessine — un trait, ou une ligne dans la boîte. \\
+\addlinespace
+\texttt{UMLNote} \newline \texttt{UMLConstraint} &
+Ce qu'on ajoute au dessin sans l'inventer : une bulle de commentaire, et une règle formelle entre
+accolades (\texttt{\{ordered\}}). Toutes deux se posent sur une classe comme sur un membre. \\
+\addlinespace
+\texttt{UMLPackage} &
+Le rectangle nommé dans lequel une boîte se range, avec sa couleur. C'est le \emph{seul} moyen de
+grouper : ranger désigne des classes par leur nom, donc c'est une annotation, jamais une règle. \\
+\addlinespace
+\texttt{UMLFlow} &
+Le sens dans lequel un dessin se déplie : de haut en bas, ou de gauche à droite. \\
+\addlinespace
+\texttt{UMLDependencies} \newline \texttt{UMLNotes} \newline \texttt{UMLConstraints} &
+Purement techniques, jamais écrites à la main. Java exige un conteneur pour qu'une annotation
+puisse être \emph{répétée} sur le même élément. C'est ce qui permet d'écrire plusieurs
 \texttt{@UMLDependency} d'affilée. \\
 \addlinespace
 \texttt{package-info} &
@@ -230,8 +285,16 @@ coup ne pourrait rien garantir.
 \midrule
 \endhead
 \texttt{UmlProject} &
-L'ensemble des entités du diagramme. Refuse d'être vide : scanner un projet où personne n'a
-annoté doit produire une erreur compréhensible, pas une image blanche. \\
+L'ensemble des entités du diagramme, et les vues qu'on en tire. Refuse d'être vide : scanner un
+projet où personne n'a annoté doit produire une erreur compréhensible, pas une image blanche. \\
+\addlinespace
+\texttt{UmlView} &
+Un sous-ensemble du diagramme, dessiné dans son propre fichier. Un projet réel ne tient pas sur
+une image : la vue intégrale sert de plan, et chaque vue détaille un sujet. \\
+\addlinespace
+\texttt{UmlDiagram} &
+Les réglages qui valent pour le dessin d'ensemble : son titre, son sens de lecture, le sort des
+compartiments restés vides. \\
 \addlinespace
 \texttt{UmlEntity} &
 Une boîte. Porte deux noms qu'il ne faut surtout pas confondre : \texttt{qualifiedName} est son
@@ -260,6 +323,15 @@ l'afficherait sans broncher. \\
 Un lien d'\emph{usage} : la source a besoin de la cible, sans la détenir. D'où l'absence de
 cardinalité et de rôle — il n'y a pas d'extrémité à décrire, seulement un usage à signaler. \\
 \addlinespace
+\texttt{UmlInheritance} \newline \texttt{UmlAssociationClass} \newline \texttt{UmlLayout} &
+Les trois autres natures de liens : l'héritage (lu dans \texttt{extends} et \texttt{implements},
+sans rien annoter), le pointillé qui rattache une classe d'association à son trait, et le lien
+\emph{invisible} qui ne sert qu'à placer les boîtes que rien ne relie. \\
+\addlinespace
+\texttt{UmlNote} \newline \texttt{UmlPackage} \newline \texttt{UmlParameter} &
+Les petites pièces : une bulle de commentaire, un rectangle de regroupement, un paramètre de
+méthode. \\
+\addlinespace
 \texttt{package-info} &
 Documentation du paquetage : où sont les gardes, et pourquoi tout y est immuable. \\
 \bottomrule
@@ -277,13 +349,13 @@ déclare — deux erreurs qu'il serait autrement possible de commettre.
 Ce dossier lit les fichiers \texttt{.class} compilés et les traduit en modèle, par
 \emph{réflexion} (l'API Java qui permet d'interroger une classe à l'exécution).
 
-Il compte onze fichiers là où il n'y en avait que deux, et cette multiplication est le cœur de
-la réorganisation. La raison est simple : chacun de ces sujets \textbf{grossit séparément}. Le
-catalogue des conventions reconnues comme de la plomberie n'a aucune raison de faire grossir la
-déduction des types génériques, ni l'inverse. Réunis dans un seul fichier, ils se gênaient.
+C'est le dossier le plus fourni, et il est découpé en \textbf{trois sous-dossiers}, parce que
+chacun de ces sujets grossit de son côté : ce qui remplit une boîte (\texttt{member/}), ce qui
+tend un trait entre deux boîtes (\texttt{relation/}), et ce que le projet a réglé une fois pour
+toutes (\texttt{rules/}). Réunis, ils se gênaient.
 
-Seuls \texttt{ProjectScanner} et \texttt{EntityExtractor} sont publics ; tous les autres sont
-volontairement invisibles hors du paquetage. C'est là que se lit le contrat : ce qui n'est pas
+Seuls \texttt{ProjectScanner} et \texttt{EntityExtractor} sont publics ; presque tout le reste est
+volontairement invisible hors du paquetage. C'est là que se lit le contrat : ce qui n'est pas
 public n'a pas à rester stable.
 
 \begin{longtable}{L{4.2cm} L{10cm}}
@@ -293,18 +365,54 @@ public n'a pas à rester stable.
 \endhead
 \texttt{ProjectScanner} &
 Parcourt un dossier de \texttt{.class}, les charge, et retient ceux qui portent
-\texttt{@UMLClass}. Traduit au passage le chemin du fichier en nom de classe. Si un fichier est
-illisible, l'erreur \emph{nomme} la classe fautive. \\
+\texttt{@UMLClass}. C'est aussi lui qui \emph{signale} ce qui vaut d'être vu sans arrêter le
+dessin : boîtes vides faute de stratégie déclarée, compilation sans \texttt{-parameters}, règles
+restées lettre morte. \\
 \addlinespace
 \texttt{EntityExtractor} &
-Le chef d'orchestre, et rien d'autre : 63 lignes. Il valide l'en-tête, demande les membres,
-puis parcourt son \textbf{catalogue d'extracteurs de liens}. Il ne connaît plus aucune nature
-de lien en particulier — seulement leur liste. \\
+Le chef d'orchestre, et rien d'autre. Il valide l'en-tête, demande les membres, puis parcourt son
+\textbf{catalogue d'extracteurs de liens}. Il ne connaît aucune nature de lien en particulier —
+seulement leur liste. \\
 \addlinespace
 \texttt{ClassHeaderValidator} &
 Les gardes sur ce que \texttt{@UMLClass} déclare : \texttt{name}, \texttt{stereotype},
 \texttt{color}. Illustre la règle n\textsuperscript{o}2 : le nom n'a qu'une contrainte
 (désigner quelque chose), la couleur est vérifiée par liste blanche. \\
+\addlinespace
+\texttt{ConstructeurDeVues} &
+Taille le projet en vues : l'intégrale, celles que le fichier déclare, celles qu'il fait calculer
+(une par paquetage). Les vues sont découpées ici et non au rendu, car elles dépendent des règles
+du projet, que seule l'extraction a lues. \\
+\addlinespace
+\texttt{TypeAffiche} &
+Écrit un type tel qu'il paraîtra dans une boîte, paramètres de type compris — et c'est ici que
+les renommages du fichier de règles (\texttt{ImmutableList} affiché « List ») s'appliquent. \\
+\addlinespace
+\texttt{MembresOrdonnes} \newline \texttt{OrdreDuFichierClasse} &
+L'ordre des membres dans une boîte : l'alphabet par défaut, ou l'ordre du code si le projet le
+demande. La réflexion ne promet aucun ordre ; le second relit donc le fichier \texttt{.class}
+pour retrouver celui de la déclaration. \\
+\addlinespace
+\texttt{PackageExtractor} \newline \texttt{NoteExtractor} \newline \texttt{ConstraintExtractor} &
+Les trois lectures secondaires : le rectangle de regroupement, les bulles de commentaire, les
+règles formelles entre accolades. \\
+\addlinespace
+\texttt{package-info} &
+Documentation du paquetage : statut de chaque classe, et le point d'extension. \\
+\bottomrule
+\end{longtable}
+
+\subsection{\texttt{extraction/member/} — ce qui remplit une boîte}
+
+\begin{longtable}{L{4.2cm} L{10cm}}
+\toprule
+\textbf{Fichier} & \textbf{Rôle} \\
+\midrule
+\endhead
+\texttt{MemberExtractor} &
+Parcourt attributs et méthodes, et traduit ceux qui sont retenus. Écarte au passage un attribut
+promu en lien : en UML, une propriété se note dans la boîte \emph{ou} comme un trait, jamais les
+deux. \\
 \addlinespace
 \texttt{VisibilityPolicy} &
 Répond à « ce membre paraît-il ? », et « sous quel symbole ? ». Applique d'abord les
@@ -312,46 +420,80 @@ dérogations, puis le seuil. Écrit avec un \texttt{switch} exhaustif : ajouter 
 \texttt{UMLVisibility} sans dire ce qu'elle retient devient une erreur de compilation. \\
 \addlinespace
 \texttt{NoiseFilter} &
-Reconnaît la \emph{plomberie} : getters, setters, \texttt{toString}, accesseurs de
-\texttt{record}, méthodes que \texttt{javac} ajoute aux \texttt{enum}. Détail crucial : la
+\emph{Reconnaît} la plomberie — getters, setters, \texttt{toString}, accesseurs de
+\texttt{record}, méthodes que \texttt{javac} ajoute aux \texttt{enum} — sans jamais décider de la
+masquer : c'est le fichier de règles qui le demande, famille par famille. Détail crucial : la
 détection exige la convention JavaBean \emph{complète} (préfixe suivi d'une majuscule, arité,
 type de retour). Un simple test de préfixe faisait disparaître silencieusement
 \texttt{setup()}, \texttt{issue()}, \texttt{getaway()}, \texttt{isoler()} — de vraies méthodes
 métier. \\
-\addlinespace
-\texttt{MemberExtractor} &
-Parcourt attributs et méthodes, et traduit ceux qui sont retenus. Écarte au passage un attribut
-promu en lien : en UML, une propriété se note dans la boîte \emph{ou} comme un trait, jamais
-les deux. \\
-\addlinespace
-\texttt{TargetResolver} &
-Répond à la question la plus difficile du dossier : \emph{vers quoi pointe ce lien quand
-l'annotation ne le dit pas ?} Sait déduire l'élément d'un tableau, le contenu d'une collection
-ou d'un \texttt{Optional}, la valeur d'une \texttt{Map}, la borne haute d'un joker. Refuse
-franchement quand le code ne dit rien (\texttt{List} brute, \texttt{List<T>}) : deviner
-produirait un lien faux, qui se lit exactement comme un lien vrai. \\
-\addlinespace
+\bottomrule
+\end{longtable}
+
+\subsection{\texttt{extraction/relation/} — ce qui tend un trait}
+
+\begin{longtable}{L{4.2cm} L{10cm}}
+\toprule
+\textbf{Fichier} & \textbf{Rôle} \\
+\midrule
+\endhead
 \texttt{RelationExtractor} &
 \textbf{Le point d'extension.} Une interface : « voici une classe, donne-moi les liens que tu
-sais y lire ». Une implémentation par annotation de lien. \\
+sais y lire ». Une implémentation par nature de lien. \\
 \addlinespace
-\texttt{AssociationExtractor} &
-Lit les \texttt{@UMLAssociation} posées sur les attributs. Note qu'un lien n'est \emph{pas}
-soumis à la stratégie de visibilité : une composition ne disparaît pas parce que le champ qui
-la porte est privé — c'est même le cas le plus courant. \\
+\texttt{AssociationExtractor} \newline \texttt{DependencyExtractor} \newline
+\texttt{InheritanceExtractor} \newline \texttt{AssociationClassExtractor} &
+Les quatre implémentations. Notez qu'un lien n'est \emph{pas} soumis à la stratégie de
+visibilité : une composition ne disparaît pas parce que le champ qui la porte est privé — c'est
+même le cas le plus courant. L'héritage, lui, ne s'annote pas : il se lit dans \texttt{extends}
+et \texttt{implements}. \\
 \addlinespace
-\texttt{DependencyExtractor} &
-Lit les \texttt{@UMLDependency} posées sur la classe. Écarte deux fautes silencieuses : une
-classe qui dépend d'elle-même (une boucle sans information), et deux déclarations identiques
-(deux traits superposés, invisibles à l'\oe il). \\
+\texttt{TargetResolver} \newline \texttt{CibleDeduite} &
+La question la plus difficile du dossier : \emph{vers quoi pointe ce lien quand l'annotation ne
+le dit pas ?} Savent déduire l'élément d'un tableau, le contenu d'une collection ou d'un
+\texttt{Optional}, la valeur d'une \texttt{Map}. Refusent franchement quand le code ne dit rien
+(\texttt{List} brute, \texttt{List<T>}) : deviner produirait un lien faux, qui se lit exactement
+comme un lien vrai. \\
 \addlinespace
 \texttt{Emplacement} &
 Une seule méthode, et pourtant un fichier à elle : elle produit le « où » des messages d'erreur
 (\texttt{com.banque.Compte.solde}). Chaque extracteur à venir doit désigner la déclaration
 fautive de la même façon, et non chacun à la sienne. \\
+\bottomrule
+\end{longtable}
+
+\subsection{\texttt{extraction/rules/} — ce que le projet règle une fois pour toutes}
+
+Une annotation dit une chose sur un élément. Écrire « affiche \texttt{ImmutableList} comme
+\texttt{List} » sur chacun des deux cents attributs d'un projet est un travail que personne ne
+fait, et que personne ne tient à jour. D'où un fichier, \texttt{umlg.rules}, posé à la racine du
+répertoire analysé — facultatif, et lu une seule fois avant la première classe.
+
+\begin{longtable}{L{4.2cm} L{10cm}}
+\toprule
+\textbf{Fichier} & \textbf{Rôle} \\
+\midrule
+\endhead
+\texttt{LecteurDeRegles} &
+Lit le fichier ligne à ligne. Une règle commence par un mot-clé qui dit sa nature — il y en a
+onze — et c'est lui qui décide comment lire le reste. Le vocabulaire est \textbf{fermé} : un mot
+inconnu \emph{arrête} la génération, plutôt que d'appliquer en silence des règles dont une partie
+serait ignorée. Chaque refus nomme le fichier et le numéro de ligne : il n'y a pas de compilateur
+pour relire ce que l'utilisateur écrit ici. \\
 \addlinespace
-\texttt{package-info} &
-Documentation du paquetage : statut de chaque classe, et le point d'extension. \\
+\texttt{Regles} &
+Le résultat de cette lecture, interrogé par tout le reste de l'extraction. Retient au passage
+quelles lignes ont \emph{servi} : une règle qui ne vise plus rien — une classe renommée, une
+faute de frappe — est un no-op parfait, que rien d'autre ne signalerait. \\
+\addlinespace
+\texttt{Motif} \newline \texttt{Bruit} &
+Les deux façons de désigner des membres : un motif de noms (\texttt{get*}, \texttt{*Cache}), et
+les quatre familles reconnues à leur \emph{forme}. Un motif ne peut pas contenir de point :
+désigner un membre par son nom est le travail d'une annotation. \\
+\addlinespace
+\texttt{DefinitionDeVue} \newline \texttt{Selecteur} &
+Ce qu'une vue retient, et comment on le désigne : une classe, un paquetage entier, ou le
+voisinage immédiat d'une classe. \\
 \bottomrule
 \end{longtable}
 
@@ -359,7 +501,8 @@ Documentation du paquetage : statut de chaque classe, et le point d'extension. \
 \section{\texttt{rendering/} — le dessin}
 
 Ce dossier est le seul à connaître la syntaxe de PlantUML. Seul \texttt{PlantUmlWriter} est
-public.
+public. Il se découpe en deux sous-dossiers : \texttt{element/} écrit \emph{un} morceau du dessin
+— une boîte, un trait —, et \texttt{syntax/} règle ce que le moteur exige de tous.
 
 \begin{longtable}{L{4.2cm} L{10cm}}
 \toprule
@@ -377,6 +520,49 @@ Assemble le document. Ne connaît plus de la syntaxe que l'\emph{ordre} des morc
 qu'aucun de ses collaborateurs ne peut savoir seul : les classes avant les liens, et le bloc de
 style en tête bien qu'il ne soit calculable qu'à la fin. \\
 \addlinespace
+\texttt{AssociationsReciproques} &
+Deux attributs qui se font face ne sont qu'\emph{une} association. Sans cette passe, le même lien
+serait dessiné deux fois, une fois depuis chaque bout. \\
+\addlinespace
+\texttt{Proportions} &
+Mesure l'image produite et signale celle qu'on ne pourra pas lire — un ruban de douze contre un.
+C'est le seul contrôle qui exige que le dessin existe déjà. \\
+\addlinespace
+\texttt{package-info} &
+Documentation du paquetage, dont l'asymétrie « ouvert à l'extraction, fermé au rendu ». \\
+\bottomrule
+\end{longtable}
+
+\subsection{\texttt{rendering/element/} — un morceau du dessin}
+
+\begin{longtable}{L{4.2cm} L{10cm}}
+\toprule
+\textbf{Fichier} & \textbf{Rôle} \\
+\midrule
+\endhead
+\texttt{ClassBoxRenderer} &
+Écrit une boîte : son en-tête, ses attributs, le filet séparateur, ses méthodes. L'ordre des
+morceaux de l'en-tête n'est pas libre — le moteur accepte \texttt{[[lien]] \#couleur} et refuse
+l'inverse, sans le dire. \\
+\addlinespace
+\texttt{RelationRenderer} \newline \texttt{Extremite} &
+Écrivent un trait, quelle que soit sa nature, par un \texttt{switch} sur \texttt{UmlRelation}, et
+l'étiquette posée à chacun de ses bouts (« achats 0..* »). Retiennent au passage la largeur de la
+plus large : c'est ici, et nulle part ailleurs, que le diagramme apprend de quel espace il aura
+besoin entre ses boîtes. \\
+\addlinespace
+\texttt{NoteRenderer} \newline \texttt{PackageRenderer} &
+La bulle de commentaire, et le rectangle qui entoure un groupe de boîtes. \\
+\bottomrule
+\end{longtable}
+
+\subsection{\texttt{rendering/syntax/} — ce que le moteur exige}
+
+\begin{longtable}{L{4.2cm} L{10cm}}
+\toprule
+\textbf{Fichier} & \textbf{Rôle} \\
+\midrule
+\endhead
 \texttt{AliasRegistry} &
 L'annuaire du document : à chaque classe, l'identifiant court par lequel PlantUML la désignera.
 Traite deux pièges que PlantUML ne signale pas : un nom sans aucun caractère alphanumérique
@@ -384,14 +570,6 @@ ASCII (un nom en idéogrammes, ou «~...~») donnerait un identifiant vide, et d
 peuvent se réduire au même
 («~Mon.Client~» et «~MonClient~»), auquel cas PlantUML fusionnerait silencieusement les deux
 classes. \\
-\addlinespace
-\texttt{ClassBoxRenderer} &
-Écrit une boîte : son en-tête, ses attributs, le filet séparateur, ses méthodes. \\
-\addlinespace
-\texttt{RelationRenderer} &
-Écrit un trait, quelle que soit sa nature, par un \texttt{switch} sur \texttt{UmlRelation}.
-Retient au passage la largeur de la plus large étiquette d'extrémité : c'est ici, et nulle part
-ailleurs, que le diagramme apprend de quel espace il aura besoin entre ses boîtes. \\
 \addlinespace
 \texttt{PlantUmlEscaper} &
 L'encodage de sortie (règle n\textsuperscript{o}2). Neutralise ce qui casserait la syntaxe ou
@@ -409,7 +587,48 @@ boîtes, calculé d'après la plus longue étiquette — c'est ce réglage qui d
 les textes se chevauchent. \\
 \addlinespace
 \texttt{package-info} &
-Documentation du paquetage, dont l'asymétrie « ouvert à l'extraction, fermé au rendu ». \\
+Documentation du paquetage : ce qui relève du moteur, et ce qui n'en relève pas. \\
+\bottomrule
+\end{longtable}
+
+% =========================================================
+\section{\texttt{processing/} — la vérification à la compilation}
+
+Ce dossier est le seul à ne pas participer à la chaîne. Il contient un \textbf{processeur
+d'annotations} : du code qui s'exécute \emph{à l'intérieur de \texttt{javac}}. Il ne produit
+rien ; il lit les annotations et refuse la compilation quand elles sont fautives.
+
+Pourquoi le faire deux fois, puisque la génération vérifie déjà ? À cause du \textbf{moment}.
+Une annotation contradictoire découverte à la génération se paie d'un aller-retour : on lance
+l'outil, on lit un message, on retourne au code. Découverte à la compilation, elle est signalée
+comme n'importe quelle erreur Java — soulignée dans l'éditeur, à la ligne près, avant même
+d'avoir enregistré. C'est la différence entre un correcteur orthographique et une relecture.
+
+\begin{longtable}{L{4.2cm} L{10cm}}
+\toprule
+\textbf{Fichier} & \textbf{Rôle} \\
+\midrule
+\endhead
+\texttt{UmlgProcessor} &
+Le point d'entrée, déclaré à \texttt{javac}. Il ne vérifie rien lui-même : il distribue chaque
+élément annoté aux vérificateurs. \\
+\addlinespace
+Les \texttt{Verificateur*} &
+Un par sujet — les classes, les membres, les associations, les multiplicités, les contraintes,
+les notes… Chacun connaît une famille de fautes et le message qui l'explique. \\
+\addlinespace
+\texttt{Rapporteur} &
+La distinction qui structure tout le dossier : une \textbf{erreur} arrête la compilation, un
+\textbf{avertissement} la laisse passer. La frontière est une règle, pas une nuance de ton :
+est une erreur ce qui rendrait le diagramme \emph{faux}, un avertissement ce qui le rendrait
+seulement \emph{différent} de ce qu'on croyait demander. \\
+\addlinespace
+\texttt{Strategie} &
+Le seul point délicat. Le défaut de \texttt{@UMLClass} renvoie au fichier \texttt{umlg.rules} —
+que \texttt{javac} ne sait pas trouver, puisqu'il compile des sources et ignore ce que la
+construction fera du résultat. Sans lui, tous les messages du genre « ce membre n'est pas
+affiché » deviennent indécidables, et le processeur \emph{se tait} : un avertissement qui se
+trompe coûte plus cher que celui qui manque un cas, puisqu'il apprend à ne plus les lire. \\
 \bottomrule
 \end{longtable}
 
@@ -425,10 +644,11 @@ ajouter \texttt{@UMLInheritance} (l'héritage). Voici la liste complète de ce q
   \item \textbf{Déclarer le lien dans le modèle} : un nouveau \texttt{record} dans
         \texttt{model/}, qui implémente \texttt{UmlRelation}, et une mention dans la clause
         \texttt{permits} de celle-ci.
-  \item \textbf{Écrire la lecture} : une classe dans \texttt{extraction/} qui implémente
+  \item \textbf{Écrire la lecture} : une classe dans \texttt{extraction/relation/} qui implémente
         \texttt{RelationExtractor}, plus \emph{une ligne} dans le catalogue
         \texttt{EXTRACTEURS} d'\texttt{EntityExtractor}.
-  \item \textbf{Écrire le dessin} : deux \texttt{case} dans \texttt{RelationRenderer}.
+  \item \textbf{Écrire le dessin} : les \texttt{case} manquants dans \texttt{RelationRenderer} —
+        le compilateur dit lesquels.
 \end{enumerate}
 
 \paragraph{Ce qui ne bouge pas.} Ni \texttt{UmlEntity}, ni le corps d'\texttt{EntityExtractor},
@@ -450,65 +670,25 @@ d'une famille entière de traits — l'erreur la plus coûteuse, puisque rien ne
 \section{\texttt{src/test/} — les tests, en miroir}
 
 Les tests suivent exactement le découpage des sources : à chaque classe qui porte une
-responsabilité correspond un fichier de tests qui la vérifie. Cela vaut mode d'emploi : pour
-comprendre ce que fait \texttt{NoiseFilter}, \texttt{NoiseFilterTest} est souvent plus
-instructif que le code lui-même, parce qu'il montre les cas limites qui ont motivé chaque
-ligne.
+responsabilité correspond un fichier de tests qui la vérifie, dans le même sous-dossier. Cela
+vaut mode d'emploi : pour comprendre ce que fait \texttt{NoiseFilter}, \texttt{NoiseFilterTest}
+est souvent plus instructif que le code lui-même, parce qu'il montre les cas limites qui ont
+motivé chaque ligne. Le fichier à ouvrir se déduit donc du nom de la classe, et il n'y a pas de
+catalogue à tenir à jour ici.
 
-\begin{longtable}{L{5.4cm} L{8.8cm}}
-\toprule
-\textbf{Fichier} & \textbf{Ce qu'il vérifie} \\
-\midrule
-\endhead
-\multicolumn{2}{l}{\textit{Racine}} \\
-\midrule
-\texttt{UMLGeneratorTest} &
-La façade : dossier inexistant, format de sortie refusé, valeurs par défaut. \\
-\texttt{UMLGeneratorIntegrationTest} &
-La chaîne complète, de bout en bout, jusqu'au fichier image produit. \\
-\midrule
-\multicolumn{2}{l}{\textit{\texttt{model/} --- les invariants, sans réflexion}} \\
-\midrule
-\texttt{UmlModelTest} & Projet, entité, méthode, attribut : nullité, copies défensives, égalité. \\
-\texttt{UmlAssociationTest} & Multiplicités (vocabulaire fermé) et textes libres. \\
-\texttt{UmlDependencyTest} & Étiquettes et cible. \\
-\texttt{UmlEntityRelationsTest} & La liste unique de liens et ses vues filtrées. \\
-\midrule
-\multicolumn{2}{l}{\textit{\texttt{extraction/} --- une responsabilité, un fichier}} \\
-\midrule
-\texttt{EntityExtractorTest} & L'ordonnancement seul : métadonnées, et le catalogue appelle bien tous ses extracteurs. \\
-\texttt{ClassHeaderValidatorTest} & Nom, stéréotype, couleur. \\
-\texttt{VisibilityPolicyTest} & Les cinq stratégies et les deux dérogations. \\
-\texttt{NoiseFilterTest} & Le filtre anti-bruit, et surtout ses faux positifs. \\
-\texttt{MemberExtractorTest} & \texttt{enum}, \texttt{record}, interfaces, héritage, surcharges, membres générés. \\
-\texttt{TargetResolverTest} & La déduction de cible, et les refus quand elle est indécidable. \\
-\texttt{AssociationExtractorTest} & Les paramètres de l'annotation, et l'articulation avec la boîte. \\
-\texttt{DependencyExtractorTest} & Les dépendances, et les fautes silencieuses écartées. \\
-\texttt{ProjectScannerTest} & Le scan, sur le dossier de compilation du projet lui-même. \\
-\texttt{ProjectScannerIntegrationTest} & Le scan, sur des \texttt{.class} compilés à la volée. \\
-\midrule
-\multicolumn{2}{l}{\textit{\texttt{rendering/}}} \\
-\midrule
-\texttt{PlantUmlAssert} & Outillage partagé : des assertions sur le code PlantUML produit. \\
-\texttt{AliasRegistryTest} & L'annuaire des identifiants, et ses deux pièges. \\
-\texttt{PlantUmlSyntaxBuilderTest} & L'assemblage du document. \\
-\texttt{PlantUmlSyntaxStructureTest} & La structure produite : boîtes, compartiments, en-tête. \\
-\texttt{PlantUmlAssociationTest} & Le rendu des liens structurels. \\
-\texttt{PlantUmlDependencyTest} & Le rendu des liens d'usage. \\
-\texttt{PlantUmlEscapeTest} & L'encodage de sortie --- le fichier le plus fourni du projet. \\
-\texttt{PlantUmlLisibiliteTest} & Les réglages de mise en page. \\
-\texttt{PlantUmlWriterTest} & L'écriture du fichier. \\
-\texttt{PlantUmlWriterOutputTest} & Les formats de sortie et leur détection. \\
-\bottomrule
-\end{longtable}
+Deux familles échappent à ce miroir, et c'est délibéré.
 
-\paragraph{Pourquoi les tests de rendu ne portent pas les noms des nouvelles classes.}
-Ils sont nommés d'après la \emph{fonctionnalité rendue} (l'encodage, les associations, la mise
-en page) et non d'après la classe qui l'implémente. C'est un axe de découpage tout aussi
-légitime, et il a un avantage propre : ces tests vérifient le document produit dans son
-ensemble, ce qu'aucun test d'une classe isolée ne pourrait faire. Seul
-\texttt{PlantUmlAliasTest} a été renommé \texttt{AliasRegistryTest}, l'annuaire étant devenu
-une classe à part entière.
+\paragraph{Les tests nommés d'après une fonctionnalité.} \texttt{PlantUmlEscapeTest},
+\texttt{PlantUmlLisibiliteTest}, \texttt{AffichageDesMembresTest} portent le nom de ce qui est
+\emph{rendu}, non de la classe qui l'implémente. C'est un axe de découpage tout aussi légitime,
+et il a un avantage propre : ces tests vérifient le document produit dans son ensemble, ce
+qu'aucun test d'une classe isolée ne pourrait faire.
+
+\paragraph{Les tests de bout en bout.} \texttt{DuCodeCompileAuPumlTest} écrit un petit projet,
+le \emph{compile pour de bon}, pose un fichier de règles à côté et vérifie les \texttt{.puml}
+livrés. C'est le seul niveau où l'on voit la chaîne entière, et donc le seul où se voient les
+défauts qui vivent \emph{entre} deux étapes — chacune irréprochable de son côté.
+
 
 % =========================================================
 \section{Récapitulatif en une page}
@@ -524,9 +704,11 @@ une classe à part entière.
 \addlinespace
 \texttt{model/} & Ce que le diagramme dit. Immuable, se garde lui-même, ignore PlantUML. \\
 \addlinespace
-\texttt{extraction/} & Comment on lit le code. Une responsabilité par fichier, parce que chacune grossit de son côté. \\
+\texttt{extraction/} & Comment on lit le code. Une responsabilité par fichier, parce que chacune grossit de son côté : \texttt{member/} remplit les boîtes, \texttt{relation/} tend les traits, \texttt{rules/} lit ce que le projet a réglé une fois pour toutes. \\
 \addlinespace
 \texttt{rendering/} & Comment on dessine. Seul à connaître PlantUML, seul à encoder les textes. \\
+\addlinespace
+\texttt{processing/} & Hors chaîne : la même vérification, mais dans le compilateur, donc des années-lumière plus tôt. \\
 \bottomrule
 \end{tabular}
 \end{center}
