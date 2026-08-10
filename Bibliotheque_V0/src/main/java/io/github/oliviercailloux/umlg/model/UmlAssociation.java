@@ -10,11 +10,31 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-// Un trait entre deux boîtes : la traduction d'un attribut annoté @UMLAssociation.
-//
-// L'entité qui porte cette association en est la source ; la cible est désignée par son nom
-// complet, et non par une référence à l'objet UmlEntity — le modèle reste ainsi constructible
-// dans n'importe quel ordre, sans cycle de dépendance entre entités.
+/**
+ * Un trait entre deux boîtes : la traduction d'un attribut annoté {@code @UMLAssociation}.
+ *
+ * <p>L'entité qui porte cette association en est la source ; la cible est désignée par son nom
+ * complet, et non par une référence à l'objet {@link UmlEntity} — le modèle reste ainsi
+ * constructible dans n'importe quel ordre, sans cycle de dépendance entre entités.
+ *
+ * @param fieldName le nom de l'attribut qui porte le lien. Ni nul ni vide.
+ * @param targetQualifiedName le nom complet de la boîte d'arrivée. Ni nul ni vide.
+ * @param type la nature du lien : association simple, agrégation ou composition.
+ * @param sourceCardinality la multiplicité écrite du côté de la source, ou la chaîne vide.
+ * @param targetCardinality la multiplicité écrite du côté de la cible, ou la chaîne vide.
+ * @param sourceRole le rôle écrit du côté de la source, ou la chaîne vide.
+ * @param targetRole le rôle écrit du côté de la cible, ou la chaîne vide.
+ * @param label le texte posé au milieu du trait, ou la chaîne vide.
+ * @param direction le sens de lecture imposé au trait, ou {@code NONE}.
+ * @param derived un lien dérivé : la propriété qu'il porte se calcule au lieu d'être stockée. La
+ *     barre oblique se place devant le rôle cible, qui est le nom de cette propriété sur le
+ *     dessin.
+ * @param constraints les règles formelles portées par le lien, sans leurs accolades —
+ *     {@code subset}, {@code ordered}. Une contrainte écrite sur l'attribut atterrit ici dès lors
+ *     qu'il porte {@code @UMLAssociation} : c'est le lien qu'elle vise, et non la ligne dans la
+ *     boîte, qui n'existe plus. {@code ordered} n'a pas de champ à lui : c'est une contrainte UML
+ *     comme une autre.
+ */
 public record UmlAssociation(
 
     String fieldName,
@@ -26,17 +46,7 @@ public record UmlAssociation(
     String targetRole,
     String label,
     UMLDirection direction,
-    // Un lien dérivé : la propriété qu'il porte se calcule au lieu d'être stockée. La barre
-    // oblique se place devant le rôle cible, qui est le nom de cette propriété sur le dessin.
     boolean derived,
-    // Les règles formelles portées par le lien, sans leurs accolades — « subset », « ordered ».
-    // Une contrainte écrite sur l'attribut atterrit ici dès lors qu'il porte @UMLAssociation :
-    // c'est le lien qu'elle vise, et non la ligne dans la boîte, qui n'existe plus.
-    //
-    // « ordered » n'a pas de champ à lui : c'est une contrainte UML comme une autre, et
-    // @UMLAssociation portait un isOrdered qui produisait exactement le même « {ordered} », à la
-    // même place, indiscernable de celui qu'écrivait @UMLConstraint. Deux façons d'obtenir le
-    // même dessin ne valaient pas le paramètre qu'elles coûtaient.
     ImmutableList<String> constraints
 ) implements UmlRelation {
 
@@ -47,8 +57,17 @@ public record UmlAssociation(
     private static final Pattern CARDINALITE =
         Pattern.compile("\\*|(\\d{1,9})(\\.\\.(\\d{1,9}|\\*))?");
 
-    // Toutes les vérifications sont ici : quel que soit le chemin de construction, une
-    // UmlAssociation qui existe est une association valide.
+    /**
+     * Toutes les vérifications sont ici : quel que soit le chemin de construction, une
+     * {@code UmlAssociation} qui existe est une association valide.
+     *
+     * @throws NullPointerException si l'une des composantes est nulle ; l'absence d'un texte
+     *     facultatif se dit avec la chaîne vide.
+     * @throws IllegalArgumentException si le nom de l'attribut ou celui de la cible est vide, si
+     *     une multiplicité n'est pas une multiplicité UML — un entier, {@code *}, ou un
+     *     intervalle tel que {@code 0..1} dont la borne basse ne dépasse pas la haute —, ou si un
+     *     texte libre n'est fait que d'espaces.
+     */
     public UmlAssociation {
         checkNotNull(fieldName, "The name of the carrying field cannot be null.");
         checkNotNull(targetQualifiedName, "The target qualified name cannot be null.");
@@ -75,6 +94,13 @@ public record UmlAssociation(
         constraints = Contraintes.validees(constraints);
     }
 
+    /**
+     * Ouvre la construction d'un lien, en donnant les deux seules valeurs obligatoires.
+     *
+     * @param fieldName le nom de l'attribut qui porte le lien.
+     * @param targetQualifiedName le nom complet de la boîte d'arrivée.
+     * @return un builder neuf, dont tout le reste vaut « rien de particulier ».
+     */
     public static Builder builder(String fieldName, String targetQualifiedName) {
         return new Builder(fieldName, targetQualifiedName);
     }
@@ -109,6 +135,12 @@ public record UmlAssociation(
             "%s cannot be made of whitespace only.", parametre);
     }
 
+    /**
+     * De quoi construire un lien sans nommer ce qu'il n'a pas.
+     *
+     * <p>Neuf des onze composantes sont optionnelles. Chaque setter rend le builder, ce qui
+     * permet d'enchaîner les appels ; la validation, elle, n'a lieu qu'au {@link #build()}.
+     */
     public static final class Builder {
 
         private final String fieldName;
@@ -130,51 +162,110 @@ public record UmlAssociation(
                 checkNotNull(targetQualifiedName, "The target qualified name cannot be null.");
         }
 
+        /**
+         * Fixe la nature du lien.
+         *
+         * @param type association simple, agrégation ou composition.
+         * @return ce builder.
+         */
         public Builder type(UMLRelationType type) {
             this.type = checkNotNull(type);
             return this;
         }
 
+        /**
+         * Fixe la multiplicité du côté de la source.
+         *
+         * @param cardinality la multiplicité du côté de la source, par exemple {@code 1}.
+         * @return ce builder.
+         */
         public Builder sourceCardinality(String cardinality) {
             this.sourceCardinality = checkNotNull(cardinality);
             return this;
         }
 
+        /**
+         * Fixe la multiplicité du côté de la cible.
+         *
+         * @param cardinality la multiplicité du côté de la cible, par exemple {@code 0..*}.
+         * @return ce builder.
+         */
         public Builder targetCardinality(String cardinality) {
             this.targetCardinality = checkNotNull(cardinality);
             return this;
         }
 
+        /**
+         * Fixe le rôle du côté de la source.
+         *
+         * @param role le rôle écrit du côté de la source.
+         * @return ce builder.
+         */
         public Builder sourceRole(String role) {
             this.sourceRole = checkNotNull(role);
             return this;
         }
 
+        /**
+         * Fixe le rôle du côté de la cible.
+         *
+         * @param role le rôle écrit du côté de la cible.
+         * @return ce builder.
+         */
         public Builder targetRole(String role) {
             this.targetRole = checkNotNull(role);
             return this;
         }
 
+        /**
+         * Fixe le texte posé sur le trait.
+         *
+         * @param label le texte posé au milieu du trait.
+         * @return ce builder.
+         */
         public Builder label(String label) {
             this.label = checkNotNull(label);
             return this;
         }
 
+        /**
+         * Fixe le sens de lecture du trait.
+         *
+         * @param direction le sens de lecture imposé au trait.
+         * @return ce builder.
+         */
         public Builder direction(UMLDirection direction) {
             this.direction = checkNotNull(direction);
             return this;
         }
 
+        /**
+         * Marque le lien comme dérivé.
+         *
+         * @param derived vrai si la propriété portée se calcule au lieu d'être stockée.
+         * @return ce builder.
+         */
         public Builder derived(boolean derived) {
             this.derived = derived;
             return this;
         }
 
+        /**
+         * Remplace les contraintes du lien.
+         *
+         * @param constraints les règles formelles portées par le lien, sans accolades.
+         * @return ce builder.
+         */
         public Builder constraints(List<String> constraints) {
             this.constraints = ImmutableList.copyOf(checkNotNull(constraints));
             return this;
         }
 
+        /**
+         * Le figeage : le constructeur compact valide l'ensemble.
+         *
+         * @return le lien, immuable et vérifié.
+         */
         public UmlAssociation build() {
             return new UmlAssociation(fieldName, targetQualifiedName, type, sourceCardinality,
                 targetCardinality, sourceRole, targetRole, label, direction, derived, constraints);
