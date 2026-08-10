@@ -14,12 +14,16 @@ package io.github.oliviercailloux.umlg.annotation;
  */
 public enum UMLNotation {
 
-    // Un trait entre les deux boîtes, décoré à ses extrémités (voir RelationRenderer).
-    // C'est le défaut : une association demandée sans rien préciser est un lien qui se voit.
+    /**
+     * Un trait entre les deux boîtes, décoré à ses extrémités (voir RelationRenderer).
+     * C'est le défaut : une association demandée sans rien préciser est un lien qui se voit.
+     */
     ARROW,
 
-    // Une ligne du compartiment des attributs, de la forme « - Commande commandes [0..*] » : le
-    // type est la classe visée, et la multiplicité cible se lit entre crochets à côté du nom.
-    // Aucun trait n'est alors dessiné vers la cible.
+    /**
+     * Une ligne du compartiment des attributs, de la forme « - Commande commandes [0..*] » : le
+     * type est la classe visée, et la multiplicité cible se lit entre crochets à côté du nom.
+     * Aucun trait n'est alors dessiné vers la cible.
+     */
     ATTRIBUTE
 }

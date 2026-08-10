@@ -21,10 +21,23 @@ import java.nio.file.Path;
  * classes, quinze manquaient au dessin sans que leur auteur ait moyen de s'en apercevoir
  * autrement qu'en les comptant à la main. Une classe oubliée et une classe volontairement écartée
  * se ressemblent trait pour trait ; seul le compte permet de faire la différence.
+ *
+ * @param classesLues le nombre de classes portant {@code @UMLClass}, donc dessinées.
+ * @param classesIgnorees les noms complets des classes rencontrées sans {@code @UMLClass}.
+ * @param fichiers les images écrites, dans l'ordre où elles l'ont été.
+ * @param fichierDesIgnorees le fichier qui énumère les classes ignorées, ou {@code null} quand il
+ *     n'y avait rien à énumérer ou que la sortie n'a pas de dossier où le poser.
  */
 public record RapportDeGeneration(int classesLues, ImmutableList<String> classesIgnorees,
     ImmutableList<Path> fichiers, Path fichierDesIgnorees) {
 
+    /**
+     * Vérifie les invariants du compte rendu.
+     *
+     * @throws NullPointerException si la liste des classes ignorées ou celle des fichiers est
+     *     nulle. {@code fichierDesIgnorees}, lui, peut être {@code null} : c'est une absence
+     *     légitime, pas un oubli.
+     */
     public RapportDeGeneration {
         checkNotNull(classesIgnorees);
         checkNotNull(fichiers);
@@ -34,6 +47,10 @@ public record RapportDeGeneration(int classesLues, ImmutableList<String> classes
 
     /**
      * Le même compte rendu, sans fichier de classes ignorées.
+     *
+     * @param classesLues le nombre de classes dessinées.
+     * @param classesIgnorees les noms des classes rencontrées sans {@code @UMLClass}.
+     * @param fichiers les images écrites.
      */
     public RapportDeGeneration(int classesLues, ImmutableList<String> classesIgnorees,
         ImmutableList<Path> fichiers) {
@@ -45,6 +62,8 @@ public record RapportDeGeneration(int classesLues, ImmutableList<String> classes
      *
      * <p>Les classes ignorées ne sont énumérées que si elles sont peu nombreuses : au-delà, la liste
      * noierait le reste, et le nombre suffit à savoir qu'il faut aller voir.
+     *
+     * @return le texte à afficher, sans saut de ligne final.
      */
     public String resume() {
         StringBuilder texte = new StringBuilder();

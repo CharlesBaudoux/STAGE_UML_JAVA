@@ -8,13 +8,19 @@ package io.github.oliviercailloux.umlg.annotation;
  */
 public enum UMLRelationType {
 
-    // Lien simple : les deux classes se connaissent, aucune ne possède l'autre. Trait nu.
+    /**
+     * Lien simple : les deux classes se connaissent, aucune ne possède l'autre. Trait nu.
+     */
     ASSOCIATION,
 
-    // Possession forte : la cible ne survit pas à la source. Losange plein côté source.
+    /**
+     * Possession forte : la cible ne survit pas à la source. Losange plein côté source.
+     */
     COMPOSITION,
 
-    // Possession faible : la cible existe indépendamment, elle est seulement regroupée par la
-    // source. Losange creux côté source.
+    /**
+     * Possession faible : la cible existe indépendamment, elle est seulement regroupée par la
+     * source. Losange creux côté source.
+     */
     AGGREGATION
 }

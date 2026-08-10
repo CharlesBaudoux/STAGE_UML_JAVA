@@ -26,7 +26,9 @@ import java.lang.annotation.Target;
 public @interface UMLConstraint {
 
     /**
-     * La règle, sans ses accolades. Obligatoire et non vide.
+     * La règle, sans ses accolades.
+     *
+     * @return la règle formelle. Obligatoire et non vide.
      */
     String rule();
 }

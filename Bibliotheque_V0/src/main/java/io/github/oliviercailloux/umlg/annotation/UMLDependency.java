@@ -28,11 +28,15 @@ public @interface UMLDependency {
      *
      * <p>Le nom « target » est celui qu'emploient toutes les annotations désignant l'autre bout
      * d'un lien : une convention uniforme évite d'avoir à se souvenir laquelle dit quoi.
+     *
+     * @return la classe dont on dépend.
      */
     Class<?> target();
 
     /**
-     * Texte posé sur la flèche, par exemple "utilise" ou "crée". Vide = flèche nue.
+     * Texte posé sur la flèche, par exemple {@code utilise} ou {@code crée}.
+     *
+     * @return le texte de la flèche ; vide = flèche nue.
      */
     String label() default "";
 }

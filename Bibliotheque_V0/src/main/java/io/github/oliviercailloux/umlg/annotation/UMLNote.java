@@ -23,6 +23,8 @@ public @interface UMLNote {
     /**
      * Le contenu de la bulle. Obligatoire, et non vide : une note sans texte n'est qu'un carré
      * jaune posé au hasard.
+     *
+     * @return le texte de la bulle. Obligatoire et non vide.
      */
     String text();
 
@@ -30,6 +32,8 @@ public @interface UMLNote {
      * De quel côté de l'élément la bulle se place. NONE laisse la bibliothèque choisir, et elle
      * choisit la droite — le placement d'usage, et celui qui dérange le moins la lecture
      * verticale de l'héritage.
+     *
+     * @return le côté où poser la bulle.
      */
     UMLDirection direction() default UMLDirection.NONE;
 }

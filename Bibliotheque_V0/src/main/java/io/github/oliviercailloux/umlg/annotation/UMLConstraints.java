@@ -14,5 +14,9 @@ import java.lang.annotation.Target;
 @Target({ElementType.TYPE, ElementType.FIELD})
 public @interface UMLConstraints {
 
+    /**
+     * {@return les contraintes regroupées}. Le nom {@code value} est imposé par
+     * {@code @Repeatable}.
+     */
     UMLConstraint[] value();
 }

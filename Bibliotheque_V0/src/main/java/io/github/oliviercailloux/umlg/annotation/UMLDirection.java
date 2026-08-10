@@ -8,11 +8,20 @@ package io.github.oliviercailloux.umlg.annotation;
  */
 public enum UMLDirection {
 
-    // Aucune contrainte : PlantUML choisit seul. C'est le défaut, et le bon choix en général.
+    /**
+     * Aucune contrainte : PlantUML choisit seul. C'est le défaut, et le bon choix en général.
+     */
     NONE,
 
+    /** La cible est poussée au-dessus de la source. */
     UP,
+
+    /** La cible est poussée en dessous de la source. */
     DOWN,
+
+    /** La cible est poussée à gauche de la source. */
     LEFT,
+
+    /** La cible est poussée à droite de la source. */
     RIGHT
 }
