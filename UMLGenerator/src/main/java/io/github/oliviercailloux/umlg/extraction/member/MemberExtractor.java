@@ -193,6 +193,36 @@ public final class MemberExtractor {
         return false;
     }
 
+    // L'accesseur d'un composant de record, atteint par la seule propagation de Java.
+    //
+    // Une annotation écrite sur un composant est recopiée par le compilateur sur tout ce à quoi
+    // ses @Target la destinent : @UMLInclude visant FIELD et METHOD, elle se pose à la fois sur
+    // le champ et sur l'accesseur. Une intention, deux porteurs — et deux lignes dans la boîte :
+    //
+    //     record Mnemonic(@UMLInclude(name = "mnemonic") String keysymMnemonic)
+    //
+    //     mnemonic : String        ← le composant, dessiné comme tout composant de record
+    //     mnemonic() : String      ← l'accesseur, que l'inclusion force à paraître
+    //
+    // La seconde ne dit rien que la première ne dise, et personne ne l'a demandée. Elle est donc
+    // écartée : c'est le composant que l'auteur nommait.
+    //
+    // Le test porte sur le champ et non sur la méthode, et c'est ce qui distingue les deux cas.
+    // Une @UMLInclude écrite sur un accesseur déclaré à la main ne vient de nulle part — le champ
+    // ne la porte pas — et cette méthode-là reste : l'auteur l'a bien visée, elle.
+    private static boolean estAccesseurPropage(Class<?> clazz, Method method) {
+        if (!clazz.isRecord() || method.getParameterCount() != 0
+            || !method.isAnnotationPresent(UMLInclude.class)) {
+            return false;
+        }
+        for (Field field : clazz.getDeclaredFields()) {
+            if (field.getName().equals(method.getName()) && estComposantDeRecord(field)) {
+                return field.isAnnotationPresent(UMLInclude.class);
+            }
+        }
+        return false;
+    }
+
     // Un attribut ordinaire : son type est celui que le code déclare, sauf si une règle du projet
     // dit sous quel nom l'afficher — « ImmutableList » écrit « List ». Sa multiplicité, elle, ne
     // se lit nulle part dans le code : seule @UMLMultiplicity la donne.
@@ -405,6 +435,12 @@ public final class MemberExtractor {
                 continue;
             }
 
+            // L'accesseur qu'une annotation de composant a touché par ricochet : le composant
+            // porte déjà la ligne (voir estAccesseurPropage).
+            if (estAccesseurPropage(clazz, method)) {
+                continue;
+            }
+
             UMLInclude inclusion = method.getAnnotation(UMLInclude.class);
 
             // Une méthode écrite en notation attribut quitte ce compartiment : elle paraît parmi
@@ -443,7 +479,9 @@ public final class MemberExtractor {
                         method.isAnnotationPresent(UMLDerived.class),
                         // Une méthode d'interface est abstraite sans porter le mot-clé, sauf
                         // si elle est default ou static : le modificateur, lui, ne ment pas.
-                        Modifier.isAbstract(method.getModifiers())
+                        // « omit abstract » efface la marque, comme « omit visibility » efface
+                        // le symbole : le modèle porte ce que le projet a demandé d'écrire.
+                        Modifier.isAbstract(method.getModifiers()) && !regles.omettreAbstrait()
                     ));
                 } catch (IllegalArgumentException | NullPointerException e) {
                     throw new IllegalArgumentException("@UMLMultiplicity sur "
@@ -473,6 +511,11 @@ public final class MemberExtractor {
         for (Method method : MembresOrdonnes.methodes(clazz, regles)) {
             UMLInclude inclusion = method.getAnnotation(UMLInclude.class);
             if (method.isSynthetic() || inclusion == null || !inclusion.asAttribute()) {
+                continue;
+            }
+            // Même ricochet, même écart : sans lui, « asAttribute » sur un composant de record
+            // écrirait deux fois la même ligne d'attribut.
+            if (estAccesseurPropage(clazz, method)) {
                 continue;
             }
             if (method.isAnnotationPresent(UMLExclude.class) || excluParHeritage(clazz, method)) {

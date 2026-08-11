@@ -45,6 +45,7 @@ final class LecteurDeRegles {
     private static final String MULTIPLICITY = "multiplicity";
     private static final String NOMS_DE_PARAMETRES = "parameter names";
     private static final String RETOUR_VOID = "return void";
+    private static final String ABSTRAIT = "abstract";
     private static final String DIRECTION = "direction";
     private static final String AROUND = "around";
     private static final String PACKAGE = "package";
@@ -68,6 +69,7 @@ final class LecteurDeRegles {
         boolean[] omettreVisibilite = {false};
         boolean[] omettreNomsDeParametres = {false};
         boolean[] omettreRetourVoid = {false};
+        boolean[] omettreAbstrait = {false};
         // Null tant qu'aucune ligne « order » n'est lue : la distinction permet de refuser une
         // seconde ligne, même quand la première redisait le défaut.
         Boolean[] ordreDeclaration = {null};
@@ -100,7 +102,7 @@ final class LecteurDeRegles {
                 case TYPE -> lireType(alias, reste, contexte);
                 case HIDE -> lireHide(membres, reste, contexte);
                 case OMIT -> lireOmit(omettreVisibilite, omettreNomsDeParametres,
-                    omettreRetourVoid, reste, contexte);
+                    omettreRetourVoid, omettreAbstrait, reste, contexte);
                 case STRATEGY -> lireStrategy(strategie, reste, contexte);
                 case VIEW -> lireView(vues, reste, contexte);
                 case VIEWS -> lireViews(parPaquetage, reste, contexte);
@@ -122,7 +124,7 @@ final class LecteurDeRegles {
             direction[0], masquerMembresVides[0], omettreVisibilite[0],
             omettreNomsDeParametres[0],
             ordreDeclaration[0] != null && ordreDeclaration[0],
-            multiplicitesDeduites[0]);
+            multiplicitesDeduites[0], omettreAbstrait[0]);
     }
 
     // « order declaration » ou « order alphabetical » : l'ordre des membres dans les boîtes.
@@ -369,16 +371,22 @@ final class LecteurDeRegles {
     // facultatif, et l'omettre veut dire « ne rend rien ». Un attribut ou un paramètre privé de
     // son type laisserait au contraire une ligne incompréhensible, et effacer un type de retour
     // utile ferait perdre au dessin ce que la boîte existe pour montrer.
+    // « abstract » ne vaut que pour l'italique, et non pour le mot-clé d'une classe : ce qui
+    // disparaît est la marque que PlantUML pose sur une opération sans implémentation, pas le
+    // « abstract class » écrit en tête de la boîte. Un diagramme dont les boîtes abstraites sont
+    // presque toutes des interfaces le dit déjà par le mot « interface », et les diagrammes tenus
+    // à la main s'en passent le plus souvent.
     private static void lireOmit(boolean[] omettreVisibilite, boolean[] omettreNomsDeParametres,
-        boolean[] omettreRetourVoid, String reste, String contexte) {
+        boolean[] omettreRetourVoid, boolean[] omettreAbstrait, String reste, String contexte) {
 
         boolean[] demande = switch (reste) {
             case VISIBILITE -> omettreVisibilite;
             case NOMS_DE_PARAMETRES -> omettreNomsDeParametres;
             case RETOUR_VOID -> omettreRetourVoid;
+            case ABSTRAIT -> omettreAbstrait;
             default -> throw new IllegalArgumentException(contexte + ": expected \"omit "
-                + VISIBILITE + "\", \"omit " + NOMS_DE_PARAMETRES + "\" or \"omit " + RETOUR_VOID
-                + "\", got \"omit " + reste + "\".");
+                + VISIBILITE + "\", \"omit " + NOMS_DE_PARAMETRES + "\", \"omit " + RETOUR_VOID
+                + "\" or \"omit " + ABSTRAIT + "\", got \"omit " + reste + "\".");
         };
         // La seconde ligne ne demanderait rien de plus ; un fichier qui se répète est un fichier
         // que personne ne relit.

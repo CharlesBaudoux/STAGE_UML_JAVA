@@ -104,7 +104,7 @@ public final class Regles {
     private static final Regles AUCUNE = new Regles(ImmutableMap.of(), false,
         UMLVisibility.NONE, false, ImmutableList.of(),
         ImmutableList.of(), false, "",
-        UMLFlow.TOP_TO_BOTTOM, true, false, false, false, false);
+        UMLFlow.TOP_TO_BOTTOM, true, false, false, false, false, false);
 
     // Clé : le nom de type écrit à gauche de la flèche, simple ou complet. Valeur : ce qui
     // s'affiche à sa place.
@@ -185,6 +185,15 @@ public final class Regles {
     // @UMLMultiplicity, décision individuelle, l'emporte sur la traduction.
     private final boolean multiplicitesDeduites;
 
+    // Les opérations sans implémentation s'écrivent-elles sans la marque {abstract} ?
+    //
+    // Faux par défaut : l'italique est la notation qu'UML réserve à une opération abstraite, et
+    // la retirer perd une information. Elle en perd peu, cependant, dans un diagramme dont les
+    // boîtes abstraites sont des interfaces — le mot « interface » écrit en tête dit déjà que
+    // tout y est abstrait, sauf ce que {static} distingue et les méthodes default. C'est ce
+    // calcul-là que le projet fait à sa place, comme il le fait pour la visibilité.
+    private final boolean omettreAbstrait;
+
     // Les alias qui ont servi au moins une fois. Les motifs, eux, se marquent eux-mêmes.
     //
     // C'est la seule entorse à l'immuabilité de cette classe, et elle est délibérée : savoir
@@ -200,7 +209,7 @@ public final class Regles {
         boolean vuesParPaquetage, String titre, UMLFlow direction,
         boolean masquerMembresVides, boolean omettreVisibilite,
         boolean omettreNomsDeParametres, boolean ordreDeclaration,
-        boolean multiplicitesDeduites) {
+        boolean multiplicitesDeduites, boolean omettreAbstrait) {
         this.alias = checkNotNull(alias);
         this.omettreRetourVoid = omettreRetourVoid;
         this.strategie = checkNotNull(strategie);
@@ -215,6 +224,7 @@ public final class Regles {
         this.omettreNomsDeParametres = omettreNomsDeParametres;
         this.ordreDeclaration = ordreDeclaration;
         this.multiplicitesDeduites = multiplicitesDeduites;
+        this.omettreAbstrait = omettreAbstrait;
     }
 
     public boolean omettreVisibilite() {
@@ -269,6 +279,11 @@ public final class Regles {
     // La forme des conteneurs se traduit-elle en multiplicités — « Set<X> » en « X [0..*] » ?
     public boolean multiplicitesDeduites() {
         return multiplicitesDeduites;
+    }
+
+    // Les opérations abstraites s'écrivent-elles sans la marque {abstract} ?
+    public boolean omettreAbstrait() {
+        return omettreAbstrait;
     }
 
     // La stratégie effective d'une classe : la sienne, ou celle du projet si elle s'en remet à
@@ -414,6 +429,7 @@ public final class Regles {
             && membresMasques.isEmpty()
             && vues.isEmpty() && !vuesParPaquetage && titre.isEmpty()
             && direction == UMLFlow.TOP_TO_BOTTOM && masquerMembresVides && !omettreVisibilite
-            && !omettreNomsDeParametres && !ordreDeclaration && !multiplicitesDeduites;
+            && !omettreNomsDeParametres && !ordreDeclaration && !multiplicitesDeduites
+            && !omettreAbstrait;
     }
 }

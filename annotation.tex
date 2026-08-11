@@ -269,6 +269,8 @@ Exception positive : force l'apparition d'un membre que son niveau d'encapsulati
 \subsection{Le renommage d'un membre}
 Le besoin vient des diagrammes de référence, qui nomment souvent les choses plus longuement que le code : un attribut \texttt{codeByName} qu'un README appelle \texttt{xKeycodeByXKeyName}. Sans renommage, le diagramme engendré ne peut jamais rejoindre le diagramme voulu. Le renommage est porté par l'annotation, et non par une règle : c'est une décision sur \textit{un} élément. Les notes suivent le nom affiché. Trois écarts sont vérifiés : un nom fait d'espaces est une \textbf{erreur} ; \texttt{name} et \texttt{targetRole} sur la même ligne sont une \textbf{erreur} ; un nom identique à celui du code est un \textbf{avertissement}. Un \texttt{@UMLInclude} qui renomme n'est jamais signalé « sans effet » : renommer \textit{est} un effet.
 
+\paragraph{Sur un composant de record, une seule ligne.} \texttt{@UMLInclude} vise \texttt{FIELD} et \texttt{METHOD} ; écrite sur un composant de record, le compilateur la recopie donc sur le champ \textbf{et} sur l'accesseur. Une intention, deux porteurs --- et la boîte écrivait deux fois la même chose, le composant en attribut puis l'accesseur en méthode. Seul le composant est retenu : c'est lui que l'auteur nommait. Le départage se fait sur le champ et non sur la méthode, ce qui préserve le cas symétrique : une \texttt{@UMLInclude} posée sur un accesseur \textit{écrit à la main} ne vient d'aucune propagation --- le champ ne la porte pas --- et cette méthode-là reste affichée.
+
 \subsection{La notation attribut d'un accesseur}
 Un accesseur sans paramètre expose une \textbf{propriété}, et les diagrammes qui montrent une structure l'écrivent comme telle. \texttt{asAttribute = true} opère la conversion : la ligne quitte le compartiment des méthodes pour celui des attributs, garde son soulignement si la méthode est statique, sa barre oblique si elle est dérivée, sa multiplicité si elle en porte une.
 
@@ -642,6 +644,7 @@ Onze mots-clés, et \textbf{aucun} qui refasse ce qu'une annotation sait faire. 
 \texttt{omit visibility} & Tait les symboles \texttt{+}, \texttt{-}, \texttt{\#}, \texttt{\textasciitilde}. \\
 \texttt{omit parameter names} & Tait les noms des paramètres : \texttt{from(KeyboardMap)}. \\
 \texttt{omit return void} & Efface le type rendu : \texttt{valider()}. \\
+\texttt{omit abstract} & Tait la marque \texttt{\{abstract\}}, l'italique d'une opération sans implémentation. Le mot-clé de la boîte --- \texttt{interface}, \texttt{abstract class} --- reste écrit. \\
 \texttt{strategy }\meta{none | public | protected | package | private} & La stratégie des classes qui ne déclarent pas la leur. Ex. : \texttt{strategy public} \\
 \texttt{type }\meta{type du code}\texttt{ -> }\meta{nom affiché} & Renomme \textit{n'importe quel} type dans les boîtes, chevrons compris --- les deux noms sont libres. Ex. : \texttt{type ImmutableList -> List}, \texttt{type Optional -> Opt} \\
 \texttt{order }\meta{declaration | alphabetical} & L'ordre des membres dans les boîtes ; \texttt{alphabetical} est le défaut. \\

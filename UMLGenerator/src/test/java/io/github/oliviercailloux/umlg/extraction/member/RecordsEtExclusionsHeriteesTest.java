@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.oliviercailloux.umlg.annotation.UMLExclude;
+import io.github.oliviercailloux.umlg.annotation.UMLInclude;
 import io.github.oliviercailloux.umlg.annotation.UMLVisibility;
 import io.github.oliviercailloux.umlg.model.UmlField;
 import io.github.oliviercailloux.umlg.model.UmlMethod;
@@ -37,6 +38,52 @@ class RecordsEtExclusionsHeriteesTest {
         assertEquals(1, champs.size(), champs.toString());
         assertEquals("keysymMnemonic", champs.get(0).name());
         assertEquals("String", champs.get(0).type());
+    }
+
+    // --- L'inclusion écrite sur un composant, et le ricochet de Java ---
+
+    record Renomme(@UMLInclude(name = "mnemonic") String keysymMnemonic) {}
+
+    @Test
+    void uneInclusionSurUnComposant_renommeLAttribut() {
+        // Le besoin qui justifie le paramètre « name » : le diagramme de référence nomme les
+        // choses plus longuement, ou autrement, que le code.
+        List<UmlField> champs =
+            MemberExtractor.extractFields(Renomme.class, UMLVisibility.NONE);
+
+        assertEquals(1, champs.size(), champs.toString());
+        assertEquals("mnemonic", champs.get(0).name());
+    }
+
+    @Test
+    void uneInclusionSurUnComposant_nAjoutePasLAccesseur() {
+        // Le compilateur recopie l'annotation sur le champ ET sur l'accesseur : @UMLInclude vise
+        // FIELD et METHOD. L'accesseur, ainsi inclus, paraissait en plus du composant — la boîte
+        // montrait « mnemonic : String » et « mnemonic() : String » pour une seule intention,
+        // sans que rien ne le signale.
+        List<UmlMethod> methodes =
+            MemberExtractor.extractMethods(Renomme.class, UMLVisibility.NONE);
+
+        assertTrue(methodes.isEmpty(), "L'accesseur ne doit pas doubler le composant : "
+            + methodes);
+    }
+
+    record AccesseurEcrit(String composant) {
+        @UMLInclude(name = "lu")
+        public String composant() {
+            return composant;
+        }
+    }
+
+    @Test
+    void uneInclusionSurUnAccesseurEcritALaMain_estRespectee() {
+        // Le miroir du test précédent, et ce qui rend l'écart sûr : ici rien ne s'est propagé —
+        // le champ ne porte pas l'annotation —, l'auteur a bien visé la méthode, et elle reste.
+        List<UmlMethod> methodes =
+            MemberExtractor.extractMethods(AccesseurEcrit.class, UMLVisibility.NONE);
+
+        assertEquals(1, methodes.size(), methodes.toString());
+        assertEquals("lu", methodes.get(0).name());
     }
 
     record Cache(String visible, @UMLExclude String tu) {}

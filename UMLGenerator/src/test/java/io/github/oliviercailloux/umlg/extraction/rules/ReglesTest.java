@@ -155,13 +155,42 @@ class ReglesTest {
     }
 
     @Test
-    void omitDeValeurInconnue_estRefuseEnRappelantLesTroisFormes() {
+    void omitDeValeurInconnue_estRefuseEnRappelantLesQuatreFormes() {
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
             () -> regles("omit types"));
 
         assertTrue(e.getMessage().contains("visibility"), e.getMessage());
         assertTrue(e.getMessage().contains("parameter names"), e.getMessage());
         assertTrue(e.getMessage().contains("return void"), e.getMessage());
+        assertTrue(e.getMessage().contains("abstract"), e.getMessage());
+    }
+
+    // --- « omit abstract » : la marque d'une opération sans implémentation ---
+
+    @Test
+    void omitAbstract_estLu() {
+        assertTrue(regles("omit abstract").omettreAbstrait());
+    }
+
+    @Test
+    void sansOmitAbstract_laMarqueResteDemandee() {
+        assertFalse(Regles.aucune().omettreAbstrait());
+        assertFalse(regles("omit visibility").omettreAbstrait());
+    }
+
+    @Test
+    void deuxFoisOmitAbstract_sontRefuses() {
+        var refus = assertThrows(IllegalArgumentException.class,
+            () -> regles("omit abstract", "omit abstract"));
+
+        assertTrue(refus.getMessage().contains("already asked for"), refus.getMessage());
+    }
+
+    @Test
+    void omitAbstract_neSuffitPasAFaireDesReglesVides() {
+        // « vides » sert à savoir si un fichier a été trouvé : une règle écrite, quelle qu'elle
+        // soit, doit l'en faire sortir.
+        assertFalse(regles("omit abstract").vides());
     }
 
     @Test
@@ -224,6 +253,55 @@ class ReglesTest {
         public String etat() {
             return "";
         }
+    }
+
+    // Les trois sortes de méthode qu'une interface peut porter : abstraite, default, static. La
+    // marque {abstract} ne doit toucher que la première, avant comme après la règle.
+    @UMLClass(strategy = UMLVisibility.PUBLIC)
+    interface Bascule {
+        String etat();
+
+        default boolean allumee() {
+            return false;
+        }
+
+        static Bascule neuve() {
+            return null;
+        }
+    }
+
+    @Test
+    void sansOmitAbstract_lOperationAbstraitePorteSaMarque() {
+        String source =
+            PlantUmlAssert.documentPour(EntityExtractor.extract(Bascule.class, Regles.aucune()));
+
+        assertTrue(source.contains("{abstract} etat()"),
+            "L'italique est la notation d'UML pour une opération sans implémentation :\n"
+                + source);
+    }
+
+    @Test
+    void omitAbstract_effaceLaMarqueEtLaisseLeReste() {
+        String source = PlantUmlAssert.documentPour(
+            EntityExtractor.extract(Bascule.class, regles("omit abstract")));
+
+        assertFalse(source.contains("{abstract}"), "La marque doit disparaître :\n" + source);
+
+        // Ce que la règle ne touche pas : la méthode reste, avec son type de retour, et
+        // {static} — qui dit autre chose — survit.
+        assertTrue(source.contains("+ etat() : String"), source);
+        assertTrue(source.contains("+ allumee() : boolean"), source);
+        assertTrue(source.contains("{static} neuve()"), source);
+    }
+
+    @Test
+    void omitAbstract_neTouchePasLeMotCleDeLaBoite() {
+        // « abstract » désigne l'italique d'une opération, pas le mot écrit en tête d'une boîte :
+        // une classe abstraite reste annoncée comme telle.
+        String source = PlantUmlAssert.documentPour(
+            EntityExtractor.extract(Bascule.class, regles("omit abstract")));
+
+        assertTrue(source.contains("interface "), source);
     }
 
     @Test
