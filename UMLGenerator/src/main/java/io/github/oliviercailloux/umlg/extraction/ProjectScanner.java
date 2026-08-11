@@ -16,6 +16,7 @@ import io.github.oliviercailloux.umlg.model.UmlProject;
 import io.github.oliviercailloux.umlg.model.UmlView;
 import java.io.File;
 import java.io.IOException;
+import java.lang.annotation.AnnotationFormatError;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Files;
@@ -62,11 +63,13 @@ public class ProjectScanner {
 
         // L'ordre de ce qui suit porte du sens, et il est le même qu'avant le découpage.
         //
-        // Les classes illisibles sont signalées avant le refus d'un projet sans annotation :
-        // c'est souvent la même cause — un classpath incomplet —, et l'utilisateur doit lire
-        // l'avertissement qui l'explique avant l'erreur qui le constate. Les trois autres
-        // avertissements viennent après, puisqu'ils ne valent que sur un projet qui tient.
+        // Les deux avertissements du classpath incomplet — les classes qui n'ont pas chargé, et
+        // celles qui ont chargé sans se laisser lire — sont dits avant le refus d'un projet sans
+        // annotation : c'est souvent la même cause, et l'utilisateur doit lire l'avertissement
+        // qui l'explique avant l'erreur qui le constate. Les trois autres avertissements viennent
+        // après, puisqu'ils ne valent que sur un projet qui tient.
         signalerClassesIllisibles(recolte.illisibles());
+        signalerBoitesPerdues(recolte.perdues());
         refuserUnProjetSansAnnotation(rootPath, recolte);
 
         // Les surprises d'un premier essai : des boîtes vides parce qu'aucune stratégie n'est
@@ -97,10 +100,15 @@ public class ProjectScanner {
             recolte.ignorees());
     }
 
-    // Ce qu'un parcours ramène : les boîtes, et les trois familles de ce qu'il a laissé derrière
-    // lui. Les quatre collections sont déjà triées ; voir parcourir.
+    // Ce qu'un parcours ramène : les boîtes, et les quatre familles de ce qu'il a laissé derrière
+    // lui. Les cinq collections sont déjà triées ; voir parcourir.
+    //
+    // illisibles et perdues se ressemblent mais ne disent pas la même chose : les premières n'ont
+    // pas chargé du tout, les secondes ont chargé et n'ont pas pu être lues. Les confondre
+    // faisait mentir le message ; voir signalerBoitesPerdues.
     private record Recolte(ImmutableSet<UmlEntity> entites, ImmutableList<String> ignorees,
-        ImmutableList<String> boitesVides, ImmutableList<String> illisibles) {}
+        ImmutableList<String> boitesVides, ImmutableList<String> illisibles,
+        ImmutableList<String> perdues) {}
 
     // Lit tous les .class du répertoire et en tire les boîtes, en notant au passage ce qui n'en
     // devient pas une.
@@ -115,7 +123,7 @@ public class ProjectScanner {
         // lu ces enveloppes comme une invitation à paralléliser le parcours aurait corrompu le
         // modèle sans que rien ne l'avertisse.
         //
-        // Le jour où ce parcours devra être parallélisé, ce sont ces quatre collections
+        // Le jour où ce parcours devra être parallélisé, ce sont ces cinq collections
         // ensemble qu'il faudra traiter, et pas trois d'entre elles.
         ImmutableSet.Builder<UmlEntity> projectBuilder = ImmutableSet.builder();
 
@@ -134,6 +142,11 @@ public class ProjectScanner {
         // fin de scan, non plus jetées à la figure de l'utilisateur.
         List<String> illisibles = new ArrayList<>();
 
+        // Les classes qui se sont chargées, mais dont la lecture a buté sur un type absent — dans
+        // une signature, dans un supertype, dans une annotation. Leur boîte est perdue, ce qui
+        // n'est pas la même panne que la précédente et ne se dit donc pas de la même façon.
+        List<String> perdues = new ArrayList<>();
+
         try (URLClassLoader classLoader = chargeurPour(rootPath, classpath)) {
 
             // Files.walk descend récursivement ; le flux se ferme lui aussi, sous peine de
@@ -151,14 +164,46 @@ public class ProjectScanner {
                              return;
                          }
 
+                         // DEUX ÉTAPES, DEUX DIAGNOSTICS
+                         //
+                         // Le chargement et la lecture butent tous deux sur un classpath
+                         // incomplet, mais pas au même moment ni avec les mêmes conséquences.
+                         // Sous un try unique, une panne de lecture recevait le message du
+                         // chargement — « rien ne permet de savoir si elle portait @UMLClass,
+                         // l'annotation ne se lit que sur une classe chargée » —, faux mot pour
+                         // mot dès lors que la classe s'était chargée et que l'annotation avait
+                         // bel et bien été lue. Deux try, donc, et deux listes.
+                         Class<?> clazz;
                          try {
-                             Class<?> clazz = classLoader.loadClass(className);
+                             clazz = classLoader.loadClass(className);
+                         } catch (ClassNotFoundException | LinkageError e) {
+                             // POURQUOI ON N'ARRÊTE PLUS TOUT ICI
+                             //
+                             // Charger une classe résout son parent et ses interfaces : il suffit
+                             // qu'une dépendance « provided » ou « optional » manque au classpath
+                             // transmis pour qu'un .class devienne illisible. Faire échouer le
+                             // scan entier rendait alors la génération impossible à cause d'une
+                             // classe dont le diagramme ne voulait pas — le cas le plus fréquent
+                             // sur un projet réel.
+                             //
+                             // On passe donc son chemin, et on le dit. Le doute est nommé dans
+                             // l'avertissement : l'annotation ne se lit que sur une classe
+                             // chargée, donc rien ne permet de savoir si celle-ci portait
+                             // @UMLClass. Un manque signalé vaut mieux qu'une panne totale.
+                             illisibles.add(className + " (" + e + ")");
+                             return;
+                         }
 
+                         try {
                              // Le filtre principal : seules les classes annotées entrent.
                              if (clazz.isAnnotationPresent(UMLClass.class)) {
+                                 // La boîte n'entre qu'une fois les deux lectures faites : si la
+                                 // seconde échoue, la classe est comptée perdue et rien d'elle
+                                 // n'est resté dans le modèle.
                                  UmlEntity entite = EntityExtractor.extract(clazz, regles);
+                                 boolean vide = boiteVideFauteDeStrategie(clazz, entite, regles);
                                  projectBuilder.add(entite);
-                                 if (boiteVideFauteDeStrategie(clazz, entite, regles)) {
+                                 if (vide) {
                                      boitesVides.add(clazz.getSimpleName());
                                  }
                              } else if (!clazz.isSynthetic() && !clazz.isAnonymousClass()) {
@@ -167,21 +212,24 @@ public class ProjectScanner {
                                  // comme « oublié » serait un reproche absurde.
                                  ignorees.add(clazz.getSimpleName());
                              }
-                         } catch (ClassNotFoundException | LinkageError e) {
-                             // POURQUOI ON N'ARRÊTE PLUS TOUT ICI
+                         } catch (LinkageError | TypeNotPresentException
+                             | AnnotationFormatError e) {
+                             // LES TROIS FAÇONS DONT LA RÉFLEXION SIGNALE UN TYPE ABSENT
                              //
-                             // Charger une classe résout son parent, ses interfaces et les types
-                             // de ses attributs : il suffit qu'une dépendance « provided » ou
-                             // « optional » manque au classpath transmis pour qu'un .class
-                             // devienne illisible. Faire échouer le scan entier rendait alors la
-                             // génération impossible à cause d'une classe dont le diagramme ne
-                             // voulait pas — le cas le plus fréquent sur un projet réel.
+                             // LinkageError quand le type manquant est nommé nu : lire un attribut
+                             // « B b » avec B hors du classpath lève NoClassDefFoundError.
                              //
-                             // On passe donc son chemin, et on le dit. Le doute est nommé dans
-                             // l'avertissement : l'annotation ne se lit que sur une classe
-                             // chargée, donc rien ne permet de savoir si celle-ci portait
-                             // @UMLClass. Un manque signalé vaut mieux qu'une panne totale.
-                             illisibles.add(className + " (" + e + ")");
+                             // TypeNotPresentException quand il n'apparaît que dans une signature
+                             // générique : getGenericType() sur « List<B> » ne lève pas d'erreur
+                             // de liaison mais cette RuntimeException, qui n'était pas rattrapée
+                             // — et le scan entier avortait, sur un message qui ne nommait ni la
+                             // classe, ni le fichier, ni le remède. La forme de la signature
+                             // décidait donc du sort de tout le scan, ce que rien ne laissait
+                             // deviner.
+                             //
+                             // AnnotationFormatError quand c'est une annotation qui est mal
+                             // formée : même famille de panne, même traitement.
+                             perdues.add(className + " (" + e + ")");
                          }
                      });
             }
@@ -208,7 +256,8 @@ public class ProjectScanner {
                 .collect(ImmutableSet.toImmutableSet()),
             ImmutableList.sortedCopyOf(ignorees),
             ImmutableList.sortedCopyOf(boitesVides),
-            ImmutableList.sortedCopyOf(illisibles));
+            ImmutableList.sortedCopyOf(illisibles),
+            ImmutableList.sortedCopyOf(perdues));
     }
 
     // Un chargeur dédié, enraciné sur le répertoire analysé et les dépendances données : les
@@ -281,6 +330,28 @@ public class ProjectScanner {
             + "were skipped" + liste + ". A dependency is missing from the analysed classpath, or "
             + "the compilation is partial. Whether they carried @UMLClass cannot be known — the "
             + "annotation is only readable on a loaded class — so the diagram may be incomplete.");
+        return true;
+    }
+
+    // Signale les classes qui se sont chargées mais dont la lecture a échoué. Rend vrai si un
+    // avertissement a été émis, ce dont les tests se servent.
+    //
+    // Ce message existe pour ne pas dire l'autre. Ici la classe a bien chargé, son annotation a
+    // bien été lue : renvoyer l'utilisateur vers « l'annotation ne se lit que sur une classe
+    // chargée » l'enverrait chercher au mauvais endroit. Ce qui manque n'est pas la classe, c'est
+    // un type qu'elle nomme.
+    static boolean signalerBoitesPerdues(ImmutableList<String> perdues) {
+        if (perdues.isEmpty()) {
+            return false;
+        }
+        String liste = perdues.size() <= SEUIL_ENUMERATION
+            ? " : " + String.join(", ", perdues)
+            : "";
+        Avertissements.dire(perdues.size() + " class(es) loaded but could not be read, and were "
+            + "skipped" + liste + ". The class itself was found; what is missing from the analysed "
+            + "classpath is a type it names — in a member signature, in a supertype, or in an "
+            + "annotation. Add that dependency to the analysed classpath, or the diagram will "
+            + "lack these boxes.");
         return true;
     }
 

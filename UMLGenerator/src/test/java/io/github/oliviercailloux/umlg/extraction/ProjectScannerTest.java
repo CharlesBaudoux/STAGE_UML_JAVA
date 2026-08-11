@@ -1,16 +1,22 @@
 package io.github.oliviercailloux.umlg.extraction;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.common.collect.ImmutableList;
+import io.github.oliviercailloux.umlg.Avertissements;
 import io.github.oliviercailloux.umlg.annotation.UMLClass;
+import io.github.oliviercailloux.umlg.model.UmlEntity;
 import io.github.oliviercailloux.umlg.model.UmlProject;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -21,40 +27,42 @@ import org.junit.jupiter.api.io.TempDir;
 // évite d'avoir à fabriquer un répertoire d'exemple.
 class ProjectScannerTest {
 
-    // 1. Nos cobayes pour le test
-    // Une classe interne annotée : elle DOIT être détectée
+    // Une classe interne annotée : elle DOIT être détectée.
     @UMLClass
     static class ClasseCobayeAnnotee {}
 
-    // Une classe interne NON annotée : elle DOIT être ignorée
+    // Une classe interne NON annotée : elle DOIT être ignorée.
     static class ClasseCobayeIgnoree {}
 
+    private static final Path TEST_CLASSES = Paths.get("target", "test-classes");
+
+    // Les noms affichés des boîtes rendues par un scan : la sortie sur laquelle porter les
+    // assertions.
+    private static ImmutableList<String> noms(UmlProject projet) {
+        return projet.entities().stream().map(UmlEntity::name)
+            .collect(ImmutableList.toImmutableList());
+    }
+
     @Test
-    void testScanDossierValide() throws Exception {
-        // Arrange : On pointe vers le dossier de sortie des tests de Maven
-        Path cheminTestClasses = Paths.get("target", "test-classes");
+    void leScan_retientLesClassesAnnoteesEtLaisseLesAutres() throws Exception {
+        UmlProject projet = ProjectScanner.scan(TEST_CLASSES).projet();
 
-        // Act : On lance le scanner sur notre propre dossier de compilation de test
-        UmlProject projet = ProjectScanner.scan(cheminTestClasses).projet();
+        // Le répertoire contient les cobayes de toute la suite : on ne peut pas comparer
+        // l'ensemble des boîtes, mais on peut dire ce que celles-ci contiennent et ne contiennent
+        // pas — les deux moitiés du tri.
+        ImmutableList<String> noms = noms(projet);
 
-        // Assert : On vérifie le comportement du scanner sur nos deux cobayes
-        boolean cobayeAnnoteTrouve = projet.entities().stream()
-                .anyMatch(e -> e.name().contains("ClasseCobayeAnnotee"));
-
-        boolean cobayeIgnoreTrouve = projet.entities().stream()
-                .anyMatch(e -> e.name().contains("ClasseCobayeIgnoree"));
-
-        assertTrue(cobayeAnnoteTrouve,
-            "Le scanner aurait dû détecter la classe annotée @UMLClass.");
-        assertFalse(cobayeIgnoreTrouve,
-            "Le scanner n'aurait pas dû embarquer la classe sans annotation.");
+        assertTrue(noms.contains("ClasseCobayeAnnotee"),
+            "La classe portant @UMLClass doit avoir sa boîte : " + noms);
+        assertFalse(noms.contains("ClasseCobayeIgnoree"),
+            "La classe sans annotation ne doit pas en avoir : " + noms);
     }
 
     @Test
     void leScan_rendCeQuIlALaisseDeCote() throws Exception {
         // Ce que portait la variable de fil, désormais dans le résultat : la classe non annotée
         // n'est pas dans le modèle, et c'est justement ce qu'il y a à en dire.
-        ResultatDeScan resultat = ProjectScanner.scan(Paths.get("target", "test-classes"));
+        ResultatDeScan resultat = ProjectScanner.scan(TEST_CLASSES);
 
         assertTrue(resultat.classesIgnorees().contains("ClasseCobayeIgnoree"),
             resultat.classesIgnorees().toString());
@@ -75,35 +83,98 @@ class ProjectScannerTest {
     }
 
     @Test
-    void testScanRejetteDossierInexistant() {
-        // Arrange
+    void unDossierInexistant_estRefuseEnLeNommant() {
         Path dossierFantome = Paths.get("target", "un-dossier-qui-n-existe-pas");
 
-        // Act & Assert : Vérification de la sécurité Guava checkArgument
-        assertThrows(IllegalArgumentException.class, () -> {
-            ProjectScanner.scan(dossierFantome).projet();
-        }, "Le scanner doit lever une IllegalArgumentException si le dossier n'existe pas.");
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+            () -> ProjectScanner.scan(dossierFantome));
+
+        // Le refus doit dire quel chemin a été lu : c'est presque toujours une racine mal
+        // calculée, et le message est le seul endroit où l'utilisateur peut s'en apercevoir.
+        assertTrue(e.getMessage().contains("un-dossier-qui-n-existe-pas"), e.getMessage());
     }
 
     // @TempDir : JUnit crée un répertoire temporaire avant le test et le supprime après. Rien à
     // nettoyer, et deux exécutions ne peuvent pas se gêner.
     @Test
-    void testScanRejetteFichierSimple(@TempDir Path dossierTemporaire) throws Exception {
-        // Arrange : On crée un fichier standard (pas un dossier)
+    void unFichierAuLieuDunDossier_estRefuseEnLeNommant(@TempDir Path dossierTemporaire)
+        throws Exception {
         Path fichierSimple = dossierTemporaire.resolve("texte.txt");
         Files.writeString(fichierSimple, "Contenu d'un fichier classique");
 
-        // Act & Assert : Vérification que le scanner refuse les fichiers simples
-        assertThrows(IllegalArgumentException.class, () -> {
-            ProjectScanner.scan(fichierSimple).projet();
-        }, "Le scanner doit refuser un chemin qui pointe vers un fichier au lieu d'un répertoire.");
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+            () -> ProjectScanner.scan(fichierSimple));
+
+        assertTrue(e.getMessage().contains("texte.txt"), e.getMessage());
     }
 
     @Test
-    void testScanRejetteNull() {
-        // Act & Assert : Vérification de la sécurité Guava checkNotNull
-        assertThrows(NullPointerException.class, () -> {
-            ProjectScanner.scan(null).projet();
-        }, "Le scanner doit lever une NullPointerException si le chemin fourni est null.");
+    void unCheminNul_estRefuse() {
+        assertThrows(NullPointerException.class, () -> ProjectScanner.scan(null));
+    }
+
+    @Test
+    void unClasspathNul_estRefuse() {
+        assertThrows(NullPointerException.class, () -> ProjectScanner.scan(TEST_CLASSES, null));
+    }
+
+    // --- L'avertissement des boîtes perdues à la lecture ---
+    //
+    // Il ressemble à celui des classes illisibles et ne dit pas la même chose : celui-là vaut pour
+    // un .class que le chargeur a refusé, celui-ci pour une classe chargée dont la lecture a buté
+    // sur un type absent. Qu'il soit dit au bon moment est éprouvé de bout en bout par
+    // ProjectScannerIntegrationTest ; ici, son texte.
+
+    // Ce qu'une méthode de signalement écrit, plutôt que ce qu'elle rend.
+    private static String ditPar(Runnable signalement) {
+        List<String> dits = new ArrayList<>();
+        Avertissements.versLeCanal(dits::add);
+        try {
+            signalement.run();
+        } finally {
+            Avertissements.retablirLeDefaut();
+        }
+        assertEquals(1, dits.size(), dits.toString());
+        return dits.get(0);
+    }
+
+    @Test
+    void aucuneBoitePerdue_neDitRien() {
+        List<String> dits = new ArrayList<>();
+        Avertissements.versLeCanal(dits::add);
+        try {
+            assertFalse(ProjectScanner.signalerBoitesPerdues(ImmutableList.of()));
+        } finally {
+            Avertissements.retablirLeDefaut();
+        }
+
+        assertEquals(List.of(), dits);
+    }
+
+    @Test
+    void uneBoitePerdue_estNommeeAvecSaCause() {
+        String dit = ditPar(() -> ProjectScanner.signalerBoitesPerdues(ImmutableList.of(
+            "com.exemple.Porteuse (java.lang.TypeNotPresentException: Type com.ex.B not present)")));
+
+        assertTrue(dit.startsWith("1 class(es) loaded but could not be read"), dit);
+        assertTrue(dit.contains("com.exemple.Porteuse"), dit);
+        assertTrue(dit.contains("Type com.ex.B not present"), dit);
+        // Le reproche de l'autre message n'a pas lieu d'être ici : la classe a chargé.
+        assertFalse(dit.contains("only readable on a loaded class"), dit);
+    }
+
+    @Test
+    void tropDeBoitesPerdues_sontCompteesEtNonNommees() {
+        // Au-delà du seuil, une liste de noms noierait le message qui la porte. C'est le même
+        // seuil que pour les classes illisibles, donc la même règle.
+        ImmutableList<String> trop =
+            IntStream.rangeClosed(0, ProjectScanner.SEUIL_ENUMERATION)
+                .mapToObj(i -> "com.exemple.C" + i)
+                .collect(ImmutableList.toImmutableList());
+
+        String dit = ditPar(() -> ProjectScanner.signalerBoitesPerdues(trop));
+
+        assertTrue(dit.startsWith(trop.size() + " class(es) loaded but could not be read"), dit);
+        assertFalse(dit.contains("com.exemple.C0"), dit);
     }
 }

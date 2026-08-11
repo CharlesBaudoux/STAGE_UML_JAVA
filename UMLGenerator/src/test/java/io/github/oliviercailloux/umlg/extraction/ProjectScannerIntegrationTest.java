@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.github.oliviercailloux.umlg.Avertissements;
 import io.github.oliviercailloux.umlg.annotation.UMLFlow;
 import io.github.oliviercailloux.umlg.model.UmlDiagram;
 import io.github.oliviercailloux.umlg.model.UmlEntity;
@@ -16,6 +17,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -253,6 +255,165 @@ class ProjectScannerIntegrationTest {
             new byte[] {(byte) 0xCA, (byte) 0xFE, (byte) 0xBA, (byte) 0xBE, 0, 0, 0, 0, 1, 2, 3});
 
         assertThrows(IllegalArgumentException.class, () -> ProjectScanner.scan(sortie).projet());
+    }
+
+    // --- Une dépendance absente du classpath analysé ---
+
+    // Compile une classe annotée qui nomme un type déclaré dans le même fichier, puis retire le
+    // .class de ce type : ce qui reste est exactement un projet dont une dépendance manque au
+    // classpath analysé — le cas d'une dépendance « provided » oubliée. Une seconde classe, saine
+    // et indépendante, sert à constater que le scan est allé jusqu'au bout.
+    private static Path dependanceRetiree(Path tmp, String declarationDuChamp) throws IOException {
+        Path sortie = tmp.resolve("classes");
+        compiler(tmp.resolve("src"), sortie, "com/exemple/Porteuse.java", """
+            package com.exemple;
+
+            import io.github.oliviercailloux.umlg.annotation.UMLClass;
+            import io.github.oliviercailloux.umlg.annotation.UMLVisibility;
+
+            class Absente {}
+
+            @UMLClass(strategy = UMLVisibility.PUBLIC)
+            public class Porteuse {
+                public CHAMP
+            }
+            """.replace("CHAMP", declarationDuChamp));
+        compiler(tmp.resolve("src"), sortie, "com/exemple/Saine.java", """
+            package com.exemple;
+
+            import io.github.oliviercailloux.umlg.annotation.UMLClass;
+
+            @UMLClass
+            public class Saine {}
+            """);
+        Files.delete(sortie.resolve("com/exemple/Absente.class"));
+        return sortie;
+    }
+
+    // Ce que le scan a dit en chemin. Le canal est rétabli dans un finally : laissé en place, il
+    // capterait les avertissements du test suivant, qui tourne sur le même fil.
+    private static List<String> avertissementsDuScan(Path sortie) throws IOException {
+        List<String> dits = new ArrayList<>();
+        Avertissements.versLeCanal(dits::add);
+        try {
+            ProjectScanner.scan(sortie);
+        } finally {
+            Avertissements.retablirLeDefaut();
+        }
+        return dits;
+    }
+
+    // L'unique avertissement qui nomme la classe donnée.
+    private static String avertissementSur(List<String> dits, String classe) {
+        List<String> retenus = dits.stream().filter(m -> m.contains(classe)).toList();
+        assertEquals(1, retenus.size(), "Un seul avertissement doit nommer " + classe + " : "
+            + dits);
+        return retenus.get(0);
+    }
+
+    @Test
+    void typeAbsentDansUneSignatureGenerique_neFaitPasEchouerLeScan(@TempDir Path tmp)
+        throws Exception {
+        // getGenericType() sur « List<Absente> » ne lève pas NoClassDefFoundError mais
+        // TypeNotPresentException, une RuntimeException qui échappait à la clause de capture : le
+        // scan entier avortait, et le message ne nommait ni la classe, ni le fichier, ni le
+        // remède. Le même répertoire avec un champ non générique passait, lui — la forme de la
+        // signature décidait du sort du scan.
+        Path sortie = dependanceRetiree(tmp, "java.util.List<Absente> liste;");
+
+        UmlProject projet = ProjectScanner.scan(sortie).projet();
+
+        assertEquals(Set.of("Saine"), noms(projet),
+            "Le scan doit livrer les boîtes qu'il a su lire, et se passer de l'autre.");
+    }
+
+    @Test
+    void typeAbsentDansUneSignatureNue_neFaitPasEchouerLeScan(@TempDir Path tmp) throws Exception {
+        // Le pendant du précédent : ici la réflexion lève une LinkageError, déjà rattrapée.
+        // Les deux formes doivent avoir le même sort, faute de quoi rien ne permet de prévoir
+        // lequel des deux répertoires se dessinera.
+        Path sortie = dependanceRetiree(tmp, "Absente champ;");
+
+        UmlProject projet = ProjectScanner.scan(sortie).projet();
+
+        assertEquals(Set.of("Saine"), noms(projet));
+    }
+
+    @Test
+    void uneClasseChargeeMaisIllisible_estSignaleeSansPretendreQuElleNAPasCharge(@TempDir Path tmp)
+        throws Exception {
+        // Le message des classes illisibles dit « on ne peut pas savoir si elles portaient
+        // @UMLClass, l'annotation ne se lit que sur une classe chargée ». Sur Porteuse, il serait
+        // faux mot pour mot : elle s'est chargée, l'annotation a été lue, elle y était, et c'est
+        // sa boîte qui est perdue. Le message doit donc être l'autre.
+        Path sortie = dependanceRetiree(tmp, "java.util.List<Absente> liste;");
+
+        String dit = avertissementSur(avertissementsDuScan(sortie), "com.exemple.Porteuse");
+
+        assertTrue(dit.contains("loaded but could not be read"), dit);
+        assertTrue(dit.contains("a type it names"), dit);
+        assertFalse(dit.contains("only readable on a loaded class"),
+            "La classe s'est chargée : ce reproche-là ne la concerne pas — " + dit);
+    }
+
+    @Test
+    void uneClasseQuiNeChargePas_gardeLeMessageDesClassesIllisibles(@TempDir Path tmp)
+        throws Exception {
+        // L'autre moitié de la séparation : un .class que le chargeur refuse garde bien le
+        // message qui nomme le doute sur @UMLClass, seul cas où ce doute existe.
+        Path sortie = tmp.resolve("classes");
+        compiler(tmp.resolve("src"), sortie, "com/exemple/Saine.java", """
+            package com.exemple;
+
+            import io.github.oliviercailloux.umlg.annotation.UMLClass;
+
+            @UMLClass
+            public class Saine {}
+            """);
+        Files.write(sortie.resolve("com/exemple/Corrompue.class"),
+            new byte[] {(byte) 0xCA, (byte) 0xFE, (byte) 0xBA, (byte) 0xBE, 0, 0, 0, 0, 1, 2, 3});
+
+        String dit = avertissementSur(avertissementsDuScan(sortie), "com.exemple.Corrompue");
+
+        assertTrue(dit.contains("could not be loaded"), dit);
+        assertTrue(dit.contains("only readable on a loaded class"), dit);
+    }
+
+    @Test
+    void toutesLesBoitesPerdues_neDonnentPasUnDiagrammeVideEnSilence(@TempDir Path tmp)
+        throws Exception {
+        // Le cas limite : si la seule classe annotée du répertoire est illisible à l'extraction,
+        // il ne reste rien à dessiner. Le refus doit rester — mais précédé de l'avertissement qui
+        // en donne la cause, sans quoi l'utilisateur ne lirait qu'un « aucune classe annotée »
+        // incompréhensible sur un répertoire où il vient d'en écrire une.
+        Path sortie = tmp.resolve("classes");
+        compiler(tmp.resolve("src"), sortie, "com/exemple/Porteuse.java", """
+            package com.exemple;
+
+            import io.github.oliviercailloux.umlg.annotation.UMLClass;
+            import io.github.oliviercailloux.umlg.annotation.UMLVisibility;
+
+            class Absente {}
+
+            @UMLClass(strategy = UMLVisibility.PUBLIC)
+            public class Porteuse {
+                public java.util.List<Absente> liste;
+            }
+            """);
+        Files.delete(sortie.resolve("com/exemple/Absente.class"));
+
+        List<String> dits = new ArrayList<>();
+        Avertissements.versLeCanal(dits::add);
+        try {
+            IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+                () -> ProjectScanner.scan(sortie).projet());
+            assertTrue(e.getMessage().contains("No class carries @UMLClass"), e.getMessage());
+        } finally {
+            Avertissements.retablirLeDefaut();
+        }
+
+        assertTrue(avertissementSur(dits, "com.exemple.Porteuse")
+            .contains("loaded but could not be read"), dits.toString());
     }
 
     @Test
