@@ -15,7 +15,7 @@ sans effet.
 ## Lancer
 
 ```bash
-cd ../Bibliotheque_V0 && mvn install -DskipTests   # publie umlg 1.0-SNAPSHOT
+cd ../UMLGenerator     && mvn install -DskipTests  # publie umlg 1.0-SNAPSHOT
 cd ../test_collegue    && mvn compile exec:java    # produit architecture_banque.svg et .png
 ```
 

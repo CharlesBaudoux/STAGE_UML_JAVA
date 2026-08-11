@@ -20,7 +20,7 @@ La bibliothèque n'est pas publiée sur un dépôt central : il faut l'installer
 fois, ainsi que le plugin.
 
 ```sh
-cd Bibliotheque_V0        && mvn install -DskipTests
+cd UMLGenerator           && mvn install -DskipTests
 cd ../umlg-maven-plugin   && mvn install
 ```
 
