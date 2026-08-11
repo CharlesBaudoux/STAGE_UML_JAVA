@@ -80,7 +80,7 @@ public class PlantUmlWriter {
     //
     // Rend la liste des fichiers écrits, dans l'ordre où ils l'ont été.
     public static ImmutableList<Path> writeViews(UmlProject project, Path dossier, String extension,
-        UmlStyle style, boolean keepPrevious) throws Exception {
+        UmlStyle style, boolean keepPrevious) throws IOException {
         checkNotNull(project);
         checkNotNull(dossier);
         checkNotNull(style);
@@ -176,7 +176,7 @@ public class PlantUmlWriter {
     // Une vue, dans son fichier. Les réglages d'ensemble du projet lui donnent le sort des
     // compartiments vides ; son titre et son sens de lecture, eux, sont les siens.
     private static void write(UmlView vue, UmlDiagram reglages, String fichier, UmlStyle style,
-        Map<String, String> navigation) throws Exception {
+        Map<String, String> navigation) throws IOException {
         UmlDiagram propres =
             new UmlDiagram(vue.name(), vue.direction(), reglages.hideEmptyMembers());
 
@@ -248,12 +248,12 @@ public class PlantUmlWriter {
     // L'apparence par défaut : celle de PlantUML. Un appelant qui ne demande rien obtient le
     // rendu habituel de l'outil, et non le thème de la bibliothèque — ne rien imposer est le
     // point de départ le moins présomptueux.
-    public static void write(UmlProject project, String outputFileName) throws Exception {
+    public static void write(UmlProject project, String outputFileName) throws IOException {
         write(project, outputFileName, UmlStyle.PLANTUML);
     }
 
     public static void write(UmlProject project, String outputFileName, UmlStyle style)
-        throws Exception {
+        throws IOException {
         checkNotNull(project);
         checkNotNull(outputFileName);
         checkNotNull(style);
@@ -273,7 +273,7 @@ public class PlantUmlWriter {
 
     // Le tronc commun : des boîtes, un fichier.
     private static void ecrire(PlantUmlSyntaxBuilder syntax, Iterable<UmlEntity> entities,
-        String outputFileName) throws Exception {
+        String outputFileName) throws IOException {
         // Toute la séquence des passes vit dans PlantUmlSyntaxBuilder.document, et n'y vit
         // qu'une fois : le writer s'occupe de fichiers et d'images, pas de l'ordre dans lequel un
         // document PlantUML s'écrit. C'est ce qui empêche les tests de rendu de mesurer un

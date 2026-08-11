@@ -15,6 +15,7 @@ import io.github.oliviercailloux.umlg.model.UmlParameter;
 import io.github.oliviercailloux.umlg.model.UmlProject;
 import io.github.oliviercailloux.umlg.model.UmlView;
 import java.io.File;
+import java.io.IOException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Files;
@@ -29,7 +30,7 @@ public class ProjectScanner {
 
     private ProjectScanner() {}
 
-    public static ResultatDeScan scan(Path rootPath) throws Exception {
+    public static ResultatDeScan scan(Path rootPath) throws IOException {
         return scan(rootPath, ImmutableList.of());
     }
 
@@ -41,7 +42,7 @@ public class ProjectScanner {
     // sa propre JVM, où ces jars y sont déjà ; le plugin Maven, lui, tourne dans la JVM de Maven
     // et doit les apporter.
     public static ResultatDeScan scan(Path rootPath, ImmutableList<Path> classpath)
-        throws Exception {
+        throws IOException {
         checkNotNull(rootPath);
         checkNotNull(classpath);
         checkArgument(Files.exists(rootPath) && Files.isDirectory(rootPath),

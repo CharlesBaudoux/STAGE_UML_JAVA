@@ -8,6 +8,8 @@ import io.github.oliviercailloux.umlg.extraction.ProjectScanner;
 import io.github.oliviercailloux.umlg.extraction.ResultatDeScan;
 import io.github.oliviercailloux.umlg.model.UmlProject;
 import io.github.oliviercailloux.umlg.rendering.PlantUmlWriter;
+import java.io.IOException;
+import java.nio.file.FileSystemException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -133,7 +135,7 @@ public final class UMLGenerator {
             Path liste = ecrireListeDesIgnorees(ignorees, ecrits);
 
             return new RapportDeGeneration(project.entities().size(), ignorees, ecrits, liste);
-        } catch (java.nio.file.FileSystemException e) {
+        } catch (FileSystemException e) {
             // Le message d'une FileSystemException se réduit au chemin — « /tmp/ro/x » —, et
             // l'enveloppe générique le répétait donc sans rien apprendre à personne. La raison
             // vit dans le type de l'exception et dans son « reason », pas dans son message.
@@ -141,11 +143,19 @@ public final class UMLGenerator {
                 + e.getFile() + " cannot be written ("
                 + (e.getReason() == null ? e.getClass().getSimpleName() : e.getReason())
                 + "). Check the directory exists and that you have permission to write in it.", e);
-        } catch (Exception e) {
-            // Les deux étapes déclarent « throws Exception » (entrées-sorties, chargement de
-            // classes). On les enveloppe en exception non vérifiée pour ne pas l'imposer à
-            // l'appelant, en rappelant les deux paramètres — presque toutes les pannes viennent
-            // d'un répertoire ou d'un nom de fichier inattendu. La cause d'origine est conservée.
+        } catch (IOException | RuntimeException e) {
+            // Les deux étapes déclarent « throws IOException » : lire un répertoire de classes
+            // et écrire une image sont des entrées-sorties, et rien d'autre. On les enveloppe en
+            // exception non vérifiée pour ne pas l'imposer à l'appelant, en rappelant les deux
+            // paramètres — presque toutes les pannes viennent d'un répertoire ou d'un nom de
+            // fichier inattendu. La cause d'origine est conservée.
+            //
+            // Les RuntimeException sont enrobées elles aussi, et c'est voulu : un scan qui
+            // refuse un projet sans @UMLClass nomme le répertoire fautif, mais pas le fichier
+            // qu'on lui demandait d'écrire. L'enrobage ajoute le second, et c'est ce qui rend le
+            // message diagnostiquable. Le catch portait sur Exception, ce qui revenait au même
+            // tant que les deux étapes déclaraient Exception ; maintenant qu'elles ne le font
+            // plus, l'écrire ainsi dit ce qui est réellement attrapé, et laisse passer les Error.
             throw new RuntimeException(
                 "Failed to generate the UML diagram (source directory: " + sourceDirectory
                     + ", output: " + (outputDirectory != null ? outputDirectory : outputFileName)
@@ -159,7 +169,7 @@ public final class UMLGenerator {
     // Le fichier périmé d'une génération précédente est retiré d'abord : une liste qui ne
     // correspond plus au dessin d'à côté mentirait d'autant mieux qu'elle a l'air à sa place.
     private static Path ecrireListeDesIgnorees(ImmutableList<String> ignorees,
-        ImmutableList<Path> ecrits) throws java.io.IOException {
+        ImmutableList<Path> ecrits) throws IOException {
         Path fichier = dossierDeSortie(ecrits.get(0)).resolve(FICHIER_DES_CLASSES_IGNOREES);
         Files.deleteIfExists(fichier);
 
