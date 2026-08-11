@@ -87,7 +87,7 @@ class UmlgOptionReglesTest {
         // Le cœur de la question : « strategy public » afficherait ce champ, mais « hide nom »
         // l'écarte, et le @UMLInclude est alors le seul moyen de le garder. Le suivre — « remove
         // it » — effaçait la ligne du diagramme.
-        Path regles = ecrireRegles(tmp, "strategy public\nhide nom\n");
+        Path regles = ecrireRegles(tmp, "{ \"strategy\": \"public\", \"hide\": [\"nom\"] }");
 
         Verdict verdict = compiler(tmp, List.of("-Aumlg.rules=" + regles));
 
@@ -112,7 +112,7 @@ class UmlgOptionReglesTest {
                 private Commande commande;
             }
             """;
-        Path regles = ecrireRegles(tmp, "strategy public\n");
+        Path regles = ecrireRegles(tmp, "{ \"strategy\": \"public\" }");
 
         Verdict avecRegles = CompilationCobaye.compiler(tmp, "Cobaye.java", code,
             List.of("-Aumlg.rules=" + regles));
@@ -122,7 +122,7 @@ class UmlgOptionReglesTest {
             avecRegles.rapport());
 
         // Et le motif qui masque ce champ referme la bouche du processeur.
-        Path masquant = ecrireRegles(tmp, "strategy public\nhide commande\n");
+        Path masquant = ecrireRegles(tmp, "{ \"strategy\": \"public\", \"hide\": [\"commande\"] }");
 
         Verdict masque = CompilationCobaye.compiler(tmp, "Cobaye.java", code,
             List.of("-Aumlg.rules=" + masquant));
@@ -165,12 +165,12 @@ class UmlgOptionReglesTest {
         // celui du projet dès que la construction est lancée d'ailleurs. Le message se contentait
         // de répéter ce que l'utilisateur avait écrit, ce qui ne lui apprenait rien : il cherchait
         // un fichier qui était pourtant bien là.
-        Verdict verdict = compiler(tmp, List.of("-Aumlg.rules=regles/umlg.rules"));
+        Verdict verdict = compiler(tmp, List.of("-Aumlg.rules=regles/umlg.json"));
 
         assertTrue(verdict.reussie(), verdict.rapport());
         assertTrue(verdict.avertissementContient("looked for "), verdict.rapport());
         assertTrue(verdict.avertissementContient(
-            Path.of("regles/umlg.rules").toAbsolutePath().toString()), verdict.rapport());
+            Path.of("regles/umlg.json").toAbsolutePath().toString()), verdict.rapport());
         assertTrue(verdict.avertissementContient("working directory"), verdict.rapport());
     }
 
@@ -184,7 +184,7 @@ class UmlgOptionReglesTest {
         Verdict verdict = CompilationCobaye.compiler(tmp, "Cobaye.java", ENTETE + """
             @UMLClass(stereotype = "<<Service>>")
             class Paiement {}
-            """, List.of("-nowarn", "-Aumlg.rules=" + tmp.resolve("absent.rules")));
+            """, List.of("-nowarn", "-Aumlg.rules=" + tmp.resolve("absent.json")));
 
         assertTrue(verdict.reussie(), verdict.rapport());
         assertTrue(verdict.avertissementContient("no such file"), verdict.rapport());

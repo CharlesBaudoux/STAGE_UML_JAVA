@@ -165,7 +165,7 @@ class UMLGeneratorTest {
         // Rien, dans « .outputFile("archi.svg") », ne dit ce que le fichier de règles a demandé
         // par ailleurs : l'avertissement est le seul endroit où les deux se rencontrent.
         Path source = unRepertoireDUneClasse(tmp);
-        Files.writeString(source.resolve("umlg.rules"), "views by package\n",
+        Files.writeString(source.resolve("umlg.json"), "{ \"viewsByPackage\": true }",
             StandardCharsets.UTF_8);
 
         RapportDeGeneration rapport = UMLGenerator.builder()
@@ -183,7 +183,7 @@ class UMLGeneratorTest {
         // Le pendant du test précédent : en mode dossier, elles sont toutes écrites, et il n'y a
         // rien à signaler.
         Path source = unRepertoireDUneClasse(tmp);
-        Files.writeString(source.resolve("umlg.rules"), "views by package\n",
+        Files.writeString(source.resolve("umlg.json"), "{ \"viewsByPackage\": true }",
             StandardCharsets.UTF_8);
 
         RapportDeGeneration rapport = UMLGenerator.builder()
