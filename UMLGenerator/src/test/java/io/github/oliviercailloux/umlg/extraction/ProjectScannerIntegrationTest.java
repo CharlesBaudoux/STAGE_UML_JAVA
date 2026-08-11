@@ -1,5 +1,6 @@
 package io.github.oliviercailloux.umlg.extraction;
 
+import static io.github.oliviercailloux.umlg.CompilationSansProcesseur.compiler;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -12,7 +13,6 @@ import io.github.oliviercailloux.umlg.model.UmlEntity;
 import io.github.oliviercailloux.umlg.model.UmlMethod;
 import io.github.oliviercailloux.umlg.model.UmlParameter;
 import io.github.oliviercailloux.umlg.model.UmlProject;
-import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -21,7 +21,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import javax.tools.JavaCompiler;
 import javax.tools.StandardJavaFileManager;
 import javax.tools.ToolProvider;
@@ -36,56 +35,8 @@ import org.junit.jupiter.api.io.TempDir;
 // qualifié, les paquetages imbriqués, les fichiers illisibles, les ressources non .class.
 class ProjectScannerIntegrationTest {
 
-    // Écrit le code source donné puis le compile vers le répertoire de sortie.
-    private static void compiler(Path racineSources, Path sortie, String cheminRelatif, String code)
-        throws IOException {
-        Path fichier = racineSources.resolve(cheminRelatif);
-        // Les répertoires de paquetage n'existent pas encore : à créer avant d'écrire.
-        Files.createDirectories(fichier.getParent());
-        Files.writeString(fichier, code, StandardCharsets.UTF_8);
-
-        // Le compilateur du JDK, accessible depuis le programme lui-même. Absent d'un simple
-        // JRE, d'où la vérification qui suit.
-        JavaCompiler compilateur = ToolProvider.getSystemJavaCompiler();
-        if (compilateur == null) {
-            throw new IllegalStateException("Ces tests exigent un JDK (javac absent).");
-        }
-        Files.createDirectories(sortie);
-
-        try (StandardJavaFileManager gestionnaire =
-            compilateur.getStandardFileManager(null, null, StandardCharsets.UTF_8)) {
-
-            // -classpath : le cobaye importe nos annotations, il faut donc les lui rendre
-            // visibles. -d : où déposer les .class, c'est-à-dire ce que le scan lira ensuite.
-            //
-            // -proc:none : le classpath contient nos propres classes, donc le
-            // META-INF/services qui déclare UmlgProcessor ; sans cette option javac
-            // l'installerait et refuserait les cobayes délibérément fautifs. Or c'est
-            // précisément la validation d'exécution que ces tests mesurent — la seconde ligne
-            // de défense, celle qui protège l'utilisateur compilant sans le processeur, et
-            // celui qui construit le modèle par programme. Les vérifications du processeur,
-            // elles, sont éprouvées par UmlgProcessorTest.
-            boolean ok = compilateur.getTask(null, gestionnaire, null,
-                List.of("-proc:none", "-classpath", cheminDeCompilation(), "-d",
-                    sortie.toString()),
-                null,
-                gestionnaire.getJavaFileObjects(fichier.toFile())).call();
-
-            if (!ok) {
-                throw new IllegalStateException("Le cobaye n'a pas compilé :\n" + code);
-            }
-        }
-    }
-
-    // Le classpath du test lui-même, plus le module path : selon la façon dont Maven lance les
-    // tests, nos classes se trouvent sur l'un ou sur l'autre. On concatène les deux plutôt que
-    // de deviner.
-    private static String cheminDeCompilation() {
-        return Stream.of(System.getProperty("java.class.path"),
-                System.getProperty("jdk.module.path"))
-            .filter(chemin -> chemin != null && !chemin.isBlank())
-            .collect(Collectors.joining(File.pathSeparator));
-    }
+    // Le harnais javac — écrire, compiler, scanner — vit dans CompilationSansProcesseur, qui
+    // explique au passage pourquoi ces cobayes-là sont compilés sans le processeur.
 
     // Raccourci de lecture : les noms affichés des entités, pour comparer d'un coup avec Set.of.
     private static Set<String> noms(UmlProject projet) {

@@ -12,10 +12,10 @@ import org.junit.jupiter.api.io.TempDir;
 // Ce que le processeur dit de @UMLPackage et de @UMLAssociationClass.
 class UmlgGroupesEtClassesDAssociationTest {
 
-    private static final String ENTETE = "import io.github.oliviercailloux.umlg.annotation.*;\n";
+    // L'en-tête que partagent tous les cobayes vit dans CompilationCobaye, avec le harnais.
 
     private static Verdict compiler(Path tmp, String corps) throws IOException {
-        return CompilationCobaye.compiler(tmp, "Cobaye.java", ENTETE + corps);
+        return CompilationCobaye.compilerCorps(tmp, corps);
     }
 
     // --- Le cas nominal ---

@@ -24,10 +24,10 @@ import org.junit.jupiter.api.io.TempDir;
 // serait que du bruit — c'est la moitié de ce que ces tests vérifient.
 class UmlgAnnotationsRepeteesTest {
 
-    private static final String ENTETE = "import io.github.oliviercailloux.umlg.annotation.*;\n";
+    // L'en-tête que partagent tous les cobayes vit dans CompilationCobaye, avec le harnais.
 
     private static Verdict compiler(Path tmp, String corps) throws IOException {
-        return CompilationCobaye.compiler(tmp, "Cobaye.java", ENTETE + corps);
+        return CompilationCobaye.compilerCorps(tmp, corps);
     }
 
     @Test

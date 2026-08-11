@@ -1,5 +1,6 @@
 package io.github.oliviercailloux.umlg.processing;
 
+import io.github.oliviercailloux.umlg.CompilationSansProcesseur;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -9,8 +10,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import javax.tools.Diagnostic;
 import javax.tools.DiagnosticCollector;
 import javax.tools.JavaCompiler;
@@ -28,6 +27,20 @@ import javax.tools.ToolProvider;
 // setProcessors plutôt que la découverte automatique : le test dit alors exactement ce qu'il
 // mesure, sans dépendre de META-INF/services ni de la façon dont Maven a monté le classpath.
 final class CompilationCobaye {
+
+    // L'en-tête que partagent tous les cobayes du paquetage : les annotations, et les types de la
+    // bibliothèque standard que les corps emploient. Il était recopié en tête de sept fichiers,
+    // avec autant de variantes que de copies — l'un importait List, l'autre List et Map, l'autre
+    // rien.
+    //
+    // Les imports à la demande plutôt que nommés, et tous les cobayes les reçoivent : un import
+    // inutilisé ne coûte rien — javac n'en dit pas un mot, et les tests qui exigent le silence du
+    // processeur ne s'en trouvent pas gênés — tandis qu'un import manquant fait échouer le cobaye
+    // sur une faute qui n'est pas celle qu'on mesure.
+    static final String ENTETE = """
+        import io.github.oliviercailloux.umlg.annotation.*;
+        import java.util.*;
+        """;
 
     // Le verdict : la compilation a-t-elle réussi, et qu'a dit javac.
     record Verdict(boolean reussie, List<String> erreurs, List<String> avertissements) {
@@ -50,6 +63,17 @@ final class CompilationCobaye {
     }
 
     private CompilationCobaye() {}
+
+    // La forme courante : un corps de cobaye, précédé de l'en-tête commun, dans « Cobaye.java ».
+    // C'est par elle que passent presque tous les tests du paquetage.
+    static Verdict compilerCorps(Path repertoire, String corps) throws IOException {
+        return compilerCorps(repertoire, corps, List.of());
+    }
+
+    static Verdict compilerCorps(Path repertoire, String corps, List<String> options)
+        throws IOException {
+        return compiler(repertoire, "Cobaye.java", ENTETE + corps, options);
+    }
 
     static Verdict compiler(Path repertoire, String nomFichier, String code) throws IOException {
         return compiler(repertoire, nomFichier, code, List.of());
@@ -126,12 +150,9 @@ final class CompilationCobaye {
             .toList();
     }
 
-    // Le classpath du test lui-même, plus le module path : selon la façon dont Maven lance les
-    // tests, nos classes se trouvent sur l'un ou sur l'autre.
+    // Le classpath, calculé par CompilationSansProcesseur : les deux harnais compilent le même
+    // genre de cobaye, et ne diffèrent que par le processeur.
     private static String cheminDeCompilation() {
-        return Stream.of(System.getProperty("java.class.path"),
-                System.getProperty("jdk.module.path"))
-            .filter(chemin -> chemin != null && !chemin.isBlank())
-            .collect(Collectors.joining(File.pathSeparator));
+        return CompilationSansProcesseur.cheminDeCompilation();
     }
 }

@@ -1,6 +1,7 @@
 package io.github.oliviercailloux.umlg;
 
 import io.github.oliviercailloux.umlg.annotation.UMLAssociation;
+import io.github.oliviercailloux.umlg.annotation.UMLAssociationClass;
 import io.github.oliviercailloux.umlg.annotation.UMLClass;
 import io.github.oliviercailloux.umlg.annotation.UMLConstraint;
 import io.github.oliviercailloux.umlg.annotation.UMLDependency;
@@ -11,12 +12,19 @@ import io.github.oliviercailloux.umlg.annotation.UMLInclude;
 import io.github.oliviercailloux.umlg.annotation.UMLMultiplicity;
 import io.github.oliviercailloux.umlg.annotation.UMLNotation;
 import io.github.oliviercailloux.umlg.annotation.UMLNote;
+import io.github.oliviercailloux.umlg.annotation.UMLPackage;
 import io.github.oliviercailloux.umlg.annotation.UMLRelationType;
 import io.github.oliviercailloux.umlg.annotation.UMLVisibility;
 import java.util.List;
 
 // Le projet cobaye du test de référence : un petit domaine de facturation qui exerce, en une
-// fois, les neuf annotations de la bibliothèque et leurs vingt et un paramètres.
+// fois, toutes les annotations que l'utilisateur écrit — les conteneurs mis à part, qui ne
+// s'écrivent jamais à la main — et tous leurs paramètres.
+//
+// Le compte exact n'est pas écrit ici, et c'est délibéré : il changerait à la première annotation
+// ajoutée, et un commentaire qui ment est pire que pas de commentaire. La règle, elle, ne change
+// pas : toute annotation nouvelle a sa place dans ce fichier, et le diagramme de référence est le
+// seul test qui dira ce qu'elle fait au document entier.
 //
 // Ce fichier est la moitié d'une paire. L'autre est diagramme-de-reference.puml, écrit à la main
 // lui aussi : l'un dit ce que le développeur écrit, l'autre ce que la bibliothèque doit en faire.
@@ -57,14 +65,33 @@ public final class ProjetDeReference {
         ACTIF, SUSPENDU
     }
 
-    // La cible de l'association.
+    // La cible de l'association. Elle ouvre le groupe « Facturation », et c'est elle qui en
+    // déclare la couleur : le rectangle n'en a qu'une, et deux classes qui en demanderaient deux
+    // se le verraient dire.
     @UMLClass
+    @UMLPackage(name = "Facturation", color = "#EEF3F7")
     public static class Commande {}
 
     // La cible de la dépendance. Volontairement distincte de Commande : une dépendance vers une
     // classe déjà atteinte par une association serait signalée comme un doublon.
+    //
+    // Le groupe est nommé, la couleur non : c'est le nom qui fait l'identité du rectangle, et
+    // deux classes y entrent sans avoir à répéter son apparence.
     @UMLClass
+    @UMLPackage(name = "Facturation")
     public static class ServiceBancaire {}
+
+    // Une classe d'association : ce qu'un règlement porte — son montant — n'appartient ni à la
+    // commande ni à la banque, mais à leur lien. UML le dessine par un trait en pointillés
+    // qui relie cette boîte au milieu de l'association ; déclarer la classe suffit, et le trait
+    // entre les deux extrémités est tracé du même coup.
+    @UMLClass(strategy = UMLVisibility.PRIVATE)
+    @UMLPackage(name = "Facturation")
+    @UMLAssociationClass(source = Commande.class, target = ServiceBancaire.class)
+    public static class Reglement {
+
+        private double montant;
+    }
 
     // La classe qui porte presque tout.
     //

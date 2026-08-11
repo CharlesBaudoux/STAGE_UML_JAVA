@@ -15,6 +15,7 @@ import io.github.oliviercailloux.umlg.model.UmlAssociation;
 import io.github.oliviercailloux.umlg.model.UmlDiagram;
 import io.github.oliviercailloux.umlg.model.UmlEntity;
 import io.github.oliviercailloux.umlg.model.UmlProject;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -225,9 +226,13 @@ class PlantUmlWriterOutputTest {
     @Test
     void dossierParentInexistant_echoue(@TempDir Path tmp) {
         // Le writer ne crée pas l'arborescence : autant que l'échec soit franc.
+        //
+        // L'exception nommée, et non « Exception » : la classe mère accepterait aussi bien un
+        // NullPointerException venu d'ailleurs, et le test ne prouverait plus rien du dossier
+        // manquant.
         Path sortie = tmp.resolve("sous/dossier/absent/diagramme.svg");
 
-        assertThrows(Exception.class,
+        assertThrows(IOException.class,
             () -> PlantUmlWriter.write(projetCobaye(), sortie.toString()));
     }
 

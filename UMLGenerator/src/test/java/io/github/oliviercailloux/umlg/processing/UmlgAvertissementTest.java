@@ -18,14 +18,9 @@ import org.junit.jupiter.api.io.TempDir;
 // la compilation réussit. Un avertissement qui arrêterait javac serait une erreur mal nommée.
 class UmlgAvertissementTest {
 
-    private static final String ENTETE = """
-        import io.github.oliviercailloux.umlg.annotation.*;
-        import java.util.List;
-        import java.util.Map;
-        """;
-
+    // L'en-tête que partagent tous les cobayes vit dans CompilationCobaye, avec le harnais.
     private static Verdict compiler(Path tmp, String corps) throws IOException {
-        return CompilationCobaye.compiler(tmp, "Cobaye.java", ENTETE + corps);
+        return CompilationCobaye.compilerCorps(tmp, corps);
     }
 
     // Vérifie la gravité en même temps que le message : c'est la moitié de ce que chaque test dit.
@@ -826,9 +821,9 @@ class UmlgAvertissementTest {
             """;
 
         Verdict bavard = compiler(tmp, corps);
-        assertTrue(!bavard.avertissements().isEmpty(), "Le témoin doit bien avertir.");
+        assertFalse(bavard.avertissements().isEmpty(), "Le témoin doit bien avertir.");
 
-        Verdict muet = CompilationCobaye.compiler(tmp, "Cobaye.java", ENTETE + corps,
+        Verdict muet = CompilationCobaye.compilerCorps(tmp, corps,
             List.of("-Aumlg.warnings=none"));
 
         assertTrue(muet.reussie(), muet.rapport());
@@ -839,18 +834,18 @@ class UmlgAvertissementTest {
     void optionNone_neFaitPasTaireLesErreurs(@TempDir Path tmp) throws IOException {
         // Une erreur dit qu'aucun diagramme ne peut être produit : personne ne peut vouloir en
         // être dispensé, et l'option ne doit pas offrir de le faire par mégarde.
-        Verdict verdict = CompilationCobaye.compiler(tmp, "Cobaye.java", ENTETE + """
+        Verdict verdict = CompilationCobaye.compilerCorps(tmp, """
             @UMLClass(color = "PasUneCouleur")
             class Client {}
             """, List.of("-Aumlg.warnings=none"));
 
-        assertTrue(!verdict.reussie(), verdict.rapport());
+        assertFalse(verdict.reussie(), verdict.rapport());
         assertTrue(verdict.erreurContient("Color unknown to PlantUML"), verdict.rapport());
     }
 
     @Test
     void optionAvecUneValeurInconnue_estRefusee(@TempDir Path tmp) throws IOException {
-        Verdict verdict = CompilationCobaye.compiler(tmp, "Cobaye.java", ENTETE + """
+        Verdict verdict = CompilationCobaye.compilerCorps(tmp, """
             @UMLClass
             class Client {}
             """, List.of("-Aumlg.warnings=off"));
@@ -866,7 +861,7 @@ class UmlgAvertissementTest {
         // une valeur nulle, que le test « l'option est-elle absente ? » confondait avec l'absence.
         // L'utilisateur croyait avoir fait taire le processeur, et se demandait pourquoi il
         // parlait encore.
-        Verdict verdict = CompilationCobaye.compiler(tmp, "Cobaye.java", ENTETE + """
+        Verdict verdict = CompilationCobaye.compilerCorps(tmp, """
             @UMLClass(stereotype = "<<Service>>")
             class Paiement {}
             """, List.of("-Aumlg.warnings"));

@@ -70,6 +70,10 @@ class DiagrammeDeReferenceTest {
 
     // Les entités du diagramme, dans l'ordre où elles seront déclarées : les cibles avant ce qui
     // les vise, ce qui rend le fichier engendré lisible de haut en bas.
+    //
+    // Cet ordre-ci n'est pas celui du document : les classes que @UMLPackage range dans un groupe
+    // sont écrites ensemble, dans leur rectangle, après celles qui n'en ont pas. C'est le rendu
+    // qui en décide, et le fichier de référence le montre.
     private static ImmutableList<UmlEntity> entites() {
         return ImmutableList.of(
             EntityExtractor.extract(ProjetDeReference.Identifiable.class, REGLES),
@@ -77,6 +81,7 @@ class DiagrammeDeReferenceTest {
             EntityExtractor.extract(ProjetDeReference.Statut.class, REGLES),
             EntityExtractor.extract(ProjetDeReference.Commande.class, REGLES),
             EntityExtractor.extract(ProjetDeReference.ServiceBancaire.class, REGLES),
+            EntityExtractor.extract(ProjetDeReference.Reglement.class, REGLES),
             EntityExtractor.extract(ProjetDeReference.ClientFacture.class, REGLES));
     }
 

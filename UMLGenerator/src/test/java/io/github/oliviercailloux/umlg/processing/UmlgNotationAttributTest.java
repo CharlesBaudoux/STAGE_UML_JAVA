@@ -18,11 +18,9 @@ import org.junit.jupiter.api.io.TempDir;
 // compilation, c'est tout son intérêt.
 class UmlgNotationAttributTest {
 
-    private static final String ENTETE = "import io.github.oliviercailloux.umlg.annotation.*;\n"
-        + "import java.util.*;\n";
-
+    // L'en-tête que partagent tous les cobayes vit dans CompilationCobaye, avec le harnais.
     private static Verdict compiler(Path tmp, String code) throws IOException {
-        return CompilationCobaye.compiler(tmp, "Cobaye.java", ENTETE + code);
+        return CompilationCobaye.compilerCorps(tmp, code);
     }
 
     @Test

@@ -122,10 +122,10 @@ public final class PlantUmlAssert {
         //
         // Elle l'était, avec un commentaire qui prévenait qu'il faudrait la tenir à jour. Elle ne
         // l'a pas été : le jour où la fusion des associations réciproques est entrée dans le
-        // writer, ce helper a continué d'écrire l'ancien document, et les quatre-vingt-neuf tests
-        // qui passent par lui ont continué de mesurer un dessin que la bibliothèque ne produisait
-        // plus — tous verts. Un helper de test qui reproduit le code testé ne teste bientôt plus
-        // que lui-même.
+        // writer, ce helper a continué d'écrire l'ancien document, et l'essentiel des tests de
+        // rendu — tous ceux qui passent par lui, c'est-à-dire la plus grande part de la suite —
+        // ont continué de mesurer un dessin que la bibliothèque ne produisait plus, tous verts.
+        // Un helper de test qui reproduit le code testé ne teste bientôt plus que lui-même.
         return new PlantUmlSyntaxBuilder(style, diagramme).document(List.of(entities)).build();
     }
 

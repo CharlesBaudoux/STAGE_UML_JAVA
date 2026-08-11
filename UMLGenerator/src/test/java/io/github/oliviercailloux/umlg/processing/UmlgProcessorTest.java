@@ -19,14 +19,9 @@ import org.junit.jupiter.api.io.TempDir;
 // elles. C'est le prix, assumé, d'un processeur qui fait bien son travail.
 class UmlgProcessorTest {
 
-    // Tous les cobayes partagent cet en-tête ; l'écrire une fois évite de noyer la faute testée.
-    private static final String ENTETE = """
-        import io.github.oliviercailloux.umlg.annotation.*;
-        import java.util.List;
-        """;
-
+    // L'en-tête que partagent tous les cobayes vit dans CompilationCobaye, avec le harnais.
     private static Verdict compiler(Path tmp, String corps) throws IOException {
-        return CompilationCobaye.compiler(tmp, "Cobaye.java", ENTETE + corps);
+        return CompilationCobaye.compilerCorps(tmp, corps);
     }
 
     // --- Le cas nominal : un code correct doit passer ---
@@ -436,13 +431,22 @@ class UmlgProcessorTest {
         assertTrue(verdict.erreurContient("whitespace only"), verdict.rapport());
     }
 
-    // --- Ce que javac refusait déjà seul, et qui doit le rester ---
+    // --- La cible déduite du type de l'attribut : le processeur doit dire ce que dit la
+    // génération, ni plus ni moins ---
 
     @Test
-    void associationSansCible_estRefuseeParJavacSeul(@TempDir Path tmp) throws IOException {
-        // target() n'a pas de valeur par défaut : c'est le compilateur lui-même qui refuse, sans
-        // le processeur. Ce test verrouille ce choix de conception, qu'un « default Object.class »
-        // ajouté par mégarde ferait disparaître.
+    void associationSansCible_versUnTypeHorsDiagramme_arreteLaCompilation(@TempDir Path tmp)
+        throws IOException {
+        // Ce test verrouillait un choix de conception qui n'existe plus : target() n'avait pas de
+        // valeur par défaut, et c'était javac seul qui refusait l'annotation qui l'omettait. Le
+        // paramètre porte aujourd'hui « default void.class » — la sentinelle « rien d'écrit », qui
+        // déclenche la déduction depuis le type de l'attribut. Le test continuait de passer, mais
+        // sur un tout autre motif que celui qu'il annonçait.
+        //
+        // Ce qu'il garde désormais : la déduction ne relâche pas le contrôle. « private String
+        // nom » donne bien une cible — String —, et cette cible est refusée comme n'importe quelle
+        // autre classe hors du diagramme. La sentinelle ouvre la porte au type de l'attribut, pas
+        // au premier type venu.
         Verdict verdict = compiler(tmp, """
             @UMLClass
             class Client {
@@ -452,11 +456,11 @@ class UmlgProcessorTest {
             """);
 
         assertFalse(verdict.reussie(), verdict.rapport());
-        assertTrue(verdict.erreurContient("target"), verdict.rapport());
+        assertTrue(verdict.erreurContient("target java.lang.String does not carry @UMLClass"),
+            verdict.rapport());
+        // Et le remède nomme le paramètre à écrire, plutôt que de constater seulement.
+        assertTrue(verdict.erreurContient("point target() at a class that is"), verdict.rapport());
     }
-
-    // --- La cible déduite du type de l'attribut : le processeur doit dire ce que dit la
-    // génération, ni plus ni moins ---
 
     @Test
     void associationSurUnChampDeTypeVariable_compile(@TempDir Path tmp) throws IOException {

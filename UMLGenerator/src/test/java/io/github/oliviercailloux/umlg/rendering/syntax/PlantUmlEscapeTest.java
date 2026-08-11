@@ -282,7 +282,7 @@ class PlantUmlEscapeTest {
     }
 
     @Test
-    void encodeur_neCassSeQueLaPaire_etLaisseLeCaractereIsole() {
+    void encodeur_neCasseQueLaPaire_etLaisseLeCaractereIsole() {
         // Encoder toutes les occurrences aurait suffi à fermer la brèche, mais aurait rendu le
         // fichier engendré illisible : un tiret bas ou un astérisque isolé est un caractère
         // ordinaire, présent dans quantité d'identifiants. Seule la paire est cassée.

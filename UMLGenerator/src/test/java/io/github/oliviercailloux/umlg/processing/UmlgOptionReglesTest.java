@@ -25,8 +25,6 @@ import org.junit.jupiter.api.io.TempDir;
 // que si la classe avait déclaré sa stratégie en toutes lettres.
 class UmlgOptionReglesTest {
 
-    private static final String ENTETE = "import io.github.oliviercailloux.umlg.annotation.*;\n";
-
     // Une classe qui s'en remet au projet, et un @UMLInclude sur un membre public. Utile ou non
     // selon ce que le fichier déclare : c'est tout le cas d'espèce.
     private static final String COBAYE = """
@@ -44,7 +42,7 @@ class UmlgOptionReglesTest {
     }
 
     private static Verdict compiler(Path tmp, List<String> options) throws IOException {
-        return CompilationCobaye.compiler(tmp, "Cobaye.java", ENTETE + COBAYE, options);
+        return CompilationCobaye.compilerCorps(tmp, COBAYE, options);
     }
 
     @Test
@@ -101,7 +99,7 @@ class UmlgOptionReglesTest {
         // « Déjà montré dans le compartiment des attributs, quelle que soit la stratégie » : vrai
         // de la stratégie, faux du filtre anti-bruit, qui écarte aussi cette ligne-là. Avec les
         // règles, et elles seules, le processeur peut conclure.
-        String code = ENTETE + """
+        String corps = """
             @UMLClass
             class Commande {}
 
@@ -114,7 +112,7 @@ class UmlgOptionReglesTest {
             """;
         Path regles = ecrireRegles(tmp, "{ \"strategy\": \"public\" }");
 
-        Verdict avecRegles = CompilationCobaye.compiler(tmp, "Cobaye.java", code,
+        Verdict avecRegles = CompilationCobaye.compilerCorps(tmp, corps,
             List.of("-Aumlg.rules=" + regles));
 
         assertTrue(avecRegles.reussie(), avecRegles.rapport());
@@ -124,7 +122,7 @@ class UmlgOptionReglesTest {
         // Et le motif qui masque ce champ referme la bouche du processeur.
         Path masquant = ecrireRegles(tmp, "{ \"strategy\": \"public\", \"hide\": [\"commande\"] }");
 
-        Verdict masque = CompilationCobaye.compiler(tmp, "Cobaye.java", code,
+        Verdict masque = CompilationCobaye.compilerCorps(tmp, corps,
             List.of("-Aumlg.rules=" + masquant));
 
         assertTrue(masque.reussie(), masque.rapport());
@@ -136,7 +134,7 @@ class UmlgOptionReglesTest {
         // L'avertissement de sens inverse n'a pas le même besoin : un motif ne peut que masquer
         // davantage, si bien qu'un membre déjà masqué par la stratégie l'est à coup sûr. Le
         // resserrement ne doit donc pas déborder sur lui.
-        Verdict verdict = CompilationCobaye.compiler(tmp, "Cobaye.java", ENTETE + """
+        Verdict verdict = CompilationCobaye.compilerCorps(tmp, """
             @UMLClass(strategy = UMLVisibility.PUBLIC)
             class Client {
                 @UMLExclude
@@ -181,7 +179,7 @@ class UmlgOptionReglesTest {
         // contournement d'-Aumlg.warnings=none ne servait pourtant à rien, faute d'être écrit
         // dans la gravité que -nowarn respecte — et Maven passe -nowarn par défaut, si bien que
         // le cas courant était le cas muet.
-        Verdict verdict = CompilationCobaye.compiler(tmp, "Cobaye.java", ENTETE + """
+        Verdict verdict = CompilationCobaye.compilerCorps(tmp, """
             @UMLClass(stereotype = "<<Service>>")
             class Paiement {}
             """, List.of("-nowarn", "-Aumlg.rules=" + tmp.resolve("absent.json")));

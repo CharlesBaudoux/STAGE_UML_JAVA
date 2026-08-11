@@ -1,9 +1,11 @@
 package io.github.oliviercailloux.umlg;
 
+import static io.github.oliviercailloux.umlg.CompilationSansProcesseur.compiler;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -14,8 +16,6 @@ import io.github.oliviercailloux.umlg.model.UmlEntity;
 import io.github.oliviercailloux.umlg.model.UmlProject;
 import io.github.oliviercailloux.umlg.rendering.PlantUmlAssert;
 import io.github.oliviercailloux.umlg.rendering.PlantUmlWriter;
-import java.io.File;
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -23,11 +23,6 @@ import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-import javax.tools.JavaCompiler;
-import javax.tools.StandardJavaFileManager;
-import javax.tools.ToolProvider;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -50,40 +45,8 @@ class UMLGeneratorIntegrationTest {
     // Nombre magique d'un PNG : sert à vérifier le format réellement écrit.
     private static final byte[] ENTETE_PNG = {(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A};
 
-    // Même procédé que dans ProjectScannerIntegrationTest : écrire un .java, le compiler pour
-    // de bon, et scanner le répertoire de sortie.
-    private static void compiler(Path racineSources, Path sortie, String cheminRelatif, String code)
-        throws IOException {
-        Path fichier = racineSources.resolve(cheminRelatif);
-        Files.createDirectories(fichier.getParent());
-        Files.writeString(fichier, code, StandardCharsets.UTF_8);
-        Files.createDirectories(sortie);
-
-        JavaCompiler compilateur = ToolProvider.getSystemJavaCompiler();
-        try (StandardJavaFileManager gestionnaire =
-            compilateur.getStandardFileManager(null, null, StandardCharsets.UTF_8)) {
-
-            // -proc:none : ces tests mesurent la chaîne scan puis rendu, pas le processeur
-            // d'annotations. Le désactiver explicitement les rend indépendants de la façon dont
-            // javac découvre les processeurs présents sur le classpath, et laisse la porte
-            // ouverte à un futur cobaye délibérément fautif. UmlgProcessorTest s'occupe du
-            // processeur.
-            boolean ok = compilateur.getTask(null, gestionnaire, null,
-                List.of("-proc:none", "-classpath", cheminDeCompilation(), "-d",
-                    sortie.toString()),
-                null, gestionnaire.getJavaFileObjects(fichier.toFile())).call();
-            if (!ok) {
-                throw new IllegalStateException("Le cobaye n'a pas compilé :\n" + code);
-            }
-        }
-    }
-
-    private static String cheminDeCompilation() {
-        return Stream.of(System.getProperty("java.class.path"),
-                System.getProperty("jdk.module.path"))
-            .filter(chemin -> chemin != null && !chemin.isBlank())
-            .collect(Collectors.joining(File.pathSeparator));
-    }
+    // Le harnais javac — écrire un .java, le compiler pour de bon, scanner le répertoire de
+    // sortie — vit dans CompilationSansProcesseur, importé statiquement ci-dessus.
 
     // --- Chaîne complète ---
 
@@ -159,7 +122,7 @@ class UMLGeneratorIntegrationTest {
             "Le dossier source doit figurer dans le message : " + e.getMessage());
         assertTrue(e.getMessage().contains(sortie.toString()),
             "Le fichier de sortie doit figurer dans le message : " + e.getMessage());
-        assertTrue(e.getCause() != null, "La cause d'origine doit être conservée.");
+        assertNotNull(e.getCause(), "La cause d'origine doit être conservée.");
         assertFalse(Files.exists(sortie), "Aucun fichier ne doit être écrit en cas d'échec.");
     }
 
@@ -324,7 +287,7 @@ class UMLGeneratorIntegrationTest {
         String second = Files.readString(sortie, StandardCharsets.UTF_8);
 
         assertTrue(second.contains("Compte"));
-        assertTrue(premier.equals(second),
+        assertEquals(premier, second,
             "Deux générations identiques doivent donner le même SVG.");
     }
 
@@ -350,10 +313,9 @@ class UMLGeneratorIntegrationTest {
 
         List<String> alias = PlantUmlAssert.aliasDeclares(source);
 
-        assertTrue(alias.size() == projet.entities().size(),
-            "Chaque entité scannée doit donner une déclaration de classe : "
-                + alias.size() + " alias pour " + projet.entities().size() + " entités.");
-        assertTrue(alias.stream().distinct().count() == alias.size(),
+        assertEquals(projet.entities().size(), alias.size(),
+            "Chaque entité scannée doit donner une déclaration de classe.");
+        assertEquals(alias.size(), alias.stream().distinct().count(),
             "Des alias en double fusionneraient des classes distinctes : " + alias);
     }
 

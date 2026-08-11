@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.oliviercailloux.umlg.annotation.UMLClass;
 import io.github.oliviercailloux.umlg.annotation.UMLVisibility;
-import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -16,9 +15,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
-import javax.tools.JavaCompiler;
-import javax.tools.StandardJavaFileManager;
-import javax.tools.ToolProvider;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -325,7 +321,10 @@ class UMLGeneratorTest {
     // parent est déplacé dans un jar posé à côté. Le répertoire analysé ne contient donc plus que
     // la fille, exactement comme le target/classes d'un projet qui dépend d'une bibliothèque.
     private static Path unProjetDontLeParentEstDansUnJar(Path tmp) throws Exception {
-        Path classes = compiler(tmp,
+        Path classes = tmp.resolve("compilees");
+        // Les deux dans une seule tâche javac : Fille nomme Base, et l'une ne compilerait pas
+        // sans l'autre.
+        CompilationSansProcesseur.compiler(tmp.resolve("src"), classes,
             "tiers/Base.java", """
                 package tiers;
 
@@ -353,35 +352,6 @@ class UMLGeneratorTest {
         }
         Files.delete(classes.resolve(entree));
         Files.delete(classes.resolve("tiers"));
-        return classes;
-    }
-
-    // Écrit des sources et les compile pour de bon : les arguments vont par deux, un chemin
-    // relatif puis le code. Le répertoire des .class est rendu.
-    private static Path compiler(Path tmp, String... cheminsEtCodes) throws IOException {
-        Path sources = tmp.resolve("src");
-        Path classes = tmp.resolve("compilees");
-        Files.createDirectories(classes);
-
-        List<File> fichiers = new ArrayList<>();
-        for (int i = 0; i < cheminsEtCodes.length; i += 2) {
-            Path fichier = sources.resolve(cheminsEtCodes[i]);
-            Files.createDirectories(fichier.getParent());
-            Files.writeString(fichier, cheminsEtCodes[i + 1], StandardCharsets.UTF_8);
-            fichiers.add(fichier.toFile());
-        }
-
-        JavaCompiler compilateur = ToolProvider.getSystemJavaCompiler();
-        try (StandardJavaFileManager gestionnaire =
-            compilateur.getStandardFileManager(null, null, StandardCharsets.UTF_8)) {
-            // -proc:none : ce test mesure le chargement par réflexion, pas le processeur
-            // d'annotations, dont UmlgProcessorTest s'occupe.
-            boolean ok = compilateur.getTask(null, gestionnaire, null,
-                List.of("-proc:none", "-classpath", System.getProperty("java.class.path"),
-                    "-d", classes.toString()),
-                null, gestionnaire.getJavaFileObjects(fichiers.toArray(new File[0]))).call();
-            assertTrue(ok, "Le cobaye n'a pas compilé.");
-        }
         return classes;
     }
 
