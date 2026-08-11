@@ -20,6 +20,8 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.stream.Stream;
 
 // Parcourt un répertoire de classes compilées et en tire le projet UML.
@@ -48,25 +50,33 @@ public class ProjectScanner {
         checkArgument(Files.exists(rootPath) && Files.isDirectory(rootPath),
             "The source directory is not valid: %s", rootPath);
 
+        // UN PARCOURS SÉQUENTIEL, ET TOUT CE QUI SUIT EN DÉCOULE
+        //
+        // Les trois listes ci-dessous étaient enveloppées dans Collections.synchronizedList,
+        // alors que le flux qui les remplit n'est pas parallèle et ne l'a jamais été. La
+        // protection ne servait donc à rien — et elle induisait en erreur, car le builder
+        // ci-dessous, rempli dans la même boucle, n'est pas sûr vis-à-vis des fils. Qui aurait
+        // lu ces enveloppes comme une invitation à paralléliser le parcours aurait corrompu le
+        // modèle sans que rien ne l'avertisse.
+        //
+        // Le jour où ce parcours devra être parallélisé, ce sont ces quatre collections
+        // ensemble qu'il faudra traiter, et pas trois d'entre elles.
         ImmutableSet.Builder<UmlEntity> projectBuilder = ImmutableSet.builder();
 
         // Les classes rencontrées et laissées de côté, faute de @UMLClass. Leur nombre est la
         // seule façon, pour l'utilisateur, de distinguer une classe volontairement hors du
         // diagramme d'une classe qu'il a oublié d'annoter : les deux se ressemblent trait pour
         // trait sur le dessin, c'est-à-dire qu'elles n'y sont ni l'une ni l'autre.
-        java.util.List<String> ignorees =
-            java.util.Collections.synchronizedList(new java.util.ArrayList<>());
+        List<String> ignorees = new ArrayList<>();
 
         // Les classes annotées dont la boîte sort vide faute d'une stratégie déclarée : la
         // surprise la plus fréquente d'un premier essai, signalée en fin de scan.
-        java.util.List<String> boitesVides =
-            java.util.Collections.synchronizedList(new java.util.ArrayList<>());
+        List<String> boitesVides = new ArrayList<>();
 
         // Les classes que le chargeur n'a pas su lier : une dépendance « provided » absente du
         // classpath donné, une compilation partielle. Elles sont mises de côté et signalées en
         // fin de scan, non plus jetées à la figure de l'utilisateur.
-        java.util.List<String> illisibles =
-            java.util.Collections.synchronizedList(new java.util.ArrayList<>());
+        List<String> illisibles = new ArrayList<>();
 
         // Les règles du projet, lues une fois pour toutes avant la première classe : elles valent
         // pour l'ensemble du diagramme, et les relire par classe n'aurait aucun sens. Absentes,
