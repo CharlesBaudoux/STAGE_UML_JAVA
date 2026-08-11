@@ -46,7 +46,7 @@ public record UmlMethod(
     public UmlMethod {
         checkNotNull(returnType, "The return type cannot be null (use an empty string).");
         checkNotNull(cardinality, "The cardinality cannot be null (use an empty string).");
-        UmlAssociation.validateCardinality(cardinality, "cardinality");
+        Multiplicites.valider(cardinality, "cardinality");
 
         // Recopie défensive : la liste passée par l'appelant reste modifiable de son côté, celle
         // du record ne l'est pas. copyOf refuse au passage les éléments nuls.
