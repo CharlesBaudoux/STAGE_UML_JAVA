@@ -169,6 +169,7 @@ hide with*, is*, log, LOGGER    #   « * » remplace n'importe quelle suite de c
 omit return void                # un retour void ne s'écrit pas
 omit visibility                 # ni « + » ni « - » devant les membres
 omit parameter names            # « from(KeyboardMap) » au lieu de « from(map : KeyboardMap) »
+omit abstract                   # pas d'italique sur une opération sans implémentation
 type ImmutableList -> List      # le nom sous lequel un type s'affiche
 order declaration               # les membres dans l'ordre du code, plutôt qu'alphabétique
 multiplicity brackets           # Set<X> s'écrit « X [0..*] », Optional<X> « X [0..1] »
