@@ -3,7 +3,7 @@
 `umlg` engendre des diagrammes de classes PlantUML (SVG ou PNG) à partir d'un projet Java
 compilé. Rien n'y est deviné : une classe entre dans le diagramme parce qu'elle porte
 `@UMLClass`, un lien se dessine parce qu'une annotation le déclare ou que le type de l'attribut
-le dit, et ce qui vaut pour le projet entier s'écrit une fois, dans un fichier `umlg.rules`.
+le dit, et ce qui vaut pour le projet entier s'écrit une fois, dans un fichier `umlg.json`.
 
 Trois morceaux :
 
@@ -11,7 +11,7 @@ Trois morceaux :
   qui refuse à la compilation un code annoté à tort ;
 - **le plugin Maven** (`umlg-maven-plugin`) : `mvn compile umlg:generate`, sans un argument à
   écrire ;
-- **le fichier `umlg.rules`** : les règles du projet — stratégie, bruit, renommages de types,
+- **le fichier `umlg.json`** : les règles du projet — stratégie, bruit, renommages de types,
   vues.
 
 ## Installation
@@ -93,7 +93,7 @@ cd ../umlg-maven-plugin   && mvn install
             effet, un @UMLDerived sur un membre que la stratégie n'affiche pas. Il préfère se
             taire que deviner ; encore faut-il lui donner de quoi savoir.
           -->
-          <arg>-Aumlg.rules=src/main/resources/umlg.rules</arg>
+          <arg>-Aumlg.rules=src/main/resources/umlg.json</arg>
         </compilerArgs>
       </configuration>
     </plugin>
@@ -156,44 +156,64 @@ chaque annotation porte sa Javadoc :
 Les composants d'un record sont sa définition : ils se dessinent quelle que soit la stratégie,
 `@UMLExclude` restant le seul moyen d'en taire un.
 
-## Le fichier `umlg.rules`
+## Le fichier `umlg.json`
 
-Facultatif, posé dans `src/main/resources/umlg.rules` (la construction le recopie à la racine du
-répertoire analysé). Une règle par ligne, `#` ouvre un commentaire ; un mot-clé inconnu arrête la
-génération, et une règle restée sans effet est signalée en fin de scan. L'essentiel :
+Facultatif, posé dans `src/main/resources/umlg.json` (la construction le recopie à la racine du
+répertoire analysé). Un objet JSON, une clé par nature de règle ; une clé inconnue arrête la
+génération, et une règle restée sans effet est signalée en fin de scan. JSON n'a pas de
+commentaires : une clé dont le nom commence par `_` n'est pas lue, et c'est là que va une note.
+L'essentiel :
 
+```json
+{
+  "_": "Ce que les boîtes montrent, sans annoter chaque classe.",
+  "strategy": "public",
+
+  "_hide": "Des motifs de noms — méthodes et attributs indifféremment ; « * » remplace n'importe quelle suite de caractères.",
+  "hide": ["get*", "set*", "toString", "with*", "is*", "log", "LOGGER"],
+
+  "_omit": "Un retour void ne s'écrit pas ; ni « + » ni « - » devant les membres ; « from(KeyboardMap) » au lieu de « from(map : KeyboardMap) » ; pas d'italique sur une opération sans implémentation.",
+  "omit": ["return void", "visibility", "parameter names", "abstract"],
+
+  "_types": "Le nom sous lequel un type s'affiche.",
+  "types": { "ImmutableList": "List" },
+
+  "_ordre": "Les membres dans l'ordre du code, plutôt qu'alphabétique.",
+  "order": "declaration",
+  "_multiplicity": "Set<X> s'écrit « X [0..*] », Optional<X> « X [0..1] ».",
+  "multiplicity": "brackets",
+
+  "_dessin": "Le titre de la vue d'ensemble, son sens de lecture, et les compartiments vides rétablis.",
+  "title": "Architecture du module",
+  "direction": "left-to-right",
+  "showEmptyMembers": true,
+
+  "views": [
+    { "name": "Mapping", "retain": ["KeysymEntry", "KeyboardMap"],
+      "remove": ["XkbSymbolsReader"], "direction": "left-to-right" },
+    { "name": "Autour de X", "retain": [{ "around": "X" }] }
+  ],
+  "_viewsByPackage": "Une vue par paquetage, sans rien déclarer.",
+  "viewsByPackage": true
+}
 ```
-strategy public                 # ce que les boîtes montrent, sans annoter chaque classe
-hide get*, set*, toString       # des motifs de noms : méthodes et attributs indifféremment
-hide with*, is*, log, LOGGER    #   « * » remplace n'importe quelle suite de caractères
-omit return void                # un retour void ne s'écrit pas
-omit visibility                 # ni « + » ni « - » devant les membres
-omit parameter names            # « from(KeyboardMap) » au lieu de « from(map : KeyboardMap) »
-omit abstract                   # pas d'italique sur une opération sans implémentation
-type ImmutableList -> List      # le nom sous lequel un type s'affiche
-order declaration               # les membres dans l'ordre du code, plutôt qu'alphabétique
-multiplicity brackets           # Set<X> s'écrit « X [0..*] », Optional<X> « X [0..1] »
-title Architecture du module    # le titre de la vue d'ensemble
-direction left-to-right         # son sens de lecture
-show empty members              # rétablit les compartiments vides
-view "Mapping" = KeysymEntry, KeyboardMap - XkbSymbolsReader
-view "Mapping" direction left-to-right
-view "Autour de X" = around X   # une classe et ses voisins déclarés
-views by package                # une vue par paquetage, sans rien déclarer
-```
 
-Onze mots-clés, et **aucun** qui refasse ce qu'une annotation sait faire. Le critère est unique :
+Une chaîne dans un `retain` ou un `remove` désigne une classe ; `{ "package": … }` prend tout un
+paquetage, `{ "around": … }` une classe et ses voisines immédiates. L'ordre d'écriture est celui du
+dessin.
+
+Onze clés, et **aucune** qui refasse ce qu'une annotation sait faire. Le critère est unique :
 *si la décision désigne un élément par son nom, c'est une annotation ; sinon c'est une règle.* D'où
 la règle de priorité, sans exception à retenir : **l'annotation l'emporte toujours sur la règle.**
 
-Trois conséquences : aucune règle ne désigne un membre nommément — `hide Representation.string`
+Trois conséquences : aucune règle ne désigne un membre nommément — `"hide": ["Representation.string"]`
 est refusé, `@UMLExclude` est fait pour cela ; aucune règle ne range une classe nommée —
 `@UMLPackage` seul ; aucune règle ne fabrique une boîte ni un lien — ce qui n'est pas dans le code
 n'est pas sur le diagramme. Et ce qui ne dit rien du modèle se règle à l'appel plutôt qu'ici :
 `.keepPrevious(true)`, ou `-Dumlg.keepPrevious=true`, conserve la génération précédente dans un
 dossier voisin numéroté au lieu de la remplacer.
 
-Deux verbes, et ce qui les sépare : `hide` fait disparaître un membre, `omit` retire un morceau de
+Deux mots, et ce qui les sépare : `hide` fait disparaître un membre, `omit` retire un morceau de
 la ligne d'un membre qui reste affiché. Le mot dit à lui seul si `@UMLInclude` peut le contredire —
 il le peut pour `hide`, et il n'y a rien à ramener pour `omit`.
 

@@ -72,7 +72,11 @@ public final class UmlgProcessor extends AbstractProcessor {
     private static final String AVERTISSEMENTS_MUETS = "none";
 
     // L'option qui donne au processeur le chemin du fichier de règles :
-    // -Aumlg.rules=src/main/resources/umlg.rules, ou <compilerArgs> dans le pom.
+    // -Aumlg.rules=src/main/resources/umlg.json, ou <compilerArgs> dans le pom.
+    //
+    // Le nom de l'option ne suit pas celui du fichier : elle désigne les règles, non leur format,
+    // et elle s'appelait déjà ainsi quand le fichier s'appelait umlg.rules. La renommer aurait
+    // cassé les poms qui la posent sans rien apprendre à personne.
     //
     // Elle existe parce que javac ne peut pas le trouver seul : le fichier vit à la racine du
     // répertoire des classes compilées, et rien, dans une compilation, ne dit ce que la

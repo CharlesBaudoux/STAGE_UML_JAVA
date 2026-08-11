@@ -12,7 +12,7 @@ import io.github.oliviercailloux.umlg.annotation.UMLFlow;
 //
 // Elle ne contient pas de classes, seulement la façon de les désigner. La résolution — passer des
 // noms écrits aux boîtes du modèle — a lieu bien plus tard, quand le projet est connu ; c'est ce
-// qui permet de refuser un nom introuvable en nommant la ligne fautive.
+// qui permet de refuser un nom introuvable en nommant la vue fautive.
 //
 // L'ORDRE COMPTE
 //
@@ -32,11 +32,5 @@ public record DefinitionDeVue(String nom, ImmutableList<Selecteur> retenus,
 
         checkArgument(!nom.isBlank(), "The view name cannot be empty or made of whitespace only.");
         checkArgument(!retenus.isEmpty(), "A view must retain at least one class.");
-    }
-
-    // La même vue, sous un autre sens de lecture : la direction se déclare sur une ligne à part,
-    // donc après le contenu.
-    public DefinitionDeVue avec(UMLFlow autre) {
-        return new DefinitionDeVue(nom, retenus, retires, autre);
     }
 }

@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.google.common.collect.ImmutableList;
 import io.github.oliviercailloux.umlg.annotation.UMLClass;
 import io.github.oliviercailloux.umlg.annotation.UMLInclude;
 import io.github.oliviercailloux.umlg.annotation.UMLPackage;
@@ -19,8 +18,8 @@ import org.junit.jupiter.api.Test;
 
 class ReglesDuProjetTest {
 
-    private static Regles regles(String... lignes) {
-        return Regles.lues(ImmutableList.copyOf(lignes), "les règles du test");
+    private static Regles regles(String json) {
+        return Regles.lues(json, "les règles du test");
     }
 
     private static List<String> nomsDesMethodes(UmlEntity entity) {
@@ -60,7 +59,9 @@ class ReglesDuProjetTest {
 
     @Test
     void strategieDuProjet_sAppliqueAuxClassesQuiNeDisentRien() {
-        UmlEntity entity = EntityExtractor.extract(SansStrategie.class, regles("strategy public"));
+        UmlEntity entity = EntityExtractor.extract(SansStrategie.class, regles("""
+            { "strategy": "public" }
+            """));
 
         assertEquals(List.of("nom"), nomsDesChamps(entity));
         assertEquals(List.of("valider"), nomsDesMethodes(entity));
@@ -68,8 +69,9 @@ class ReglesDuProjetTest {
 
     @Test
     void classeQuiDemandeNone_resteVideMalgreLeProjet() {
-        UmlEntity entity =
-            EntityExtractor.extract(BoiteVideVoulue.class, regles("strategy public"));
+        UmlEntity entity = EntityExtractor.extract(BoiteVideVoulue.class, regles("""
+            { "strategy": "public" }
+            """));
 
         assertTrue(entity.fields().isEmpty(), entity.fields().toString());
         assertTrue(entity.methods().isEmpty(), entity.methods().toString());
@@ -77,31 +79,41 @@ class ReglesDuProjetTest {
 
     @Test
     void classeQuiDeclareSaStrategie_lEmporteSurLeProjet() {
-        UmlEntity entity = EntityExtractor.extract(ToutVoulu.class, regles("strategy public"));
+        UmlEntity entity = EntityExtractor.extract(ToutVoulu.class, regles("""
+            { "strategy": "public" }
+            """));
 
         assertEquals(List.of("secret"), nomsDesChamps(entity),
-            "PRIVATE sur la classe doit l'emporter sur « strategy public ».");
+            "PRIVATE sur la classe doit l'emporter sur « \"strategy\": \"public\" ».");
     }
 
     @Test
     void strategieInconnue_estRefusee() {
-        IllegalArgumentException e =
-            assertThrows(IllegalArgumentException.class, () -> regles("strategy publique"));
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> regles("""
+            { "strategy": "publique" }
+            """));
 
         assertTrue(e.getMessage().contains("unknown strategy"), e.getMessage());
     }
 
     @Test
     void strategieProject_estRefusee() {
-        assertThrows(IllegalArgumentException.class, () -> regles("strategy project"));
+        assertThrows(IllegalArgumentException.class, () -> regles("""
+            { "strategy": "project" }
+            """));
     }
 
     @Test
     void deuxStrategies_sontRefusees() {
-        IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
-            () -> regles("strategy none", "strategy public"));
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> regles("""
+            {
+              "strategy": "none",
+              "strategy": "public"
+            }
+            """));
 
-        assertTrue(e.getMessage().contains("already set"), e.getMessage());
+        assertTrue(e.getMessage().contains("strategy"), e.getMessage());
+        assertTrue(e.getMessage().contains("les règles du test"), e.getMessage());
     }
 
     @UMLClass(strategy = UMLVisibility.PRIVATE)
@@ -131,8 +143,9 @@ class ReglesDuProjetTest {
 
     @Test
     void motifDAccesseurs_masqueLesGettersEtLesSetters() {
-        List<String> methodes = nomsDesMethodes(
-            EntityExtractor.extract(Bavarde.class, regles("hide get*, set*")));
+        List<String> methodes = nomsDesMethodes(EntityExtractor.extract(Bavarde.class, regles("""
+            { "hide": ["get*", "set*"] }
+            """)));
 
         assertFalse(methodes.contains("getNom"), methodes.toString());
         assertFalse(methodes.contains("setNom"), methodes.toString());
@@ -143,8 +156,9 @@ class ReglesDuProjetTest {
 
     @Test
     void motifExact_neMasqueQueLeNomEcrit() {
-        List<String> methodes =
-            nomsDesMethodes(EntityExtractor.extract(Bavarde.class, regles("hide toString")));
+        List<String> methodes = nomsDesMethodes(EntityExtractor.extract(Bavarde.class, regles("""
+            { "hide": ["toString"] }
+            """)));
 
         assertFalse(methodes.contains("toString"), methodes.toString());
         assertTrue(methodes.contains("getNom"), methodes.toString());
@@ -152,17 +166,19 @@ class ReglesDuProjetTest {
 
     @Test
     void motifDeMethode_masqueLesConventionsDuProjet() {
-        List<String> methodes =
-            nomsDesMethodes(EntityExtractor.extract(Bavarde.class, regles("hide with*")));
+        List<String> methodes = nomsDesMethodes(EntityExtractor.extract(Bavarde.class, regles("""
+            { "hide": ["with*"] }
+            """)));
 
         assertFalse(methodes.contains("withNom"), methodes.toString());
         assertTrue(methodes.contains("valider"), methodes.toString());
     }
 
     @Test
-    void plusieursMotifs_seSeparentParDesVirgules() {
-        List<String> methodes = nomsDesMethodes(
-            EntityExtractor.extract(Bavarde.class, regles("hide with*, valider")));
+    void plusieursMotifs_sEcriventDansLeMemeTableau() {
+        List<String> methodes = nomsDesMethodes(EntityExtractor.extract(Bavarde.class, regles("""
+            { "hide": ["with*", "valider"] }
+            """)));
 
         assertFalse(methodes.contains("withNom"), methodes.toString());
         assertFalse(methodes.contains("valider"), methodes.toString());
@@ -170,8 +186,9 @@ class ReglesDuProjetTest {
 
     @Test
     void motifDeChamp_masqueUnAttribut() {
-        List<String> champs =
-            nomsDesChamps(EntityExtractor.extract(Bavarde.class, regles("hide log*")));
+        List<String> champs = nomsDesChamps(EntityExtractor.extract(Bavarde.class, regles("""
+            { "hide": ["log*"] }
+            """)));
 
         assertFalse(champs.contains("logger"), champs.toString());
         assertTrue(champs.contains("nom"), champs.toString());
@@ -188,8 +205,9 @@ class ReglesDuProjetTest {
 
     @Test
     void includeLEmporteSurLaRegle() {
-        UmlEntity entity = EntityExtractor.extract(RepecheeALaMain.class,
-            regles("hide get*", "hide log*"));
+        UmlEntity entity = EntityExtractor.extract(RepecheeALaMain.class, regles("""
+            { "hide": ["get*", "log*"] }
+            """));
 
         assertTrue(nomsDesChamps(entity).contains("logger"), entity.fields().toString());
         assertTrue(nomsDesMethodes(entity).contains("getNom"), entity.methods().toString());
@@ -197,27 +215,35 @@ class ReglesDuProjetTest {
 
     @Test
     void motifQuiNeViseRien_seReleveEnFinDeScan() {
-        Regles lues = regles("hide accesseurs");
+        Regles lues = regles("""
+            { "hide": ["accesseurs"] }
+            """);
 
-        assertEquals(List.of("hide accesseurs"), lues.reglesSansEffet());
+        assertEquals(List.of("hide: accesseurs"), lues.reglesSansEffet());
     }
 
     @Test
-    void hideSansMotif_estRefuse() {
-        IllegalArgumentException e =
-            assertThrows(IllegalArgumentException.class, () -> regles("hide"));
+    void hideSansMotif_neMasqueRien() {
+        Regles lues = regles("""
+            { "hide": [] }
+            """);
 
-        assertTrue(e.getMessage().contains("hide <patterns>"), e.getMessage());
+        assertFalse(lues.membreMasque("getNom"));
+        assertTrue(lues.reglesSansEffet().isEmpty(), lues.reglesSansEffet().toString());
     }
 
     @Test
     void motifToutSeul_estRefuse() {
-        assertThrows(IllegalArgumentException.class, () -> regles("hide *"));
+        assertThrows(IllegalArgumentException.class, () -> regles("""
+            { "hide": ["*"] }
+            """));
     }
 
     @Test
     void motifVide_estRefuse() {
-        assertThrows(IllegalArgumentException.class, () -> regles("hide get*,"));
+        assertThrows(IllegalArgumentException.class, () -> regles("""
+            { "hide": ["get*", ""] }
+            """));
     }
 
     @Test
@@ -228,7 +254,9 @@ class ReglesDuProjetTest {
 
     @Test
     void omitVisibility_lesTait() {
-        UmlEntity entity = EntityExtractor.extract(Bavarde.class, regles("omit visibility"));
+        UmlEntity entity = EntityExtractor.extract(Bavarde.class, regles("""
+            { "omit": ["visibility"] }
+            """));
 
         assertTrue(entity.fields().stream().allMatch(f -> f.visibility().isEmpty()),
             entity.fields().toString());
@@ -239,7 +267,9 @@ class ReglesDuProjetTest {
     @Test
     void omitVisibility_neLaisseAucunEspaceDansLeDessin() {
         String source = io.github.oliviercailloux.umlg.rendering.PlantUmlAssert.documentPour(
-            EntityExtractor.extract(Bavarde.class, regles("omit visibility")));
+            EntityExtractor.extract(Bavarde.class, regles("""
+                { "omit": ["visibility"] }
+                """)));
 
         assertTrue(source.contains("  nom : String"), source);
         assertFalse(source.contains("   nom"), "Pas d'espace surnuméraire : " + source);
@@ -247,8 +277,9 @@ class ReglesDuProjetTest {
 
     @Test
     void omitVisibility_deuxFois_estRefuse() {
-        assertThrows(IllegalArgumentException.class,
-            () -> regles("omit visibility", "omit visibility"));
+        assertThrows(IllegalArgumentException.class, () -> regles("""
+            { "omit": ["visibility", "visibility"] }
+            """));
     }
 
     @UMLClass
@@ -263,36 +294,41 @@ class ReglesDuProjetTest {
     @Test
     void groupPackage_nExistePlus() {
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
-            () -> regles("group package " + PAQUETAGE + " -> \"Règles\""));
+            () -> regles("{ \"group\": { \"" + PAQUETAGE + "\": \"Règles\" } }"));
 
         assertTrue(e.getMessage().contains("unknown rule"), e.getMessage());
     }
 
     @Test
     void sansAnnotation_aucuneRegleNeRangeUneClasse() {
-        UmlEntity entity = EntityExtractor.extract(Rangee.class, regles("strategy public"));
+        UmlEntity entity = EntityExtractor.extract(Rangee.class, regles("""
+            { "strategy": "public" }
+            """));
 
         assertFalse(entity.group().estGroupee(), entity.group().toString());
     }
 
     @Test
     void lAnnotationRangeLaClasse() {
-        UmlEntity entity = EntityExtractor.extract(DejaRangee.class, regles("strategy public"));
+        UmlEntity entity = EntityExtractor.extract(DejaRangee.class, regles("""
+            { "strategy": "public" }
+            """));
 
         assertEquals("Écrit à la main", entity.group().name());
     }
 
     @Test
     void fichierComplet_estLuSansErreur() {
-        Regles lues = regles(
-            "# Les réglages de tout le projet",
-            "strategy public",
-            "",
-            "hide get*, set*",
-            "hide with*, visit*, log, LOGGER",
-            "omit return void",
-            "omit visibility",
-            "type ImmutableList -> List");
+        Regles lues = regles("""
+            {
+              "_": "Les réglages de tout le projet",
+              "strategy": "public",
+
+              "hide": ["get*", "set*", "with*", "visit*", "log", "LOGGER"],
+              "omit": ["return void", "visibility"],
+              "types": { "ImmutableList": "List" }
+            }
+            """);
 
         assertFalse(lues.vides());
         assertEquals(UMLVisibility.PUBLIC, lues.strategie());
@@ -306,7 +342,7 @@ class ReglesDuProjetTest {
 
     @Test
     void fichierVide_neRegleRien() {
-        assertTrue(regles().vides());
-        assertEquals(UMLVisibility.NONE, regles().strategie());
+        assertTrue(regles("{}").vides());
+        assertEquals(UMLVisibility.NONE, regles("{}").strategie());
     }
 }

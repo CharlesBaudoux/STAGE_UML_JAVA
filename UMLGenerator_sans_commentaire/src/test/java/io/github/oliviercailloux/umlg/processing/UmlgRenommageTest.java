@@ -80,8 +80,8 @@ class UmlgRenommageTest {
 
     @Test
     void unRenommage_faitTaireLAvertissementSansEffet(@TempDir Path tmp) throws IOException {
-        Path regles = tmp.resolve("umlg.rules");
-        java.nio.file.Files.writeString(regles, "strategy public\n");
+        Path regles = tmp.resolve("umlg.json");
+        java.nio.file.Files.writeString(regles, "{ \"strategy\": \"public\" }\n");
 
         Verdict verdict = CompilationCobaye.compiler(tmp, "Cobaye.java", ENTETE + """
             @UMLClass

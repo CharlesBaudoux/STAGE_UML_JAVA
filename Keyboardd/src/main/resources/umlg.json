@@ -1,0 +1,42 @@
+{
+  "_strategy": "Aucune boîte ne montre ses membres par défaut : chaque classe le demande.",
+  "strategy": "none",
+
+  "_types": "Les types de Guava n'apprennent rien au lecteur du diagramme.",
+  "types": {
+    "ImmutableSet": "Set",
+    "ImmutableList": "List",
+    "ImmutableMap": "Map",
+    "ImmutableBiMap": "BiMap"
+  },
+
+  "_notation": "La notation des diagrammes tenus à la main : ni void, ni visibilités, ni {abstract}.",
+  "omit": ["return void", "visibility", "abstract"],
+  "multiplicity": "brackets",
+  "order": "declaration",
+
+  "views": [
+    { "name": "XKeys", "retain": ["Xkeys"] },
+    {
+      "name": "Mapping",
+      "retain": ["KeysymEntry", "Mnemonic", "Ucp", "Code", "KeyboardMap", "XkbSymbolsReader"],
+      "direction": "left-to-right"
+    },
+    {
+      "name": "Mnemonics",
+      "retain": ["CanonicalKeysymEntry", "CanonicalMnemonic", "ImplicitUcp", "Mnemonics",
+        "CanonicalKeyboardMap"]
+    },
+    {
+      "name": "Representable",
+      "retain": ["Representation", "StringRepresentation", "SvgRepresentation",
+        "XKeyNamesRepresenter", "XKeyNamesAndRepresenter", "CanonicalKeyboardMapRepresenter",
+        "RectangularKey", "RectangularKeyboard", "SvgKeyboard"],
+      "direction": "left-to-right"
+    },
+    { "name": "Autour de SvgKeyboard", "retain": [{ "around": "SvgKeyboard" }] },
+    { "name": "Autour de CanonicalKeyboardMap", "retain": [{ "around": "CanonicalKeyboardMap" }] }
+  ],
+
+  "viewsByPackage": true
+}

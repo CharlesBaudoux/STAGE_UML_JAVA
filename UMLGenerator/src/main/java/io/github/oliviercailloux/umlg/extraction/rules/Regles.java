@@ -26,48 +26,53 @@ import java.util.concurrent.ConcurrentHashMap;
 //
 // OÙ LE FICHIER SE TROUVE
 //
-// À la racine du répertoire analysé, sous le nom « umlg.rules ». Pour un projet Maven ordinaire,
-// cela veut dire src/main/resources/umlg.rules, que la construction recopie dans target/classes.
+// À la racine du répertoire analysé, sous le nom « umlg.json ». Pour un projet Maven ordinaire,
+// cela veut dire src/main/resources/umlg.json, que la construction recopie dans target/classes.
 // Le fichier est facultatif : son absence donne les mêmes règles que son absence de contenu,
 // c'est-à-dire aucune.
 //
 // CE QU'ON Y ÉCRIT AUJOURD'HUI
 //
-//   # La stratégie de tout le projet : @UMLClass seule suffit désormais.
-//   strategy public
+//   {
+//     "_": "La stratégie de tout le projet : @UMLClass seule suffit désormais.",
+//     "strategy": "public",
 //
-//   # Le bruit : rien n'est masqué tant qu'on ne l'a pas demandé.
-//   hide get*, set*, is*
-//   hide with*, log, LOGGER
+//     "_bruit": "Rien n'est masqué tant qu'on ne l'a pas demandé.",
+//     "hide": ["get*", "set*", "is*", "with*", "log", "LOGGER"],
 //
-//   # Les types de Guava n'apprennent rien au lecteur du diagramme.
-//   type ImmutableList -> List
-//   type com.google.common.collect.ImmutableSet -> Set
+//     "_types": "Les types de Guava n'apprennent rien au lecteur du diagramme.",
+//     "types": {
+//       "ImmutableList": "List",
+//       "com.google.common.collect.ImmutableSet": "Set"
+//     },
 //
-//   # Les réglages du dessin d'ensemble.
-//   title Architecture du module Facturation
-//   direction left-to-right
-//   show empty members
+//     "_dessin": "Les réglages du dessin d'ensemble.",
+//     "title": "Architecture du module Facturation",
+//     "direction": "left-to-right",
+//     "showEmptyMembers": true,
 //
-//   # Ce qui n'est pas écrit sur la ligne d'un membre qui, lui, reste affiché.
-//   omit visibility
-//   omit parameter names
-//   omit return void
+//     "_omit": "Ce qui n'est pas écrit sur la ligne d'un membre qui, lui, reste affiché.",
+//     "omit": ["visibility", "parameter names", "return void"],
 //
-//   # Les membres dans l'ordre du code, et non par ordre alphabétique.
-//   order declaration
+//     "_ordre": "Les membres dans l'ordre du code, et non par ordre alphabétique.",
+//     "order": "declaration"
+//   }
 //
-// Une ligne « type » remplace un nom de type par un autre, partout où ce type paraît dans une
-// boîte : attributs, types de retour, paramètres. Le nom de gauche s'écrit au choix simple
-// (ImmutableList) ou complet (com.google.common.collect.ImmutableList) ; le second lève
+// JSON n'a pas de commentaires ; une clé dont le nom commence par « _ » n'est pas une règle et
+// n'est pas lue, et c'est là que va une note. C'est la seule convention que la bibliothèque
+// ajoute au format, et elle existe parce qu'un fichier écrit à la main a besoin de dire pourquoi.
+//
+// Une entrée de « types » remplace un nom de type par un autre, partout où ce type paraît dans
+// une boîte : attributs, types de retour, paramètres. La clé s'écrit au choix simple
+// (ImmutableList) ou complète (com.google.common.collect.ImmutableList) ; la seconde lève
 // l'ambiguïté quand deux paquetages ont une classe de même nom.
 //
-// DEUX VERBES, ET CE QUI LES SÉPARE
+// DEUX MOTS, ET CE QUI LES SÉPARE
 //
 // « hide » fait disparaître un membre de la boîte ; « omit » retire un morceau de la ligne d'un
 // membre qui, lui, reste affiché. La distinction n'est pas cosmétique : @UMLInclude ramène tout
-// ce qu'un « hide » écarte, tandis qu'un « omit » n'a rien à ramener — le membre est déjà là. Un
-// seul verbe pour les deux obligerait le lecteur à se demander, à chaque ligne, si la règle de
+// ce qu'un « hide » écarte, tandis qu'un « omit » n'a rien à ramener — le membre est déjà là. Une
+// seule clé pour les deux obligerait le lecteur à se demander, à chaque entrée, si la règle de
 // priorité s'y applique.
 //
 // « omit return void » efface le type rendu : la méthode s'écrit alors « valider() » et non
@@ -81,16 +86,17 @@ import java.util.concurrent.ConcurrentHashMap;
 //
 // Une règle ne désigne jamais un élément par son nom : c'est le partage avec les annotations
 // (voir le paquetage annotation). Un motif est une famille de noms, jamais un nom qualifié —
-// « hide Representation.string » n'existe pas, et @UMLExclude est le seul moyen de taire ce
-// champ-là. De même, aucune règle ne range une classe nommée (@UMLPackage seul), et aucune ne
+// « "hide": ["Representation.string"] » n'existe pas, et @UMLExclude est le seul moyen de taire
+// ce champ-là. De même, aucune règle ne range une classe nommée (@UMLPackage seul), et aucune ne
 // fabrique une boîte ni un lien : ce qui n'est pas dans le code n'est pas sur le diagramme.
 //
 // Le sort de la génération précédente ne s'écrit pas ici non plus : il ne dit rien du modèle, et
 // se règle à l'appel du générateur (UMLGenerator.Builder.keepPrevious).
 //
-// Le fichier est fait pour grandir : d'autres mots-clés viendront s'ajouter à « type », et c'est
-// LecteurDeRegles qui les accueillera. Un mot-clé inconnu est refusé, avec le numéro de ligne —
-// mieux vaut arrêter que d'appliquer en silence des règles dont une partie est ignorée.
+// Le fichier est fait pour grandir : d'autres clés viendront s'ajouter à « types », et c'est
+// LecteurDeRegles qui les accueillera. Une clé inconnue est refusée, en nommant son chemin dans
+// le fichier — mieux vaut arrêter que d'appliquer en silence des règles dont une partie est
+// ignorée.
 //
 // CE QUE LES RÈGLES NE TOUCHENT PAS
 //
@@ -101,7 +107,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class Regles {
 
     // Le nom du fichier, à la racine du répertoire analysé.
-    public static final String NOM_DU_FICHIER = "umlg.rules";
+    public static final String NOM_DU_FICHIER = "umlg.json";
 
     private static final Regles AUCUNE = new Regles(ImmutableMap.of(), false,
         UMLVisibility.NONE, false, ImmutableList.of(),
@@ -122,11 +128,11 @@ public final class Regles {
     // ce qui redonne exactement le comportement d'un projet sans fichier de règles.
     private final UMLVisibility strategie;
 
-    // Vrai quand une ligne « strategy » a été écrite, fût-ce « strategy none ».
+    // Vrai quand une clé « strategy » a été écrite, fût-ce « "strategy": "none" ».
     //
     // La distinction ne change rien au dessin — NONE dans les deux cas — mais elle change ce
-    // qu'on peut dire à l'utilisateur : une boîte vide sous un « strategy none » écrit est un
-    // choix, la même boîte sans aucune ligne est presque toujours une surprise, et c'est elle
+    // qu'on peut dire à l'utilisateur : une boîte vide sous un « "strategy": "none" » écrit est un
+    // choix, la même boîte sans aucune clé est presque toujours une surprise, et c'est elle
     // que la génération signale (voir ProjectScanner).
     private final boolean strategieDeclaree;
 
@@ -199,7 +205,7 @@ public final class Regles {
     // Les alias qui ont servi au moins une fois. Les motifs, eux, se marquent eux-mêmes.
     //
     // C'est la seule entorse à l'immuabilité de cette classe, et elle est délibérée : savoir
-    // qu'une ligne du fichier n'a rien fait exige de se souvenir de ce qui a servi, et seule
+    // qu'une entrée du fichier n'a rien fait exige de se souvenir de ce qui a servi, et seule
     // Regles voit passer toutes les consultations.
     //
     // L'ensemble est concurrent. Il l'était « comme la liste des classes ignorées du scanner »,
@@ -265,8 +271,8 @@ public final class Regles {
         return strategie;
     }
 
-    // Une ligne « strategy » a-t-elle été écrite ? Sert au signalement des boîtes vides : sans
-    // ligne, une boîte vide est une surprise à expliquer ; avec, c'est un choix à respecter.
+    // Une clé « strategy » a-t-elle été écrite ? Sert au signalement des boîtes vides : sans
+    // clé, une boîte vide est une surprise à expliquer ; avec, c'est un choix à respecter.
     public boolean strategieDeclaree() {
         return strategieDeclaree;
     }
@@ -301,7 +307,8 @@ public final class Regles {
     // Ce nom de membre — méthode ou attribut — correspond-il à l'un des motifs masqués ?
     //
     // Une seule question pour les deux, parce que le fichier n'écrit qu'une seule sorte de motif :
-    // « hide log » tait le champ log comme la méthode log, et c'est ce que veut dire la ligne.
+    // « "hide": ["log"] » tait le champ log comme la méthode log, et c'est ce que veut dire
+    // l'entrée.
     public boolean membreMasque(String nom) {
         checkNotNull(nom);
         for (Motif motif : membresMasques) {
@@ -312,10 +319,11 @@ public final class Regles {
         return false;
     }
 
-    // Les lignes du fichier qui n'ont servi à rien pendant le scan, telles qu'on les a écrites.
+    // Les entrées du fichier qui n'ont servi à rien pendant le scan, désignées par leur clé et ce
+    // qu'on y a écrit.
     //
     // Une règle qui désigne un nom introuvable est un no-op parfait : le diagramme se dessine,
-    // exact, et rien n'y montre qu'une ligne du fichier est morte — une classe renommée, une
+    // exact, et rien n'y montre qu'une entrée du fichier est morte — une classe renommée, une
     // faute de frappe. Les vues, elles, échouent bruyamment dans ce cas ; les règles de nommage
     // ne le peuvent pas, un motif ayant le droit de ne viser personne aujourd'hui. D'où ce
     // relevé, que la génération signale en avertissement (voir ProjectScanner) : assez pour
@@ -324,12 +332,12 @@ public final class Regles {
         ImmutableList.Builder<String> mortes = ImmutableList.builder();
         for (var regle : alias.entrySet()) {
             if (!aliasUtilises.contains(regle.getKey())) {
-                mortes.add("type " + regle.getKey() + " -> " + regle.getValue());
+                mortes.add("types: " + regle.getKey() + " -> " + regle.getValue());
             }
         }
         for (Motif motif : membresMasques) {
             if (motif.sansEffet()) {
-                mortes.add("hide " + motif.ecrit());
+                mortes.add("hide: " + motif.ecrit());
             }
         }
         return mortes.build();
@@ -353,7 +361,7 @@ public final class Regles {
         if (!Files.isRegularFile(fichier)) {
             return aucune();
         }
-        return LecteurDeRegles.lire(lignesEnUtf8(fichier), fichier.toString());
+        return LecteurDeRegles.lire(contenuEnUtf8(fichier), fichier.toString());
     }
 
     // Les règles d'un fichier désigné nommément, et non cherché à la racine d'un répertoire.
@@ -364,29 +372,30 @@ public final class Regles {
     // configuration, que l'appelant est seul à pouvoir signaler utilement.
     public static Regles duFichier(Path fichier) throws IOException {
         checkNotNull(fichier);
-        return LecteurDeRegles.lire(lignesEnUtf8(fichier), fichier.toString());
+        return LecteurDeRegles.lire(contenuEnUtf8(fichier), fichier.toString());
     }
 
-    // Les lignes du fichier, qui doit être en UTF-8.
+    // Le contenu du fichier, qui doit être en UTF-8.
     //
-    // Un fichier enregistré dans un autre encodage — le CP-1252 d'un éditeur Windows, dès le
-    // premier accent d'un commentaire — levait une MalformedInputException que l'enveloppe
-    // générique de la génération rendait indéchiffrable. C'est une faute du fichier, comme un
-    // mot-clé inconnu : elle mérite le même traitement, un refus qui dit quoi corriger.
-    private static ImmutableList<String> lignesEnUtf8(Path fichier) throws IOException {
+    // JSON exige UTF-8 — la norme ne laisse le choix qu'entre les trois encodages d'Unicode, et
+    // l'usage a retenu celui-là. Un fichier enregistré autrement — le CP-1252 d'un éditeur
+    // Windows, dès le premier accent d'un titre — levait une MalformedInputException que
+    // l'enveloppe générique de la génération rendait indéchiffrable. C'est une faute du fichier,
+    // comme une clé inconnue : elle mérite le même traitement, un refus qui dit quoi corriger.
+    private static String contenuEnUtf8(Path fichier) throws IOException {
         try {
-            return ImmutableList.copyOf(Files.readAllLines(fichier, StandardCharsets.UTF_8));
+            return Files.readString(fichier, StandardCharsets.UTF_8);
         } catch (CharacterCodingException e) {
             throw new IllegalArgumentException(fichier + " is not encoded in UTF-8, and the "
-                + "rules file must be. Re-save it as UTF-8 — an accented letter in a comment is "
+                + "rules file must be. Re-save it as UTF-8 — an accented letter in a title is "
                 + "enough to reveal another encoding.", e);
         }
     }
 
     // Les règles d'un contenu déjà lu. Sert aux tests, et à qui tiendrait ses règles ailleurs que
     // dans un fichier ; « origine » n'est là que pour les messages d'erreur.
-    public static Regles lues(ImmutableList<String> lignes, String origine) {
-        return LecteurDeRegles.lire(lignes, origine);
+    public static Regles lues(String contenu, String origine) {
+        return LecteurDeRegles.lire(contenu, origine);
     }
 
     // Le nom sous lequel un type paraît dans une boîte.

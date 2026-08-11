@@ -18,8 +18,4 @@ public record DefinitionDeVue(String nom, ImmutableList<Selecteur> retenus,
         checkArgument(!nom.isBlank(), "The view name cannot be empty or made of whitespace only.");
         checkArgument(!retenus.isEmpty(), "A view must retain at least one class.");
     }
-
-    public DefinitionDeVue avec(UMLFlow autre) {
-        return new DefinitionDeVue(nom, retenus, retires, autre);
-    }
 }

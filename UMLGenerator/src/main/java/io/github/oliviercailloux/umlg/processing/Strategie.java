@@ -8,7 +8,7 @@ import io.github.oliviercailloux.umlg.extraction.rules.Regles;
 //
 // LE PROBLÈME QU'IL RÉSOUT
 //
-// Le défaut de @UMLClass est PROJECT : « la stratégie que déclare le fichier umlg.rules ». Or ce
+// Le défaut de @UMLClass est PROJECT : « la stratégie que déclare le fichier umlg.json ». Or ce
 // fichier vit à la racine du répertoire des classes compilées, et javac ne sait pas où il se
 // trouve — il compile des sources, et rien ne lui dit ce que la construction fera de leur
 // résultat. Le processeur ne peut donc pas savoir, de lui-même, si un membre sera dessiné.
@@ -56,7 +56,7 @@ final class Strategie {
 
     // Une règle du projet écarte-t-elle cet attribut, indépendamment de la stratégie ?
     //
-    // Le filtre anti-bruit ne travaille pas que sur les méthodes : « hide log, LOGGER » retire
+    // Le filtre anti-bruit ne travaille pas que sur les méthodes : « "hide": ["log", "LOGGER"] » retire
     // aussi des attributs, un motif visant les deux sortes de membres indifféremment. Sans cette
     // question, le processeur reprochait à un @UMLInclude d'être « sans effet, le champ est déjà
     // montré par la stratégie » alors que c'était précisément la règle à laquelle il dérogeait —

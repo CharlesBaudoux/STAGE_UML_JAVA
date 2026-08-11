@@ -61,7 +61,7 @@ public final class MembresOrdonnes {
     }
 
     private static void signalerOrdrePerdu(Class<?> clazz) {
-        Avertissements.dire("\"order declaration\" is asked for, but the class file of "
+        Avertissements.dire("\"order\": \"declaration\" is asked for, but the class file of "
             + clazz.getName() + " cannot be re-read; the members of this box fall back to "
             + "alphabetical order.");
     }

@@ -22,6 +22,7 @@ module io.github.oliviercailloux.umlg {
 
     requires transitive com.google.common;
     requires net.sourceforge.plantuml;
+    requires com.fasterxml.jackson.databind;
     requires java.compiler;
 
     exports io.github.oliviercailloux.umlg;

@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.google.common.collect.ImmutableList;
 import io.github.oliviercailloux.umlg.annotation.UMLExclude;
 import io.github.oliviercailloux.umlg.annotation.UMLInclude;
 import io.github.oliviercailloux.umlg.annotation.UMLVisibility;
@@ -104,7 +103,9 @@ class NotationAttributTest {
 
     @Test
     void seulUmlExcludeLEmporteSurLaNotation() {
-        Regles regles = Regles.lues(ImmutableList.of("hide *tat"), "umlg.rules");
+        Regles regles = Regles.lues("""
+            { "hide": ["*tat"] }
+            """, "umlg.json");
 
         assertTrue(MemberExtractor.methodesEnAttributs(Masquee.class, regles).isEmpty());
     }
@@ -112,7 +113,9 @@ class NotationAttributTest {
     @Test
     void unMotifQualifie_estRefuseEnRenvoyantVersUmlExclude() {
         var refus = assertThrows(IllegalArgumentException.class,
-            () -> Regles.lues(ImmutableList.of("hide Masquee.etat"), "umlg.rules"));
+            () -> Regles.lues("""
+                { "hide": ["Masquee.etat"] }
+                """, "umlg.json"));
 
         assertTrue(refus.getMessage().contains("@UMLExclude"), refus.getMessage());
     }

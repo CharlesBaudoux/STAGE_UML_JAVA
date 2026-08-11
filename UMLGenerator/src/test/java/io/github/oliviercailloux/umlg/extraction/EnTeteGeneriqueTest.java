@@ -45,8 +45,10 @@ class EnTeteGeneriqueTest {
     }
 
     private static UmlEntity extraite(Class<?> classe) {
-        return EntityExtractor.extract(classe, Regles.lues(
-            com.google.common.collect.ImmutableList.of("strategy public"), "umlg.rules"));
+        return EntityExtractor.extract(classe, Regles.lues("""
+            { "strategy": "public" }
+            """,
+            "umlg.json"));
     }
 
     @Test

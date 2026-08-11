@@ -16,9 +16,9 @@ class DiagrammeDeReferenceTest {
 
     private static final String FICHIER_DE_REFERENCE = "/diagramme-de-reference.puml";
 
-    private static final Regles REGLES = Regles.lues(ImmutableList.of(
-        "hide get*",
-        "hide values, valueOf"), "les règles du projet de référence");
+    private static final Regles REGLES = Regles.lues("""
+        { "hide": ["get*", "values", "valueOf"] }
+        """, "les règles du projet de référence");
 
     private static ImmutableList<UmlEntity> entites() {
         return ImmutableList.of(

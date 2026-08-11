@@ -17,8 +17,8 @@ import org.junit.jupiter.api.Test;
 
 class AvertissementsDeGenerationTest {
 
-    private static Regles regles(String... lignes) {
-        return Regles.lues(ImmutableList.copyOf(lignes), "umlg.rules");
+    private static Regles regles(String json) {
+        return Regles.lues(json, "umlg.json");
     }
 
     @UMLClass
@@ -43,12 +43,16 @@ class AvertissementsDeGenerationTest {
 
     @Test
     void strategyNoneEcrit_faitTaireLeSignalement() {
-        assertFalse(boiteVide(Muette.class, regles("strategy none")));
+        assertFalse(boiteVide(Muette.class, regles("""
+            { "strategy": "none" }
+            """)));
     }
 
     @Test
     void uneStrategieQuiRemplit_nAPlusRienASignaler() {
-        assertFalse(boiteVide(Muette.class, regles("strategy public")));
+        assertFalse(boiteVide(Muette.class, regles("""
+            { "strategy": "public" }
+            """)));
     }
 
     @Test
@@ -91,7 +95,9 @@ class AvertissementsDeGenerationTest {
     @Test
     void desNomsMasquesParLaRegle_neSontPasSignales() {
         assertFalse(ProjectScanner.signalerParametresAnonymes(
-            List.of(entite(methodeAnonyme())), regles("omit parameter names")));
+            List.of(entite(methodeAnonyme())), regles("""
+                { "omit": ["parameter names"] }
+                """)));
     }
 
     @Test
@@ -122,15 +128,19 @@ class AvertissementsDeGenerationTest {
 
     @Test
     void uneRegleTypeMalOrthographiee_estRelevee() {
-        Regles lues = regles("type ImutableList -> List");
+        Regles lues = regles("""
+            { "types": { "ImutableList": "List" } }
+            """);
         lues.nomAffiche(ImmutableList.class);
 
-        assertEquals(List.of("type ImutableList -> List"), lues.reglesSansEffet());
+        assertEquals(List.of("types: ImutableList -> List"), lues.reglesSansEffet());
     }
 
     @Test
     void uneRegleQuiAServi_nEstPasRelevee() {
-        Regles lues = regles("type ImmutableList -> List", "hide log");
+        Regles lues = regles("""
+            { "types": { "ImmutableList": "List" }, "hide": ["log"] }
+            """);
         lues.nomAffiche(ImmutableList.class);
         assertTrue(lues.membreMasque("log"));
 
@@ -139,18 +149,22 @@ class AvertissementsDeGenerationTest {
 
     @Test
     void motifsMorts_sontTousReleves() {
-        Regles lues = regles("type ImutableList -> List", "hide get*", "hide LOGGR");
+        Regles lues = regles("""
+            { "types": { "ImutableList": "List" }, "hide": ["get*", "LOGGR"] }
+            """);
         lues.membreMasque("calculer");
         lues.membreMasque("log");
 
-        assertEquals(List.of("type ImutableList -> List", "hide get*", "hide LOGGR"),
+        assertEquals(List.of("types: ImutableList -> List", "hide: get*", "hide: LOGGR"),
             lues.reglesSansEffet());
     }
 
     @Test
-    void leSignalementDesReglesMortes_neSurgitQueSiUneLigneEstMorte() {
-        assertTrue(ProjectScanner.signalerReglesSansEffet(regles("hide LOGGR")));
-        assertFalse(ProjectScanner.signalerReglesSansEffet(regles()));
+    void leSignalementDesReglesMortes_neSurgitQueSiUneEntreeEstMorte() {
+        assertTrue(ProjectScanner.signalerReglesSansEffet(regles("""
+            { "hide": ["LOGGR"] }
+            """)));
+        assertFalse(ProjectScanner.signalerReglesSansEffet(regles("{}")));
     }
 
     @Test

@@ -41,7 +41,7 @@ public final class PlantUmlLayout {
     // Le masquage des compartiments vides, posé par-dessus le bloc commun.
     //
     // Il ne vit pas dans COMMUN, et la nuance compte : il ne relève ni du goût — les deux
-    // apparences le veulent — ni d'un invariant, puisque la ligne « show empty members » du
+    // apparences le veulent — ni d'un invariant, puisque la clé « showEmptyMembers » du
     // fichier de règles peut le lever. C'est un réglage du diagramme, décidé par le projet et non
     // par le style, qui n'a donc aucun avis là-dessus.
     //

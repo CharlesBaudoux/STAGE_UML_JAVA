@@ -25,7 +25,7 @@ class UmlgOptionReglesTest {
         """;
 
     private static Path ecrireRegles(Path tmp, String contenu) throws IOException {
-        Path fichier = tmp.resolve("umlg.rules");
+        Path fichier = tmp.resolve("umlg.json");
         Files.writeString(fichier, contenu, StandardCharsets.UTF_8);
         return fichier;
     }
@@ -44,7 +44,7 @@ class UmlgOptionReglesTest {
 
     @Test
     void avecLOption_lAvertissementRevient(@TempDir Path tmp) throws IOException {
-        Path regles = ecrireRegles(tmp, "strategy public\n");
+        Path regles = ecrireRegles(tmp, "{ \"strategy\": \"public\" }\n");
 
         Verdict verdict = compiler(tmp, List.of("-Aumlg.rules=" + regles));
 
@@ -56,7 +56,7 @@ class UmlgOptionReglesTest {
 
     @Test
     void avecUnProjetQuiNAfficheRien_rienNestSignale(@TempDir Path tmp) throws IOException {
-        Path regles = ecrireRegles(tmp, "strategy none\n");
+        Path regles = ecrireRegles(tmp, "{ \"strategy\": \"none\" }\n");
 
         Verdict verdict = compiler(tmp, List.of("-Aumlg.rules=" + regles));
 
@@ -67,7 +67,7 @@ class UmlgOptionReglesTest {
     @Test
     void fichierIntrouvable_estSignaleSansArreterLaCompilation(@TempDir Path tmp)
         throws IOException {
-        Verdict verdict = compiler(tmp, List.of("-Aumlg.rules=" + tmp.resolve("absent.rules")));
+        Verdict verdict = compiler(tmp, List.of("-Aumlg.rules=" + tmp.resolve("absent.json")));
 
         assertTrue(verdict.reussie(), verdict.rapport());
         assertTrue(verdict.avertissementContient("no such file"), verdict.rapport());
@@ -75,7 +75,7 @@ class UmlgOptionReglesTest {
 
     @Test
     void fichierFautif_arreteLaCompilation(@TempDir Path tmp) throws IOException {
-        Path regles = ecrireRegles(tmp, "couleur Client -> rouge\n");
+        Path regles = ecrireRegles(tmp, "{ \"couleur\": { \"Client\": \"rouge\" } }\n");
 
         Verdict verdict = compiler(tmp, List.of("-Aumlg.rules=" + regles));
 
@@ -86,7 +86,7 @@ class UmlgOptionReglesTest {
     @Test
     void avertissementsEteints_taisentAussiCeuxQueLOptionRend(@TempDir Path tmp)
         throws IOException {
-        Path regles = ecrireRegles(tmp, "strategy public\n");
+        Path regles = ecrireRegles(tmp, "{ \"strategy\": \"public\" }\n");
 
         Verdict verdict =
             compiler(tmp, List.of("-Aumlg.rules=" + regles, "-Aumlg.warnings=none"));

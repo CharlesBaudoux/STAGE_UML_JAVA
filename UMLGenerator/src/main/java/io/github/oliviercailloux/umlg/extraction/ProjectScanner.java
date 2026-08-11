@@ -286,8 +286,8 @@ public class ProjectScanner {
 
     // Cette boîte est-elle vide parce que personne n'a déclaré de stratégie ?
     //
-    // Quatre conditions, et chacune écarte un cas où le silence serait juste : une ligne
-    // « strategy » écrite — fût-ce « strategy none » — est un choix ; une stratégie déclarée sur
+    // Quatre conditions, et chacune écarte un cas où le silence serait juste : une clé
+    // « strategy » écrite — fût-ce « "strategy": "none" » — est un choix ; une stratégie déclarée sur
     // la classe aussi ; une boîte qui montre quelque chose n'a rien à expliquer ; et une classe
     // sans aucun membre — une interface marqueur — resterait vide sous toute stratégie, la
     // signaler accuserait la mauvaise cause.
@@ -316,9 +316,9 @@ public class ProjectScanner {
         String liste = noms.size() <= 12 ? " (" + String.join(", ", noms) + ")" : "";
 
         Avertissements.dire(noms.size() + " box(es) have no member" + liste
-            + ": no strategy is declared, and the default draws none. Write \"strategy public\" "
-            + "in umlg.rules, declare one with @UMLClass(strategy = ...), or pick members one by "
-            + "one with @UMLInclude.");
+            + ": no strategy is declared, and the default draws none. Write "
+            + "\"strategy\": \"public\" in umlg.json, declare one with @UMLClass(strategy = ...), "
+            + "or pick members one by one with @UMLInclude.");
         return true;
     }
 
@@ -346,18 +346,18 @@ public class ProjectScanner {
             + "compiled without the -parameters option, so signatures show types only — "
             + "\"entries(String)\" instead of \"entries(xKeyName : String)\". Add "
             + "<maven.compiler.parameters>true</maven.compiler.parameters> to the pom (or "
-            + "-parameters to javac), or say it is on purpose with \"omit parameter names\" in "
-            + "umlg.rules.");
+            + "-parameters to javac), or say it is on purpose with \"omit\": [\"parameter names\"] "
+            + "in umlg.json.");
         return true;
     }
 
-    // Signale les lignes du fichier de règles qui n'ont servi à rien. Rend vrai si un
+    // Signale les entrées du fichier de règles qui n'ont servi à rien. Rend vrai si un
     // avertissement a été émis.
     //
     // Les vues échouent bruyamment sur un nom introuvable ; les règles de nommage ne le peuvent
     // pas — un motif a le droit de ne viser personne. Mais une règle morte est presque toujours
     // une classe renommée ou une faute de frappe, et le no-op était jusqu'ici parfait : le
-    // diagramme se dessinait, exact, sans que rien ne montre la ligne restée lettre morte.
+    // diagramme se dessinait, exact, sans que rien ne montre l'entrée restée lettre morte.
     static boolean signalerReglesSansEffet(Regles regles) {
         ImmutableList<String> mortes = regles.reglesSansEffet();
         if (mortes.isEmpty()) {
@@ -366,7 +366,7 @@ public class ProjectScanner {
         Avertissements.dire(mortes.size() + " rule(s) of " + Regles.NOM_DU_FICHIER
             + " matched nothing in this project: \"" + String.join("\", \"", mortes)
             + "\". A renamed class or a typo leaves a dead rule behind; fix the name, or remove "
-            + "the line.");
+            + "the entry.");
         return true;
     }
 

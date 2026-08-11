@@ -87,7 +87,7 @@ class UMLGeneratorIntegrationTest {
                 public double getSolde() { return solde; }
             }
             """);
-        Files.writeString(classes.resolve("umlg.rules"), "hide get*\n",
+        Files.writeString(classes.resolve("umlg.json"), "{ \"hide\": [\"get*\"] }\n",
             StandardCharsets.UTF_8);
 
         Path sortie = tmp.resolve("architecture.svg");

@@ -320,9 +320,12 @@ class ProjectScannerIntegrationTest {
                 public ImmutableList<String> touches;
             }
             """);
-        Files.writeString(sortie.resolve("umlg.rules"),
-            "# Guava n'apprend rien au lecteur du diagramme.\ntype ImmutableList -> List\n",
-            StandardCharsets.UTF_8);
+        Files.writeString(sortie.resolve("umlg.json"), """
+            {
+              "_": "Guava n'apprend rien au lecteur du diagramme.",
+              "types": { "ImmutableList": "List" }
+            }
+            """, StandardCharsets.UTF_8);
 
         UmlEntity clavier = ProjectScanner.scan(sortie).projet().entities().iterator().next();
 
@@ -393,10 +396,13 @@ class ProjectScannerIntegrationTest {
     void titreEtSensDeLecture_sontLusDansLeFichierDeRegles(@TempDir Path tmp) throws Exception {
         Path sortie = tmp.resolve("classes");
         compiler(tmp.resolve("src"), sortie, "com/exemple/Facture.java", UNE_BOITE);
-        Files.writeString(sortie.resolve("umlg.rules"),
-            "title Architecture du module Facturation\ndirection left-to-right\n"
-                + "show empty members\n",
-            StandardCharsets.UTF_8);
+        Files.writeString(sortie.resolve("umlg.json"), """
+            {
+              "title": "Architecture du module Facturation",
+              "direction": "left-to-right",
+              "showEmptyMembers": true
+            }
+            """, StandardCharsets.UTF_8);
 
         UmlDiagram diagramme = ProjectScanner.scan(sortie).projet().diagram();
 
@@ -409,12 +415,13 @@ class ProjectScannerIntegrationTest {
     void fichierDeReglesFautif_arreteLeScan(@TempDir Path tmp) throws Exception {
         Path sortie = tmp.resolve("classes");
         compiler(tmp.resolve("src"), sortie, "com/exemple/Facture.java", UNE_BOITE);
-        Files.writeString(sortie.resolve("umlg.rules"), "title\n", StandardCharsets.UTF_8);
+        Files.writeString(sortie.resolve("umlg.json"), "{ \"title\": \"\" }\n",
+            StandardCharsets.UTF_8);
 
         IllegalArgumentException e =
             assertThrows(IllegalArgumentException.class, () -> ProjectScanner.scan(sortie).projet());
 
-        assertTrue(e.getMessage().contains("title is missing"), e.getMessage());
+        assertTrue(e.getMessage().contains("the title cannot be empty"), e.getMessage());
     }
 
     @Test

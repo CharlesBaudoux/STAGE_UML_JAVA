@@ -2,348 +2,458 @@ package io.github.oliviercailloux.umlg.extraction.rules;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
+import com.fasterxml.jackson.core.JsonLocation;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.StreamReadFeature;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.github.oliviercailloux.umlg.annotation.UMLFlow;
 import io.github.oliviercailloux.umlg.annotation.UMLVisibility;
-import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
-// Lit le fichier de règles, ligne à ligne.
+// Lit le fichier de règles, qui est un objet JSON.
 //
-// La grammaire tient en trois cas : une ligne vide, un commentaire ouvert par « # », ou une
-// règle. Une règle commence par un mot-clé qui dit sa nature — onze aujourd'hui, de « type » à
-// « views » — et c'est ce mot-clé qui décide comment lire le reste de la ligne. Ajouter une
-// nature de règle se fait donc ici, et à un seul endroit : une branche de plus dans le switch, et
-// la méthode qui va avec.
+// UNE CLÉ PAR NATURE DE RÈGLE
 //
-// Le vocabulaire s'est raccourci plus souvent qu'il ne s'est allongé. Trois mots-clés en sont
-// sortis — « group », « output » et « declare » —, et « hide method »/« hide field » ont fondu en
-// un seul motif : une règle ne désigne jamais un élément par son nom (c'est une annotation), et
-// ce qui ne dit rien du modèle se règle à l'appel du générateur.
+// L'objet de tête porte onze clés possibles — de « strategy » à « views » — et chacune dit une
+// nature de règle. C'est la clé qui décide comment lire sa valeur, si bien qu'ajouter une nature
+// se fait ici, et à un seul endroit : une branche de plus dans le switch, et la méthode qui va
+// avec. Une clé inconnue est refusée : mieux vaut arrêter que d'appliquer en silence des règles
+// dont une partie est ignorée.
 //
-// Le fichier étant écrit à la main, chaque refus nomme le fichier et le numéro de ligne, puis
-// rappelle la forme attendue. C'est le seul retour que l'auteur du fichier aura : il n'y a pas de
-// compilateur pour relire ce qu'il écrit.
+// POURQUOI JSON, ET NON UNE GRAMMAIRE À NOUS
+//
+// Le fichier s'écrivait ligne à ligne, avec sa propre grammaire : un mot-clé, puis un reste que
+// chaque mot-clé découpait à sa façon — une flèche pour « type », des virgules pour « hide », des
+// guillemets et un tiret entouré d'espaces pour « view ». Cela se lisait bien et s'analysait
+// sans dépendance, mais c'était un format que personne d'autre ne connaissait : aucun éditeur ne
+// le colorait, aucun schéma ne le validait, et une virgule oubliée ne se voyait qu'à
+// l'exécution. JSON coûte quelques accolades et rend tout cela.
+//
+// Il en rend d'ailleurs plus qu'il n'y paraît. Les listes n'ont plus à être découpées : « hide »
+// et « omit » reçoivent des tableaux, et la virgule égarée est refusée par l'analyseur, non par
+// nous. Une vue ne se déclare plus sur deux lignes — son contenu, puis sa direction — mais dans
+// un objet qui porte les deux. Et une clé écrite deux fois est une faute que Jackson relève
+// (STRICT_DUPLICATE_DETECTION), là où il fallait s'en souvenir soi-même.
+//
+// CE QUE JSON NE DONNE PAS
+//
+// Des commentaires. Le fichier est écrit à la main, et un fichier de règles a besoin de dire
+// pourquoi il masque telle famille de noms. D'où la seule convention que ce lecteur ajoute au
+// format : une clé dont le nom commence par « _ » n'est pas une règle et n'est pas lue. C'est du
+// JSON valide, et c'est l'usage établi partout où le format sert de fichier de configuration.
+//
+// LES REFUS
+//
+// Le fichier étant écrit à la main, chaque refus nomme le fichier et le chemin fautif — « views[1]
+// .direction » —, puis rappelle la forme attendue. C'est le seul retour que l'auteur du fichier
+// aura : il n'y a pas de compilateur pour relire ce qu'il écrit. Les fautes de syntaxe, elles,
+// gardent le numéro de ligne, que l'analyseur connaît.
 final class LecteurDeRegles {
 
-    // Les mots-clés connus, et ce qui sépare les deux moitiés d'une règle « type ».
-    private static final String TYPE = "type";
+    // Les clés de l'objet de tête.
+    private static final String TYPES = "types";
     private static final String HIDE = "hide";
     private static final String OMIT = "omit";
     private static final String STRATEGY = "strategy";
-    private static final String VIEW = "view";
     private static final String VIEWS = "views";
+    private static final String VIEWS_BY_PACKAGE = "viewsByPackage";
     private static final String TITLE = "title";
-    private static final String SHOW = "show";
-    private static final String MEMBRES_VIDES = "empty members";
-    private static final String VISIBILITE = "visibility";
+    private static final String SHOW_EMPTY_MEMBERS = "showEmptyMembers";
     private static final String ORDER = "order";
     private static final String MULTIPLICITY = "multiplicity";
-    private static final String NOMS_DE_PARAMETRES = "parameter names";
-    private static final String RETOUR_VOID = "return void";
-    private static final String ABSTRAIT = "abstract";
     private static final String DIRECTION = "direction";
-    private static final String AROUND = "around";
+
+    // Les clés d'une vue, et celles d'un sélecteur qui n'est pas un simple nom de classe.
+    private static final String NAME = "name";
+    private static final String RETAIN = "retain";
+    private static final String REMOVE = "remove";
     private static final String PACKAGE = "package";
-    private static final String FLECHE = "->";
+    private static final String AROUND = "around";
+
+    // Ce qu'un « omit » peut demander, et le mot qui l'écrit dans le fichier.
+    private enum Omission {
+        VISIBILITE("visibility"),
+        NOMS_DE_PARAMETRES("parameter names"),
+        RETOUR_VOID("return void"),
+        ABSTRAIT("abstract");
+
+        private final String ecrit;
+
+        Omission(String ecrit) {
+            this.ecrit = ecrit;
+        }
+    }
+
+    // L'analyseur, réglé deux fois plus strictement que par défaut.
+    //
+    // STRICT_DUPLICATE_DETECTION : deux clés de même nom se contrediraient, et la seconde
+    // l'emporterait en silence — c'est exactement le refus que le format ligne à ligne écrivait à
+    // la main, rendu ici par l'analyseur, et pour toutes les clés d'un coup.
+    //
+    // FAIL_ON_TRAILING_TOKENS : ce qui suit l'accolade fermante est du texte que personne ne
+    // relit. Une accolade fermée trop tôt laisse le reste du fichier sans effet, et le diagramme
+    // n'est alors pas celui qu'on a demandé.
+    private static final ObjectMapper ANALYSEUR = JsonMapper.builder()
+        .enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
+        .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+        .build();
 
     private LecteurDeRegles() {}
 
-    static Regles lire(ImmutableList<String> lignes, String origine) {
-        // LinkedHashMap et non ImmutableMap.Builder : il faut pouvoir demander « cette clé
-        // est-elle déjà là ? » avant d'insérer, pour refuser deux règles contradictoires en
-        // nommant la ligne fautive. Le builder de Guava, lui, ne se plaindrait qu'au build, sans
-        // savoir où.
-        Map<String, String> alias = new LinkedHashMap<>();
-        List<Motif> membres = new ArrayList<>();
-        // LinkedHashMap : l'ordre d'écriture des vues est celui des fichiers produits.
-        Map<String, DefinitionDeVue> vues = new LinkedHashMap<>();
-        boolean[] parPaquetage = {false};
-        String[] titre = {""};
-        UMLFlow[] direction = {UMLFlow.TOP_TO_BOTTOM};
-        boolean[] masquerMembresVides = {true};
-        boolean[] omettreVisibilite = {false};
-        boolean[] omettreNomsDeParametres = {false};
-        boolean[] omettreRetourVoid = {false};
-        boolean[] omettreAbstrait = {false};
-        // Null tant qu'aucune ligne « order » n'est lue : la distinction permet de refuser une
-        // seconde ligne, même quand la première redisait le défaut.
-        Boolean[] ordreDeclaration = {null};
-        boolean[] multiplicitesDeduites = {false};
-        // Un tableau d'une case : une variable locale ne peut pas être réaffectée depuis une
-        // méthode appelée, et la stratégie est lue par lireStrategy. Un objet mutable d'une seule
-        // case est le moyen le plus court de lui laisser rendre sa valeur sans inventer un type.
-        //
-        // Null veut dire « aucune ligne strategy lue », ce qui n'est pas la même chose que
-        // « strategy none » : sans cette distinction, une seconde ligne écrite après un
-        // « strategy none » explicite passerait pour la première.
-        UMLVisibility[] strategie = {null};
+    // Où l'on se trouve dans le fichier : son nom, et le chemin JSON depuis la racine.
+    //
+    // Le chemin s'allonge à mesure qu'on descend — « views », puis « views[1] », puis
+    // « views[1].direction » —, si bien que le refus le plus profond nomme quand même l'endroit
+    // exact. Vide à la racine, où le nom du fichier suffit.
+    private record Lieu(String origine, String chemin) {
 
-        for (int i = 0; i < lignes.size(); i++) {
-            // Le numéro affiché est celui que montre un éditeur de texte : les lignes s'y
-            // comptent à partir de 1.
-            String contexte = origine + ", line " + (i + 1);
-            String ligne = lignes.get(i).strip();
+        Lieu dans(String cle) {
+            return new Lieu(origine, chemin.isEmpty() ? cle : chemin + "." + cle);
+        }
 
-            if (ligne.isEmpty() || ligne.startsWith("#")) {
+        Lieu indice(int rang) {
+            return new Lieu(origine, chemin + "[" + rang + "]");
+        }
+
+        // Ce qui paraît en tête d'un message de refus.
+        @Override
+        public String toString() {
+            return chemin.isEmpty() ? origine : origine + ", " + chemin;
+        }
+    }
+
+    static Regles lire(String contenu, String origine) {
+        Lieu racine = new Lieu(origine, "");
+        JsonNode objet = arbre(contenu, racine);
+
+        // Les valeurs par défaut sont celles d'un projet sans fichier : une clé absente ne dit
+        // rien, et ne rien dire c'est laisser le code se décrire tel qu'il est écrit.
+        ImmutableMap<String, String> alias = ImmutableMap.of();
+        ImmutableList<Motif> membresMasques = ImmutableList.of();
+        ImmutableList<DefinitionDeVue> vues = ImmutableList.of();
+        Set<Omission> omissions = EnumSet.noneOf(Omission.class);
+        boolean vuesParPaquetage = false;
+        String titre = "";
+        UMLFlow direction = UMLFlow.TOP_TO_BOTTOM;
+        boolean montrerMembresVides = false;
+        boolean ordreDeclaration = false;
+        boolean multiplicitesDeduites = false;
+        // Null veut dire « aucune clé strategy », ce qui n'est pas la même chose que
+        // « "strategy": "none" » : le premier cas est un silence, le second un choix, et la
+        // génération ne les signale pas de la même façon (voir Regles.strategieDeclaree).
+        UMLVisibility strategie = null;
+
+        for (Map.Entry<String, JsonNode> champ : objet.properties()) {
+            String cle = champ.getKey();
+            JsonNode valeur = champ.getValue();
+            Lieu lieu = racine.dans(cle);
+
+            // Le commentaire du pauvre, et le seul que JSON autorise : une clé qui commence par
+            // « _ » n'est pas une règle. Voir l'en-tête de cette classe.
+            if (cle.startsWith("_")) {
                 continue;
             }
 
-            // Le mot-clé est ce qui précède la première espace ; le reste appartient à la règle.
-            int fin = ligne.indexOf(' ');
-            String motCle = fin < 0 ? ligne : ligne.substring(0, fin);
-            String reste = fin < 0 ? "" : ligne.substring(fin + 1).strip();
-
-            switch (motCle) {
-                case TYPE -> lireType(alias, reste, contexte);
-                case HIDE -> lireHide(membres, reste, contexte);
-                case OMIT -> lireOmit(omettreVisibilite, omettreNomsDeParametres,
-                    omettreRetourVoid, omettreAbstrait, reste, contexte);
-                case STRATEGY -> lireStrategy(strategie, reste, contexte);
-                case VIEW -> lireView(vues, reste, contexte);
-                case VIEWS -> lireViews(parPaquetage, reste, contexte);
-                case TITLE -> lireTitle(titre, reste, contexte);
-                case DIRECTION -> direction[0] = lireFlux(reste, contexte);
-                case SHOW -> lireShow(masquerMembresVides, reste, contexte);
-                case ORDER -> lireOrder(ordreDeclaration, reste, contexte);
-                case MULTIPLICITY -> lireMultiplicity(multiplicitesDeduites, reste, contexte);
-                default -> throw new IllegalArgumentException(contexte + ": unknown rule \""
-                    + motCle + "\". Known rules: " + TYPE + ", " + HIDE + ", " + OMIT + ", "
-                    + STRATEGY + ", " + VIEW + ", " + VIEWS + ", " + TITLE + ", "
-                    + DIRECTION + ", " + SHOW + ", " + ORDER + ", " + MULTIPLICITY + ".");
+            switch (cle) {
+                case TYPES -> alias = lireTypes(valeur, lieu);
+                case HIDE -> membresMasques = lireHide(valeur, lieu);
+                case OMIT -> omissions = lireOmit(valeur, lieu);
+                case STRATEGY -> strategie = lireStrategy(valeur, lieu);
+                case VIEWS -> vues = lireViews(valeur, lieu);
+                case VIEWS_BY_PACKAGE -> vuesParPaquetage = booleen(valeur, lieu);
+                case TITLE -> titre = lireTitle(valeur, lieu);
+                case SHOW_EMPTY_MEMBERS -> montrerMembresVides = booleen(valeur, lieu);
+                case ORDER -> ordreDeclaration = lireOrder(valeur, lieu);
+                case MULTIPLICITY -> multiplicitesDeduites = lireMultiplicity(valeur, lieu);
+                case DIRECTION -> direction = lireFlux(valeur, lieu);
+                default -> throw new IllegalArgumentException(racine + ": unknown rule \"" + cle
+                    + "\". Known rules: " + STRATEGY + ", " + TYPES + ", " + HIDE + ", " + OMIT
+                    + ", " + TITLE + ", " + DIRECTION + ", " + ORDER + ", " + MULTIPLICITY + ", "
+                    + SHOW_EMPTY_MEMBERS + ", " + VIEWS + ", " + VIEWS_BY_PACKAGE + ". A key whose"
+                    + " name starts with \"_\" is ignored, and that is where a note goes.");
             }
         }
-        return new Regles(ImmutableMap.copyOf(alias), omettreRetourVoid[0],
-            strategie[0] == null ? UMLVisibility.NONE : strategie[0], strategie[0] != null,
-            ImmutableList.copyOf(membres),
-            ImmutableList.copyOf(vues.values()), parPaquetage[0], titre[0],
-            direction[0], masquerMembresVides[0], omettreVisibilite[0],
-            omettreNomsDeParametres[0],
-            ordreDeclaration[0] != null && ordreDeclaration[0],
-            multiplicitesDeduites[0], omettreAbstrait[0]);
+        return new Regles(alias, omissions.contains(Omission.RETOUR_VOID),
+            strategie == null ? UMLVisibility.NONE : strategie, strategie != null,
+            membresMasques, vues, vuesParPaquetage, titre, direction,
+            !montrerMembresVides, omissions.contains(Omission.VISIBILITE),
+            omissions.contains(Omission.NOMS_DE_PARAMETRES), ordreDeclaration,
+            multiplicitesDeduites, omissions.contains(Omission.ABSTRAIT));
     }
 
-    // « order declaration » ou « order alphabetical » : l'ordre des membres dans les boîtes.
+    // Le contenu du fichier, analysé, et dont on sait qu'il porte un objet.
+    private static JsonNode arbre(String contenu, Lieu racine) {
+        // Un fichier vide donne les mêmes règles qu'un fichier absent : aucune. La propriété
+        // valait avant JSON, et rien ne gagnerait à ce qu'elle cesse — un fichier créé mais pas
+        // encore écrit n'est pas une faute.
+        if (contenu.isBlank()) {
+            return ANALYSEUR.createObjectNode();
+        }
+
+        JsonNode lu;
+        try {
+            lu = ANALYSEUR.readTree(contenu);
+        } catch (JsonProcessingException e) {
+            // La faute de syntaxe est la seule que l'analyseur situe mieux que nous : il connaît
+            // la ligne et la colonne, que le chemin JSON ne donnerait pas — il n'y a pas encore
+            // d'arbre où se situer.
+            JsonLocation ou = e.getLocation();
+            String ligne = ou == null ? "" : ", line " + ou.getLineNr();
+            throw new IllegalArgumentException(racine + ligne + ": this is not valid JSON — "
+                + e.getOriginalMessage() + ". Note that JSON has no comments: a key whose name "
+                + "starts with \"_\" is ignored, and that is where a note goes.", e);
+        }
+        checkArgument(lu.isObject(),
+            "%s: expected a JSON object, for example { \"strategy\": \"public\" }; got %s.",
+            racine, sorte(lu));
+
+        return lu;
+    }
+
+    // « "order": "declaration" » ou « "order": "alphabetical" » : l'ordre des membres dans les
+    // boîtes. Rend vrai pour l'ordre du code.
     //
     // L'alphabet reste le défaut, mais il s'écrit aussi : un fichier qui le dit explicitement se
     // relit mieux qu'un fichier qui compte sur la mémoire du lecteur.
-    private static void lireOrder(Boolean[] ordreDeclaration, String reste, String contexte) {
-        checkArgument(ordreDeclaration[0] == null,
-            "%s: the member order is already set. Keep only one \"order\" line.", contexte);
-
-        ordreDeclaration[0] = switch (reste) {
+    private static boolean lireOrder(JsonNode valeur, Lieu lieu) {
+        String ecrit = texte(valeur, lieu);
+        return switch (ecrit) {
             case "declaration" -> true;
             case "alphabetical" -> false;
-            default -> throw new IllegalArgumentException(contexte + ": expected \"order "
-                + "declaration\" or \"order alphabetical\", got \"order " + reste + "\".");
+            default -> throw new IllegalArgumentException(lieu + ": expected \"declaration\" or "
+                + "\"alphabetical\", got \"" + ecrit + "\".");
         };
     }
 
-    // « multiplicity brackets » : la forme des conteneurs se traduit en multiplicités.
+    // « "multiplicity": "brackets" » : la forme des conteneurs se traduit en multiplicités.
     //
     // « Set<String> aliases » s'écrit alors « aliases : String [0..*] », « Optional<Integer> »
     // s'écrit « int [0..1] » : le conteneur est la façon dont Java écrit ces multiplicités, et la
     // règle ne fait que les transcrire en notation UML. Le mot « brackets » nomme ce qu'on
-    // obtient — les crochets — et laisse la place à d'autres formes si l'usage en révèle.
-    private static void lireMultiplicity(boolean[] deduites, String reste, String contexte) {
-        checkArgument("brackets".equals(reste),
-            "%s: expected \"multiplicity brackets\", got \"multiplicity %s\".", contexte, reste);
-        checkArgument(!deduites[0],
-            "%s: \"multiplicity brackets\" is already asked for.", contexte);
+    // obtient — les crochets — et laisse la place à d'autres formes si l'usage en révèle. C'est
+    // pourquoi la clé porte un mot et non un booléen.
+    private static boolean lireMultiplicity(JsonNode valeur, Lieu lieu) {
+        String ecrit = texte(valeur, lieu);
+        checkArgument("brackets".equals(ecrit),
+            "%s: expected \"brackets\", got \"%s\".", lieu, ecrit);
 
-        deduites[0] = true;
+        return true;
     }
 
-    // « title Architecture du module Facturation » : le titre de la vue intégrale.
+    // « "title": "Architecture du module Facturation" » : le titre de la vue intégrale.
     //
-    // Le reste de la ligne est pris tel quel, espaces compris : un titre est une phrase, pas un
+    // La chaîne est prise telle quelle, espaces compris : un titre est une phrase, pas un
     // identifiant, et rien n'y est à interpréter.
-    private static void lireTitle(String[] titre, String reste, String contexte) {
-        checkArgument(!reste.isBlank(),
-            "%s: the title is missing, after \"title\".", contexte);
-        checkArgument(titre[0].isEmpty(),
-            "%s: the title is already set to \"%s\". Keep only one \"title\" line.",
-            contexte, titre[0]);
+    private static String lireTitle(JsonNode valeur, Lieu lieu) {
+        String ecrit = texte(valeur, lieu);
+        checkArgument(!ecrit.isBlank(),
+            "%s: the title cannot be empty or made of whitespace only. To have no title, leave "
+                + "the key out.", lieu);
 
-        titre[0] = reste;
+        return ecrit;
     }
 
-    // « show empty members » : rétablit les compartiments vides, masqués par défaut.
-    private static void lireShow(boolean[] masquerMembresVides, String reste, String contexte) {
-        checkArgument(MEMBRES_VIDES.equals(reste),
-            "%s: expected \"show empty members\", got \"show %s\".", contexte, reste);
-        checkArgument(masquerMembresVides[0],
-            "%s: \"show empty members\" is already asked for.", contexte);
-
-        masquerMembresVides[0] = false;
-    }
-
-    // « view "Mapping" = KeysymEntry, KeyboardMap - XkbKeymapDecomposer »
-    // « view "Mapping" direction left-to-right »
+    // « "views": [ { "name": "Mapping", "retain": […], "remove": […],
+    //               "direction": "left-to-right" } ]
     //
-    // Deux formes pour un même mot-clé, parce qu'une vue a deux choses à dire et qu'une ligne
-    // n'en porte qu'une : ce qu'elle contient, et comment elle se lit. Le nom entre guillemets
-    // les rattache l'une à l'autre, et sert aussi de titre et de nom de fichier.
-    private static void lireView(Map<String, DefinitionDeVue> vues, String reste,
-        String contexte) {
-        checkArgument(reste.startsWith("\""),
-            "%s: expected \"view <name in quotes> = <classes>\", got \"view %s\".",
-            contexte, reste);
-        int fin = reste.indexOf('"', 1);
-        checkArgument(fin > 0, "%s: the view name is not closed by a quote.", contexte);
+    // Une vue tient dans un objet, et non plus dans deux lignes qu'un nom entre guillemets
+    // rattachait l'une à l'autre : son contenu et son sens de lecture sont deux champs du même
+    // objet. C'est le gain le plus net du format.
+    private static ImmutableList<DefinitionDeVue> lireViews(JsonNode valeur, Lieu lieu) {
+        checkArgument(valeur.isArray(),
+            "%s: expected an array of views, for example [ { \"name\": \"Mapping\", "
+                + "\"retain\": [\"KeysymEntry\"] } ]; got %s.",
+            lieu, sorte(valeur));
 
-        String nom = reste.substring(1, fin);
-        String suite = reste.substring(fin + 1).strip();
-        checkArgument(!nom.isBlank(),
-            "%s: the view name cannot be empty or made of whitespace only.", contexte);
+        // LinkedHashMap et non un builder : il faut pouvoir demander « ce nom est-il déjà là ? »
+        // avant d'insérer, pour refuser deux vues homonymes en nommant celle qui est en trop.
+        // L'ordre d'écriture est par ailleurs celui des fichiers produits.
+        Map<String, DefinitionDeVue> vues = new LinkedHashMap<>();
 
-        if (suite.startsWith(DIRECTION + " ")) {
-            DefinitionDeVue definie = vues.get(nom);
-            checkArgument(definie != null,
-                "%s: view \"%s\" has no content yet. Write \"view \"%s\" = …\" first.",
-                contexte, nom, nom);
-            vues.put(nom,
-                definie.avec(lireFlux(suite.substring(DIRECTION.length()).strip(), contexte)));
-            return;
+        for (int rang = 0; rang < valeur.size(); rang++) {
+            Lieu ou = lieu.indice(rang);
+            DefinitionDeVue vue = lireVue(valeur.get(rang), ou);
+            checkArgument(!vues.containsKey(vue.nom()),
+                "%s: view \"%s\" is already defined. Keep only one of the two.", ou, vue.nom());
+
+            vues.put(vue.nom(), vue);
         }
-
-        checkArgument(suite.startsWith("="),
-            "%s: expected \"=\" or \"direction\" after the view name, got \"%s\".",
-            contexte, suite);
-        checkArgument(!vues.containsKey(nom),
-            "%s: view \"%s\" is already defined. Keep only one of the two.", contexte, nom);
-
-        vues.put(nom, contenu(nom, suite.substring(1).strip(), contexte));
+        return ImmutableList.copyOf(vues.values());
     }
 
-    // Le contenu d'une vue : ce qu'elle retient, moins ce qu'elle retire.
-    //
-    // Le tiret sépare les deux moitiés. Il ne peut pas être confondu avec un nom de classe : un
-    // identifiant Java n'en contient jamais, et le fichier exige des espaces autour.
-    private static DefinitionDeVue contenu(String nom, String reste, String contexte) {
-        checkArgument(!reste.isEmpty(),
-            "%s: view \"%s\" retains nothing; write at least one class or package.",
-            contexte, nom);
+    // Une vue : son nom, ce qu'elle retient, ce qu'elle retire, son sens de lecture.
+    private static DefinitionDeVue lireVue(JsonNode valeur, Lieu lieu) {
+        checkArgument(valeur.isObject(),
+            "%s: expected a view object, with a \"%s\" and a \"%s\"; got %s.",
+            lieu, NAME, RETAIN, sorte(valeur));
 
-        String garde = reste;
-        String retire = "";
-        int tiret = reste.indexOf(" - ");
-        if (tiret >= 0) {
-            garde = reste.substring(0, tiret).strip();
-            retire = reste.substring(tiret + 3).strip();
-        }
-        return new DefinitionDeVue(nom, selecteurs(garde, contexte, nom),
-            selecteurs(retire, contexte, nom), UMLFlow.TOP_TO_BOTTOM);
-    }
+        String nom = null;
+        ImmutableList<Selecteur> retenus = null;
+        ImmutableList<Selecteur> retires = ImmutableList.of();
+        UMLFlow direction = UMLFlow.TOP_TO_BOTTOM;
 
-    // Les sélecteurs d'une moitié, séparés par des virgules, dans l'ordre d'écriture.
-    private static ImmutableList<Selecteur> selecteurs(String reste, String contexte, String nom) {
-        if (reste.isEmpty()) {
-            return ImmutableList.of();
-        }
-        ImmutableList.Builder<Selecteur> lus = ImmutableList.builder();
+        for (Map.Entry<String, JsonNode> champ : valeur.properties()) {
+            String cle = champ.getKey();
+            Lieu ou = lieu.dans(cle);
 
-        for (String morceau : reste.split(",", -1)) {
-            String ecrit = morceau.strip();
-            checkArgument(!ecrit.isEmpty(),
-                "%s: an empty selector was read in view \"%s\"; a stray comma, most likely.",
-                contexte, nom);
-
-            if (ecrit.startsWith(PACKAGE + " ")) {
-                lus.add(Selecteur.paquetage(ecrit.substring(PACKAGE.length()).strip()));
-            } else if (ecrit.startsWith(AROUND + " ")) {
-                lus.add(Selecteur.voisinage(ecrit.substring(AROUND.length()).strip()));
-            } else {
-                checkArgument(!ecrit.contains(" "),
-                    "%s: \"%s\" is neither a class name, a \"package …\" nor an \"around …\".",
-                    contexte, ecrit);
-                lus.add(Selecteur.classe(ecrit));
+            if (cle.startsWith("_")) {
+                continue;
             }
+
+            switch (cle) {
+                case NAME -> nom = lireNomDeVue(champ.getValue(), ou);
+                case RETAIN -> retenus = selecteurs(champ.getValue(), ou);
+                case REMOVE -> retires = selecteurs(champ.getValue(), ou);
+                case DIRECTION -> direction = lireFlux(champ.getValue(), ou);
+                default -> throw new IllegalArgumentException(lieu + ": unknown key \"" + cle
+                    + "\" in a view. Known keys: " + NAME + ", " + RETAIN + ", " + REMOVE + ", "
+                    + DIRECTION + ".");
+            }
+        }
+        checkArgument(nom != null, "%s: this view has no \"%s\".", lieu, NAME);
+        checkArgument(retenus != null,
+            "%s: view \"%s\" has no \"%s\"; write at least one class or package.",
+            lieu, nom, RETAIN);
+        checkArgument(!retenus.isEmpty(),
+            "%s: view \"%s\" retains nothing; write at least one class or package.", lieu, nom);
+
+        return new DefinitionDeVue(nom, retenus, retires, direction);
+    }
+
+    // Le nom d'une vue, qui sert aussi de titre et de nom de fichier.
+    private static String lireNomDeVue(JsonNode valeur, Lieu lieu) {
+        String nom = texte(valeur, lieu);
+        checkArgument(!nom.isBlank(),
+            "%s: the view name cannot be empty or made of whitespace only.", lieu);
+
+        return nom;
+    }
+
+    // « "retain": ["Xkeys", { "package": "io.exemple.modele" }, { "around": "SvgKeyboard" }] »
+    //
+    // Une chaîne désigne une classe : c'est la forme la plus fréquente, et lui donner la forme la
+    // plus courte est ce qui rend le fichier relisible. Les deux autres sélecteurs sont des
+    // objets d'une seule clé, qui nomme la sorte.
+    //
+    // Un seul tableau, et non trois — un par sorte —, parce que l'ordre d'écriture est celui du
+    // dessin (voir DefinitionDeVue) : le séparer par sorte perdrait l'ordre entre les sortes.
+    private static ImmutableList<Selecteur> selecteurs(JsonNode valeur, Lieu lieu) {
+        checkArgument(valeur.isArray(),
+            "%s: expected an array of selectors, for example [\"Facture\", { \"%s\": "
+                + "\"io.exemple.modele\" }]; got %s.",
+            lieu, PACKAGE, sorte(valeur));
+
+        ImmutableList.Builder<Selecteur> lus = ImmutableList.builder();
+        for (int rang = 0; rang < valeur.size(); rang++) {
+            lus.add(selecteur(valeur.get(rang), lieu.indice(rang)));
         }
         return lus.build();
     }
 
-    // « views by package » : une vue par paquetage, sans rien déclarer.
-    private static void lireViews(boolean[] parPaquetage, String reste, String contexte) {
-        checkArgument("by package".equals(reste),
-            "%s: expected \"views by package\", got \"views %s\".", contexte, reste);
-        checkArgument(!parPaquetage[0],
-            "%s: \"views by package\" is already asked for.", contexte);
+    // Un sélecteur : une chaîne pour une classe, un objet d'une clé pour les deux autres sortes.
+    private static Selecteur selecteur(JsonNode valeur, Lieu lieu) {
+        if (valeur.isTextual()) {
+            return Selecteur.classe(nomDesigne(valeur, lieu, "class"));
+        }
+        checkArgument(valeur.isObject(),
+            "%s: expected a class name, or { \"%s\": … }, or { \"%s\": … }; got %s.",
+            lieu, PACKAGE, AROUND, sorte(valeur));
+        // Deux clés dans le même objet demanderaient deux choses d'un seul sélecteur, et il
+        // faudrait inventer laquelle l'emporte. Les écrire côte à côte dans le tableau dit la
+        // même chose, sans inventer.
+        checkArgument(valeur.size() == 1,
+            "%s: a selector object carries exactly one key, \"%s\" or \"%s\"; this one carries %s."
+                + " Write one selector per entry of the array.",
+            lieu, PACKAGE, AROUND, valeur.size());
 
-        parPaquetage[0] = true;
-    }
-
-    // Le sens de lecture, écrit comme on le lit : « left-to-right ».
-    private static UMLFlow lireFlux(String reste, String contexte) {
-        return switch (reste) {
-            case "top-to-bottom" -> UMLFlow.TOP_TO_BOTTOM;
-            case "left-to-right" -> UMLFlow.LEFT_TO_RIGHT;
-            default -> throw new IllegalArgumentException(contexte + ": expected \"top-to-bottom\""
-                + " or \"left-to-right\", got \"" + reste + "\".");
+        Map.Entry<String, JsonNode> seule = valeur.properties().iterator().next();
+        Lieu ou = lieu.dans(seule.getKey());
+        return switch (seule.getKey()) {
+            case PACKAGE -> Selecteur.paquetage(nomDesigne(seule.getValue(), ou, PACKAGE));
+            case AROUND -> Selecteur.voisinage(nomDesigne(seule.getValue(), ou, AROUND));
+            default -> throw new IllegalArgumentException(lieu + ": unknown selector \""
+                + seule.getKey() + "\". A string names a class; \"" + PACKAGE + "\" takes a whole "
+                + "package, and \"" + AROUND + "\" a class and its immediate neighbours.");
         };
     }
 
-    // « strategy public » : ce que prennent les classes qui ne déclarent pas la leur.
-    private static void lireStrategy(UMLVisibility[] strategie, String reste, String contexte) {
-        checkArgument(!reste.isEmpty(),
-            "%s: expected \"strategy <none|public|protected|package|private>\", got \"strategy\".",
-            contexte);
-        checkArgument(strategie[0] == null,
-            "%s: the project strategy is already set to \"%s\". Keep only one \"strategy\" line.",
-            contexte, strategie[0] == null ? "" : strategie[0].name().toLowerCase(Locale.ROOT));
+    // Le nom que porte un sélecteur, quelle que soit sa sorte.
+    private static String nomDesigne(JsonNode valeur, Lieu lieu, String sorte) {
+        String nom = texte(valeur, lieu);
+        checkArgument(!nom.isBlank(),
+            "%s: a %s selector cannot be empty or made of whitespace only.", lieu, sorte);
+        // Une espace au milieu d'un nom trahit deux noms écrits dans la même chaîne, là où le
+        // tableau JSON attend une entrée par sélecteur.
+        checkArgument(!nom.contains(" "),
+            "%s: \"%s\" contains a space, so it is not a name. Write one selector per entry of "
+                + "the array.", lieu, nom);
+
+        return nom;
+    }
+
+    // Le sens de lecture, écrit comme on le lit : « left-to-right ».
+    private static UMLFlow lireFlux(JsonNode valeur, Lieu lieu) {
+        String ecrit = texte(valeur, lieu);
+        return switch (ecrit) {
+            case "top-to-bottom" -> UMLFlow.TOP_TO_BOTTOM;
+            case "left-to-right" -> UMLFlow.LEFT_TO_RIGHT;
+            default -> throw new IllegalArgumentException(lieu + ": expected \"top-to-bottom\" or "
+                + "\"left-to-right\", got \"" + ecrit + "\".");
+        };
+    }
+
+    // « "strategy": "public" » : ce que prennent les classes qui ne déclarent pas la leur.
+    private static UMLVisibility lireStrategy(JsonNode valeur, Lieu lieu) {
+        String ecrit = texte(valeur, lieu);
 
         UMLVisibility lue;
         try {
-            lue = UMLVisibility.valueOf(reste.toUpperCase(Locale.ROOT));
+            lue = UMLVisibility.valueOf(ecrit.toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException(contexte + ": unknown strategy \"" + reste
+            throw new IllegalArgumentException(lieu + ": unknown strategy \"" + ecrit
                 + "\". Known strategies: none, public, protected, package, private.", e);
         }
-        // PROJECT est le renvoi qu'écrit @UMLClass vers cette ligne même : l'accepter ici
+        // PROJECT est le renvoi qu'écrit @UMLClass vers cette clé même : l'accepter ici
         // demanderait au projet de se renvoyer à lui-même.
         checkArgument(lue != UMLVisibility.PROJECT,
-            "%s: \"project\" is what a class writes to defer to this line; the project itself "
-                + "must name a real strategy.", contexte);
+            "%s: \"project\" is what a class writes to defer to this key; the project itself "
+                + "must name a real strategy.", lieu);
 
-        strategie[0] = lue;
+        return lue;
     }
 
-    // « hide get*, log, *Cache » : ce qui disparaît de la boîte.
+    // « "hide": ["get*", "log", "*Cache"] » : ce qui disparaît de la boîte.
     //
-    // Une seule forme, et une seule liste de motifs : un motif vise les méthodes et les attributs
-    // indifféremment. Il n'y a pas de « hide method » ni de « hide field » — un nom appartient
-    // presque toujours à l'un ou à l'autre, et le rare membre pris à tort par un motif se ramène
-    // par @UMLInclude, qui est fait pour cela. Deux mots-clés pour distinguer ce que le lecteur
-    // ne distingue pas auraient coûté plus que le cas qu'ils réglaient.
-    private static void lireHide(List<Motif> membres, String reste, String contexte) {
-        checkArgument(!reste.isEmpty(),
-            "%s: expected \"hide <patterns>\", for example \"hide get*, log\"; got \"hide\".",
-            contexte);
+    // Une seule liste de motifs : un motif vise les méthodes et les attributs indifféremment. Il
+    // n'y a pas de « hideMethods » ni de « hideFields » — un nom appartient presque toujours à
+    // l'un ou à l'autre, et le rare membre pris à tort par un motif se ramène par @UMLInclude,
+    // qui est fait pour cela. Deux clés pour distinguer ce que le lecteur ne distingue pas
+    // auraient coûté plus que le cas qu'elles réglaient.
+    private static ImmutableList<Motif> lireHide(JsonNode valeur, Lieu lieu) {
+        checkArgument(valeur.isArray(),
+            "%s: expected an array of name patterns, for example [\"get*\", \"log\"]; got %s.",
+            lieu, sorte(valeur));
 
-        lireMotifs(membres, reste, contexte);
-    }
+        ImmutableList.Builder<Motif> motifs = ImmutableList.builder();
+        for (int rang = 0; rang < valeur.size(); rang++) {
+            Lieu ou = lieu.indice(rang);
+            String motif = texte(valeur.get(rang), ou);
 
-    // « hide get*, is*, LOGGER » : un ou plusieurs motifs, séparés par des virgules.
-    //
-    // La virgule évite de répéter « hide » sur chaque ligne quand on écarte une famille de noms
-    // d'un seul tenant. Chaque morceau est un motif à part entière, avec sa propre étoile.
-    private static void lireMotifs(List<Motif> motifs, String reste, String contexte) {
-        // La limite négative conserve les morceaux vides, y compris celui que laisse une virgule
-        // finale : « hide get*, » est une faute de frappe, et le fichier n'a pas de compilateur
-        // pour la relever à notre place.
-        for (String morceau : reste.split(",", -1)) {
-            String motif = morceau.strip();
-            checkArgument(!motif.isEmpty(),
-                "%s: an empty pattern was read in \"hide %s\"; a stray comma, most likely.",
-                contexte, reste);
+            checkArgument(!motif.isBlank(),
+                "%s: a name pattern cannot be empty or made of whitespace only.", ou);
             checkArgument(!motif.contains(" "),
-                "%s: a name pattern cannot contain a space (read \"%s\"). Separate several "
-                    + "patterns with commas, or did you mean \"omit\"?",
-                contexte, motif);
+                "%s: a name pattern cannot contain a space (read \"%s\"). Write one pattern per "
+                    + "entry of the array, or did you mean \"" + OMIT + "\"?",
+                ou, motif);
             // Le point est ce qui distingue un nom qualifié d'un nom de membre, qui n'en contient
             // jamais. Une règle ne désigne pas un élément par son nom : c'est le partage même
             // entre le fichier et les annotations, et @UMLExclude est fait pour ce cas-là.
@@ -351,19 +461,20 @@ final class LecteurDeRegles {
                 "%s: \"%s\" names a member of one class, and a rule never designates an element "
                     + "by name. Put @UMLExclude on that member instead, or write a pattern that "
                     + "describes a family of names.",
-                contexte, motif);
+                ou, motif);
             // « * » seul masquerait tout le compartiment : c'est licite, mais assez inattendu
             // pour mériter d'être écrit autrement le jour où la règle existera.
             checkArgument(!motif.equals("*"),
-                "%s: the pattern \"*\" would hide every member of every class.", contexte);
+                "%s: the pattern \"*\" would hide every member of every class.", ou);
 
             motifs.add(Motif.de(motif));
         }
+        return motifs.build();
     }
 
-    // « omit visibility », « omit parameter names », « omit return void ».
+    // « "omit": ["visibility", "parameter names", "return void", "abstract"] »
     //
-    // Un verbe distinct de « hide », et c'est délibéré : ces trois-là ne font disparaître aucun
+    // Un mot distinct de « hide », et c'est délibéré : ces quatre-là ne font disparaître aucun
     // membre, ils retirent un morceau de la ligne d'un membre qui reste affiché. Le mot dit à lui
     // seul qu'aucun @UMLInclude ne les contredira, puisqu'il n'y a rien à ramener.
     //
@@ -371,57 +482,105 @@ final class LecteurDeRegles {
     // facultatif, et l'omettre veut dire « ne rend rien ». Un attribut ou un paramètre privé de
     // son type laisserait au contraire une ligne incompréhensible, et effacer un type de retour
     // utile ferait perdre au dessin ce que la boîte existe pour montrer.
+    //
     // « abstract » ne vaut que pour l'italique, et non pour le mot-clé d'une classe : ce qui
     // disparaît est la marque que PlantUML pose sur une opération sans implémentation, pas le
     // « abstract class » écrit en tête de la boîte. Un diagramme dont les boîtes abstraites sont
     // presque toutes des interfaces le dit déjà par le mot « interface », et les diagrammes tenus
     // à la main s'en passent le plus souvent.
-    private static void lireOmit(boolean[] omettreVisibilite, boolean[] omettreNomsDeParametres,
-        boolean[] omettreRetourVoid, boolean[] omettreAbstrait, String reste, String contexte) {
+    private static Set<Omission> lireOmit(JsonNode valeur, Lieu lieu) {
+        checkArgument(valeur.isArray(),
+            "%s: expected an array, for example [\"%s\", \"%s\"]; got %s.",
+            lieu, Omission.VISIBILITE.ecrit, Omission.RETOUR_VOID.ecrit, sorte(valeur));
 
-        boolean[] demande = switch (reste) {
-            case VISIBILITE -> omettreVisibilite;
-            case NOMS_DE_PARAMETRES -> omettreNomsDeParametres;
-            case RETOUR_VOID -> omettreRetourVoid;
-            case ABSTRAIT -> omettreAbstrait;
-            default -> throw new IllegalArgumentException(contexte + ": expected \"omit "
-                + VISIBILITE + "\", \"omit " + NOMS_DE_PARAMETRES + "\", \"omit " + RETOUR_VOID
-                + "\" or \"omit " + ABSTRAIT + "\", got \"omit " + reste + "\".");
-        };
-        // La seconde ligne ne demanderait rien de plus ; un fichier qui se répète est un fichier
-        // que personne ne relit.
-        checkArgument(!demande[0], "%s: \"omit %s\" is already asked for.", contexte, reste);
+        Set<Omission> demandees = EnumSet.noneOf(Omission.class);
+        for (int rang = 0; rang < valeur.size(); rang++) {
+            Lieu ou = lieu.indice(rang);
+            String ecrit = texte(valeur.get(rang), ou);
 
-        demande[0] = true;
+            Omission demandee = null;
+            for (Omission candidate : Omission.values()) {
+                if (candidate.ecrit.equals(ecrit)) {
+                    demandee = candidate;
+                }
+            }
+            checkArgument(demandee != null, "%s: expected \"%s\", \"%s\", \"%s\" or \"%s\"; got "
+                + "\"%s\".", ou, Omission.VISIBILITE.ecrit, Omission.NOMS_DE_PARAMETRES.ecrit,
+                Omission.RETOUR_VOID.ecrit, Omission.ABSTRAIT.ecrit, ecrit);
+            // La seconde mention ne demanderait rien de plus ; un fichier qui se répète est un
+            // fichier que personne ne relit.
+            checkArgument(!demandees.contains(demandee),
+                "%s: \"%s\" is already asked for.", ou, ecrit);
+
+            demandees.add(demandee);
+        }
+        return demandees;
     }
 
-    // « type ImmutableList -> List » : le nom lu dans le code, puis celui qui s'affiche.
-    private static void lireType(Map<String, String> alias, String reste, String contexte) {
-        int fleche = reste.indexOf(FLECHE);
-        checkArgument(fleche >= 0,
-            "%s: expected \"type <type of the code> -> <displayed type>\", got \"type %s\".",
-            contexte, reste);
+    // « "types": { "ImmutableList": "List" } » : le nom lu dans le code, puis celui qui s'affiche.
+    //
+    // Un objet, et non un tableau de paires : le nom du code est une clé — on ne le remplace que
+    // par une chose —, et JSON refuse alors tout seul les deux règles contradictoires que le
+    // format ligne à ligne devait guetter.
+    private static ImmutableMap<String, String> lireTypes(JsonNode valeur, Lieu lieu) {
+        checkArgument(valeur.isObject(),
+            "%s: expected an object, for example { \"ImmutableList\": \"List\" }; got %s.",
+            lieu, sorte(valeur));
 
-        String source = reste.substring(0, fleche).strip();
-        String affiche = reste.substring(fleche + FLECHE.length()).strip();
+        ImmutableMap.Builder<String, String> alias = ImmutableMap.builder();
+        for (Map.Entry<String, JsonNode> champ : valeur.properties()) {
+            String source = champ.getKey();
+            Lieu ou = lieu.dans(source);
+            String affiche = texte(champ.getValue(), ou);
 
-        checkArgument(!source.isEmpty(), "%s: the type to replace is missing, before the arrow.",
-            contexte);
-        checkArgument(!affiche.isEmpty(),
-            "%s: the displayed type is missing, after the arrow. To hide a type, there is nothing "
-                + "to write: leave the line out.",
-            contexte);
-        // Une espace au milieu d'un nom de type trahit une flèche oubliée ou un mot en trop ; le
-        // laisser passer écrirait dans la boîte un texte que personne ne relirait.
-        checkArgument(!source.contains(" ") && !affiche.contains(" "),
-            "%s: a type name cannot contain a space (read \"%s\" -> \"%s\").",
-            contexte, source, affiche);
+            checkArgument(!source.isBlank(),
+                "%s: the type to replace cannot be empty or made of whitespace only.", ou);
+            checkArgument(!affiche.isBlank(),
+                "%s: the displayed type cannot be empty. To hide a type, there is nothing to "
+                    + "write: leave the entry out.", ou);
+            // Une espace au milieu d'un nom de type trahit un mot en trop ; le laisser passer
+            // écrirait dans la boîte un texte que personne ne relirait.
+            checkArgument(!source.contains(" ") && !affiche.contains(" "),
+                "%s: a type name cannot contain a space (read \"%s\" -> \"%s\").",
+                ou, source, affiche);
 
-        // Deux règles sur le même type se contrediraient, et la seconde l'emporterait en silence.
-        checkArgument(!alias.containsKey(source),
-            "%s: \"%s\" already has a rule, which said \"%s\". Keep only one of the two.",
-            contexte, source, alias.get(source));
+            alias.put(source, affiche);
+        }
+        return alias.build();
+    }
 
-        alias.put(source, affiche);
+    // La valeur d'une clé qui attend vrai ou faux.
+    //
+    // Écrire le défaut est permis, là où le format ligne à ligne ne savait que le demander : une
+    // clé qui redit le défaut ne change rien au dessin, et un fichier qui dit tout haut ce qu'il
+    // fait se relit mieux.
+    private static boolean booleen(JsonNode valeur, Lieu lieu) {
+        checkArgument(valeur.isBoolean(),
+            "%s: expected true or false, got %s.", lieu, sorte(valeur));
+
+        return valeur.booleanValue();
+    }
+
+    // La valeur d'une clé qui attend une chaîne.
+    private static String texte(JsonNode valeur, Lieu lieu) {
+        checkArgument(valeur.isTextual(), "%s: expected a string, got %s.", lieu, sorte(valeur));
+
+        return valeur.textValue();
+    }
+
+    // Ce qu'on a lu là où l'on attendait autre chose, nommé comme le nomme JSON : un refus qui
+    // dit « got an array » se recoupe sans effort avec le fichier ouvert sous les yeux.
+    private static String sorte(JsonNode valeur) {
+        return switch (valeur.getNodeType()) {
+            case ARRAY -> "an array";
+            case BOOLEAN -> "a boolean";
+            case NULL -> "null";
+            case NUMBER -> "a number";
+            case OBJECT -> "an object";
+            case STRING -> "a string";
+            // Ni MISSING, ni BINARY, ni POJO ne peuvent venir d'un fichier analysé : ils
+            // désignent des nœuds qu'on fabrique en mémoire.
+            default -> "\"" + valeur + "\"";
+        };
     }
 }

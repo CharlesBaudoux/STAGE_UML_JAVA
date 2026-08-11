@@ -1,0 +1,17 @@
+@startuml
+title Autour de SvgKeyboard
+skinparam classAttributeIconSize 0
+hide empty members
+skinparam nodesep 60
+skinparam ranksep 90
+
+class "SvgKeyboard" as SvgKeyboard [[representable.svg]] {
+  {static} zonedFrom(physicalKeyboard : RectangularKeyboard) : SvgKeyboard
+  {static} using(doc : Document) : SvgKeyboard
+  keyBindingZonesToXKeyName() : Map&#60;RectangleElement, String&#62;
+  setFontSize(fontSize : double) : SvgKeyboard
+  withRepresentations(representationsByXKeyName : XKeyNamesRepresenter) : Document
+  withCanonicalRepresentations(representer : CanonicalKeyboardMapRepresenter) : SvgRepresentedKeyboard
+}
+
+@enduml

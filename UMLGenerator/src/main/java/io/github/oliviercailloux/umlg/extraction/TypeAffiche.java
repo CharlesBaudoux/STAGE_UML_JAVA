@@ -127,7 +127,7 @@ public final class TypeAffiche {
     //
     // « Optional<X> » dit « zéro ou un », un Iterable paramétré dit « zéro ou plusieurs » : ce
     // n'est pas deviné, c'est lu — le conteneur est la façon dont Java écrit ces multiplicités.
-    // La règle reste opt-in (« multiplicity brackets » dans umlg.rules) : la traduction change la
+    // La règle reste opt-in (« "multiplicity": "brackets" » dans umlg.json) : la traduction change la
     // forme de toutes les lignes à collection, et c'est au projet de choisir sa notation. Elle ne
     // dit jamais plus que le type : « 0..* » et non « 1..* », qu'aucun Set ne garantit.
     //

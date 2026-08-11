@@ -16,7 +16,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public final class Regles {
 
-    public static final String NOM_DU_FICHIER = "umlg.rules";
+    public static final String NOM_DU_FICHIER = "umlg.json";
 
     private static final Regles AUCUNE = new Regles(ImmutableMap.of(), false,
         UMLVisibility.NONE, false, ImmutableList.of(),
@@ -146,12 +146,12 @@ public final class Regles {
         ImmutableList.Builder<String> mortes = ImmutableList.builder();
         for (var regle : alias.entrySet()) {
             if (!aliasUtilises.contains(regle.getKey())) {
-                mortes.add("type " + regle.getKey() + " -> " + regle.getValue());
+                mortes.add("types: " + regle.getKey() + " -> " + regle.getValue());
             }
         }
         for (Motif motif : membresMasques) {
             if (motif.sansEffet()) {
-                mortes.add("hide " + motif.ecrit());
+                mortes.add("hide: " + motif.ecrit());
             }
         }
         return mortes.build();
@@ -168,26 +168,26 @@ public final class Regles {
         if (!Files.isRegularFile(fichier)) {
             return aucune();
         }
-        return LecteurDeRegles.lire(lignesEnUtf8(fichier), fichier.toString());
+        return LecteurDeRegles.lire(contenuEnUtf8(fichier), fichier.toString());
     }
 
     public static Regles duFichier(Path fichier) throws IOException {
         checkNotNull(fichier);
-        return LecteurDeRegles.lire(lignesEnUtf8(fichier), fichier.toString());
+        return LecteurDeRegles.lire(contenuEnUtf8(fichier), fichier.toString());
     }
 
-    private static ImmutableList<String> lignesEnUtf8(Path fichier) throws IOException {
+    private static String contenuEnUtf8(Path fichier) throws IOException {
         try {
-            return ImmutableList.copyOf(Files.readAllLines(fichier, StandardCharsets.UTF_8));
+            return Files.readString(fichier, StandardCharsets.UTF_8);
         } catch (CharacterCodingException e) {
             throw new IllegalArgumentException(fichier + " is not encoded in UTF-8, and the "
-                + "rules file must be. Re-save it as UTF-8 — an accented letter in a comment is "
+                + "rules file must be. Re-save it as UTF-8 — an accented letter in a title is "
                 + "enough to reveal another encoding.", e);
         }
     }
 
-    public static Regles lues(ImmutableList<String> lignes, String origine) {
-        return LecteurDeRegles.lire(lignes, origine);
+    public static Regles lues(String contenu, String origine) {
+        return LecteurDeRegles.lire(contenu, origine);
     }
 
     public String nomAffiche(Class<?> type) {

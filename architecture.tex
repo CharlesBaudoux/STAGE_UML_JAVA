@@ -83,7 +83,7 @@ chercher.
 \begin{tabular}{c}
 \hline
 \\
-\texttt{annotation/} \; et le fichier \texttt{umlg.rules} \quad ce que l'utilisateur écrit \\
+\texttt{annotation/} \; et le fichier \texttt{umlg.json} \quad ce que l'utilisateur écrit \\
 $\downarrow$ \\
 \texttt{extraction/} \quad lecture du code compilé, par réflexion \\
 $\downarrow$ \\
@@ -107,7 +107,7 @@ phrase, et elle explique la présence du fichier de règles à côté des annota
   \item Si la décision \textbf{désigne un élément par son nom} — cette classe-ci s'appelle ainsi,
         cet attribut-là est un lien — c'est une \textbf{annotation}.
   \item Si elle vaut pour \textbf{tout le projet, ou pour une vue}, c'est une règle du fichier
-        \texttt{umlg.rules}.
+        \texttt{umlg.json}.
   \item Si elle ne dit \textbf{rien du diagramme} — son habillage, le sort de la génération
         précédente — c'est une \textbf{option d'appel} du générateur.
 \end{itemize}
@@ -467,7 +467,7 @@ fautive de la même façon, et non chacun à la sienne. \\
 
 Une annotation dit une chose sur un élément. Écrire « affiche \texttt{ImmutableList} comme
 \texttt{List} » sur chacun des deux cents attributs d'un projet est un travail que personne ne
-fait, et que personne ne tient à jour. D'où un fichier, \texttt{umlg.rules}, posé à la racine du
+fait, et que personne ne tient à jour. D'où un fichier, \texttt{umlg.json}, posé à la racine du
 répertoire analysé — facultatif, et lu une seule fois avant la première classe.
 
 \begin{longtable}{L{4.2cm} L{10cm}}
@@ -476,15 +476,18 @@ répertoire analysé — facultatif, et lu une seule fois avant la première cla
 \midrule
 \endhead
 \texttt{LecteurDeRegles} &
-Lit le fichier ligne à ligne. Une règle commence par un mot-clé qui dit sa nature — il y en a
-onze — et c'est lui qui décide comment lire le reste. Le vocabulaire est \textbf{fermé} : un mot
-inconnu \emph{arrête} la génération, plutôt que d'appliquer en silence des règles dont une partie
-serait ignorée. Chaque refus nomme le fichier et le numéro de ligne : il n'y a pas de compilateur
-pour relire ce que l'utilisateur écrit ici. \\
+Lit l'objet JSON du fichier. Chacune de ses clés dit une nature de règle — il y en a onze — et
+c'est la clé qui décide comment lire sa valeur. Le vocabulaire est \textbf{fermé} : une clé
+inconnue \emph{arrête} la génération, plutôt que d'appliquer en silence des règles dont une partie
+serait ignorée. Chaque refus nomme le fichier et le chemin fautif — \texttt{views[1].direction} —,
+les fautes de syntaxe gardant le numéro de ligne que l'analyseur connaît : il n'y a pas de
+compilateur pour relire ce que l'utilisateur écrit ici. Le format ayant ses propres garde-fous, le
+lecteur en délègue deux : une clé écrite deux fois et une liste mal ponctuée sont refusées par
+l'analyseur, non par nous. \\
 \addlinespace
 \texttt{Regles} &
 Le résultat de cette lecture, interrogé par tout le reste de l'extraction. Retient au passage
-quelles lignes ont \emph{servi} : une règle qui ne vise plus rien — une classe renommée, une
+quelles entrées ont \emph{servi} : une règle qui ne vise plus rien — une classe renommée, une
 faute de frappe — est un no-op parfait, que rien d'autre ne signalerait. \\
 \addlinespace
 \texttt{Motif} &
@@ -625,7 +628,7 @@ est une erreur ce qui rendrait le diagramme \emph{faux}, un avertissement ce qui
 seulement \emph{différent} de ce qu'on croyait demander. \\
 \addlinespace
 \texttt{Strategie} &
-Le seul point délicat. Le défaut de \texttt{@UMLClass} renvoie au fichier \texttt{umlg.rules} —
+Le seul point délicat. Le défaut de \texttt{@UMLClass} renvoie au fichier \texttt{umlg.json} —
 que \texttt{javac} ne sait pas trouver, puisqu'il compile des sources et ignore ce que la
 construction fera du résultat. Sans lui, tous les messages du genre « ce membre n'est pas
 affiché » deviennent indécidables, et le processeur \emph{se tait} : un avertissement qui se

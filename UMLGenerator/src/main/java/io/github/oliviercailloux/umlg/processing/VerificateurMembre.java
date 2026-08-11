@@ -195,7 +195,7 @@ final class VerificateurMembre {
             // filtre travaille sur des Method, que le processeur n'a pas ; plutôt que de
             // réécrire sa règle, on se tait sur les méthodes.
             //
-            // Les attributs, eux, ont leur propre façon d'être écartés : un motif « hide log* ».
+            // Les attributs, eux, ont leur propre façon d'être écartés : un motif « "hide": ["log*"] ».
             // Un @UMLInclude qui y déroge n'est pas sans effet, il est même le seul moyen de
             // ramener le champ — le reproche visait exactement le remède.
             if (!renomme && strategieConnue && Membre.estAttribut(membre)

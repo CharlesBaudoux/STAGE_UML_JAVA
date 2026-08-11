@@ -76,7 +76,7 @@
       <!--
         Engendre les diagrammes : « mvn compile umlg:generate ».
         Plus d'arguments positionnels ni de mainClass : les défauts du plugin disent l'usage —
-        target/classes analysé (avec le fichier umlg.rules que la construction y recopie),
+        target/classes analysé (avec le fichier umlg.json que la construction y recopie),
         diagrammes/ écrit à la racine du projet. Un seul fichier plutôt qu'un dossier :
         « mvn compile umlg:generate -Dumlg.outputFile=Keyboardd.svg ».
       -->

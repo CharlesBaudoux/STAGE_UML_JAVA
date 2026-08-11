@@ -23,101 +23,188 @@ import org.junit.jupiter.api.io.TempDir;
 
 class ReglesTest {
 
-    private static Regles regles(String... lignes) {
-        return Regles.lues(ImmutableList.copyOf(lignes), "umlg.rules");
+    private static Regles regles(String json) {
+        return Regles.lues(json, "umlg.json");
     }
 
     @Test
     void nomSimple_estRemplace() {
-        assertEquals("List", regles("type ImmutableList -> List").nomAffiche(ImmutableList.class));
+        assertEquals("List", regles("""
+            { "types": { "ImmutableList": "List" } }
+            """).nomAffiche(ImmutableList.class));
     }
 
     @Test
     void nomComplet_estRemplace() {
-        assertEquals("List",
-            regles("type com.google.common.collect.ImmutableList -> List")
-                .nomAffiche(ImmutableList.class));
+        assertEquals("List", regles("""
+            { "types": { "com.google.common.collect.ImmutableList": "List" } }
+            """).nomAffiche(ImmutableList.class));
     }
 
     @Test
     void nomComplet_lEmporteSurLeNomSimple() {
-        Regles regles = regles(
-            "type ImmutableList -> Collection",
-            "type com.google.common.collect.ImmutableList -> List");
+        Regles regles = regles("""
+            {
+              "types": {
+                "ImmutableList": "Collection",
+                "com.google.common.collect.ImmutableList": "List"
+              }
+            }
+            """);
 
         assertEquals("List", regles.nomAffiche(ImmutableList.class));
     }
 
     @Test
     void typeSansRegle_gardeSonNomSimple() {
-        assertEquals("String", regles("type ImmutableList -> List").nomAffiche(String.class));
+        assertEquals("String", regles("""
+            { "types": { "ImmutableList": "List" } }
+            """).nomAffiche(String.class));
     }
 
     @Test
-    void commentairesEtLignesVides_sontIgnores() {
-        Regles regles = regles(
-            "# Les types de Guava n'apprennent rien au lecteur.",
-            "",
-            "   ",
-            "   type ImmutableSet -> Set   ");
+    void clesSoulignees_sontIgnorees() {
+        Regles regles = regles("""
+            {
+              "_": "Les types de Guava n'apprennent rien au lecteur.",
+              "_pourquoi": "Et une seconde note ne gêne pas la première.",
+              "types": { "ImmutableSet": "Set" }
+            }
+            """);
 
         assertEquals("Set", regles.nomAffiche(ImmutableSet.class));
     }
 
     @Test
     void fichierVide_neDonneAucuneRegle() {
-        assertTrue(regles("# rien", "").vides());
+        assertTrue(regles("").vides());
+        assertTrue(regles("   \n").vides());
+        assertTrue(regles("{}").vides());
         assertTrue(Regles.aucune().vides());
     }
 
     @Test
-    void regleInconnue_estRefuseeEnNommantLaLigne() {
-        IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
-            () -> regles("type ImmutableList -> List", "couleur Client -> rouge"));
+    void regleInconnue_estRefuseeEnRappelantLesConnues() {
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> regles("""
+            {
+              "types": { "ImmutableList": "List" },
+              "couleur": { "Client": "rouge" }
+            }
+            """));
 
-        assertTrue(e.getMessage().contains("line 2"), e.getMessage());
+        assertTrue(e.getMessage().contains("umlg.json"), e.getMessage());
         assertTrue(e.getMessage().contains("couleur"), e.getMessage());
-        assertTrue(e.getMessage().contains("type"), e.getMessage());
+        assertTrue(e.getMessage().contains("types"), e.getMessage());
+        assertTrue(e.getMessage().contains("views"), e.getMessage());
     }
 
     @Test
-    void flecheManquante_estRefusee() {
-        IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
-            () -> regles("type ImmutableList List"));
+    void syntaxeFautive_estRefuseeEnNommantLaLigne() {
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> regles("""
+            {
+              "strategy": "public",
+            }
+            """));
 
-        assertTrue(e.getMessage().contains("->"), e.getMessage());
+        assertTrue(e.getMessage().contains("umlg.json"), e.getMessage());
+        assertTrue(e.getMessage().contains("line 3"), e.getMessage());
+    }
+
+    @Test
+    void commentaireDeLAncienFormat_estRefuseEnDisantOuVaUneNote() {
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> regles("""
+            # Les types de Guava n'apprennent rien au lecteur.
+            { "types": { "ImmutableSet": "Set" } }
+            """));
+
+        assertTrue(e.getMessage().contains("JSON"), e.getMessage());
+        assertTrue(e.getMessage().contains("_"), e.getMessage());
+    }
+
+    @Test
+    void objetDeTeteAttendu_etRienDAutre() {
+        var refus = assertThrows(IllegalArgumentException.class, () -> regles("""
+            [ { "strategy": "public" } ]
+            """));
+
+        assertTrue(refus.getMessage().contains("expected a JSON object"), refus.getMessage());
+        assertTrue(refus.getMessage().contains("an array"), refus.getMessage());
+    }
+
+    @Test
+    void cequiSuitLAccoladeFermante_estRefuse() {
+        assertThrows(IllegalArgumentException.class, () -> regles("""
+            { "strategy": "public" }
+            { "order": "declaration" }
+            """));
+    }
+
+    @Test
+    void valeurDeLaMauvaiseSorte_estRefuseeEnNommantLaCle() {
+        var refus = assertThrows(IllegalArgumentException.class, () -> regles("""
+            { "hide": "get*" }
+            """));
+
+        assertTrue(refus.getMessage().contains("hide"), refus.getMessage());
+        assertTrue(refus.getMessage().contains("array"), refus.getMessage());
+    }
+
+    @Test
+    void typeAfficheQuiNestPasUneChaine_estRefuse() {
+        var refus = assertThrows(IllegalArgumentException.class, () -> regles("""
+            { "types": { "ImmutableList": 3 } }
+            """));
+
+        assertTrue(refus.getMessage().contains("types.ImmutableList"), refus.getMessage());
+        assertTrue(refus.getMessage().contains("a number"), refus.getMessage());
     }
 
     @Test
     void moitieManquante_estRefusee() {
-        assertThrows(IllegalArgumentException.class, () -> regles("type -> List"));
-        assertThrows(IllegalArgumentException.class, () -> regles("type ImmutableList ->"));
+        assertThrows(IllegalArgumentException.class, () -> regles("""
+            { "types": { "": "List" } }
+            """));
+        assertThrows(IllegalArgumentException.class, () -> regles("""
+            { "types": { "ImmutableList": "" } }
+            """));
     }
 
     @Test
     void deuxReglesSurLeMemeType_sontRefusees() {
-        IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
-            () -> regles("type ImmutableList -> List", "type ImmutableList -> Collection"));
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> regles("""
+            {
+              "types": {
+                "ImmutableList": "List",
+                "ImmutableList": "Collection"
+              }
+            }
+            """));
 
-        assertTrue(e.getMessage().contains("line 2"), e.getMessage());
-        assertTrue(e.getMessage().contains("List"), e.getMessage());
+        assertTrue(e.getMessage().contains("umlg.json"), e.getMessage());
+        assertTrue(e.getMessage().contains("ImmutableList"), e.getMessage());
     }
 
     @Test
     void omitReturnVoid_effaceLeTypeRendu() {
-        assertEquals("", regles("omit return void").nomAfficheRetour(void.class));
+        assertEquals("", regles("""
+            { "omit": ["return void"] }
+            """).nomAfficheRetour(void.class));
     }
 
     @Test
     void omitReturnVoid_neToucheQueLeRetour() {
-        Regles regles = regles("omit return void");
+        Regles regles = regles("""
+            { "omit": ["return void"] }
+            """);
 
         assertEquals("void", regles.nomAffiche(void.class));
     }
 
     @Test
     void omitReturnVoid_neToucheAucunAutreType() {
-        assertEquals("String", regles("omit return void").nomAfficheRetour(String.class));
+        assertEquals("String", regles("""
+            { "omit": ["return void"] }
+            """).nomAfficheRetour(String.class));
     }
 
     @Test
@@ -127,7 +214,12 @@ class ReglesTest {
 
     @Test
     void omitReturnVoid_seCombineAvecUnAlias() {
-        Regles regles = regles("omit return void", "type ImmutableList -> List");
+        Regles regles = regles("""
+            {
+              "omit": ["return void"],
+              "types": { "ImmutableList": "List" }
+            }
+            """);
 
         assertEquals("", regles.nomAfficheRetour(void.class));
         assertEquals("List", regles.nomAfficheRetour(ImmutableList.class));
@@ -135,50 +227,62 @@ class ReglesTest {
 
     @Test
     void omitDeValeurInconnue_estRefuseEnRappelantLesQuatreFormes() {
-        IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
-            () -> regles("omit types"));
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> regles("""
+            { "omit": ["types"] }
+            """));
 
         assertTrue(e.getMessage().contains("visibility"), e.getMessage());
         assertTrue(e.getMessage().contains("parameter names"), e.getMessage());
         assertTrue(e.getMessage().contains("return void"), e.getMessage());
         assertTrue(e.getMessage().contains("abstract"), e.getMessage());
+        assertTrue(e.getMessage().contains("omit[0]"), e.getMessage());
     }
 
     @Test
     void omitAbstract_estLu() {
-        assertTrue(regles("omit abstract").omettreAbstrait());
+        assertTrue(regles("""
+            { "omit": ["abstract"] }
+            """).omettreAbstrait());
     }
 
     @Test
     void sansOmitAbstract_laMarqueResteDemandee() {
         assertFalse(Regles.aucune().omettreAbstrait());
-        assertFalse(regles("omit visibility").omettreAbstrait());
+        assertFalse(regles("""
+            { "omit": ["visibility"] }
+            """).omettreAbstrait());
     }
 
     @Test
     void deuxFoisOmitAbstract_sontRefuses() {
-        var refus = assertThrows(IllegalArgumentException.class,
-            () -> regles("omit abstract", "omit abstract"));
+        var refus = assertThrows(IllegalArgumentException.class, () -> regles("""
+            { "omit": ["abstract", "abstract"] }
+            """));
 
         assertTrue(refus.getMessage().contains("already asked for"), refus.getMessage());
     }
 
     @Test
     void omitAbstract_neSuffitPasAFaireDesReglesVides() {
-        assertFalse(regles("omit abstract").vides());
+        assertFalse(regles("""
+            { "omit": ["abstract"] }
+            """).vides());
     }
 
     @Test
     void deuxFoisLeMemeOmit_sontRefuses() {
-        var refus = assertThrows(IllegalArgumentException.class,
-            () -> regles("omit return void", "omit return void"));
+        var refus = assertThrows(IllegalArgumentException.class, () -> regles("""
+            { "omit": ["return void", "return void"] }
+            """));
 
         assertTrue(refus.getMessage().contains("already asked for"), refus.getMessage());
     }
 
     @Test
     void hideReturn_nExistePlus() {
-        assertThrows(IllegalArgumentException.class, () -> regles("omit return String"));
+        assertThrows(IllegalArgumentException.class, () -> regles("""
+            { "omit": ["return String"] }
+            """));
     }
 
     @Test
@@ -190,14 +294,14 @@ class ReglesTest {
     @Test
     void fichierPresent_estLuALaRacineDuRepertoireAnalyse(@TempDir Path tmp) throws IOException {
         Files.writeString(tmp.resolve(Regles.NOM_DU_FICHIER),
-            "type ImmutableList -> List\n", StandardCharsets.UTF_8);
+            "{ \"types\": { \"ImmutableList\": \"List\" } }\n", StandardCharsets.UTF_8);
 
         assertEquals("List", Regles.duProjet(tmp).nomAffiche(ImmutableList.class));
     }
 
     @Test
     void fichierFautif_arreteLaGeneration(@TempDir Path tmp) throws IOException {
-        Files.writeString(tmp.resolve(Regles.NOM_DU_FICHIER), "type ImmutableList\n",
+        Files.writeString(tmp.resolve(Regles.NOM_DU_FICHIER), "{ \"types\": }\n",
             StandardCharsets.UTF_8);
 
         assertThrows(IllegalArgumentException.class, () -> Regles.duProjet(tmp));
@@ -247,7 +351,9 @@ class ReglesTest {
     @Test
     void omitAbstract_effaceLaMarqueEtLaisseLeReste() {
         String source = PlantUmlAssert.documentPour(
-            EntityExtractor.extract(Bascule.class, regles("omit abstract")));
+            EntityExtractor.extract(Bascule.class, regles("""
+                { "omit": ["abstract"] }
+                """)));
 
         assertFalse(source.contains("{abstract}"), "La marque doit disparaître :\n" + source);
 
@@ -259,7 +365,9 @@ class ReglesTest {
     @Test
     void omitAbstract_neTouchePasLeMotCleDeLaBoite() {
         String source = PlantUmlAssert.documentPour(
-            EntityExtractor.extract(Bascule.class, regles("omit abstract")));
+            EntityExtractor.extract(Bascule.class, regles("""
+                { "omit": ["abstract"] }
+                """)));
 
         assertTrue(source.contains("interface "), source);
     }
@@ -267,7 +375,9 @@ class ReglesTest {
     @Test
     void omitReturnVoid_effaceLeVoidDeLaBoiteEtLuiSeul() {
         String source = PlantUmlAssert.documentPour(EntityExtractor.extract(Interrupteur.class,
-            regles("omit return void")));
+            regles("""
+                { "omit": ["return void"] }
+                """)));
 
         assertTrue(source.contains("+ basculer()\n"),
             "Le void ne doit laisser ni type ni deux-points :\n" + source);
@@ -284,7 +394,9 @@ class ReglesTest {
 
     @Test
     void regle_sappliqueAuxAttributsAuxRetoursEtAuxParametres() {
-        Regles regles = regles("type ImmutableList -> List", "type ImmutableSet -> Set");
+        Regles regles = regles("""
+            { "types": { "ImmutableList": "List", "ImmutableSet": "Set" } }
+            """);
 
         List<UmlField> champs =
             MemberExtractor.extractFields(Clavier.class, UMLVisibility.PRIVATE, regles);
@@ -305,43 +417,60 @@ class ReglesTest {
     }
 
     @Test
-    void strategieEcrite_seDistingueDeLAbsenceDeLigne() {
-        assertTrue(regles("strategy none").strategieDeclaree());
-        assertFalse(regles().strategieDeclaree());
+    void strategieEcrite_seDistingueDeLAbsenceDeCle() {
+        assertTrue(regles("""
+            { "strategy": "none" }
+            """).strategieDeclaree());
+        assertFalse(regles("{}").strategieDeclaree());
     }
 
     @Test
     void ordreDeDeclaration_seDemande() {
-        assertTrue(regles("order declaration").ordreDeclaration());
-        assertFalse(regles("order alphabetical").ordreDeclaration());
-        assertFalse(regles().ordreDeclaration());
+        assertTrue(regles("""
+            { "order": "declaration" }
+            """).ordreDeclaration());
+        assertFalse(regles("""
+            { "order": "alphabetical" }
+            """).ordreDeclaration());
+        assertFalse(regles("{}").ordreDeclaration());
     }
 
     @Test
     void ordreInconnu_estRefuseEnNommantLesDeux() {
-        var refus = assertThrows(IllegalArgumentException.class, () -> regles("order source"));
+        var refus = assertThrows(IllegalArgumentException.class, () -> regles("""
+            { "order": "source" }
+            """));
 
         assertTrue(refus.getMessage().contains("declaration"), refus.getMessage());
         assertTrue(refus.getMessage().contains("alphabetical"), refus.getMessage());
     }
 
     @Test
-    void deuxLignesOrder_sontRefusees() {
-        var refus = assertThrows(IllegalArgumentException.class,
-            () -> regles("order declaration", "order alphabetical"));
+    void deuxClesOrder_sontRefusees() {
+        var refus = assertThrows(IllegalArgumentException.class, () -> regles("""
+            {
+              "order": "declaration",
+              "order": "alphabetical"
+            }
+            """));
 
-        assertTrue(refus.getMessage().contains("already set"), refus.getMessage());
+        assertTrue(refus.getMessage().contains("umlg.json"), refus.getMessage());
+        assertTrue(refus.getMessage().contains("order"), refus.getMessage());
     }
 
     @Test
     void nomsDeParametres_seTaisent() {
-        assertTrue(regles("omit parameter names").omettreNomsDeParametres());
-        assertFalse(regles().omettreNomsDeParametres());
+        assertTrue(regles("""
+            { "omit": ["parameter names"] }
+            """).omettreNomsDeParametres());
+        assertFalse(regles("{}").omettreNomsDeParametres());
     }
 
     @Test
     void unMotif_viseLesDeuxSortesDeMembres() {
-        Regles lues = regles("hide log, get*");
+        Regles lues = regles("""
+            { "hide": ["log", "get*"] }
+            """);
 
         assertTrue(lues.membreMasque("log"));
         assertTrue(lues.membreMasque("getNom"));
@@ -349,17 +478,20 @@ class ReglesTest {
     }
 
     @Test
-    void hideMethodEtHideField_neSontPlusDesMotsCles() {
-        var refus = assertThrows(IllegalArgumentException.class,
-            () -> regles("hide method get*"));
+    void deuxMotifsDansLaMemeChaine_sontRefuses() {
+        var refus = assertThrows(IllegalArgumentException.class, () -> regles("""
+            { "hide": ["method get*"] }
+            """));
 
         assertTrue(refus.getMessage().contains("cannot contain a space"), refus.getMessage());
+        assertTrue(refus.getMessage().contains("hide[0]"), refus.getMessage());
     }
 
     @Test
     void motifQualifie_estRefuseEnRenvoyantVersUmlExclude() {
-        var refus = assertThrows(IllegalArgumentException.class,
-            () -> regles("hide Representation.string"));
+        var refus = assertThrows(IllegalArgumentException.class, () -> regles("""
+            { "hide": ["Representation.string"] }
+            """));
 
         assertTrue(refus.getMessage().contains("@UMLExclude"), refus.getMessage());
         assertTrue(refus.getMessage().contains("Representation.string"), refus.getMessage());
@@ -367,14 +499,16 @@ class ReglesTest {
 
     @Test
     void motifOrdinaire_resteAccepte() {
-        assertTrue(regles("hide s*").membreMasque("string"));
+        assertTrue(regles("""
+            { "hide": ["s*"] }
+            """).membreMasque("string"));
     }
 
     @Test
     void unFichierQuiNestPasEnUtf8_estRefuseEnLeDisant(@TempDir Path tmp) throws IOException {
-        Path fichier = tmp.resolve("umlg.rules");
-        Files.write(fichier,
-            "# règles du projet\nstrategy public\n".getBytes(StandardCharsets.ISO_8859_1));
+        Path fichier = tmp.resolve("umlg.json");
+        Files.write(fichier, ("{ \"_\": \"les règles du projet\", \"strategy\": \"public\" }\n")
+            .getBytes(StandardCharsets.ISO_8859_1));
 
         var refus = assertThrows(IllegalArgumentException.class, () -> Regles.duFichier(fichier));
 
@@ -384,6 +518,8 @@ class ReglesTest {
 
     @Test
     void motifQualifieAvecEtoile_estRefuseAussi() {
-        assertThrows(IllegalArgumentException.class, () -> regles("hide Representation.*"));
+        assertThrows(IllegalArgumentException.class, () -> regles("""
+            { "hide": ["Representation.*"] }
+            """));
     }
 }

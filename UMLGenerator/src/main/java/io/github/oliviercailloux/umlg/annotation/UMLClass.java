@@ -44,8 +44,8 @@ public @interface UMLClass {
     /**
      * Quels attributs et méthodes entrent dans la boîte, par défaut.
      *
-     * <p>PROJECT — le défaut — veut dire « celle que le projet a choisie », c'est-à-dire la ligne
-     * « strategy » du fichier umlg.rules, ou NONE si le projet n'en déclare aucune. Écrire une
+     * <p>PROJECT — le défaut — veut dire « celle que le projet a choisie », c'est-à-dire la clé
+     * « strategy » du fichier umlg.json, ou NONE si le projet n'en déclare aucune. Écrire une
      * valeur ici ne vaut donc que pour cette classe, et l'emporte sur le réglage du projet.
      *
      * <p>NONE : aucun membre ; seuls ceux explicitement marqués @UMLInclude apparaissent. C'est ce

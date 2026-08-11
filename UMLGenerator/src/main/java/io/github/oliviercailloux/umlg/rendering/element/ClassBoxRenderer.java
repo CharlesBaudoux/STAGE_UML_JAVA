@@ -115,7 +115,7 @@ public final class ClassBoxRenderer {
 
     // Le symbole de visibilité et l'espace qui le suit, ou rien du tout.
     //
-    // Un projet peut demander à taire les visibilités (« omit visibility ») : le symbole est
+    // Un projet peut demander à taire les visibilités (« "omit": ["visibility"] ») : le symbole est
     // alors vide, et l'espace doit disparaître avec lui — sans quoi chaque ligne commencerait
     // par un blanc que rien ne justifie.
     private static String prefixe(String visibilite) {

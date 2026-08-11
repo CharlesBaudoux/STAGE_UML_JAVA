@@ -180,7 +180,6 @@ public final class UmlgProcessor extends AbstractProcessor {
             contraintes.verifier(porteur);
         }
 
-
         return false;
     }
 

@@ -26,7 +26,7 @@ public final class Motif {
 
     // Le motif a-t-il correspondu à au moins un nom depuis sa lecture ?
     //
-    // C'est la seule trace qui permette de dire, en fin de scan, qu'une ligne du fichier n'a
+    // C'est la seule trace qui permette de dire, en fin de scan, qu'une entrée du fichier n'a
     // rien fait — une classe renommée laisse derrière elle un motif mort que rien d'autre ne
     // signalerait. Volatile : le parcours des classes peut changer de fil, et un marquage perdu
     // ferait accuser à tort une règle qui a servi.
@@ -82,7 +82,7 @@ public final class Motif {
         return correspond;
     }
 
-    // Vrai si le motif n'a encore servi à rien : le fichier porte une ligne morte.
+    // Vrai si le motif n'a encore servi à rien : le fichier porte une entrée morte.
     public boolean sansEffet() {
         return !aCorrespondu;
     }

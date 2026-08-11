@@ -16,7 +16,7 @@ import org.junit.jupiter.api.io.TempDir;
 //
 // CE QUE CES TESTS PROTÈGENT
 //
-// Le défaut de @UMLClass est PROJECT, c'est-à-dire « la stratégie que déclare umlg.rules ». Ce
+// Le défaut de @UMLClass est PROJECT, c'est-à-dire « la stratégie que déclare umlg.json ». Ce
 // fichier vit à la racine des classes compilées, et javac ne sait pas où il se trouve : sans
 // l'option, le processeur ne peut pas dire si un membre sera dessiné, et se tait sur tout ce qui
 // en dépend. L'option lui rend la vue, et c'est la seule chose que la bibliothèque taise.
@@ -38,7 +38,7 @@ class UmlgOptionReglesTest {
         """;
 
     private static Path ecrireRegles(Path tmp, String contenu) throws IOException {
-        Path fichier = tmp.resolve("umlg.rules");
+        Path fichier = tmp.resolve("umlg.json");
         Files.writeString(fichier, contenu, StandardCharsets.UTF_8);
         return fichier;
     }
@@ -58,9 +58,9 @@ class UmlgOptionReglesTest {
 
     @Test
     void avecLOption_lAvertissementRevient(@TempDir Path tmp) throws IOException {
-        // « strategy public » affiche déjà l'attribut : le @UMLInclude ne déroge à rien, et le
+        // « "strategy": "public" » affiche déjà l'attribut : le @UMLInclude ne déroge à rien, et le
         // processeur peut enfin le dire.
-        Path regles = ecrireRegles(tmp, "strategy public\n");
+        Path regles = ecrireRegles(tmp, "{ \"strategy\": \"public\" }\n");
 
         Verdict verdict = compiler(tmp, List.of("-Aumlg.rules=" + regles));
 
@@ -74,7 +74,7 @@ class UmlgOptionReglesTest {
     void avecUnProjetQuiNAfficheRien_rienNestSignale(@TempDir Path tmp) throws IOException {
         // L'autre moitié, celle qui compte autant : le @UMLInclude est ici indispensable, et le
         // processeur doit se taire. Un avertissement serait un contresens.
-        Path regles = ecrireRegles(tmp, "strategy none\n");
+        Path regles = ecrireRegles(tmp, "{ \"strategy\": \"none\" }\n");
 
         Verdict verdict = compiler(tmp, List.of("-Aumlg.rules=" + regles));
 
@@ -87,7 +87,7 @@ class UmlgOptionReglesTest {
         throws IOException {
         // L'utilisateur a nommé un fichier qu'il n'a pas écrit : son code reste juste, mais il
         // attend des vérifications qu'il n'aura pas. Un avertissement, donc, et non une erreur.
-        Verdict verdict = compiler(tmp, List.of("-Aumlg.rules=" + tmp.resolve("absent.rules")));
+        Verdict verdict = compiler(tmp, List.of("-Aumlg.rules=" + tmp.resolve("absent.json")));
 
         assertTrue(verdict.reussie(), verdict.rapport());
         assertTrue(verdict.avertissementContient("no such file"), verdict.rapport());
@@ -97,7 +97,7 @@ class UmlgOptionReglesTest {
     void fichierFautif_arreteLaCompilation(@TempDir Path tmp) throws IOException {
         // Le même fichier arrêterait la génération pour la même raison : le dire ici le dit plus
         // tôt, ce qui est tout l'intérêt du processeur.
-        Path regles = ecrireRegles(tmp, "couleur Client -> rouge\n");
+        Path regles = ecrireRegles(tmp, "{ \"couleur\": { \"Client\": \"rouge\" } }\n");
 
         Verdict verdict = compiler(tmp, List.of("-Aumlg.rules=" + regles));
 
@@ -110,7 +110,7 @@ class UmlgOptionReglesTest {
         throws IOException {
         // -Aumlg.warnings=none garde son sens : il éteint tout, y compris ce que l'option vient
         // de rendre audible. Les erreurs, elles, ne s'éteignent jamais.
-        Path regles = ecrireRegles(tmp, "strategy public\n");
+        Path regles = ecrireRegles(tmp, "{ \"strategy\": \"public\" }\n");
 
         Verdict verdict =
             compiler(tmp, List.of("-Aumlg.rules=" + regles, "-Aumlg.warnings=none"));

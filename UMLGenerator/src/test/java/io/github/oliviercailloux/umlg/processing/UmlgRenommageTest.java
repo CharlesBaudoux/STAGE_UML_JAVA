@@ -89,8 +89,8 @@ class UmlgRenommageTest {
         // Sous « strategy public », un @UMLInclude nu ne déroge à rien et serait signalé. Le
         // même @UMLInclude portant un nom fait quelque chose — il renomme — et le signalement
         // deviendrait un contresens.
-        Path regles = tmp.resolve("umlg.rules");
-        java.nio.file.Files.writeString(regles, "strategy public\n");
+        Path regles = tmp.resolve("umlg.json");
+        java.nio.file.Files.writeString(regles, "{ \"strategy\": \"public\" }\n");
 
         Verdict verdict = CompilationCobaye.compiler(tmp, "Cobaye.java", ENTETE + """
             @UMLClass

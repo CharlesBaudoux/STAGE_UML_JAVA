@@ -260,7 +260,7 @@ public final class MemberExtractor {
     }
 
     // La multiplicité d'une propriété : celle que @UMLMultiplicity déclare, ou, si le projet a
-    // demandé la traduction (« multiplicity brackets »), celle que la forme du type dit.
+    // demandé la traduction (« "multiplicity": "brackets" »), celle que la forme du type dit.
     //
     // L'annotation l'emporte : c'est la décision individuelle, et la règle n'est qu'un défaut —
     // le même ordre de préséance que partout ailleurs dans la bibliothèque.
@@ -373,7 +373,7 @@ public final class MemberExtractor {
 
     // Le type rendu par une méthode, tel qu'il paraît après les deux-points.
     //
-    // La règle « omit return void » peut l'effacer tout à fait — c'est le seul endroit où un
+    // La règle « "omit": ["return void"] » peut l'effacer tout à fait — c'est le seul endroit où un
     // type peut ne pas être écrit du tout, « valider() » disant déjà qu'il n'y a rien à rendre.
     // Sinon,
     // il s'écrit avec ses paramètres de type, et se réduit à l'élément quand une multiplicité le
@@ -413,7 +413,7 @@ public final class MemberExtractor {
             // getParameterizedType, et non getType : « Map<String, Short> » plutôt que « Map ».
             String type = TypeAffiche.de(parametre.getParameterizedType(), regles);
 
-            // « omit parameter names » : le projet a choisi les signatures courtes, celles des
+            // « "omit": ["parameter names"] » : le projet a choisi les signatures courtes, celles des
             // diagrammes tenus à la main — le nom est tu même quand la compilation l'a gardé.
             parametres.add(parametre.isNamePresent() && !regles.omettreNomsDeParametres()
                 ? new UmlParameter(parametre.getName(), type)
@@ -480,7 +480,8 @@ public final class MemberExtractor {
                         method.isAnnotationPresent(UMLDerived.class),
                         // Une méthode d'interface est abstraite sans porter le mot-clé, sauf
                         // si elle est default ou static : le modificateur, lui, ne ment pas.
-                        // « omit abstract » efface la marque, comme « omit visibility » efface
+                        // « "omit": ["abstract"] » efface la marque, comme « visibility »
+                        // efface
                         // le symbole : le modèle porte ce que le projet a demandé d'écrire.
                         Modifier.isAbstract(method.getModifiers()) && !regles.omettreAbstrait()
                     ));
@@ -536,7 +537,7 @@ public final class MemberExtractor {
                 result.add(new UmlField(
                     nomAffiche(method),
                     // Le type est celui que la méthode rend — écrit comme sur un attribut, sans
-                    // passer par « omit return void » : un attribut porte toujours son type.
+                    // passer par « "omit": ["return void"] » : un attribut porte toujours son type.
                     multiplicite.isEmpty()
                         ? TypeAffiche.de(method.getGenericReturnType(), regles)
                         : TypeAffiche.deLElement(method.getGenericReturnType(), regles),

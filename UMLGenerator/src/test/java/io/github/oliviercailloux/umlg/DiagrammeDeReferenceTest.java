@@ -64,9 +64,9 @@ class DiagrammeDeReferenceTest {
     // getNom(), et les deux méthodes que javac ajoute à l'énumération Statut. Le document attendu
     // n'a pas changé d'une ligne le jour où le fichier de règles a cessé de connaître des
     // « familles » et n'a plus lu que des noms.
-    private static final Regles REGLES = Regles.lues(ImmutableList.of(
-        "hide get*",
-        "hide values, valueOf"), "les règles du projet de référence");
+    private static final Regles REGLES = Regles.lues("""
+        { "hide": ["get*", "values", "valueOf"] }
+        """, "les règles du projet de référence");
 
     // Les entités du diagramme, dans l'ordre où elles seront déclarées : les cibles avant ce qui
     // les vise, ce qui rend le fichier engendré lisible de haut en bas.

@@ -31,6 +31,12 @@ module io.github.oliviercailloux.umlg {
     requires transitive com.google.common;
     // PlantUML, pour le dessin proprement dit.
     requires net.sourceforge.plantuml;
+    // Jackson, pour lire le fichier de règles umlg.json.
+    //
+    // Pas « transitive », et la différence compte : aucun type Jackson ne paraît dans une
+    // signature exportée — le fichier est lu à l'intérieur du paquetage extraction.rules, qui
+    // n'en fait sortir que des Regles. Un module client n'a donc rien à savoir de Jackson.
+    requires com.fasterxml.jackson.databind;
     // java.compiler : l'API des processeurs d'annotations (JSR 269), dont UmlgProcessor est une
     // implémentation. C'est aujourd'hui une dépendance de plein droit de la bibliothèque, et non
     // plus une simple commodité pour les tests d'intégration — lesquels s'en servent par

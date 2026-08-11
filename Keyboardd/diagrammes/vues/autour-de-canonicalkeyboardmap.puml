@@ -1,0 +1,13 @@
+@startuml
+title Autour de CanonicalKeyboardMap
+skinparam classAttributeIconSize 0
+hide empty members
+skinparam nodesep 60
+skinparam ranksep 90
+
+class "CanonicalKeyboardMap" as CanonicalKeyboardMap [[mnemonics.svg]] {
+  {static} canonicalize(map : KeyboardMap, mnemonics : Mnemonics) : CanonicalKeyboardMap
+  entries(xKeyName : String) : CanonicalKeysymEntry [0..*]
+}
+
+@enduml

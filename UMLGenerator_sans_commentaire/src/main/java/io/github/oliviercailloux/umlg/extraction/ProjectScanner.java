@@ -190,9 +190,9 @@ public class ProjectScanner {
         String liste = noms.size() <= 12 ? " (" + String.join(", ", noms) + ")" : "";
 
         Avertissements.dire(noms.size() + " box(es) have no member" + liste
-            + ": no strategy is declared, and the default draws none. Write \"strategy public\" "
-            + "in umlg.rules, declare one with @UMLClass(strategy = ...), or pick members one by "
-            + "one with @UMLInclude.");
+            + ": no strategy is declared, and the default draws none. Write "
+            + "\"strategy\": \"public\" in umlg.json, declare one with @UMLClass(strategy = ...), "
+            + "or pick members one by one with @UMLInclude.");
         return true;
     }
 
@@ -213,8 +213,8 @@ public class ProjectScanner {
             + "compiled without the -parameters option, so signatures show types only — "
             + "\"entries(String)\" instead of \"entries(xKeyName : String)\". Add "
             + "<maven.compiler.parameters>true</maven.compiler.parameters> to the pom (or "
-            + "-parameters to javac), or say it is on purpose with \"omit parameter names\" in "
-            + "umlg.rules.");
+            + "-parameters to javac), or say it is on purpose with \"omit\": [\"parameter names\"] "
+            + "in umlg.json.");
         return true;
     }
 
@@ -226,7 +226,7 @@ public class ProjectScanner {
         Avertissements.dire(mortes.size() + " rule(s) of " + Regles.NOM_DU_FICHIER
             + " matched nothing in this project: \"" + String.join("\", \"", mortes)
             + "\". A renamed class or a typo leaves a dead rule behind; fix the name, or remove "
-            + "the line.");
+            + "the entry.");
         return true;
     }
 

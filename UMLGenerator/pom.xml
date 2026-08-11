@@ -52,6 +52,25 @@
             <artifactId>plantuml</artifactId>
             <version>1.2024.4</version>
         </dependency>
+        <!--
+            Jackson, pour lire umlg.json.
+
+            La bibliothèque n'analysait auparavant aucun format qu'elle n'eût inventé : le
+            fichier de règles s'écrivait ligne à ligne, et son lecteur tenait en une classe sans
+            dépendance. Le format est devenu JSON, et écrire soi-même un analyseur JSON serait
+            recommencer, en moins bien, un travail que tout le monde a déjà fait — avec les
+            échappements, l'UTF-16 et les nombres qu'il faut traiter juste.
+
+            jackson-databind seul est déclaré ; jackson-core et jackson-annotations viennent avec
+            lui. Seul l'arbre (JsonNode) est employé, jamais la liaison à des classes : les
+            refus doivent nommer le chemin fautif dans le fichier, ce qu'une liaison
+            automatique ne sait pas faire.
+        -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>2.20.1</version>
+        </dependency>
     </dependencies>
 
     <build>

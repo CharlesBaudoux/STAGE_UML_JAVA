@@ -27,7 +27,7 @@ import java.util.stream.Collectors;
 // LES DEUX ORDRES OFFERTS
 //
 // L'ordre alphabétique est le défaut : arbitraire mais stable, il ne dépend que des noms. Le
-// projet peut préférer l'ordre de déclaration (« order declaration » dans umlg.rules) : la
+// projet peut préférer l'ordre de déclaration (« "order": "declaration" » dans umlg.json) : la
 // réflexion l'ignore, mais le fichier .class le connaît — ses tables de membres sont écrites
 // dans l'ordre du source par les compilateurs en usage, et le fichier ne change pas entre deux
 // lectures, ce qui préserve la reproductibilité (voir OrdreDuFichierClasse). Si le fichier ne
@@ -95,7 +95,7 @@ public final class MembresOrdonnes {
     // L'ordre de déclaration a été demandé et ne peut pas être rendu pour cette classe : le dire
     // vaut mieux que de laisser l'utilisateur chercher pourquoi une boîte est restée alphabétique.
     private static void signalerOrdrePerdu(Class<?> clazz) {
-        Avertissements.dire("\"order declaration\" is asked for, but the class file of "
+        Avertissements.dire("\"order\": \"declaration\" is asked for, but the class file of "
             + clazz.getName() + " cannot be re-read; the members of this box fall back to "
             + "alphabetical order.");
     }

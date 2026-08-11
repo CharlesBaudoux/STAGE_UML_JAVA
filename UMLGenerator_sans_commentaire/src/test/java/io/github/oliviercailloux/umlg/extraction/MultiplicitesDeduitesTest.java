@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.google.common.collect.ImmutableList;
 import io.github.oliviercailloux.umlg.annotation.UMLMultiplicity;
 import io.github.oliviercailloux.umlg.annotation.UMLVisibility;
 import io.github.oliviercailloux.umlg.extraction.member.MemberExtractor;
@@ -20,7 +19,9 @@ import org.junit.jupiter.api.Test;
 class MultiplicitesDeduitesTest {
 
     private static final Regles BRACKETS =
-        Regles.lues(ImmutableList.of("multiplicity brackets"), "umlg.rules");
+        Regles.lues("""
+            { "multiplicity": "brackets" }
+            """, "umlg.json");
 
     static class Cobaye {
         public Set<String> aliases;
@@ -94,20 +95,25 @@ class MultiplicitesDeduitesTest {
     }
 
     @Test
-    void uneAutreFormeQueBrackets_estRefuseeEnNommantLaLigne() {
+    void uneAutreFormeQueBrackets_estRefuseeEnNommantLaCle() {
         var refus = assertThrows(IllegalArgumentException.class,
-            () -> Regles.lues(ImmutableList.of("multiplicity stars"), "umlg.rules"));
+            () -> Regles.lues("""
+                { "multiplicity": "stars" }
+                """, "umlg.json"));
 
-        assertTrue(refus.getMessage().contains("line 1"), refus.getMessage());
-        assertTrue(refus.getMessage().contains("multiplicity brackets"), refus.getMessage());
+        assertTrue(refus.getMessage().contains("multiplicity"), refus.getMessage());
+        assertTrue(refus.getMessage().contains("brackets"), refus.getMessage());
     }
 
     @Test
-    void laRegleEnDouble_estRefusee() {
+    void laRegleEnDouble_estRefuseeParLAnalyseur() {
         var refus = assertThrows(IllegalArgumentException.class,
-            () -> Regles.lues(ImmutableList.of("multiplicity brackets", "multiplicity brackets"),
-                "umlg.rules"));
+            () -> Regles.lues("""
+                { "multiplicity": "brackets", "multiplicity": "brackets" }
+                """,
+                "umlg.json"));
 
-        assertTrue(refus.getMessage().contains("already asked for"), refus.getMessage());
+        assertTrue(refus.getMessage().contains("multiplicity"), refus.getMessage());
+        assertTrue(refus.getMessage().contains("umlg.json"), refus.getMessage());
     }
 }

@@ -88,8 +88,10 @@ class TypesGeneriquesTest {
 
     @Test
     void lesReglesDeRenommage_entrentDansLesChevrons() {
-        Regles regles = Regles.lues(
-            ImmutableList.of("type ImmutableList -> List"), "les règles du test");
+        Regles regles = Regles.lues("""
+            { "types": { "ImmutableList": "List" } }
+            """,
+            "les règles du test");
 
         assertEquals("List<String>",
             typeDuChamp(regles, "titres"));

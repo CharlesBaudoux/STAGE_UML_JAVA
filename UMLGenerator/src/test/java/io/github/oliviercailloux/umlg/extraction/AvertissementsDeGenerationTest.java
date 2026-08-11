@@ -25,8 +25,8 @@ import org.junit.jupiter.api.Test;
 // noms masqués par une règle — apprendrait à ne plus les lire.
 class AvertissementsDeGenerationTest {
 
-    private static Regles regles(String... lignes) {
-        return Regles.lues(ImmutableList.copyOf(lignes), "umlg.rules");
+    private static Regles regles(String json) {
+        return Regles.lues(json, "umlg.json");
     }
 
     // --- Les boîtes vides faute de stratégie ---
@@ -56,12 +56,16 @@ class AvertissementsDeGenerationTest {
     @Test
     void strategyNoneEcrit_faitTaireLeSignalement() {
         // La même boîte vide, mais choisie : une ligne écrite est une décision, pas un oubli.
-        assertFalse(boiteVide(Muette.class, regles("strategy none")));
+        assertFalse(boiteVide(Muette.class, regles("""
+            { "strategy": "none" }
+            """)));
     }
 
     @Test
     void uneStrategieQuiRemplit_nAPlusRienASignaler() {
-        assertFalse(boiteVide(Muette.class, regles("strategy public")));
+        assertFalse(boiteVide(Muette.class, regles("""
+            { "strategy": "public" }
+            """)));
     }
 
     @Test
@@ -113,7 +117,9 @@ class AvertissementsDeGenerationTest {
     void desNomsMasquesParLaRegle_neSontPasSignales() {
         // « omit parameter names » les a tus volontairement : rien à expliquer.
         assertFalse(ProjectScanner.signalerParametresAnonymes(
-            List.of(entite(methodeAnonyme())), regles("omit parameter names")));
+            List.of(entite(methodeAnonyme())), regles("""
+                { "omit": ["parameter names"] }
+                """)));
     }
 
     @Test
@@ -150,15 +156,19 @@ class AvertissementsDeGenerationTest {
     void uneRegleTypeMalOrthographiee_estRelevee() {
         // Le no-op parfait d'hier : la règle ne s'appliquait jamais, le diagramme se dessinait,
         // et rien ne montrait la ligne morte. Le relevé la nomme telle qu'elle a été écrite.
-        Regles lues = regles("type ImutableList -> List");
+        Regles lues = regles("""
+            { "types": { "ImutableList": "List" } }
+            """);
         lues.nomAffiche(ImmutableList.class);
 
-        assertEquals(List.of("type ImutableList -> List"), lues.reglesSansEffet());
+        assertEquals(List.of("types: ImutableList -> List"), lues.reglesSansEffet());
     }
 
     @Test
     void uneRegleQuiAServi_nEstPasRelevee() {
-        Regles lues = regles("type ImmutableList -> List", "hide log");
+        Regles lues = regles("""
+            { "types": { "ImmutableList": "List" }, "hide": ["log"] }
+            """);
         lues.nomAffiche(ImmutableList.class);
         assertTrue(lues.membreMasque("log"));
 
@@ -168,19 +178,23 @@ class AvertissementsDeGenerationTest {
     @Test
     void motifsMorts_sontTousReleves() {
         // Les deux natures de règles de nommage, chacune visant un nom que rien ne porte.
-        Regles lues = regles("type ImutableList -> List", "hide get*", "hide LOGGR");
+        Regles lues = regles("""
+            { "types": { "ImutableList": "List" }, "hide": ["get*", "LOGGR"] }
+            """);
         lues.membreMasque("calculer");
         lues.membreMasque("log");
 
         // L'ordre du relevé suit celui des natures de règles : les types, puis les motifs.
-        assertEquals(List.of("type ImutableList -> List", "hide get*", "hide LOGGR"),
+        assertEquals(List.of("types: ImutableList -> List", "hide: get*", "hide: LOGGR"),
             lues.reglesSansEffet());
     }
 
     @Test
-    void leSignalementDesReglesMortes_neSurgitQueSiUneLigneEstMorte() {
-        assertTrue(ProjectScanner.signalerReglesSansEffet(regles("hide LOGGR")));
-        assertFalse(ProjectScanner.signalerReglesSansEffet(regles()));
+    void leSignalementDesReglesMortes_neSurgitQueSiUneEntreeEstMorte() {
+        assertTrue(ProjectScanner.signalerReglesSansEffet(regles("""
+            { "hide": ["LOGGR"] }
+            """)));
+        assertFalse(ProjectScanner.signalerReglesSansEffet(regles("{}")));
     }
 
     // --- Les classes que le chargeur n'a pas su lire ---

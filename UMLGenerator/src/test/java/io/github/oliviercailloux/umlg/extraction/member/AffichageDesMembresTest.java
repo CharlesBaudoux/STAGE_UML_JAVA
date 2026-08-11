@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.google.common.collect.ImmutableList;
 import io.github.oliviercailloux.umlg.annotation.UMLAssociation;
 import io.github.oliviercailloux.umlg.annotation.UMLClass;
 import io.github.oliviercailloux.umlg.annotation.UMLInclude;
@@ -21,12 +20,13 @@ import org.junit.jupiter.api.Test;
 // Quatre libertés récentes, et une même raison d'être : permettre au diagramme engendré de
 // rejoindre le diagramme de référence d'un projet — celui du README, tenu à la main — sans
 // réécrire le code. Renommer un membre (@UMLInclude(name = ...)), garder l'ordre d'écriture
-// (« order declaration »), abréger les signatures (« omit parameter names »), et taire un membre
+// (« "order": "declaration" »), abréger les signatures (« "omit": ["parameter names"] »), et taire
+// un membre
 // général, jamais un membre désigné nommément — cela, c'est @UMLExclude.
 class AffichageDesMembresTest {
 
-    private static Regles regles(String... lignes) {
-        return Regles.lues(ImmutableList.copyOf(lignes), "umlg.rules");
+    private static Regles regles(String json) {
+        return Regles.lues(json, "umlg.json");
     }
 
     // --- Le renommage : @UMLInclude(name = ...) ---
@@ -120,7 +120,9 @@ class AffichageDesMembresTest {
     void surDemande_lOrdreDuCodeEstGarde() {
         // La réflexion ignore cet ordre ; il est relu dans le fichier .class, où les tables de
         // membres suivent le source.
-        Regles regles = regles("order declaration");
+        Regles regles = regles("""
+            { "order": "declaration" }
+            """);
 
         List<UmlField> champs =
             MemberExtractor.extractFields(Desordonnee.class, UMLVisibility.PUBLIC, regles);
@@ -146,7 +148,9 @@ class AffichageDesMembresTest {
         // Deux surcharges partagent un nom : seul le descripteur les départage, et l'ordre du
         // source doit survivre à cette ambiguïté.
         List<UmlMethod> methodes = MemberExtractor.extractMethods(Surchargee.class,
-            UMLVisibility.PUBLIC, regles("order declaration"));
+            UMLVisibility.PUBLIC, regles("""
+                { "order": "declaration" }
+                """));
 
         assertEquals("faire", methodes.get(0).name());
         assertEquals("String", methodes.get(0).parameters().get(0).type());
@@ -155,7 +159,7 @@ class AffichageDesMembresTest {
         assertEquals("avant", methodes.get(2).name());
     }
 
-    // --- Les signatures courtes : « omit parameter names » ---
+    // --- Les signatures courtes : « "omit": ["parameter names"] » ---
 
     static class Bavarde {
         public void configurer(String cheminDuFichier, int nombreDeColonnes) {}
@@ -164,7 +168,9 @@ class AffichageDesMembresTest {
     @Test
     void lesNomsDesParametres_seTaisentSurDemande() {
         List<UmlMethod> methodes = MemberExtractor.extractMethods(Bavarde.class,
-            UMLVisibility.PUBLIC, regles("omit parameter names"));
+            UMLVisibility.PUBLIC, regles("""
+                { "omit": ["parameter names"] }
+                """));
 
         // Le type reste — c'est lui qui porte l'information — mais le nom disparaît, comme dans
         // un diagramme tenu à la main : « configurer(String, int) ».
@@ -192,7 +198,9 @@ class AffichageDesMembresTest {
         // bat le réglage général. Un motif est une famille de noms, et @UMLInclude ramène tout ce
         // qu'il écarte.
         List<UmlField> champs = MemberExtractor.extractFields(Parent.class, UMLVisibility.NONE,
-            regles("hide s*"));
+            regles("""
+                { "hide": ["s*"] }
+                """));
 
         assertEquals(List.of("reste", "string", "svg"),
             champs.stream().map(UmlField::name).toList());
@@ -203,7 +211,9 @@ class AffichageDesMembresTest {
         // C'était la seule règle qui battait @UMLInclude, et l'unique exception à la phrase
         // « l'annotation l'emporte toujours ». Elle est partie avec l'exception.
         var refus = assertThrows(IllegalArgumentException.class,
-            () -> regles("hide Parent.string"));
+            () -> regles("""
+                { "hide": ["Parent.string"] }
+                """));
 
         assertTrue(refus.getMessage().contains("@UMLExclude"), refus.getMessage());
     }

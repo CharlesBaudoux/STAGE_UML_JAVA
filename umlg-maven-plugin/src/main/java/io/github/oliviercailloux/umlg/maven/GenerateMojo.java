@@ -43,7 +43,7 @@ public class GenerateMojo extends AbstractMojo {
     private String sourceDirectory;
 
     // Le dossier des diagrammes : la vue intégrale à sa racine, les autres dans un sous-dossier,
-    // et le fichier umlg.rules du projet — recopié dans target/classes par la construction — y
+    // et le fichier umlg.json du projet — recopié dans target/classes par la construction — y
     // est lu. À la racine du projet plutôt que dans target/ : les diagrammes sont une
     // documentation, faite pour être versionnée, pas un sous-produit que clean efface.
     @Parameter(defaultValue = "${project.basedir}/diagrammes", property = "umlg.outputDirectory")

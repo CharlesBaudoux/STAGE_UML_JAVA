@@ -34,7 +34,7 @@ import java.util.List;
  *
  * <p>Deux choses gouvernent le diagramme, et elles ne se déclarent pas au même endroit. Les
  * annotations disent ce qui vaut pour un élément — cette classe-ci est une boîte, cet attribut-là
- * est un lien. Le fichier « umlg.rules », posé à la racine du répertoire analysé, dit ce qui vaut
+ * est un lien. Le fichier « umlg.json », posé à la racine du répertoire analysé, dit ce qui vaut
  * pour le projet entier : par exemple qu'un ImmutableList s'affiche « List ». Il est facultatif.
  */
 public final class UMLGenerator {
@@ -343,7 +343,7 @@ public final class UMLGenerator {
          * comparer avant et après une modification du code. Sans elle, le dossier demandé est vidé
          * des seuls fichiers que nous y avons écrits, et décrit donc toujours l'état courant.
          *
-         * <p><b>Pourquoi ce réglage n'est pas dans umlg.rules.</b> Il y a été, sous
+         * <p><b>Pourquoi ce réglage n'est pas dans umlg.json.</b> Il y a été, sous
          * {@code output replace} et {@code output keep}, et il en est sorti au test qui décide de
          * tout ce qu'on y écrit : la ligne dit-elle quelque chose du modèle ? Le sort des fichiers
          * de la fois précédente n'en dit rien — mêmes boîtes, mêmes traits, mêmes membres. C'est

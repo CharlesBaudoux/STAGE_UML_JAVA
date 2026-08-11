@@ -112,7 +112,7 @@ class UMLGeneratorIntegrationTest {
         // Le fichier de règles, posé à la racine du répertoire analysé — là où la construction
         // Maven le recopierait. Sans lui, aucun accesseur ne serait masqué : c'est justement ce
         // que ce test doit prouver de bout en bout, du fichier écrit à la main jusqu'au SVG.
-        Files.writeString(classes.resolve("umlg.rules"), "hide get*\n",
+        Files.writeString(classes.resolve("umlg.json"), "{ \"hide\": [\"get*\"] }\n",
             StandardCharsets.UTF_8);
 
         Path sortie = tmp.resolve("architecture.svg");

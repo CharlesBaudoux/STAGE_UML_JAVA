@@ -89,8 +89,10 @@ class DuCodeCompileAuPumlTest {
 
     /** Les règles du projet, telles que la construction les recopie à la racine des classes. */
     private static final String REGLES = """
-        title École
-        view "Scolarite" = Eleve, Cours
+        {
+          "title": "École",
+          "views": [ { "name": "Scolarite", "retain": ["Eleve", "Cours"] } ]
+        }
         """;
 
     /**
@@ -125,7 +127,7 @@ class DuCodeCompileAuPumlTest {
                 throw new IllegalStateException("Le cobaye n'a pas compilé :\n" + COBAYE);
             }
         }
-        Files.writeString(classes.resolve("umlg.rules"), REGLES, StandardCharsets.UTF_8);
+        Files.writeString(classes.resolve("umlg.json"), REGLES, StandardCharsets.UTF_8);
         return classes;
     }
 

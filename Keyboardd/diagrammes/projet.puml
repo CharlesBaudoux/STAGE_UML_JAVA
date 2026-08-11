@@ -1,5 +1,5 @@
 @startuml
-title Keyboardd — vue d'ensemble
+title Projet
 skinparam classAttributeIconSize 0
 hide empty members
 skinparam nodesep 60
