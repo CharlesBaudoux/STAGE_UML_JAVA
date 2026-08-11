@@ -34,13 +34,13 @@ jobs:
 
       # « verify » et non « test » : c'est la phase où le seuil de couverture s'applique.
       - name: Construire et vérifier la bibliothèque
-        run: mvn --batch-mode --file Bibliotheque_V0/pom.xml verify
+        run: mvn --batch-mode --file UMLGenerator/pom.xml verify
 
       # Le plugin dépend de la bibliothèque : il faut donc que celle-ci soit dans le dépôt local
       # avant de le construire, d'où l'install qui précède.
       - name: Construire le plugin Maven
         run: |
-          mvn --batch-mode --file Bibliotheque_V0/pom.xml install -DskipTests
+          mvn --batch-mode --file UMLGenerator/pom.xml install -DskipTests
           mvn --batch-mode --file umlg-maven-plugin/pom.xml install
 
       # La preuve de bout en bout, par les deux chemins que la documentation décrit.
@@ -69,4 +69,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: couverture-jacoco
-          path: Bibliotheque_V0/target/site/jacoco/
+          path: UMLGenerator/target/site/jacoco/
