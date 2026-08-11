@@ -1,0 +1,129 @@
+@startuml
+title Keyboardd — vue d'ensemble
+skinparam classAttributeIconSize 0
+hide empty members
+skinparam nodesep 60
+skinparam ranksep 90
+
+class "KeyboardMap" as KeyboardMap [[vues/mapping.svg]] {
+  entries(xKeyName : String) : KeysymEntry [0..*]
+  canonicalize(canonicalXKeyNameByAlias : Map&#60;String, String&#62;) : KeyboardMap
+}
+
+interface "KeysymEntry" as KeysymEntry [[vues/mapping.svg]] {
+}
+
+class "Code" as Code [[vues/mapping.svg]] {
+  code : int
+}
+
+class "Mnemonic" as Mnemonic [[vues/mapping.svg]] {
+  mnemonic : String
+}
+
+class "Ucp" as Ucp [[vues/mapping.svg]] {
+  ucp : int
+}
+
+class "XkbSymbolsReader" as XkbSymbolsReader [[vues/mapping.svg]] {
+  {static} read(source : CharSource) : KeyboardMap
+  {static} common() : KeyboardMap
+  {static} us() : KeyboardMap
+  {static} usIntl() : KeyboardMap
+}
+
+class "CanonicalKeyboardMap" as CanonicalKeyboardMap [[vues/mnemonics.svg]] {
+  {static} canonicalize(map : KeyboardMap, mnemonics : Mnemonics) : CanonicalKeyboardMap
+  entries(xKeyName : String) : CanonicalKeysymEntry [0..*]
+}
+
+interface "CanonicalKeysymEntry" as CanonicalKeysymEntry [[vues/mnemonics.svg]] {
+}
+
+class "CanonicalMnemonic" as CanonicalMnemonic [[vues/mnemonics.svg]] {
+  mnemonic : String
+  code : int
+  nonDeprecatedAliases : String [0..*]
+  deprecatedAliases : String [0..*]
+  ucp : int [0..1]
+  deprecated : boolean
+}
+
+class "ImplicitUcp" as ImplicitUcp [[vues/mnemonics.svg]] {
+  ucp : int
+}
+
+class "Mnemonics" as Mnemonics [[vues/mnemonics.svg]] {
+  byKeysymMnemonic : Map&#60;String, CanonicalMnemonic&#62;
+  byKeysymCode : BiMap&#60;Integer, CanonicalMnemonic&#62;
+  byUcp : BiMap&#60;Integer, CanonicalMnemonic&#62;
+  --
+  {static} latest() : Mnemonics
+  {static} fromCanonicals(canonicalMnemonics : Set&#60;CanonicalMnemonic&#62;) : Mnemonics
+  {static} fromSource(keysyms : CharSource) : Mnemonics
+  withoutDeprecated() : Mnemonics
+}
+
+class "CanonicalKeyboardMapRepresenter" as CanonicalKeyboardMapRepresenter [[vues/representable.svg]] {
+  {static} from(keyboardMap : CanonicalKeyboardMap, representations : Function&#60;CanonicalKeysymEntry, Representation&#62;) : CanonicalKeyboardMapRepresenter
+  entries(name : String) : CanonicalKeysymEntry [0..*]
+}
+
+class "RectangularKey" as RectangularKey [[vues/representable.svg]] {
+  zone : Zone
+  xKeyName : String
+}
+
+class "RectangularKeyboard" as RectangularKeyboard [[vues/representable.svg]] {
+  physicalKeys : RectangularKey [0..*]
+}
+
+interface "Representation" as Representation [[vues/representable.svg]] {
+}
+
+class "StringRepresentation" as StringRepresentation [[vues/representable.svg]] {
+  string : String
+}
+
+class "SvgKeyboard" as SvgKeyboard [[vues/representable.svg]] {
+  {static} zonedFrom(physicalKeyboard : RectangularKeyboard) : SvgKeyboard
+  {static} using(doc : Document) : SvgKeyboard
+  keyBindingZonesToXKeyName() : Map&#60;RectangleElement, String&#62;
+  setFontSize(fontSize : double) : SvgKeyboard
+  withRepresentations(representationsByXKeyName : XKeyNamesRepresenter) : Document
+  withCanonicalRepresentations(representer : CanonicalKeyboardMapRepresenter) : SvgRepresentedKeyboard
+}
+
+class "SvgRepresentation" as SvgRepresentation [[vues/representable.svg]] {
+  svg : Document
+}
+
+interface "XKeyNamesAndRepresenter" as XKeyNamesAndRepresenter [[vues/representable.svg]] {
+  {static} from(keyboardMap : KeyboardMap, representations : Function&#60;KeysymEntry, Representation&#62;) : XKeyNamesAndRepresenter
+  names() : String [0..*]
+}
+
+interface "XKeyNamesRepresenter" as XKeyNamesRepresenter [[vues/representable.svg]] {
+  representations(name : String) : Representation [0..*]
+}
+
+interface "Xkeys" as Xkeys [[vues/xkeys.svg]] {
+  xKeycodeByXKeyName : Map&#60;String, Short&#62;
+  xKeycodeByCanonicalXKeyName : BiMap&#60;String, Short&#62;
+  canonicalXKeyNameByAlias : Map&#60;String, String&#62;
+  --
+  {static} latest() : Xkeys
+  {static} fromSource(evdev : CharSource) : Xkeys
+  withoutAliases() : Xkeys
+}
+
+KeysymEntry <|-- Code
+KeysymEntry <|-- Mnemonic
+KeysymEntry <|-- Ucp
+CanonicalKeysymEntry <|-- CanonicalMnemonic
+CanonicalKeysymEntry <|-- ImplicitUcp
+XKeyNamesAndRepresenter <|.. CanonicalKeyboardMapRepresenter
+Representation <|-- StringRepresentation
+Representation <|-- SvgRepresentation
+XKeyNamesRepresenter <|-- XKeyNamesAndRepresenter
+@enduml

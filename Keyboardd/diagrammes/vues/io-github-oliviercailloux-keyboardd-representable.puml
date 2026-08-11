@@ -1,0 +1,55 @@
+@startuml
+title io.github.oliviercailloux.keyboardd.representable
+skinparam classAttributeIconSize 0
+hide empty members
+skinparam nodesep 60
+skinparam ranksep 90
+
+class "CanonicalKeyboardMapRepresenter" as CanonicalKeyboardMapRepresenter [[representable.svg]] {
+  {static} from(keyboardMap : CanonicalKeyboardMap, representations : Function&#60;CanonicalKeysymEntry, Representation&#62;) : CanonicalKeyboardMapRepresenter
+  entries(name : String) : CanonicalKeysymEntry [0..*]
+}
+
+class "RectangularKey" as RectangularKey [[representable.svg]] {
+  zone : Zone
+  xKeyName : String
+}
+
+class "RectangularKeyboard" as RectangularKeyboard [[representable.svg]] {
+  physicalKeys : RectangularKey [0..*]
+}
+
+interface "Representation" as Representation [[representable.svg]] {
+}
+
+class "StringRepresentation" as StringRepresentation [[representable.svg]] {
+  string : String
+}
+
+class "SvgKeyboard" as SvgKeyboard [[representable.svg]] {
+  {static} zonedFrom(physicalKeyboard : RectangularKeyboard) : SvgKeyboard
+  {static} using(doc : Document) : SvgKeyboard
+  keyBindingZonesToXKeyName() : Map&#60;RectangleElement, String&#62;
+  setFontSize(fontSize : double) : SvgKeyboard
+  withRepresentations(representationsByXKeyName : XKeyNamesRepresenter) : Document
+  withCanonicalRepresentations(representer : CanonicalKeyboardMapRepresenter) : SvgRepresentedKeyboard
+}
+
+class "SvgRepresentation" as SvgRepresentation [[representable.svg]] {
+  svg : Document
+}
+
+interface "XKeyNamesAndRepresenter" as XKeyNamesAndRepresenter [[representable.svg]] {
+  {static} from(keyboardMap : KeyboardMap, representations : Function&#60;KeysymEntry, Representation&#62;) : XKeyNamesAndRepresenter
+  names() : String [0..*]
+}
+
+interface "XKeyNamesRepresenter" as XKeyNamesRepresenter [[representable.svg]] {
+  representations(name : String) : Representation [0..*]
+}
+
+XKeyNamesAndRepresenter <|.. CanonicalKeyboardMapRepresenter
+Representation <|-- StringRepresentation
+Representation <|-- SvgRepresentation
+XKeyNamesRepresenter <|-- XKeyNamesAndRepresenter
+@enduml

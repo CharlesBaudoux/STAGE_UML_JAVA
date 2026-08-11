@@ -1,0 +1,32 @@
+@startuml Mnemonics
+hide empty members
+
+class "CanonicalMnemonic" {
+  mnemonic: String
+  code: int
+  nonDeprecatedAliases: String [0..*]
+  deprecatedAliases: String [0..*]
+  ucp: int [0..1]
+  deprecated: boolean
+}
+
+class "Mnemonics" {
+  {static} latest(): Mnemonics
+  {static} fromCanonicals(Set<CanonicalMnemonic>): Mnemonics
+  {static} fromSource(keysyms: CharSource): Mnemonics
+  byKeysymMnemonic: Map<String, CanonicalMnemonic>
+  byKeysymCode: BiMap<Integer, CanonicalMnemonic>
+  byUcp: BiMap<Integer, CanonicalMnemonic>
+  withoutDeprecated(): Mnemonics
+}
+
+interface "CanonicalKeysymEntry" {}
+"CanonicalKeysymEntry" <|-- "CanonicalMnemonic"
+"CanonicalKeysymEntry" <|-- "ImplicitUcp"
+
+class "CanonicalKeyboardMap" {
+  {static} canonicalize(KeyboardMap, Mnemonics): CanonicalKeyboardMap
+  entries(xKeyName: String): List<CanonicalKeysymEntry>
+}
+
+@enduml

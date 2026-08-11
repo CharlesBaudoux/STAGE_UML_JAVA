@@ -1,0 +1,41 @@
+@startuml
+title Mapping
+left to right direction
+skinparam classAttributeIconSize 0
+hide empty members
+skinparam nodesep 60
+skinparam ranksep 90
+
+interface "KeysymEntry" as KeysymEntry {
+}
+
+class "Mnemonic" as Mnemonic {
+  mnemonic : String
+}
+
+class "Ucp" as Ucp {
+  ucp : int
+}
+
+class "Code" as Code {
+  code : int
+}
+
+class "KeyboardMap" as KeyboardMap {
+  entries(xKeyName : String) : KeysymEntry [0..*]
+  canonicalize(canonicalXKeyNameByAlias : Map&#60;String, String&#62;) : KeyboardMap
+}
+
+class "XkbSymbolsReader" as XkbSymbolsReader {
+  {static} read(source : CharSource) : KeyboardMap
+  {static} common() : KeyboardMap
+  {static} us() : KeyboardMap
+  {static} usIntl() : KeyboardMap
+}
+
+KeysymEntry -[hidden]-> KeyboardMap
+KeysymEntry <|-- Mnemonic
+KeysymEntry <|-- Ucp
+KeysymEntry <|-- Code
+KeyboardMap -[hidden]-> XkbSymbolsReader
+@enduml

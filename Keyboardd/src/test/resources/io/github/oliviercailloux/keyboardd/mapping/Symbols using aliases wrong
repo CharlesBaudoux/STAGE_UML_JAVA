@@ -1,0 +1,4 @@
+xkb_symbols "withaliaseswrong" {
+  key <BKSL> { [ e ] };
+  key <AC12> { [ a ] };
+};

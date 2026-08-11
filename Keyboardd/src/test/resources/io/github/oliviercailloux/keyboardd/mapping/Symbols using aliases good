@@ -1,0 +1,4 @@
+xkb_symbols "withaliases" {
+  key <AD03> { [ e ] };
+  key <AC12> { [ b ] };
+};

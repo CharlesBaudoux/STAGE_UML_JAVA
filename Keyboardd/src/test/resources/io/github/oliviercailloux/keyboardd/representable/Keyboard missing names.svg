@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" height="75.5906" width="151.1811" xmlns:kdd="https://io.github.oliviercailloux.keyboardd">
+    <style>rect {
+fill-opacity: 0;
+stroke: black;
+stroke-width: 1px;
+}</style>
+    <rect height="37.7953" rx="10" width="56.6929" kdd:x-key-name="Name1"/>
+    <rect height="37.7953" rx="10" width="37.7953" x="56.6929" kdd:x-key-name="Name2" y="0"/>
+    <rect height="37.7953" rx="10" width="56.6929" x="94.4882" y="0"/>
+    <rect height="37.7953" rx="10" width="56.6929" x="0" kdd:x-key-name="Name3" y="37.7953"/>
+    <rect height="37.7953" rx="10" width="37.7953" x="56.6929" kdd:x-key-name="Name4" y="37.7953"/>
+    <rect height="37.7953" rx="10" width="56.6929" x="94.4882" y="37.7953"/>
+</svg>

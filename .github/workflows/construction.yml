@@ -43,26 +43,22 @@ jobs:
           mvn --batch-mode --file UMLGenerator/pom.xml install -DskipTests
           mvn --batch-mode --file umlg-maven-plugin/pom.xml install
 
-      # La preuve de bout en bout, par les deux chemins que la documentation décrit.
+      # La preuve de bout en bout : un projet tiers sait-il engendrer ses diagrammes ?
       #
-      # Le goal est écrit en entier, et non « umlg:generate » : le préfixe court n'est résolu que
-      # si le projet déclare le plugin dans son pom, ou si le groupe figure dans les pluginGroups
-      # du settings.xml. Le projet de démonstration, lui, documente la voie exec:java — et c'est
-      # justement cette différence qui a fait échouer cette étape la première fois qu'elle a
-      # tourné sur un dépôt neuf.
-      - name: Engendrer les diagrammes du projet de démonstration, par le plugin
-        working-directory: test_collegue
-        run: >
-          mvn --batch-mode compile
-          io.github.oliviercailloux:umlg-maven-plugin:1.0-SNAPSHOT:generate
-
-      # Depuis le répertoire du projet, et non par --file : les arguments passés à exec:java
-      # sont des chemins relatifs (« target/classes »), que Maven résout depuis le répertoire
-      # d'où il a été lancé et non depuis celui du module. C'est la commande que le README du
-      # projet de démonstration donne, et c'est donc celle qu'il faut éprouver.
-      - name: Engendrer les diagrammes du projet de démonstration, par exec:java
-        working-directory: test_collegue
-        run: mvn --batch-mode compile exec:java
+      # Elle portait sur test_collegue, un projet de démonstration écrit pour la circonstance, et
+      # porte désormais sur Keyboardd, une bibliothèque réelle — une centaine de classes, un
+      # fichier de règles qui déclare quatre vues, et des annotations posées pour reproduire les
+      # diagrammes de son README. Un cas réel éprouve ce qu'une démonstration ne rencontre pas.
+      #
+      # Le goal est écrit en préfixe court, et non en coordonnées complètes : « umlg:generate » ne
+      # se résout que si le projet déclare le plugin dans son pom, ce que Keyboardd fait. C'est
+      # justement cette différence qui avait fait échouer l'étape la première fois qu'elle a
+      # tourné sur un dépôt neuf, du temps où le projet de démonstration ne le déclarait pas.
+      # L'étape « par exec:java » a disparu avec test_collegue, seul projet à documenter cette
+      # voie ; le plugin est celle que la documentation recommande.
+      - name: Engendrer les diagrammes de Keyboardd, par le plugin
+        working-directory: Keyboardd
+        run: mvn --batch-mode compile umlg:generate
 
       - name: Conserver le rapport de couverture
         if: always()

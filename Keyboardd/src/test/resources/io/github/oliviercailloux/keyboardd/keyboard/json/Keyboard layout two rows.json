@@ -1,0 +1,20 @@
+[
+  [
+    {
+      "xKeyName": "R1K1"
+    },
+    {
+      "xKeyName": "R1K2",
+      "width": 1.5
+    }
+  ],
+  [
+    {
+      "xKeyName": "R2K1",
+      "width": 2
+    },
+    {
+      "xKeyName": "R2K2"
+    }
+  ]
+]

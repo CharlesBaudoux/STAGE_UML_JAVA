@@ -1,0 +1,6 @@
+partial
+xkb_symbols "tk" {
+  key.type[Group1] = "EIGHT_LEVEL";
+  key <TAB> { [ z, Z, acircumflex, Acircumflex, U03B6, U0396 ] };
+  key <AD01> { [ a, A, ae, AE, U03B1, U0391 ] };
+};

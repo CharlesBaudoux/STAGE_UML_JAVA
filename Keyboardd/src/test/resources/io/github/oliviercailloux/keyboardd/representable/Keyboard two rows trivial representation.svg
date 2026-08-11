@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" height="188.9764" width="264.5669" xmlns:kdd="https://io.github.oliviercailloux.keyboardd">
+    <style>text {
+text-anchor: middle;
+dominant-baseline: middle;
+font-size: 18.8976px;
+}</style>
+    <style>rect {
+fill-opacity: 0;
+stroke: black;
+stroke-width: 1px;
+}</style>
+    <rect height="75.5906" kdd:x-key-name="R1K1" rx="10" width="75.5906"/>
+    <g transform="translate(0, 0)">
+        <text x="37.7953" y="37.7953">R1K1</text>
+    </g>
+    <rect height="75.5906" kdd:x-key-name="R1K2" rx="10" width="113.3858" x="113.3858" y="0"/>
+    <g transform="translate(113.3858, 0)">
+        <text x="56.6929" y="37.7953">R1K2</text>
+    </g>
+    <rect height="75.5906" kdd:x-key-name="R2K1" rx="10" width="151.1811" x="0" y="113.3858"/>
+    <g transform="translate(0, 113.3858)">
+        <text x="75.5905" y="37.7953">R2K1</text>
+    </g>
+    <rect height="75.5906" kdd:x-key-name="R2K2" rx="10" width="75.5906" x="188.9764" y="113.3858"/>
+    <g transform="translate(188.9764, 113.3858)">
+        <text x="37.7953" y="37.7953">R2K2</text>
+    </g>
+</svg>

@@ -1,0 +1,56 @@
+@startuml
+title Representable
+left to right direction
+skinparam classAttributeIconSize 0
+hide empty members
+skinparam nodesep 60
+skinparam ranksep 90
+
+interface "Representation" as Representation {
+}
+
+class "StringRepresentation" as StringRepresentation {
+  string : String
+}
+
+class "SvgRepresentation" as SvgRepresentation {
+  svg : Document
+}
+
+interface "XKeyNamesRepresenter" as XKeyNamesRepresenter {
+  representations(name : String) : Representation [0..*]
+}
+
+interface "XKeyNamesAndRepresenter" as XKeyNamesAndRepresenter {
+  {static} from(keyboardMap : KeyboardMap, representations : Function&#60;KeysymEntry, Representation&#62;) : XKeyNamesAndRepresenter
+  names() : String [0..*]
+}
+
+class "CanonicalKeyboardMapRepresenter" as CanonicalKeyboardMapRepresenter {
+  {static} from(keyboardMap : CanonicalKeyboardMap, representations : Function&#60;CanonicalKeysymEntry, Representation&#62;) : CanonicalKeyboardMapRepresenter
+  entries(name : String) : CanonicalKeysymEntry [0..*]
+}
+
+class "RectangularKey" as RectangularKey {
+  zone : Zone
+  xKeyName : String
+}
+
+class "RectangularKeyboard" as RectangularKeyboard {
+  physicalKeys : RectangularKey [0..*]
+}
+
+class "SvgKeyboard" as SvgKeyboard {
+  {static} zonedFrom(physicalKeyboard : RectangularKeyboard) : SvgKeyboard
+  {static} using(doc : Document) : SvgKeyboard
+  keyBindingZonesToXKeyName() : Map&#60;RectangleElement, String&#62;
+  setFontSize(fontSize : double) : SvgKeyboard
+  withRepresentations(representationsByXKeyName : XKeyNamesRepresenter) : Document
+  withCanonicalRepresentations(representer : CanonicalKeyboardMapRepresenter) : SvgRepresentedKeyboard
+}
+
+Representation <|-- StringRepresentation
+Representation <|-- SvgRepresentation
+XKeyNamesRepresenter <|-- XKeyNamesAndRepresenter
+XKeyNamesAndRepresenter <|.. CanonicalKeyboardMapRepresenter
+@enduml
