@@ -1,0 +1,160 @@
+package io.github.oliviercailloux.umlg.processing;
+
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import io.github.oliviercailloux.umlg.processing.CompilationCobaye.Verdict;
+import java.io.IOException;
+import java.nio.file.Path;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+class UmlgGroupesEtClassesDAssociationTest {
+
+    private static final String ENTETE = "import io.github.oliviercailloux.umlg.annotation.*;\n";
+
+    private static Verdict compiler(Path tmp, String corps) throws IOException {
+        return CompilationCobaye.compiler(tmp, "Cobaye.java", ENTETE + corps);
+    }
+
+    @Test
+    void codeCorrect_compileSansRienSignaler(@TempDir Path tmp) throws IOException {
+        Verdict verdict = compiler(tmp, """
+            @UMLClass
+            @UMLPackage(name = "Facturation", color = "#EEEEEE")
+            class Facture {}
+
+            @UMLClass
+            @UMLPackage(name = "Facturation", color = "#EEEEEE")
+            class Ligne {}
+
+            @UMLClass
+            class Moteur {}
+
+            @UMLClass
+            @UMLAssociationClass(source = Facture.class, target = Moteur.class)
+            class Rattachement {}
+            """);
+
+        assertTrue(verdict.reussie(), verdict.rapport());
+        assertTrue(verdict.avertissements().isEmpty(), verdict.rapport());
+    }
+
+    @Test
+    void groupeSurClasseNonAnnotee_arreteLaCompilation(@TempDir Path tmp) throws IOException {
+        Verdict verdict = compiler(tmp, """
+            @UMLPackage(name = "Facturation")
+            class HorsDiagramme {}
+            """);
+
+        assertFalse(verdict.reussie(), "Il n'y a pas de boîte à ranger.");
+        assertTrue(verdict.erreurContient("does not carry @UMLClass"), verdict.rapport());
+    }
+
+    @Test
+    void nomDeGroupeBlanc_arreteLaCompilation(@TempDir Path tmp) throws IOException {
+        Verdict verdict = compiler(tmp, """
+            @UMLClass
+            @UMLPackage(name = "   ")
+            class Facture {}
+            """);
+
+        assertFalse(verdict.reussie(), "Un groupe est identifié par son nom.");
+        assertTrue(verdict.erreurContient("name()"), verdict.rapport());
+    }
+
+    @Test
+    void couleurDeGroupeInconnue_arreteLaCompilation(@TempDir Path tmp) throws IOException {
+        Verdict verdict = compiler(tmp, """
+            @UMLClass
+            @UMLPackage(name = "Facturation", color = "PasUneCouleur")
+            class Facture {}
+            """);
+
+        assertFalse(verdict.reussie(), verdict.rapport());
+        assertTrue(verdict.erreurContient("unknown to PlantUML"), verdict.rapport());
+    }
+
+    @Test
+    void deuxCouleursPourUnGroupe_sontSignalees(@TempDir Path tmp) throws IOException {
+        Verdict verdict = compiler(tmp, """
+            @UMLClass
+            @UMLPackage(name = "Facturation", color = "#EEEEEE")
+            class Facture {}
+
+            @UMLClass
+            @UMLPackage(name = "Facturation", color = "#123456")
+            class Ligne {}
+            """);
+
+        assertTrue(verdict.reussie(), "Le diagramme reste juste, seule la couleur change.");
+        assertTrue(verdict.avertissementContient("already coloured"), verdict.rapport());
+    }
+
+    @Test
+    void extremiteHorsDiagramme_arreteLaCompilation(@TempDir Path tmp) throws IOException {
+        Verdict verdict = compiler(tmp, """
+            @UMLClass
+            class Etudiant {}
+
+            class Cours {}
+
+            @UMLClass
+            @UMLAssociationClass(source = Etudiant.class, target = Cours.class)
+            class Inscription {}
+            """);
+
+        assertFalse(verdict.reussie(), verdict.rapport());
+        assertTrue(verdict.erreurContient("does not carry @UMLClass"), verdict.rapport());
+    }
+
+    @Test
+    void classeDAssociationEnExtremiteDElleMeme_arreteLaCompilation(@TempDir Path tmp)
+        throws IOException {
+        Verdict verdict = compiler(tmp, """
+            @UMLClass
+            class Cours {}
+
+            @UMLClass
+            @UMLAssociationClass(source = Inscription.class, target = Cours.class)
+            class Inscription {}
+            """);
+
+        assertFalse(verdict.reussie(), verdict.rapport());
+        assertTrue(verdict.erreurContient("is the association class itself"), verdict.rapport());
+    }
+
+    @Test
+    void classeDAssociationNonAnnotee_arreteLaCompilation(@TempDir Path tmp) throws IOException {
+        Verdict verdict = compiler(tmp, """
+            @UMLClass
+            class Etudiant {}
+
+            @UMLClass
+            class Cours {}
+
+            @UMLAssociationClass(source = Etudiant.class, target = Cours.class)
+            class Inscription {}
+            """);
+
+        assertFalse(verdict.reussie(), verdict.rapport());
+        assertTrue(verdict.erreurContient("does not carry @UMLClass"), verdict.rapport());
+    }
+
+    @Test
+    void lesDeuxExtremitesFautives_sontSignaleesEnsemble(@TempDir Path tmp) throws IOException {
+        Verdict verdict = compiler(tmp, """
+            class Etudiant {}
+
+            class Cours {}
+
+            @UMLClass
+            @UMLAssociationClass(source = Etudiant.class, target = Cours.class)
+            class Inscription {}
+            """);
+
+        assertFalse(verdict.reussie(), verdict.rapport());
+        assertTrue(verdict.erreurs().size() >= 2,
+            "Les deux extrémités doivent être nommées : " + verdict.rapport());
+    }
+}
