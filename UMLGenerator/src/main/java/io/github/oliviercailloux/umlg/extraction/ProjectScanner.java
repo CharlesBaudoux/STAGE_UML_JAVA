@@ -21,6 +21,7 @@ import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -50,6 +51,59 @@ public class ProjectScanner {
         checkArgument(Files.exists(rootPath) && Files.isDirectory(rootPath),
             "The source directory is not valid: %s", rootPath);
 
+        // Les règles du projet, lues une fois pour toutes avant la première classe : elles valent
+        // pour l'ensemble du diagramme, et les relire par classe n'aurait aucun sens. Absentes,
+        // c'est un jeu vide, et le code se décrit tel qu'il est écrit.
+        Regles regles = Regles.duProjet(rootPath);
+
+        Recolte recolte = parcourir(rootPath, classpath, regles);
+
+        // L'ordre de ce qui suit porte du sens, et il est le même qu'avant le découpage.
+        //
+        // Les classes illisibles sont signalées avant le refus d'un projet sans annotation :
+        // c'est souvent la même cause — un classpath incomplet —, et l'utilisateur doit lire
+        // l'avertissement qui l'explique avant l'erreur qui le constate. Les trois autres
+        // avertissements viennent après, puisqu'ils ne valent que sur un projet qui tient.
+        signalerClassesIllisibles(recolte.illisibles());
+        refuserUnProjetSansAnnotation(rootPath, recolte);
+
+        // Les surprises d'un premier essai : des boîtes vides parce qu'aucune stratégie n'est
+        // déclarée, des signatures sans noms parce que le projet a été compilé sans -parameters,
+        // des règles restées lettre morte. Aucune n'est une faute — le diagramme est exact — mais
+        // dans les trois cas l'utilisateur obtient moins que ce qu'il croit avoir demandé, et
+        // rien d'autre ne le lui dirait.
+        signalerBoitesVides(recolte.boitesVides());
+        signalerParametresAnonymes(recolte.entites(), regles);
+        signalerReglesSansEffet(regles);
+
+        // Les boîtes du diagramme sont celles du code, et rien d'autre : aucune règle n'en
+        // fabrique. Ce qui n'est pas dans le code n'est pas sur le dessin — c'est ce qui garantit
+        // qu'une boîte ne survivra pas au renommage de la classe qu'elle décrit.
+        ImmutableSet<UmlEntity> entites = recolte.entites();
+
+        // Les réglages du dessin d'ensemble viennent du fichier de règles, comme tout ce qui vaut
+        // pour le projet entier plutôt que pour un élément.
+        UmlDiagram diagramme = new UmlDiagram(regles.titre(), regles.direction(),
+            regles.masquerMembresVides());
+
+        // Les vues sont taillées ici, et non au rendu : elles dépendent des règles du projet, que
+        // le scan est seul à avoir lues.
+        ImmutableList<UmlView> vues =
+            ConstructeurDeVues.construire(entites, diagramme, regles);
+
+        return new ResultatDeScan(UmlProject.given(entites, diagramme, vues),
+            recolte.ignorees());
+    }
+
+    // Ce qu'un parcours ramène : les boîtes, et les trois familles de ce qu'il a laissé derrière
+    // lui. Les quatre collections sont déjà triées ; voir parcourir.
+    private record Recolte(ImmutableSet<UmlEntity> entites, ImmutableList<String> ignorees,
+        ImmutableList<String> boitesVides, ImmutableList<String> illisibles) {}
+
+    // Lit tous les .class du répertoire et en tire les boîtes, en notant au passage ce qui n'en
+    // devient pas une.
+    private static Recolte parcourir(Path rootPath, ImmutableList<Path> classpath, Regles regles)
+        throws IOException {
         // UN PARCOURS SÉQUENTIEL, ET TOUT CE QUI SUIT EN DÉCOULE
         //
         // Les trois listes ci-dessous étaient enveloppées dans Collections.synchronizedList,
@@ -78,24 +132,7 @@ public class ProjectScanner {
         // fin de scan, non plus jetées à la figure de l'utilisateur.
         List<String> illisibles = new ArrayList<>();
 
-        // Les règles du projet, lues une fois pour toutes avant la première classe : elles valent
-        // pour l'ensemble du diagramme, et les relire par classe n'aurait aucun sens. Absentes,
-        // c'est un jeu vide, et le code se décrit tel qu'il est écrit.
-        Regles regles = Regles.duProjet(rootPath);
-
-        // Un chargeur dédié, enraciné sur le répertoire analysé et les dépendances données : les
-        // classes de l'utilisateur ne sont pas sur notre classpath, il faut les rendre
-        // chargeables. Le chargeur de cette classe sert de parent, pour que les classes de la
-        // bibliothèque (dont les annotations) restent celles-ci et non des copies rechargées —
-        // sinon isAnnotationPresent échouerait.
-        // try-with-resources : le chargeur est fermé à la sortie, libérant les fichiers ouverts.
-        URL[] urls = new URL[classpath.size() + 1];
-        urls[0] = rootPath.toUri().toURL();
-        for (int i = 0; i < classpath.size(); i++) {
-            urls[i + 1] = classpath.get(i).toUri().toURL();
-        }
-        try (URLClassLoader classLoader = new URLClassLoader(urls,
-            ProjectScanner.class.getClassLoader())) {
+        try (URLClassLoader classLoader = chargeurPour(rootPath, classpath)) {
 
             // Files.walk descend récursivement ; le flux se ferme lui aussi, sous peine de
             // fuite de descripteurs de fichiers.
@@ -103,13 +140,7 @@ public class ProjectScanner {
                 paths.filter(Files::isRegularFile)
                      .filter(p -> p.toString().endsWith(".class"))
                      .forEach(classFilePath -> {
-                         // Du chemin au nom qualifié : le chemin relatif à la racine, les
-                         // séparateurs de répertoires devenus points, l'extension retirée.
-                         // Ex. : com/banque/Compte.class -> com.banque.Compte
-                         String className = rootPath.relativize(classFilePath)
-                                 .toString()
-                                 .replace(File.separatorChar, '.')
-                                 .replace(".class", "");
+                         String className = nomDeClasse(rootPath, classFilePath);
 
                          // module-info.class décrit un module, pas une classe : le charger lève
                          // une erreur, et un projet modulaire ferait échouer le scan entier. Il
@@ -154,12 +185,6 @@ public class ProjectScanner {
             }
         }
 
-        // Le compte des ignorées est arrêté dès la fin du parcours, et non juste avant le
-        // retour : le message d'erreur qui suit s'en sert, et il est émis sur un chemin d'échec.
-        ImmutableList<String> ignoreesTriees = ImmutableList.sortedCopyOf(ignorees);
-
-        signalerClassesIllisibles(ImmutableList.sortedCopyOf(illisibles));
-
         // L'ORDRE, QUI N'EST PAS UN DÉTAIL
         //
         // Les entités sont triées par nom complet avant d'entrer dans le projet. Files.walk rend
@@ -172,51 +197,62 @@ public class ProjectScanner {
         // C'est le même souci que celui des membres, et la même réponse : entre un ordre
         // arbitraire mais stable et un ordre imprévisible, la stabilité l'emporte (voir
         // MembresOrdonnes).
-        ImmutableSet<UmlEntity> duCode = projectBuilder.build().stream()
-            .sorted(java.util.Comparator.comparing(UmlEntity::qualifiedName))
-            .collect(ImmutableSet.toImmutableSet());
+        //
+        // Les trois autres listes sont triées pour la même raison : elles finissent dans des
+        // messages, et un message qui change d'ordre d'une machine à l'autre se compare mal.
+        return new Recolte(
+            projectBuilder.build().stream()
+                .sorted(Comparator.comparing(UmlEntity::qualifiedName))
+                .collect(ImmutableSet.toImmutableSet()),
+            ImmutableList.sortedCopyOf(ignorees),
+            ImmutableList.sortedCopyOf(boitesVides),
+            ImmutableList.sortedCopyOf(illisibles));
+    }
 
-        // Le répertoire ne contient aucune classe annotée. C'est le premier essai type, et le
-        // message ne se contentait jusqu'ici de le constater : le scan vient pourtant de lire ces
-        // classes et connaît leurs noms. Les dire, c'est la différence entre « ça ne marche pas »
-        // et « voilà celle sur laquelle écrire @UMLClass ».
-        if (duCode.isEmpty()) {
-            String cequonAVu = ignoreesTriees.isEmpty()
-                ? "no class at all was found there"
-                : ignoreesTriees.size() + " class(es) were read, none of them annotated"
-                    + (ignoreesTriees.size() <= SEUIL_ENUMERATION
-                        ? " : " + String.join(", ", ignoreesTriees) : "");
-            throw new IllegalArgumentException("No class carries @UMLClass in " + rootPath
-                + ", so there is nothing to draw — " + cequonAVu
-                + ". Annotate the classes the diagram is about, or point the analysis at the "
-                + "directory where their .class files are.");
+    // Un chargeur dédié, enraciné sur le répertoire analysé et les dépendances données : les
+    // classes de l'utilisateur ne sont pas sur notre classpath, il faut les rendre chargeables.
+    // Le chargeur de cette classe sert de parent, pour que les classes de la bibliothèque (dont
+    // les annotations) restent celles-ci et non des copies rechargées — sinon
+    // isAnnotationPresent échouerait.
+    //
+    // L'appelant le referme : il ouvre des fichiers, qu'un try-with-resources doit libérer.
+    private static URLClassLoader chargeurPour(Path rootPath, ImmutableList<Path> classpath)
+        throws IOException {
+        URL[] urls = new URL[classpath.size() + 1];
+        urls[0] = rootPath.toUri().toURL();
+        for (int i = 0; i < classpath.size(); i++) {
+            urls[i + 1] = classpath.get(i).toUri().toURL();
         }
+        return new URLClassLoader(urls, ProjectScanner.class.getClassLoader());
+    }
 
-        // Les deux surprises d'un premier essai, dites avant le compte rendu : des boîtes vides
-        // parce qu'aucune stratégie n'est déclarée, des signatures sans noms parce que le projet
-        // a été compilé sans -parameters. Ni l'une ni l'autre n'est une faute — le diagramme est
-        // exact — mais dans les deux cas l'utilisateur obtient moins que ce qu'il croit avoir
-        // demandé, et rien d'autre ne le lui dirait.
-        signalerBoitesVides(ImmutableList.sortedCopyOf(boitesVides));
-        signalerParametresAnonymes(duCode, regles);
-        signalerReglesSansEffet(regles);
+    // Du chemin au nom qualifié : le chemin relatif à la racine, les séparateurs de répertoires
+    // devenus points, l'extension retirée.
+    // Ex. : com/banque/Compte.class -> com.banque.Compte
+    private static String nomDeClasse(Path rootPath, Path classFilePath) {
+        return rootPath.relativize(classFilePath)
+            .toString()
+            .replace(File.separatorChar, '.')
+            .replace(".class", "");
+    }
 
-        // Les boîtes du diagramme sont celles du code, et rien d'autre : aucune règle n'en
-        // fabrique. Ce qui n'est pas dans le code n'est pas sur le dessin — c'est ce qui garantit
-        // qu'une boîte ne survivra pas au renommage de la classe qu'elle décrit.
-        ImmutableSet<UmlEntity> entites = duCode;
-
-        // Les réglages du dessin d'ensemble viennent du fichier de règles, comme tout ce qui vaut
-        // pour le projet entier plutôt que pour un élément.
-        UmlDiagram diagramme = new UmlDiagram(regles.titre(), regles.direction(),
-            regles.masquerMembresVides());
-
-        // Les vues sont taillées ici, et non au rendu : elles dépendent des règles du projet, que
-        // le scan est seul à avoir lues.
-        ImmutableList<UmlView> vues =
-            ConstructeurDeVues.construire(entites, diagramme, regles);
-
-        return new ResultatDeScan(UmlProject.given(entites, diagramme, vues), ignoreesTriees);
+    // Le répertoire ne contient aucune classe annotée. C'est le premier essai type, et le message
+    // ne se contentait jusqu'ici de le constater : le scan vient pourtant de lire ces classes et
+    // connaît leurs noms. Les dire, c'est la différence entre « ça ne marche pas » et « voilà
+    // celle sur laquelle écrire @UMLClass ».
+    private static void refuserUnProjetSansAnnotation(Path rootPath, Recolte recolte) {
+        if (!recolte.entites().isEmpty()) {
+            return;
+        }
+        ImmutableList<String> vues = recolte.ignorees();
+        String cequonAVu = vues.isEmpty()
+            ? "no class at all was found there"
+            : vues.size() + " class(es) were read, none of them annotated"
+                + (vues.size() <= SEUIL_ENUMERATION ? " : " + String.join(", ", vues) : "");
+        throw new IllegalArgumentException("No class carries @UMLClass in " + rootPath
+            + ", so there is nothing to draw — " + cequonAVu
+            + ". Annotate the classes the diagram is about, or point the analysis at the "
+            + "directory where their .class files are.");
     }
 
     // Au-delà de ce nombre, les classes sont comptées mais pas nommées : une liste trop longue
