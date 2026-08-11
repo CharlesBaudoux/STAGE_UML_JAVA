@@ -15,8 +15,13 @@
     <name>UML Generator</name>
 
     <properties>
-        <maven.compiler.source>21</maven.compiler.source>
-        <maven.compiler.target>21</maven.compiler.target>
+        <!--
+            Aucun source/target ici : le pom parent pose maven.compiler.release=21, et « release »
+            l'emporte sur « source » et « target » — les écrire donnerait deux lignes inertes et
+            laisserait croire que ce sont elles qui fixent le palier de langage. Le palier se
+            change donc chez le parent, ou par une propriété maven.compiler.release locale.
+        -->
+
         <!--
             La propriété, en plus de la configuration du plugin ci-dessous : l'exécution
             default-testCompile redéfinit sa configuration, et perdait l'option au passage —
@@ -44,8 +49,8 @@
             PlantUmlWriter se sert pour détecter un Graphviz absent.
 
             À reprendre si l'amont cesse d'embarquer Guava, ou publie un artefact non ombré. Les
-            89 assertCompile et les 23 rendus SVG de la suite diront aussitôt si la syntaxe a
-            bougé.
+            appels d'assertCompile de la suite — il y en a des dizaines — et ses rendus SVG
+            diront aussitôt si la syntaxe a bougé.
         -->
         <dependency>
             <groupId>net.sourceforge.plantuml</groupId>
@@ -76,10 +81,11 @@
     <build>
         <plugins>
             <!--
-                Le pom parent épingle la version 3.1 (2013), antérieure au système de modules :
-                elle place toutes les dépendances sur le classpath, où un « requires » ne peut
-                pas les trouver. La 3.13 construit le module path dès qu'un module-info.java
-                est présent.
+                La version, faute de quoi Maven résout celle de son super-POM : la 3.1, publiée
+                en 2013, antérieure au système de modules. Le pom parent, lui, ne dit rien de ce
+                plugin — ce n'est donc pas chez lui qu'il faudrait aller chercher. La 3.1 place
+                toutes les dépendances sur le classpath, où un « requires » ne peut pas les
+                trouver ; la 3.13 construit le module path dès qu'un module-info.java est présent.
             -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -144,10 +150,15 @@
                 </configuration>
             </plugin>
 
+            <!--
+                Pas de version : le pom parent en gère une en pluginManagement, et l'écrire ici
+                l'annulerait — c'est ainsi que le projet s'était retrouvé plus d'un an en arrière
+                des correctifs de Surefire. La configuration seule, sans version, s'ajoute à celle
+                du parent au lieu de la remplacer.
+            -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.2.5</version>
                 <configuration>
                     <!-- Les tests sont compilés sur le classpath : ils y sont aussi exécutés. -->
                     <useModulePath>false</useModulePath>
@@ -220,9 +231,11 @@
             <!--
                 La couverture, mesurée par la construction plutôt qu'à la main.
 
-                Elle était de 96,9 % des instructions, et rien ne la protégeait : aucun outil ne
-                la calculait, aucun seuil ne la défendait. Une couverture haute qu'on ne mesure
-                pas est une couverture qui baisse sans que personne le voie.
+                Elle dépassait déjà les quatre-vingt-quinze pour cent des instructions, et rien ne
+                la protégeait : aucun outil ne la calculait, aucun seuil ne la défendait. Une
+                couverture haute qu'on ne mesure pas est une couverture qui baisse sans que
+                personne le voie. Le chiffre du jour se lit dans le rapport que la construction
+                engendre (target/site/jacoco/), et n'a donc rien à faire ici.
 
                 Le seuil est posé sous la valeur atteinte, et non à la valeur atteinte : il est
                 là pour signaler un décrochage, pas pour interdire d'écrire une ligne difficile à

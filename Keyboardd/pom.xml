@@ -13,13 +13,13 @@
 
   <properties>
     <!--
-      Ajouté pour l'expérience umlg. Le pom parent 0.0.30 épingle maven-compiler-plugin 3.1
-      sans source ni target : javac retombe alors sur Java 5, qu'il ne sait plus compiler, et
-      le projet ne se construit pas tel quel. Les « sealed interface » et les « record » du
-      code exigent de toute façon 17 au minimum ; 21 est le palier d'umlg.
+      Aucun source/target ici : le pom parent pose maven.compiler.release=21, et « release »
+      l'emporte sur « source » et « target ». Les écrire donnerait deux lignes inertes, et
+      laisserait croire que ce sont elles qui fixent le palier de langage. Les « sealed
+      interface » et les « record » du code exigent de toute façon 17 au minimum, et 21 est le
+      palier d'umlg : le compte est bon sans rien écrire.
     -->
-    <maven.compiler.source>21</maven.compiler.source>
-    <maven.compiler.target>21</maven.compiler.target>
+
     <!--
       Écrit les noms des paramètres dans les .class. Sans cette option, la réflexion ne
       connaît que « arg0 », « arg1 »… et umlg n'affiche alors que les types :
@@ -32,9 +32,10 @@
 
   <dependencies>
     <!--
-      La bibliothèque d'annotations UML. Elle embarque un processeur d'annotations, que javac
-      découvre par META-INF/services dès qu'elle est sur le classpath : il vérifie à la
-      compilation ce que les annotations déclarent.
+      La bibliothèque d'annotations UML. Elle embarque un processeur d'annotations, nommé
+      explicitement dans annotationProcessorPaths plus bas plutôt que laissé découvrir par
+      META-INF/services : javac avertit désormais que la découverte par le classpath
+      disparaîtra. La dépendance reste nécessaire pour compiler les annotations elles-mêmes.
     -->
     <dependency>
       <groupId>io.github.oliviercailloux</groupId>
@@ -94,16 +95,50 @@
       </plugin>
 
       <!--
-        Sans showWarnings, Maven passe « -nowarn » à javac, ce qui fait taire tous les
-        avertissements du processeur d'annotations d'umlg — c'est-à-dire tout ce qu'il a à dire,
-        ses erreurs mises à part. Une compilation silencieuse cesserait alors de rien prouver.
+        Le bloc que le README d'umlg prescrit, écrit ici en entier : ce projet est la preuve de
+        bout en bout, et la moitié « compilation » de cette preuve ne vaut que si le processeur
+        y travaille dans les mêmes conditions que chez un utilisateur.
       -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
+        <!--
+          La version, faute de quoi Maven résout celle de son super-POM : la 3.1, publiée en
+          2013, antérieure au paramètre « parameters » — maven.compiler.parameters ci-dessus
+          serait alors ignoré en silence.
+        -->
         <version>3.13.0</version>
         <configuration>
+          <!--
+            Sans showWarnings, Maven passe « -nowarn » à javac, ce qui fait taire tous les
+            avertissements du processeur d'annotations d'umlg — c'est-à-dire tout ce qu'il a à
+            dire, ses erreurs mises à part. Une compilation silencieuse cesserait alors de rien
+            prouver.
+          -->
           <showWarnings>true</showWarnings>
+          <!--
+            Nomme le processeur au lieu de le laisser découvrir par META-INF/services, la forme
+            dont javac annonce la disparition.
+          -->
+          <annotationProcessorPaths>
+            <path>
+              <groupId>io.github.oliviercailloux</groupId>
+              <artifactId>umlg</artifactId>
+              <version>1.0-SNAPSHOT</version>
+            </path>
+          </annotationProcessorPaths>
+          <compilerArgs>
+            <!--
+              Donne au processeur le fichier de règles du projet — celui-là même que la
+              construction recopie dans target/classes pour la génération. Sans cette option il
+              ignore « strategy none », et se tait donc sur tout ce qui en dépend, dans le
+              projet où ces contrôles sont justement les plus utiles.
+
+              Le chemin est absolu par ${project.basedir} : javac résout un chemin relatif
+              contre son répertoire de travail, qui n'est pas nécessairement celui du projet.
+            -->
+            <arg>-Aumlg.rules=${project.basedir}/src/main/resources/umlg.rules</arg>
+          </compilerArgs>
         </configuration>
       </plugin>
 

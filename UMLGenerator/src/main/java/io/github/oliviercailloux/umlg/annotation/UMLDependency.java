@@ -1,5 +1,6 @@
 package io.github.oliviercailloux.umlg.annotation;
 
+import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Repeatable;
 import java.lang.annotation.Retention;
@@ -17,6 +18,7 @@ import java.lang.annotation.Target;
  * <p>&#64;Repeatable : on peut en poser plusieurs sur la même classe ; le compilateur les regroupe
  * alors automatiquement dans le conteneur @UMLDependencies.
  */
+@Documented
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
 @Repeatable(UMLDependencies.class)

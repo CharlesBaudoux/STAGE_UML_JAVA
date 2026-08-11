@@ -1,5 +1,6 @@
 package io.github.oliviercailloux.umlg.annotation;
 
+import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -23,6 +24,7 @@ import java.lang.annotation.Target;
  * le même rectangle. Si elles déclarent des couleurs différentes, la première rencontrée
  * l'emporte et un avertissement est émis — le rectangle n'en a qu'une.
  */
+@Documented
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
 public @interface UMLPackage {

@@ -1,5 +1,6 @@
 package io.github.oliviercailloux.umlg.annotation;
 
+import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -17,6 +18,7 @@ import java.lang.annotation.Target;
  *
  * <p>FIELD : l'annotation se pose sur un attribut ; c'est lui qui porte le type de la cible.
  */
+@Documented
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.FIELD)
 public @interface UMLAssociation {

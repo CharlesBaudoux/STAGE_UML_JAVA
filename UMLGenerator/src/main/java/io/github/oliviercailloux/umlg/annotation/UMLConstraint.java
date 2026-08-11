@@ -1,5 +1,6 @@
 package io.github.oliviercailloux.umlg.annotation;
 
+import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Repeatable;
 import java.lang.annotation.Retention;
@@ -20,6 +21,7 @@ import java.lang.annotation.Target;
  * <p>Sur un attribut porteur de @UMLAssociation, la contrainte s'applique au lien et non à
  * l'attribut — c'est l'usage majoritaire, celui de {subset} et {ordered}.
  */
+@Documented
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.TYPE, ElementType.FIELD})
 @Repeatable(UMLConstraints.class)
