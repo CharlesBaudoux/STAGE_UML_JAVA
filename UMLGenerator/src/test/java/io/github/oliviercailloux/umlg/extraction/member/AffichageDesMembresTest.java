@@ -95,6 +95,46 @@ class AffichageDesMembresTest {
         assertTrue(refus.getMessage().contains("two names"), refus.getMessage());
     }
 
+    // --- Les paramètres de trait, sous une notation qui ne trace aucun trait ---
+
+    static class SourceImpossible {
+        @UMLAssociation(target = Cible.class, sourceCardinality = "3..1",
+            notation = UMLNotation.ATTRIBUTE)
+        public Cible champ;
+    }
+
+    static class SourceRoleBlanc {
+        @UMLAssociation(target = Cible.class, sourceRole = "   ",
+            notation = UMLNotation.ATTRIBUTE)
+        public Cible champ;
+    }
+
+    static class LabelBlanc {
+        @UMLAssociation(target = Cible.class, label = "   ", notation = UMLNotation.ATTRIBUTE)
+        public Cible champ;
+    }
+
+    @Test
+    void unParametreDeTraitFautif_estRefuseMemeEnNotationAttribut() {
+        // Le processeur d'annotations refusait déjà ces trois valeurs quelle que soit la
+        // notation ; la génération, elle, ne les lisait pas du tout, si bien que le même code
+        // s'arrêtait à la compilation et passait au dessin. Les deux moitiés posent maintenant la
+        // même question — une multiplicité impossible reste impossible, qu'elle finisse dessinée
+        // ou non, et la première bascule vers ARROW la ferait surgir.
+        var multiplicite = assertThrows(IllegalArgumentException.class,
+            () -> MemberExtractor.extractFields(SourceImpossible.class, UMLVisibility.PUBLIC));
+        assertTrue(multiplicite.getMessage().contains("sourceCardinality"),
+            multiplicite.getMessage());
+
+        var role = assertThrows(IllegalArgumentException.class,
+            () -> MemberExtractor.extractFields(SourceRoleBlanc.class, UMLVisibility.PUBLIC));
+        assertTrue(role.getMessage().contains("sourceRole"), role.getMessage());
+
+        var label = assertThrows(IllegalArgumentException.class,
+            () -> MemberExtractor.extractFields(LabelBlanc.class, UMLVisibility.PUBLIC));
+        assertTrue(label.getMessage().contains("label"), label.getMessage());
+    }
+
     // --- L'ordre de déclaration : « order declaration » ---
 
     static class Desordonnee {

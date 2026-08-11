@@ -14,13 +14,15 @@ import java.lang.reflect.Field;
 // Relit les attributs d'une classe et en tire les associations.
 public final class AssociationExtractor implements RelationExtractor {
 
-    // Sans règles de projet : les attributs sont relus dans l'ordre alphabétique.
+    // Le défaut du contrat, redit ici pour son seul type de retour : qui tient un
+    // AssociationExtractor attend des UmlAssociation, et non le « ? extends UmlRelation » que
+    // l'interface promet à qui ne sait pas à quel extracteur il parle.
     @Override
     public ImmutableList<UmlAssociation> extraire(Class<?> clazz) {
         return extraire(clazz, Regles.aucune());
     }
 
-    // Avec les règles du projet. Elles n'ajoutent ni ne retirent aucun lien : elles disent dans
+    // Les règles du projet n'ajoutent ni ne retirent aucun lien : elles disent dans
     // quel ordre les attributs sont relus, donc dans quel ordre les traits sont écrits. Un projet
     // qui demande « order declaration » l'obtient sur ses liens comme sur ses compartiments.
     @Override

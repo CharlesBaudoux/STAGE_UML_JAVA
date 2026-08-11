@@ -206,10 +206,10 @@ public final class RelationRenderer {
     // guillemet s'écrit « &#34; » dans la source et n'occupe qu'un caractère à l'écran. Mesurer
     // la source écartait les boîtes de cinq fois la place réellement nécessaire.
     //
-    // Et elle porte sur tous les textes d'un trait, extrémités comme nom du lien. UmlStyle
-    // annonce « l'espacement, calculé sur la plus longue étiquette du diagramme » ; seules les
-    // extrémités étaient comptées, alors que le nom du lien est en pratique le texte le plus long
-    // d'un trait, et qu'il se dessine exactement au même endroit — entre deux boîtes voisines.
+    // Et elle porte sur tous les textes d'un trait, extrémités comme nom du lien — c'est ce
+    // qu'UmlStyle annonce désormais mot pour mot. Seules les extrémités étaient comptées, alors
+    // que le nom du lien est en pratique le texte le plus long d'un trait, et qu'il se dessine
+    // exactement au même endroit — entre deux boîtes voisines.
     //
     // Un texte sur plusieurs lignes occupe la largeur de sa plus longue, et non leur somme : la
     // mesure se fait donc ligne à ligne.

@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.github.oliviercailloux.umlg.warning.Avertisseur;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
@@ -20,6 +21,13 @@ import org.junit.jupiter.api.Test;
 // le canal se défait — et un canal qui ne se défait pas capte la génération d'après, sur un fil
 // qu'un pool réutilise. C'est le pire des symptômes : les avertissements d'un module Maven
 // atterrissent dans le log du module suivant.
+//
+// DEUX CLASSES POUR UN SEUL MÉCANISME
+//
+// Avertissements est la façade exportée : poser un canal, le refermer. Avertisseur porte le
+// mécanisme, dans un paquetage que le module n'exporte pas — « dire » est le geste de
+// l'extraction et du rendu, et l'utilisateur n'a pas à l'atteindre. Les tests, eux, vivent dans
+// le module et voient les deux.
 class AvertissementsTest {
 
     @Test
@@ -27,7 +35,7 @@ class AvertissementsTest {
         List<String> recus = new ArrayList<>();
 
         try (Avertissements.Canal canal = Avertissements.versLeCanal(recus::add)) {
-            Avertissements.dire("la vue est illisible");
+            Avertisseur.dire("la vue est illisible");
         }
 
         assertEquals(List.of("la vue est illisible"), recus);
@@ -38,9 +46,9 @@ class AvertissementsTest {
         List<String> recus = new ArrayList<>();
 
         try (Avertissements.Canal canal = Avertissements.versLeCanal(recus::add)) {
-            Avertissements.dire("pendant");
+            Avertisseur.dire("pendant");
         }
-        String surLaSortieDErreur = enCaptantLaSortieDErreur(() -> Avertissements.dire("après"));
+        String surLaSortieDErreur = enCaptantLaSortieDErreur(() -> Avertisseur.dire("après"));
 
         assertEquals(List.of("pendant"), recus, "Le canal fermé ne doit plus rien capter.");
         assertTrue(surLaSortieDErreur.contains("après"),
@@ -56,9 +64,9 @@ class AvertissementsTest {
 
         try (Avertissements.Canal externe = Avertissements.versLeCanal(dehors::add)) {
             try (Avertissements.Canal interne = Avertissements.versLeCanal(dedans::add)) {
-                Avertissements.dire("dedans");
+                Avertisseur.dire("dedans");
             }
-            Avertissements.dire("dehors");
+            Avertisseur.dire("dehors");
         }
 
         assertEquals(List.of("dedans"), dedans);
@@ -75,8 +83,8 @@ class AvertissementsTest {
         List<String> lus = new ArrayList<>();
 
         try (Avertissements.Canal externe = Avertissements.versLeCanal(relais::add)) {
-            try (Avertissements.Canal ajout = Avertissements.enPlusDuCanalCourant(lus::add)) {
-                Avertissements.dire("les deux");
+            try (Avertissements.Canal ajout = Avertisseur.enPlusDuCanalCourant(lus::add)) {
+                Avertisseur.dire("les deux");
             }
         }
 
@@ -87,7 +95,7 @@ class AvertissementsTest {
     @Test
     void sansAucunCanal_lAvertissementVaSurLaSortieDErreurPrefixe() {
         // Le défaut, celui d'un programme qu'on lance à la main.
-        String ecrit = enCaptantLaSortieDErreur(() -> Avertissements.dire("rien de posé"));
+        String ecrit = enCaptantLaSortieDErreur(() -> Avertisseur.dire("rien de posé"));
 
         assertEquals("Warning: rien de posé", ecrit.strip());
     }
@@ -99,8 +107,8 @@ class AvertissementsTest {
         List<String> lus = new ArrayList<>();
 
         String ecrit = enCaptantLaSortieDErreur(() -> {
-            try (Avertissements.Canal ajout = Avertissements.enPlusDuCanalCourant(lus::add)) {
-                Avertissements.dire("vu deux fois");
+            try (Avertissements.Canal ajout = Avertisseur.enPlusDuCanalCourant(lus::add)) {
+                Avertisseur.dire("vu deux fois");
             }
         });
 
@@ -115,7 +123,7 @@ class AvertissementsTest {
 
     @Test
     void unMessageNull_estRefuse() {
-        assertThrows(NullPointerException.class, () -> Avertissements.dire(null));
+        assertThrows(NullPointerException.class, () -> Avertisseur.dire(null));
     }
 
     // Ce que la sortie d'erreur reçoit pendant l'exécution de l'action. Le flux d'origine est

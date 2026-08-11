@@ -4,7 +4,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
-import io.github.oliviercailloux.umlg.Avertissements;
+import io.github.oliviercailloux.umlg.warning.Avertisseur;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -50,7 +50,7 @@ public final class AliasRegistry {
         // classes complètes pour qu'il sache lesquelles.
         String homonyme = nomsAffichesParNom.put(nomAffiche, nomQualifie);
         if (homonyme != null) {
-            Avertissements.dire("\"" + nomAffiche + "\" is the "
+            Avertisseur.dire("\"" + nomAffiche + "\" is the "
                 + "name of two boxes of the same diagram (" + homonyme + " and " + nomQualifie
                 + "). They are distinct classes, but nothing on the drawing tells them apart, "
                 + "nor which one a link reaches. Rename one with @UMLClass(name = ...), or split "

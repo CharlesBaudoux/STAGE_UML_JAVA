@@ -3,7 +3,6 @@ package io.github.oliviercailloux.umlg.extraction;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import io.github.oliviercailloux.umlg.Avertissements;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.github.oliviercailloux.umlg.annotation.UMLClass;
@@ -14,6 +13,7 @@ import io.github.oliviercailloux.umlg.model.UmlEntity;
 import io.github.oliviercailloux.umlg.model.UmlParameter;
 import io.github.oliviercailloux.umlg.model.UmlProject;
 import io.github.oliviercailloux.umlg.model.UmlView;
+import io.github.oliviercailloux.umlg.warning.Avertisseur;
 import java.io.File;
 import java.io.IOException;
 import java.lang.annotation.AnnotationFormatError;
@@ -326,7 +326,7 @@ public class ProjectScanner {
         String liste = illisibles.size() <= SEUIL_ENUMERATION
             ? " : " + String.join(", ", illisibles)
             : "";
-        Avertissements.dire(illisibles.size() + " class(es) could not be loaded and "
+        Avertisseur.dire(illisibles.size() + " class(es) could not be loaded and "
             + "were skipped" + liste + ". A dependency is missing from the analysed classpath, or "
             + "the compilation is partial. Whether they carried @UMLClass cannot be known — the "
             + "annotation is only readable on a loaded class — so the diagram may be incomplete.");
@@ -347,7 +347,7 @@ public class ProjectScanner {
         String liste = perdues.size() <= SEUIL_ENUMERATION
             ? " : " + String.join(", ", perdues)
             : "";
-        Avertissements.dire(perdues.size() + " class(es) loaded but could not be read, and were "
+        Avertisseur.dire(perdues.size() + " class(es) loaded but could not be read, and were "
             + "skipped" + liste + ". The class itself was found; what is missing from the analysed "
             + "classpath is a type it names — in a member signature, in a supertype, or in an "
             + "annotation. Add that dependency to the analysed classpath, or the diagram will "
@@ -386,7 +386,7 @@ public class ProjectScanner {
         // Le même seuil que le compte rendu : peu de noms se lisent, beaucoup se comptent.
         String liste = noms.size() <= 12 ? " (" + String.join(", ", noms) + ")" : "";
 
-        Avertissements.dire(noms.size() + " box(es) have no member" + liste
+        Avertisseur.dire(noms.size() + " box(es) have no member" + liste
             + ": no strategy is declared, and the default draws none. Write "
             + "\"strategy\": \"public\" in umlg.json, declare one with @UMLClass(strategy = ...), "
             + "or pick members one by one with @UMLInclude.");
@@ -413,7 +413,7 @@ public class ProjectScanner {
         if (parametres.isEmpty() || parametres.stream().anyMatch(UmlParameter::nomme)) {
             return false;
         }
-        Avertissements.dire("no method parameter carries its name: the classes were "
+        Avertisseur.dire("no method parameter carries its name: the classes were "
             + "compiled without the -parameters option, so signatures show types only — "
             + "\"entries(String)\" instead of \"entries(xKeyName : String)\". Add "
             + "<maven.compiler.parameters>true</maven.compiler.parameters> to the pom (or "
@@ -434,7 +434,7 @@ public class ProjectScanner {
         if (mortes.isEmpty()) {
             return false;
         }
-        Avertissements.dire(mortes.size() + " rule(s) of " + Regles.NOM_DU_FICHIER
+        Avertisseur.dire(mortes.size() + " rule(s) of " + Regles.NOM_DU_FICHIER
             + " matched nothing in this project: \"" + String.join("\", \"", mortes)
             + "\". A renamed class or a typo leaves a dead rule behind; fix the name, or remove "
             + "the entry.");

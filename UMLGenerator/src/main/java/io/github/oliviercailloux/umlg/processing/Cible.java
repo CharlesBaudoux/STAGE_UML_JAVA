@@ -1,6 +1,7 @@
 package io.github.oliviercailloux.umlg.processing;
 
 import io.github.oliviercailloux.umlg.annotation.UMLClass;
+import io.github.oliviercailloux.umlg.extraction.relation.TargetResolver;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.Element;
@@ -11,10 +12,11 @@ import javax.lang.model.util.Types;
 
 // Vérifie la classe désignée par un paramètre de type Class<?>, et en rend le nom complet.
 //
-// C'est l'équivalent, au moment de la compilation, de TargetResolver.validerCible. Il ne peut
-// pas être partagé avec lui : TargetResolver reçoit un Class<?> déjà chargé, alors qu'ici la
-// classe visée n'existe pas encore sous forme compilée. Les règles appliquées sont pourtant les
-// mêmes, et les messages sont volontairement calqués.
+// C'est l'équivalent, au moment de la compilation, de TargetResolver.validerCible. Le contrôle
+// ne peut pas être partagé avec lui : TargetResolver reçoit un Class<?> déjà chargé, alors
+// qu'ici la classe visée n'existe pas encore sous forme compilée. Les messages, eux, le sont —
+// ils sont écrits une seule fois, dans TargetResolver, à qui les règles appartiennent ; les
+// recopier ici, fût-ce à l'identique, était une divergence en sursis.
 final class Cible {
 
     private final Rapporteur rapporteur;
@@ -61,8 +63,7 @@ final class Cible {
         // int.class est du Java légal — son type est Class<Integer> —, et passerait donc la
         // vérification du compilateur sans être pour autant une classe du diagramme.
         if (cible.getKind().isPrimitive()) {
-            rapporteur.erreur(contexte + ": a relation cannot target the primitive type " + cible
-                + "; only a class of the diagram can be an endpoint.",
+            rapporteur.erreur(TargetResolver.messageCiblePrimitive(contexte, cible.toString()),
                 porteur, annotation, position);
             return null;
         }
@@ -77,9 +78,9 @@ final class Cible {
         TypeElement element = (TypeElement) types.asElement(cible);
 
         if (element.getAnnotation(UMLClass.class) == null) {
-            rapporteur.erreur(contexte + ": target " + element.getQualifiedName()
-                + " does not carry @UMLClass, so it is not part of the diagram. Annotate it, "
-                + "or point " + membre + "() at a class that is.", porteur, annotation, position);
+            rapporteur.erreur(TargetResolver.messageCibleHorsDiagramme(contexte,
+                element.getQualifiedName().toString(), membre + "()"),
+                porteur, annotation, position);
             return null;
         }
         return element.getQualifiedName().toString();

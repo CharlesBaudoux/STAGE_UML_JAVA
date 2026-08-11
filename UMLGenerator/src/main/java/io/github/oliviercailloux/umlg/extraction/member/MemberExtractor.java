@@ -3,7 +3,6 @@ package io.github.oliviercailloux.umlg.extraction.member;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import com.google.common.collect.ImmutableList;
-import io.github.oliviercailloux.umlg.Avertissements;
 import io.github.oliviercailloux.umlg.annotation.UMLAssociation;
 import io.github.oliviercailloux.umlg.annotation.UMLDerived;
 import io.github.oliviercailloux.umlg.annotation.UMLExclude;
@@ -21,6 +20,7 @@ import io.github.oliviercailloux.umlg.model.UmlAssociation;
 import io.github.oliviercailloux.umlg.model.UmlField;
 import io.github.oliviercailloux.umlg.model.UmlMethod;
 import io.github.oliviercailloux.umlg.model.UmlParameter;
+import io.github.oliviercailloux.umlg.warning.Avertisseur;
 import java.lang.reflect.AccessibleObject;
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Field;
@@ -123,9 +123,7 @@ public final class MemberExtractor {
             // dirait laquelle. Sur un attribut porteur de @UMLAssociation, c'est
             // targetCardinality qui compte — @UMLMultiplicity n'a plus rien à qualifier.
             checkArgument(association == null || !field.isAnnotationPresent(UMLMultiplicity.class),
-                "%s carries both @UMLAssociation and @UMLMultiplicity: the multiplicity of this "
-                    + "property is already given by targetCardinality. Keep only one of the two.",
-                emplacement(field));
+                messageDeuxMultiplicites(emplacement(field)));
 
             signalerNotationAttributSurUnChamp(field);
 
@@ -229,9 +227,44 @@ public final class MemberExtractor {
     private static void signalerNotationAttributSurUnChamp(Field field) {
         UMLInclude inclusion = field.getAnnotation(UMLInclude.class);
         if (inclusion != null && inclusion.asAttribute()) {
-            Avertissements.dire(emplacement(field) + ": @UMLInclude(asAttribute = true) is for "
-                + "methods; a field is already an attribute. Remove the attribute.");
+            Avertisseur.dire(messageNotationAttributSurUnChamp(emplacement(field)));
         }
+    }
+
+    // LES QUATRE RÈGLES QUE LE PROCESSEUR D'ANNOTATIONS VIENT LIRE ICI
+    //
+    // Elles sont exactement les mêmes des deux côtés — mêmes conditions, mêmes mots —, et elles
+    // étaient recopiées à la main dans processing/, où le paquetage promet pourtant de ne
+    // réécrire aucune règle. Une duplication identique est une duplication en sursis : celles
+    // qu'on n'a pas nommées avaient déjà divergé. Les messages vivent donc là où la règle
+    // s'applique, et le processeur les lit.
+
+    // Deux multiplicités sur la même propriété : l'une des deux serait fausse, et rien ne dirait
+    // laquelle. Sur un attribut porteur de @UMLAssociation, c'est targetCardinality qui compte —
+    // @UMLMultiplicity n'a plus rien à qualifier.
+    public static String messageDeuxMultiplicites(String emplacement) {
+        return emplacement + " carries both @UMLAssociation and @UMLMultiplicity: the "
+            + "multiplicity of this property is already given by targetCardinality. Keep only one "
+            + "of the two.";
+    }
+
+    // @UMLInclude(asAttribute = true) posé sur un attribut : la notation n'a rien à convertir, un
+    // attribut est déjà un attribut.
+    public static String messageNotationAttributSurUnChamp(String emplacement) {
+        return emplacement + ": @UMLInclude(asAttribute = true) is for methods; a field is "
+            + "already an attribute. Remove the attribute.";
+    }
+
+    // Les parenthèses retirées, il ne reste que le nom et le type : il faut donc que les deux
+    // existent.
+    public static String messageNotationAttributAvecParametres(String emplacement) {
+        return emplacement + " carries @UMLInclude(asAttribute = true) but takes parameters: an "
+            + "attribute has none. Remove the parameters, or the notation.";
+    }
+
+    public static String messageNotationAttributSansRetour(String emplacement) {
+        return emplacement + " carries @UMLInclude(asAttribute = true) but returns nothing: an "
+            + "attribute is its type. Return something, or remove the notation.";
     }
 
     // Cet attribut est-il le champ d'un composant de record ?
@@ -417,14 +450,30 @@ public final class MemberExtractor {
         TargetResolver.validerCible(cible, contexte, "target()");
 
         try {
-            // La multiplicité et le rôle sont validés en construisant l'objet du modèle avec ces
-            // mêmes valeurs — le procédé qu'emploie déjà le processeur d'annotations. Aucune
-            // règle n'est donc réécrite ici : la grammaire des multiplicités reste écrite une
-            // seule fois, dans UmlAssociation, et le refus est le même sous les deux notations.
+            // Les multiplicités, les rôles et le label sont validés en construisant l'objet du
+            // modèle avec ces mêmes valeurs — le procédé qu'emploie déjà le processeur
+            // d'annotations. Aucune règle n'est donc réécrite ici : la grammaire des
+            // multiplicités reste écrite une seule fois, dans UmlAssociation, et le refus est le
+            // même sous les deux notations.
+            //
+            // LES TROIS PARAMÈTRES QUE CETTE NOTATION NE DESSINE PAS SONT VALIDÉS QUAND MÊME
+            //
+            // sourceCardinality, sourceRole et label décorent un trait, et la notation ATTRIBUTE
+            // n'en trace aucun : ils ne sont pas recopiés dans la ligne engendrée, et l'ancienne
+            // version ne les lisait donc pas du tout. Le processeur d'annotations, lui, les
+            // validait quelle que soit la notation — si bien que « sourceCardinality = "3..1" »
+            // arrêtait la compilation et passait la génération, sur le même code. C'est la
+            // divergence 14(b), tranchée du côté dur : une multiplicité impossible reste
+            // impossible, qu'elle finisse dessinée ou non, et la première bascule vers ARROW la
+            // ferait surgir. Les deux moitiés posent maintenant la même question, à la même
+            // grammaire.
             UmlAssociation lien =
                 UmlAssociation.builder(field.getName(), cible.getName())
+                    .sourceCardinality(association.sourceCardinality())
+                    .sourceRole(association.sourceRole())
                     .targetRole(association.targetRole())
                     .targetCardinality(association.targetCardinality())
+                    .label(association.label())
                     .constraints(ConstraintExtractor.de(field, emplacement(field)))
                     .build();
 
@@ -605,11 +654,9 @@ public final class MemberExtractor {
             }
             String emplacement = emplacement(method);
             checkArgument(method.getParameterCount() == 0,
-                "%s carries @UMLInclude(asAttribute = true) but takes parameters: an attribute "
-                    + "has none. Remove the parameters, or the notation.", emplacement);
+                messageNotationAttributAvecParametres(emplacement));
             checkArgument(method.getReturnType() != void.class,
-                "%s carries @UMLInclude(asAttribute = true) but returns nothing: an attribute "
-                    + "is its type. Return something, or remove the notation.", emplacement);
+                messageNotationAttributSansRetour(emplacement));
 
             try {
                 String multiplicite =

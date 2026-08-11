@@ -31,6 +31,14 @@
 // les objets du modèle avec les valeurs lues dans l'annotation et traduit en erreur de
 // compilation l'exception que le modèle lève déjà.
 //
+// Quand la question ne peut pas être posée au modèle — parce qu'elle porte sur le code annoté et
+// non sur le diagramme —, c'est le message qui est partagé, jamais recopié : la règle vit là où
+// elle s'applique, et ce paquetage vient l'y lire. Multiplicites, Contraintes et ColorCodec ont
+// été nommées exactement pour cela ; AssociationClassExtractor, TargetResolver,
+// DependencyExtractor, PackageExtractor, ClassHeaderValidator et MemberExtractor rendent de même
+// les textes que les deux moitiés se partagent. Chacune de ces paires avait déjà divergé, ou
+// n'attendait que le premier changement pour le faire.
+//
 // Non exporté par module-info : le processeur se déclare avec « provides », ce qui n'exige pas
 // d'ouvrir le paquetage. L'utilisateur ne doit jamais y importer quoi que ce soit.
 package io.github.oliviercailloux.umlg.processing;

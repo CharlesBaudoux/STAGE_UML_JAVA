@@ -4,6 +4,7 @@ import com.google.common.collect.ImmutableSet;
 import io.github.oliviercailloux.umlg.annotation.UMLAssociation;
 import io.github.oliviercailloux.umlg.annotation.UMLDependencies;
 import io.github.oliviercailloux.umlg.annotation.UMLDependency;
+import io.github.oliviercailloux.umlg.extraction.relation.DependencyExtractor;
 import io.github.oliviercailloux.umlg.model.UmlDependency;
 import java.util.HashSet;
 import java.util.List;
@@ -58,9 +59,9 @@ final class VerificateurDependance {
             }
 
             if (nomCible.contentEquals(classe.getQualifiedName())) {
-                rapporteur.erreur(contexteDeLaDependance + ": a class cannot depend on itself; "
-                    + "the relation would teach the diagram's reader nothing.", classe, annotation,
-                    rapporteur.valeurEcrite(annotation, "target"));
+                rapporteur.erreur(
+                    DependencyExtractor.messageDependanceReflexive(contexteDeLaDependance),
+                    classe, annotation, rapporteur.valeurEcrite(annotation, "target"));
                 continue;
             }
 
@@ -76,9 +77,8 @@ final class VerificateurDependance {
             }
 
             if (!deja.add(dependance)) {
-                rapporteur.erreur(contexteDeLaDependance + ": the dependency towards " + nomCible
-                    + " is declared twice with the same label; the two lines would overlap with "
-                    + "nothing to show it.", classe, annotation);
+                rapporteur.erreur(DependencyExtractor.messageDependanceEnDouble(
+                    contexteDeLaDependance, nomCible), classe, annotation);
                 continue;
             }
 

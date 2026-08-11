@@ -132,13 +132,13 @@ class UmlgGroupesEtClassesDAssociationTest {
             """);
 
         assertFalse(verdict.reussie(), verdict.rapport());
-        assertTrue(verdict.erreurContient("is the association class itself"), verdict.rapport());
         // Le message nomme l'extrémité fautive, et il est celui d'AssociationClassExtractor : la
         // règle n'existe plus qu'à un endroit, et les deux moitiés la contrôlent dans le même
         // ordre — la réflexivité avant l'appartenance au diagramme.
         assertTrue(verdict.erreurContient("source() is the association class itself"),
             verdict.rapport());
-        assertTrue(verdict.erreurContient("cannot be one of the two ends"), verdict.rapport());
+        assertTrue(verdict.erreurContient("Point source() at one of the two classes"),
+            verdict.rapport());
     }
 
     @Test

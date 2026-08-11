@@ -63,6 +63,9 @@ class ClasseDAssociationTest {
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
             () -> new AssociationClassExtractor().extraire(SoiMeme.class));
 
-        assertTrue(e.getMessage().contains("cannot be one of the two ends"), e.getMessage());
+        // L'assertion porte sur l'extrémité nommée : c'est ce que l'auteur doit corriger, et ce
+        // qu'un message qui dirait seulement « une extrémité est fautive » lui laisserait chercher.
+        assertTrue(e.getMessage().contains("source() is the association class itself"),
+            e.getMessage());
     }
 }

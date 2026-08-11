@@ -4,6 +4,7 @@ import io.github.oliviercailloux.umlg.annotation.UMLAssociation;
 import io.github.oliviercailloux.umlg.annotation.UMLClass;
 import io.github.oliviercailloux.umlg.annotation.UMLExclude;
 import io.github.oliviercailloux.umlg.annotation.UMLInclude;
+import io.github.oliviercailloux.umlg.extraction.member.MemberExtractor;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
@@ -98,27 +99,29 @@ final class VerificateurMembre {
     // La notation attribut — asAttribute = true — exige une méthode sans paramètre qui rend
     // quelque chose : les parenthèses retirées, il ne reste que le nom et le type, et il faut
     // que les deux existent. Rend faux quand une erreur a été signalée.
+    //
+    // Les trois messages viennent de MemberExtractor, à qui les règles appartiennent : ils
+    // étaient recopiés ici mot pour mot, ce que le paquetage promet précisément de ne pas faire.
     private boolean verifierNotationAttribut(Element membre, AnnotationMirror inclusion) {
         if (!membre.getAnnotation(UMLInclude.class).asAttribute()) {
             return true;
         }
+        String emplacement = Membre.emplacement(membre);
+
         if (membre.getKind() != ElementKind.METHOD) {
-            rapporteur.erreur(Membre.emplacement(membre) + ": @UMLInclude(asAttribute = true) is "
-                + "for methods; a field is already an attribute. Remove the attribute.",
+            rapporteur.erreur(MemberExtractor.messageNotationAttributSurUnChamp(emplacement),
                 membre, inclusion);
             return false;
         }
         ExecutableElement methode = (ExecutableElement) membre;
         if (!methode.getParameters().isEmpty()) {
-            rapporteur.erreur(Membre.emplacement(membre) + " carries @UMLInclude(asAttribute = "
-                + "true) but takes parameters: an attribute has none. Remove the parameters, or "
-                + "the notation.", membre, inclusion);
+            rapporteur.erreur(MemberExtractor.messageNotationAttributAvecParametres(emplacement),
+                membre, inclusion);
             return false;
         }
         if (methode.getReturnType().getKind() == TypeKind.VOID) {
-            rapporteur.erreur(Membre.emplacement(membre) + " carries @UMLInclude(asAttribute = "
-                + "true) but returns nothing: an attribute is its type. Return something, or "
-                + "remove the notation.", membre, inclusion);
+            rapporteur.erreur(MemberExtractor.messageNotationAttributSansRetour(emplacement),
+                membre, inclusion);
             return false;
         }
         return true;

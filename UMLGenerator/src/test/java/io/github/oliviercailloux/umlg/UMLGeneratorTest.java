@@ -1,5 +1,6 @@
 package io.github.oliviercailloux.umlg;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -123,6 +124,32 @@ class UMLGeneratorTest {
                 .build());
 
         assertTrue(e.getMessage().contains("svg"), e.getMessage());
+    }
+
+    @Test
+    void conserverLaGenerationPrecedenteSansDossier_estRefuse(@TempDir Path tmp) {
+        // Le troisième réglage qui se contredisait en silence : keepPrevious n'est lu que dans la
+        // branche dossier, si bien qu'en mode fichier unique la génération précédente était
+        // écrasée par celle-là même qui demandait de la garder.
+        IllegalStateException e = assertThrows(IllegalStateException.class,
+            () -> UMLGenerator.builder()
+                .sourceDirectory(tmp.toString())
+                .outputFile("archi.svg")
+                .keepPrevious(true)
+                .build());
+
+        assertTrue(e.getMessage().contains("keepPrevious"), e.getMessage());
+    }
+
+    @Test
+    void nePasConserverLaGenerationPrecedente_resteLiciteSansDossier(@TempDir Path tmp) {
+        // keepPrevious(false) demande ce que le mode fichier unique fait déjà : ce n'est pas une
+        // contradiction, et le contrôle ne doit pas se refermer dessus.
+        assertDoesNotThrow(() -> UMLGenerator.builder()
+            .sourceDirectory(tmp.toString())
+            .outputFile("archi.svg")
+            .keepPrevious(false)
+            .build());
     }
 
     @Test

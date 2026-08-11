@@ -11,6 +11,7 @@ import io.github.oliviercailloux.umlg.extraction.ResultatDeScan;
 import io.github.oliviercailloux.umlg.model.UmlProject;
 import io.github.oliviercailloux.umlg.rendering.PlantUmlWriter;
 import io.github.oliviercailloux.umlg.rendering.syntax.ColorCodec;
+import io.github.oliviercailloux.umlg.warning.Avertisseur;
 import java.io.IOException;
 import java.nio.file.FileSystemException;
 import java.nio.file.Files;
@@ -129,7 +130,7 @@ public final class UMLGenerator {
         // temps réel exactement pendant le moment où il sert.
         ImmutableList.Builder<String> avertissements = ImmutableList.builder();
         try (Avertissements.Canal capture =
-            Avertissements.enPlusDuCanalCourant(avertissements::add)) {
+            Avertisseur.enPlusDuCanalCourant(avertissements::add)) {
             return genere(avertissements);
         }
     }
@@ -208,7 +209,7 @@ public final class UMLGenerator {
     private static void signalerLesVuesPerdues(UmlProject project) {
         int perdues = project.views().size() - 1;
         if (perdues > 0) {
-            Avertissements.dire("this project declares " + perdues + " partial view(s), which a "
+            Avertisseur.dire("this project declares " + perdues + " partial view(s), which a "
                 + "single output file cannot hold: only the whole-project diagram is written. "
                 + "Ask for a directory — .outputDirectory(\"diagrammes\") — to get them all.");
         }
@@ -406,6 +407,10 @@ public final class UMLGenerator {
          * une option d'appel, au même titre qu'{@link UmlStyle}, et elle varie d'ailleurs d'un
          * appel à l'autre là où le fichier de règles, lui, est versionné avec le code.
          *
+         * <p>Le réglage suppose un dossier de sortie : {@link #build()} refuse
+         * {@code keepPrevious(true)} en mode fichier unique, où il n'y a rien à conserver et
+         * aucun dossier voisin à numéroter.
+         *
          * @param keepPrevious vrai pour écrire à côté plutôt que d'effacer.
          * @return ce builder.
          */
@@ -475,16 +480,18 @@ public final class UMLGenerator {
          *
          * <p>C'est ici que se juge la cohérence de l'ensemble, faute de pouvoir la juger appel par
          * appel : {@code outputFile} et {@code outputDirectory} demandent deux sorties différentes,
-         * et {@code outputFormat} ne veut rien dire sans dossier. {@code generate()} tranchait
-         * jusqu'ici en silence — le fichier nommé n'était jamais écrit, ou le format demandé jamais
-         * lu —, ce qui laissait l'utilisateur devant un résultat qu'il n'avait pas demandé et sans
-         * rien pour comprendre.
+         * et ni {@code outputFormat} ni {@code keepPrevious} ne veulent dire quelque chose sans
+         * dossier. {@code generate()} tranchait jusqu'ici en silence — le fichier nommé n'était
+         * jamais écrit, le format demandé jamais lu, la génération qu'on demandait de garder
+         * écrasée —, ce qui laissait l'utilisateur devant un résultat qu'il n'avait pas demandé et
+         * sans rien pour comprendre.
          *
          * @return le générateur, prêt à {@link UMLGenerator#generate()}.
          * @throws NullPointerException si le répertoire source n'a pas été fourni : il n'a pas de
          *     défaut raisonnable.
          * @throws IllegalStateException si deux réglages se contredisent : un fichier et un dossier
-         *     de sortie demandés ensemble, ou un format d'image demandé hors du mode dossier.
+         *     de sortie demandés ensemble, ou un format d'image ou {@code keepPrevious} demandés
+         *     hors du mode dossier.
          */
         public UMLGenerator build() {
             checkNotNull(sourceDirectory,
@@ -499,6 +506,22 @@ public final class UMLGenerator {
                     + "the format is read from the file name. Write .outputFile(\"diagram%s\"), or "
                     + "ask for a directory with .outputDirectory(...).",
                 extension, extension);
+            // Le troisième, et il ferme exactement le même mode de défaillance que les deux
+            // autres : keepPrevious ne se lit que dans la branche dossier, si bien qu'en mode
+            // fichier unique il était ignoré sans un mot — la génération précédente était
+            // écrasée par celle qui venait justement demander qu'on ne l'écrase pas.
+            //
+            // Le contrôle porte sur « vrai », et non sur « écrit », à la différence de
+            // fichierDemande et de formatDemande : keepPrevious(false) demande le comportement
+            // que le mode fichier unique donne déjà, et ne contredit donc rien. Seul l'appel qui
+            // demande de conserver se voit refusé, et il est refusé plutôt que rendu possible
+            // parce qu'un fichier unique n'a pas de dossier voisin à numéroter — le mécanisme
+            // tout entier est celui d'un dossier.
+            checkState(!(keepPrevious && outputDirectory == null),
+                ".keepPrevious(true) asks for the previous generation to be kept, but there is no "
+                    + "output directory: in single-file mode the file is simply overwritten, and "
+                    + "there is no neighbouring folder to number. Ask for a directory with "
+                    + ".outputDirectory(...), or drop .keepPrevious(true).");
             return new UMLGenerator(this);
         }
     }

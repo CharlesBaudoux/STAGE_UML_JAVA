@@ -2,6 +2,7 @@ package io.github.oliviercailloux.umlg.extraction.relation;
 
 import com.google.common.collect.ImmutableList;
 import io.github.oliviercailloux.umlg.annotation.UMLClass;
+import io.github.oliviercailloux.umlg.extraction.rules.Regles;
 import io.github.oliviercailloux.umlg.model.UmlInheritance;
 import java.util.Arrays;
 
@@ -17,8 +18,10 @@ import java.util.Arrays;
 // fait foi.
 public final class InheritanceExtractor implements RelationExtractor {
 
+    // Les règles du projet ne disent rien de l'héritage : il se lit dans la signature de la
+    // classe, où l'ordre est celui du code et n'appartient à personne d'autre.
     @Override
-    public ImmutableList<UmlInheritance> extraire(Class<?> clazz) {
+    public ImmutableList<UmlInheritance> extraire(Class<?> clazz, Regles regles) {
         ImmutableList.Builder<UmlInheritance> result = ImmutableList.builder();
 
         // getSuperclass rend null pour une interface et pour Object ; pour une énumération ou un

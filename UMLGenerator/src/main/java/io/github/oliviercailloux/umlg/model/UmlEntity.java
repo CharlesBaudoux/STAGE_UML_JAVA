@@ -74,8 +74,8 @@ public record UmlEntity(
      *
      * @throws NullPointerException si l'une des composantes est nulle ; l'absence d'un texte
      *     facultatif se dit avec la chaîne vide, jamais avec {@code null}.
-     * @throws IllegalArgumentException si le nom complet est vide, ou si une contrainte est mal
-     *     formée.
+     * @throws IllegalArgumentException si le nom complet ou le nom affiché est vide, ou si une
+     *     contrainte est mal formée.
      */
     public UmlEntity {
         checkNotNull(name, "The entity name cannot be null.");
@@ -87,6 +87,12 @@ public record UmlEntity(
         checkNotNull(color, "The color cannot be null (use an empty string).");
         checkNotNull(strategy, "The visibility strategy cannot be null.");
         checkArgument(!qualifiedName.isBlank(), "The entity qualified name cannot be empty.");
+        // Le nom affiché est le seul texte de la boîte que le lecteur a sous les yeux : vide, il
+        // ne désigne rien, et le rendu écrivait « class "" as C » — que le moteur refuse, deux
+        // couches plus loin et sans un mot sur l'origine. L'extraction posait déjà la question
+        // (ClassHeaderValidator), mais elle ne couvre pas la construction directe par l'API :
+        // c'est cette dernière porte que ferme la même exigence que sur un membre (UmlField).
+        checkArgument(!name.isBlank(), "The entity name cannot be empty.");
 
         // La recopie défensive : le paramètre est réaffecté, donc c'est bien la copie immuable
         // qui finit dans le champ.

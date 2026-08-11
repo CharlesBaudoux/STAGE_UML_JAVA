@@ -59,7 +59,8 @@ class OrdreDesRelationsTest {
 
     @Test
     void sansRegles_lExtracteurRendLaMemeChoseQuAvecAucune() {
-        // La surcharge à un argument est le cas « aucune règle de projet », et rien d'autre.
+        // La surcharge à un argument est le cas « aucune règle de projet », et rien d'autre :
+        // c'est elle qui est le défaut du contrat, et elle appelle celle à deux arguments.
         assertEquals(nomsDesAssociations(Regles.aucune()),
             new AssociationExtractor().extraire(Liee.class).stream()
                 .map(UmlAssociation::fieldName).toList());
@@ -72,11 +73,12 @@ class OrdreDesRelationsTest {
 
     @Test
     void lesExtracteursSansMembres_ignorentLesRegles() {
-        // L'héritage se lit dans la signature de la classe, les dépendances dans ses annotations :
-        // aucun des deux ne relit un membre, et le défaut du contrat commun leur suffit. Le
-        // vérifier évite qu'un jour l'un d'eux rende autre chose selon les règles reçues.
-        for (RelationExtractor extracteur :
-            List.of(new DependencyExtractor(), new InheritanceExtractor())) {
+        // L'héritage se lit dans la signature de la classe, les dépendances et les classes
+        // d'association dans ses annotations : aucun des trois ne relit un membre, et tous
+        // reçoivent donc des règles dont ils n'ont rien à faire. Le vérifier évite qu'un jour
+        // l'un d'eux rende autre chose selon les règles reçues.
+        for (RelationExtractor extracteur : List.of(new DependencyExtractor(),
+            new InheritanceExtractor(), new AssociationClassExtractor())) {
 
             ImmutableList<? extends UmlRelation> sans = extracteur.extraire(Fille.class);
             ImmutableList<? extends UmlRelation> avec =

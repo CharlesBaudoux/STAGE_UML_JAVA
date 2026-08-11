@@ -1,8 +1,8 @@
 package io.github.oliviercailloux.umlg.extraction;
 
-import io.github.oliviercailloux.umlg.Avertissements;
 import com.google.common.collect.ImmutableList;
 import io.github.oliviercailloux.umlg.extraction.rules.Regles;
+import io.github.oliviercailloux.umlg.warning.Avertisseur;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Arrays;
@@ -111,7 +111,7 @@ public final class MembresOrdonnes {
         if (!ORDRE_PERDU_SIGNALE.add(clazz)) {
             return;
         }
-        Avertissements.dire("\"order\": \"declaration\" is asked for, but the class file of "
+        Avertisseur.dire("\"order\": \"declaration\" is asked for, but the class file of "
             + clazz.getName() + " cannot be re-read; the members of this box fall back to "
             + "alphabetical order.");
     }

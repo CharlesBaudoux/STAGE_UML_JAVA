@@ -20,13 +20,30 @@ public final class TargetResolver {
 
     public static void validerCible(Class<?> cible, String contexte, String parametre) {
         checkArgument(!cible.isPrimitive(),
-            "%s: a relation cannot target the primitive type %s; only a class of the diagram "
-                + "can be an endpoint.",
-            contexte, cible.getName());
+            messageCiblePrimitive(contexte, cible.getName()));
 
         checkArgument(cible.isAnnotationPresent(UMLClass.class),
-            "%s: target %s does not carry @UMLClass, so it is not part of the diagram. "
-                + "Annotate it, or point %s at a class that is.",
-            contexte, cible.getName(), parametre);
+            messageCibleHorsDiagramme(contexte, cible.getName(), parametre));
+    }
+
+    // LES DEUX RÈGLES QUE LE PROCESSEUR D'ANNOTATIONS VIENT LIRE ICI
+    //
+    // Cible pose les mêmes questions à la compilation, sur une classe qui n'existe pas encore
+    // sous forme chargée : le contrôle ne peut pas être partagé, mais le texte, lui, le doit.
+    // Il était recopié mot pour mot, et c'est ainsi que deux messages voisins avaient fini par
+    // dire deux choses différentes.
+
+    // int.class est du Java légal — son type est Class<Integer> — et passe donc la vérification
+    // du compilateur sans être pour autant une classe du diagramme.
+    public static String messageCiblePrimitive(String contexte, String nomDuType) {
+        return contexte + ": a relation cannot target the primitive type " + nomDuType
+            + "; only a class of the diagram can be an endpoint.";
+    }
+
+    // @param parametre le nom du paramètre à corriger, « target() » ou « source() ».
+    public static String messageCibleHorsDiagramme(String contexte, String nomDeLaCible,
+        String parametre) {
+        return contexte + ": target " + nomDeLaCible + " does not carry @UMLClass, so it is not "
+            + "part of the diagram. Annotate it, or point " + parametre + " at a class that is.";
     }
 }

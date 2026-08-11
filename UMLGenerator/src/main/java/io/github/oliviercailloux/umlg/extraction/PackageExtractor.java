@@ -18,7 +18,9 @@ import io.github.oliviercailloux.umlg.model.UmlPackage;
 // Aussi court que ClassHeaderValidator, et pour la même raison : il n'y a rien à déduire, tout
 // est déclaré. Ce qui vaut d'être écrit ici est la validation, dont les messages nomment la
 // classe fautive — le modèle, lui, ne la connaît pas.
-final class PackageExtractor {
+// Public, non pour l'utilisateur — le paquetage n'est pas exporté — mais pour le processeur
+// d'annotations, qui vient y lire le message ci-dessous. extraire, elle, reste hors de sa portée.
+public final class PackageExtractor {
 
     private PackageExtractor() {}
 
@@ -32,15 +34,19 @@ final class PackageExtractor {
         // name() n'a pas de valeur par défaut : javac exige donc qu'il soit écrit. Reste le cas
         // qu'il ne peut pas voir, celui d'un nom vide ou fait d'espaces — un rectangle dont
         // l'étiquette ne se lirait pas.
-        checkArgument(!annotation.name().isBlank(),
-            "%s: name() cannot be empty or made of whitespace only; a group is identified by "
-                + "its name.",
-            contexte);
+        checkArgument(!annotation.name().isBlank(), messageNomDeGroupeVide(contexte));
 
         // La couleur est confiée au même contrôle que celle d'une boîte : c'est la même
         // grammaire, et il n'y a aucune raison qu'un rectangle accepte ce qu'une boîte refuse.
         ClassHeaderValidator.validateColor(annotation.color(), contexte);
 
         return new UmlPackage(annotation.name(), annotation.color());
+    }
+
+    // La règle que le processeur d'annotations vient lire ici : il posait la même question, avec
+    // le même texte, recopié à la main.
+    public static String messageNomDeGroupeVide(String contexte) {
+        return contexte + ": name() cannot be empty or made of whitespace only; a group is "
+            + "identified by its name.";
     }
 }

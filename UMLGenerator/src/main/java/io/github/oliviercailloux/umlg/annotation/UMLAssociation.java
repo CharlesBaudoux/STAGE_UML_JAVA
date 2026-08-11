@@ -58,6 +58,11 @@ public @interface UMLAssociation {
      * n'ont alors nulle part où s'écrire ; le processeur d'annotations le signale plutôt que de
      * les laisser disparaître en silence.
      *
+     * <p>Inutile ne veut pas dire dispensé de sens : ces mêmes paramètres restent validés sous
+     * les deux notations, à la compilation comme à la génération. Une multiplicité « 3..1 » est
+     * impossible qu'elle finisse dessinée ou non, et la première bascule vers ARROW la ferait
+     * surgir.
+     *
      * @return la notation retenue.
      */
     UMLNotation notation() default UMLNotation.ARROW;

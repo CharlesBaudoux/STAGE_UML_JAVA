@@ -1,6 +1,7 @@
 package io.github.oliviercailloux.umlg.processing;
 
 import io.github.oliviercailloux.umlg.annotation.UMLPackage;
+import io.github.oliviercailloux.umlg.extraction.PackageExtractor;
 import io.github.oliviercailloux.umlg.rendering.syntax.ColorCodec;
 import java.util.HashMap;
 import java.util.Map;
@@ -40,10 +41,10 @@ final class VerificateurPackage {
         String nom = rapporteur.texte(annotation, "name");
         if (nom.isBlank()) {
             // name() n'a pas de défaut, javac exige donc qu'il soit écrit ; reste ce qu'il ne
-            // voit pas, un nom vide ou fait d'espaces.
-            rapporteur.erreur(contexte + ": name() cannot be empty or made of whitespace only; "
-                + "a group is identified by its name.", classe, annotation,
-                rapporteur.valeurEcrite(annotation, "name"));
+            // voit pas, un nom vide ou fait d'espaces. Le message vient de PackageExtractor, à
+            // qui la règle appartient.
+            rapporteur.erreur(PackageExtractor.messageNomDeGroupeVide(contexte), classe,
+                annotation, rapporteur.valeurEcrite(annotation, "name"));
             return;
         }
 

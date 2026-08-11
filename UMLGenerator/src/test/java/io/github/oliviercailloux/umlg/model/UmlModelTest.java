@@ -154,6 +154,20 @@ class UmlModelTest {
     }
 
     @Test
+    void entite_refuseUnNomVide() {
+        // Le dernier chemin par lequel une boîte sans nom entrait dans le modèle : la
+        // construction directe par l'API, que ClassHeaderValidator ne voit pas. Le rendu
+        // écrivait alors « class "" as E », que le moteur refuse deux couches plus loin.
+        assertThrows(IllegalArgumentException.class,
+            () -> new UmlEntity("", "", "", UMLVisibility.NONE, List.of(), List.of()));
+        assertThrows(IllegalArgumentException.class,
+            () -> new UmlEntity("   ", "", "", UMLVisibility.NONE, List.of(), List.of()));
+        // Le nom complet reste distinct du nom affiché : les deux sont exigés.
+        assertThrows(IllegalArgumentException.class,
+            () -> UmlEntity.builder("com.banque.Compte", "  ").build());
+    }
+
+    @Test
     void entite_copieLesListesRecuesALaConstruction() {
         // Sans copie défensive, l'appelant pourrait modifier le contenu du diagramme après
         // coup, à l'insu de l'entité.

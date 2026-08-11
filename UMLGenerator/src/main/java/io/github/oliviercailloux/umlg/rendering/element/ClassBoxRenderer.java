@@ -1,5 +1,7 @@
 package io.github.oliviercailloux.umlg.rendering.element;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import io.github.oliviercailloux.umlg.model.UmlEntity;
 import io.github.oliviercailloux.umlg.model.UmlField;
 import io.github.oliviercailloux.umlg.model.UmlMethod;
@@ -62,9 +64,22 @@ public final class ClassBoxRenderer {
         // Le nom occupe à lui seul la première ligne dessinée de la boîte : c'est donc
         // debutDeLigne et non label, sans quoi un nom valant « = titre » perdrait son signe égal,
         // lu comme un titre Creole.
+        //
+        // La vacuité du nom est éprouvée ici comme celle du stéréotype plus bas, et pour la même
+        // raison : le modèle refuse un nom vide ou fait d'espaces, mais il ne connaît pas
+        // PlantUML et n'a donc rien à dire des caractères de contrôle, que l'échappement
+        // supprime. Un nom qui n'en contient que — construit directement par l'API, sans passer
+        // par ClassHeaderValidator — écrivait « class "" as C », que le moteur refuse : la garde
+        // du writer levait alors une IllegalStateException accusant « un défaut de la
+        // bibliothèque », message que l'appelant ne pouvait pas suivre.
+        String nomEcrit = PlantUmlEscaper.debutDeLigne(entity.name() + entity.typeParameters());
+        checkArgument(!nomEcrit.isBlank(),
+            "The name of %s draws nothing: it is made of invisible characters only.",
+            entity.qualifiedName());
+
         boite.append(entity.kind().motCle())
              .append(" \"")
-             .append(PlantUmlEscaper.debutDeLigne(entity.name() + entity.typeParameters()))
+             .append(nomEcrit)
              .append("\" as ").append(alias);
 
         // Le modèle garantit déjà le non-nul ; le test sur null est une ceinture de sécurité.

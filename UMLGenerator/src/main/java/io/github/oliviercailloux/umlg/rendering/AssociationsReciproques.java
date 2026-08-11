@@ -4,11 +4,11 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.github.oliviercailloux.umlg.Avertissements;
 import io.github.oliviercailloux.umlg.annotation.UMLRelationType;
 import io.github.oliviercailloux.umlg.model.UmlAssociation;
 import io.github.oliviercailloux.umlg.model.UmlEntity;
 import io.github.oliviercailloux.umlg.model.UmlRelation;
+import io.github.oliviercailloux.umlg.warning.Avertisseur;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -88,7 +88,7 @@ public final class AssociationsReciproques {
                 String clefPartenaire = clef(enFace.qualifiedName(), partenaire);
 
                 if (!fusionnable(association, partenaire)) {
-                    Avertissements.dire(
+                    Avertisseur.dire(
                         pourquoiPasFusionnee(entite, association, enFace, partenaire));
                     // Marquées comme traitées, pour que la paire ne soit pas réexaminée depuis
                     // l'autre bout et l'avertissement dit deux fois.

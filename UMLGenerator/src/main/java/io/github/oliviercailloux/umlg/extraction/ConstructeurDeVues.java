@@ -3,7 +3,6 @@ package io.github.oliviercailloux.umlg.extraction;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import io.github.oliviercailloux.umlg.Avertissements;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.github.oliviercailloux.umlg.annotation.UMLDirection;
@@ -17,6 +16,7 @@ import io.github.oliviercailloux.umlg.model.UmlEntity;
 import io.github.oliviercailloux.umlg.model.UmlLayout;
 import io.github.oliviercailloux.umlg.model.UmlRelation;
 import io.github.oliviercailloux.umlg.model.UmlView;
+import io.github.oliviercailloux.umlg.warning.Avertisseur;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -280,7 +280,7 @@ public final class ConstructeurDeVues {
         if (voulus.size() > centres.size()) {
             return false;
         }
-        Avertissements.dire("view \"" + vue + "\": \"around " + nom + "\" found no "
+        Avertisseur.dire("view \"" + vue + "\": \"around " + nom + "\" found no "
             + "neighbour, so the view shows the class alone. Neighbours come from declared "
             + "relations — @UMLAssociation, @UMLDependency, inheritance between annotated "
             + "classes — not from the types used by fields or methods. Declare a relation, or "

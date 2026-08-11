@@ -62,6 +62,14 @@ module io.github.oliviercailloux.umlg {
 
     /*
      * Non exportés, et c'est le sujet : extraction, extraction.relation, extraction.member,
-     * extraction.rules, processing, rendering, rendering.element, rendering.syntax.
+     * extraction.rules, processing, rendering, rendering.element, rendering.syntax, warning.
+     *
+     * Le dernier n'existe que pour cette ligne. Avertisseur.dire est le geste de l'extraction et
+     * du rendu, jamais celui de l'utilisateur ; tant qu'il vivait dans la classe Avertissements,
+     * du paquetage exporté, rien n'empêchait un appelant d'injecter ses propres messages dans le
+     * compte rendu de la bibliothèque. Le déclarer dans une classe non exportée dont
+     * Avertissements hériterait ne fermait rien — mesuré : un membre public hérité par une classe
+     * publique d'un paquetage exporté reste accessible hors du module, l'appel se résolvant sur la
+     * classe qui hérite et non sur celle qui déclare. Seul le déplacement ferme la porte.
      */
 }

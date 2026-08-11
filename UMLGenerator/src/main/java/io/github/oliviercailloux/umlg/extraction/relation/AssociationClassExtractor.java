@@ -4,6 +4,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 import com.google.common.collect.ImmutableList;
 import io.github.oliviercailloux.umlg.annotation.UMLAssociationClass;
+import io.github.oliviercailloux.umlg.extraction.rules.Regles;
 import io.github.oliviercailloux.umlg.model.UmlAssociationClass;
 
 // Relit l'@UMLAssociationClass posée sur la classe.
@@ -13,8 +14,10 @@ import io.github.oliviercailloux.umlg.model.UmlAssociationClass;
 // cible hors du diagramme ferait partir le trait de nulle part.
 public final class AssociationClassExtractor implements RelationExtractor {
 
+    // Les règles du projet ne disent rien d'une classe d'association : elle se lit sur
+    // l'annotation de la classe, qui n'en porte qu'une.
     @Override
-    public ImmutableList<UmlAssociationClass> extraire(Class<?> clazz) {
+    public ImmutableList<UmlAssociationClass> extraire(Class<?> clazz, Regles regles) {
         UMLAssociationClass annotation = clazz.getAnnotation(UMLAssociationClass.class);
         if (annotation == null) {
             return ImmutableList.of();
@@ -46,11 +49,14 @@ public final class AssociationClassExtractor implements RelationExtractor {
     // dans le même ordre. La règle vit ici, avec l'extraction qui l'applique ; le processeur
     // vient la lire.
     //
+    // Le texte nomme l'extrémité fautive, et n'a donc plus à répéter « l'une des deux extrémités »
+    // : « source() is the association class itself » dit déjà laquelle, et la proposition
+    // suivante n'a plus qu'à dire pourquoi c'est impossible.
+    //
     // @param membre le nom du paramètre fautif, « source() » ou « target() ».
     public static String messageExtremiteReflexive(String contexte, String membre) {
-        return contexte + ": " + membre + " is the association class itself, and the association "
-            + "class cannot be one of the two ends of the link it qualifies — the link would be "
-            + "attached to the very box that qualifies it. Point it at the two classes the link "
-            + "joins.";
+        return contexte + ": " + membre + " is the association class itself, which qualifies the "
+            + "link and cannot also be an end of it — the link would be attached to the very box "
+            + "that qualifies it. Point " + membre + " at one of the two classes the link joins.";
     }
 }

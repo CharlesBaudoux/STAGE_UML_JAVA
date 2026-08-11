@@ -19,27 +19,48 @@ import io.github.oliviercailloux.umlg.rendering.syntax.PlantUmlEscaper;
 // « class "" as C », que le moteur refuse — la génération s'arrêtait ensuite sur une
 // IllegalStateException accusant « un défaut de la bibliothèque ». Poser la question après
 // échappement la pose au bon texte, et couvre du même coup les blancs, qu'il conserve.
-final class ClassHeaderValidator {
+//
+// Public, non pour l'utilisateur — le paquetage n'est pas exporté — mais pour le processeur
+// d'annotations, comme TargetResolver l'est pour MemberExtractor. Le processeur pose les trois
+// mêmes questions à la compilation ; il les posait avec isBlank(), c'est-à-dire sans voir les
+// caractères de contrôle, et acceptait donc un nom que la génération refuse. Les trois règles
+// vivent ici, et le processeur vient les lire.
+public final class ClassHeaderValidator {
 
     private ClassHeaderValidator() {}
 
     // Le nom reçu ici est le nom final (défaut déjà résolu par EntityExtractor), il ne peut donc
     // être vide que si l'utilisateur a écrit name = "   ".
     static void validateName(String name, Class<?> clazz) {
+        validateName(name, "@UMLClass on " + clazz.getName());
+    }
+
+    // La même règle, sous un autre en-tête de message : le processeur n'a pas de Class<?> sous la
+    // main, seulement le nom qualifié que javac lui donne.
+    //
+    // Attention à ce que « vide » veut dire de chaque côté. Ici la valeur est le nom final, et
+    // vide est fautif ; côté processeur, la valeur est celle qu'on lit dans l'annotation, où vide
+    // est le défaut et signifie « le nom de la classe ». C'est à l'appelant de ne poser la
+    // question que sur un nom écrit.
+    public static void validateName(String name, String contexte) {
         checkArgument(!PlantUmlEscaper.label(name).isBlank(),
-            "@UMLClass on %s: name() cannot be empty, nor made of whitespace or invisible "
-                + "characters only.",
-            clazz.getName());
+            "%s: name() must show something: it cannot be empty, nor made of invisible characters "
+                + "or whitespace only.",
+            contexte);
     }
 
     static void validateStereotype(String stereotype, Class<?> clazz) {
+        validateStereotype(stereotype, "@UMLClass on " + clazz.getName());
+    }
+
+    public static void validateStereotype(String stereotype, String contexte) {
         if (stereotype.isEmpty()) {
             return;
         }
         checkArgument(!PlantUmlEscaper.stereotype(stereotype).isBlank(),
-            "@UMLClass on %s: stereotype() cannot be made of whitespace or invisible characters "
-                + "only.",
-            clazz.getName());
+            "%s: stereotype() must show something: it cannot be made of invisible characters or "
+                + "whitespace only.",
+            contexte);
     }
 
     static void validateColor(String color, Class<?> clazz) {

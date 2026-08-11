@@ -326,6 +326,18 @@ class PlantUmlEscapeTest {
     }
 
     @Test
+    void nomVideApresEchappement_estRefuseParLeRendu() {
+        // La ceinture du rendu, symétrique de celle du stéréotype : le modèle refuse un nom vide
+        // ou fait d'espaces, mais il ne connaît pas PlantUML et laisse donc passer un nom fait de
+        // caractères de contrôle. Le message nomme la boîte, là où le refus du moteur, deux
+        // couches plus loin, accusait « un défaut de la bibliothèque ».
+        var refus = assertThrows(IllegalArgumentException.class,
+            () -> PlantUmlAssert.documentPour(nommee("\1\2")));
+
+        assertTrue(refus.getMessage().contains("invisible characters only"), refus.getMessage());
+    }
+
+    @Test
     void encodeur_appliqueDeuxFois_neProduitToujoursPasDeBalise() {
         // Encoder deux fois n'est pas l'identité (c'est attendu), mais ne doit jamais rouvrir
         // une balise : c'est la propriété qui compte.

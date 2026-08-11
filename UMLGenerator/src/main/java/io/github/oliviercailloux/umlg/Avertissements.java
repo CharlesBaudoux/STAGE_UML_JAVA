@@ -1,7 +1,6 @@
 package io.github.oliviercailloux.umlg;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
+import io.github.oliviercailloux.umlg.warning.Avertisseur;
 import java.util.function.Consumer;
 
 /**
@@ -33,19 +32,16 @@ import java.util.function.Consumer;
  * générations concurrentes — deux modules d'un réacteur Maven construit en parallèle — n'ont
  * aucune raison de partager leur destination. Le défaut reste la sortie d'erreur, qui est le bon
  * comportement d'un programme qu'on lance à la main.
+ *
+ * <p>CE QUI N'EST PLUS ICI
+ *
+ * <p>Le mécanisme lui-même — le canal du fil, et le geste de dire un avertissement — vit dans un
+ * paquetage que le module n'exporte pas. Dire un avertissement est l'affaire de l'extraction et
+ * du rendu ; l'utilisateur n'a aucune raison de le faire, et n'en a désormais plus le moyen.
+ * Cette classe ne garde que la moitié qui le regarde : détourner les avertissements d'un fil, et
+ * refermer.
  */
 public final class Avertissements {
-
-    /** Le canal par défaut : la sortie d'erreur, préfixée comme elle l'a toujours été. */
-    private static final Consumer<String> SORTIE_DERREUR =
-        message -> System.err.println("Warning: " + message);
-
-    // Vide tant que personne n'a rien détourné, et c'est voulu : « null » veut dire « la sortie
-    // d'erreur », ce qui permet à la fermeture d'un canal de rendre au fil son état d'origine —
-    // l'entrée retirée, et non réécrite avec la valeur par défaut. Un ThreadLocal.withInitial ne
-    // distinguerait pas « jamais posé » de « posé au défaut », et laisserait une entrée derrière
-    // lui sur chaque fil d'un pool.
-    private static final ThreadLocal<Consumer<String>> CANAL = new ThreadLocal<>();
 
     private Avertissements() {}
 
@@ -71,23 +67,6 @@ public final class Avertissements {
     }
 
     /**
-     * Dit un avertissement, sans le préfixe : le canal le pose s'il en veut un.
-     *
-     * <p><b>Usage interne.</b> Ce n'est pas une méthode de la surface publique : elle appartient
-     * aux étages de l'extraction et du rendu, qui sont les seuls à avoir quelque chose à
-     * avertir. Elle ne peut pas être rendue moins visible — les paquetages qui l'appellent ne
-     * sont pas celui-ci, et Java n'accorde aucun privilège d'accès à l'intérieur d'un module —,
-     * d'où le {@code @hidden} qui la retire au moins de la documentation publiée.
-     *
-     * @param message ce qu'il y a à savoir, et ce qu'on peut y faire
-     * @hidden
-     */
-    public static void dire(String message) {
-        checkNotNull(message);
-        canalCourant().accept(message);
-    }
-
-    /**
      * Envoie les avertissements de ce fil ailleurs que sur la sortie d'erreur.
      *
      * <p>C'est le relais temps réel : le plugin Maven l'emploie pour que chaque avertissement
@@ -99,43 +78,6 @@ public final class Avertissements {
      *     {@code try}-avec-ressources.
      */
     public static Canal versLeCanal(Consumer<String> canal) {
-        checkNotNull(canal, "The channel cannot be null.");
-        return poser(canal);
-    }
-
-    // Ajoute un lecteur au canal en place, sans le remplacer.
-    //
-    // C'est ce dont generate() a besoin : les avertissements doivent entrer dans le compte rendu
-    // qu'il rend, et continuer d'atteindre le canal que l'appelant avait posé — le log de Maven,
-    // par exemple. Remplacer purement et simplement ferait taire le relais temps réel pendant
-    // toute la génération, c'est-à-dire exactement pendant le moment où il sert.
-    static Canal enPlusDuCanalCourant(Consumer<String> lecteur) {
-        checkNotNull(lecteur);
-        Consumer<String> enPlace = canalCourant();
-        return poser(message -> {
-            enPlace.accept(message);
-            lecteur.accept(message);
-        });
-    }
-
-    // Le canal du fil courant, la sortie d'erreur à défaut.
-    private static Consumer<String> canalCourant() {
-        Consumer<String> canal = CANAL.get();
-        return canal == null ? SORTIE_DERREUR : canal;
-    }
-
-    // Pose un canal et rend de quoi restituer l'état exact d'avant : l'entrée retirée si le fil
-    // n'en avait pas, l'ancien canal remis sinon. Les poses s'emboîtent donc, ce qui est
-    // indispensable puisque generate() en ajoute une par-dessus celle du plugin Maven.
-    private static Canal poser(Consumer<String> nouveau) {
-        Consumer<String> precedent = CANAL.get();
-        CANAL.set(nouveau);
-        return () -> {
-            if (precedent == null) {
-                CANAL.remove();
-            } else {
-                CANAL.set(precedent);
-            }
-        };
+        return Avertisseur.versLeCanal(canal);
     }
 }

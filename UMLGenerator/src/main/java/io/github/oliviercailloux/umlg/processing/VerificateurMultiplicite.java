@@ -3,6 +3,7 @@ package io.github.oliviercailloux.umlg.processing;
 import io.github.oliviercailloux.umlg.annotation.UMLAssociation;
 import io.github.oliviercailloux.umlg.annotation.UMLClass;
 import io.github.oliviercailloux.umlg.annotation.UMLMultiplicity;
+import io.github.oliviercailloux.umlg.extraction.member.MemberExtractor;
 import io.github.oliviercailloux.umlg.model.Multiplicites;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
@@ -41,10 +42,13 @@ final class VerificateurMultiplicite {
         // Une propriété n'a qu'une multiplicité. Sur un attribut porteur de @UMLAssociation,
         // c'est targetCardinality qui la donne — quelle que soit la notation, puisque le lien la
         // porte aussi bien à l'extrémité d'un trait qu'à la suite d'une ligne.
+        //
+        // Le message vient de MemberExtractor, à qui la règle appartient : il n'est plus recopié
+        // ici, où il aurait fini par diverger.
         if (rapporteur.miroir(membre, UMLAssociation.class) != null) {
-            rapporteur.erreur(Membre.emplacement(membre) + " carries both @UMLAssociation and "
-                + "@UMLMultiplicity: the multiplicity of this property is already given by "
-                + "targetCardinality. Keep only one of the two.", membre, annotation);
+            rapporteur.erreur(
+                MemberExtractor.messageDeuxMultiplicites(Membre.emplacement(membre)),
+                membre, annotation);
             return;
         }
         signalerMembreInvisible(membre, classe, annotation);
