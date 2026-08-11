@@ -5,6 +5,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableList;
 import io.github.oliviercailloux.umlg.annotation.UMLFlow;
+import java.util.Locale;
 
 /**
  * Un diagramme parmi ceux que le projet produit : un sous-ensemble de boîtes, dans un ordre, avec
@@ -68,6 +69,6 @@ public record UmlView(String name, ImmutableList<UmlEntity> entities, UMLFlow di
         String propre = remplace.replaceAll("^-+|-+$", "");
         // Un nom fait uniquement de ponctuation ne laisserait rien : on retombe alors sur un mot
         // neutre plutôt que sur un fichier sans nom.
-        return propre.isEmpty() ? "vue" : propre.toLowerCase(java.util.Locale.ROOT);
+        return propre.isEmpty() ? "vue" : propre.toLowerCase(Locale.ROOT);
     }
 }
