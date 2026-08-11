@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>io.github.oliviercailloux</groupId>
+    <artifactId>pom</artifactId>
+    <version>0.0.30</version>
+  </parent>
+  <artifactId>keyboardd</artifactId>
+  <version>0.0.3-SNAPSHOT</version>
+
+  <properties>
+    <!--
+      Ajouté pour l'expérience umlg. Le pom parent 0.0.30 épingle maven-compiler-plugin 3.1
+      sans source ni target : javac retombe alors sur Java 5, qu'il ne sait plus compiler, et
+      le projet ne se construit pas tel quel. Les « sealed interface » et les « record » du
+      code exigent de toute façon 17 au minimum ; 21 est le palier d'umlg.
+    -->
+    <maven.compiler.source>21</maven.compiler.source>
+    <maven.compiler.target>21</maven.compiler.target>
+    <!--
+      Écrit les noms des paramètres dans les .class. Sans cette option, la réflexion ne
+      connaît que « arg0 », « arg1 »… et umlg n'affiche alors que les types :
+      « entries(String) » au lieu de « entries(xKeyName: String) », comme sur les
+      diagrammes du README.
+    -->
+    <maven.compiler.parameters>true</maven.compiler.parameters>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+  </properties>
+
+  <dependencies>
+    <!--
+      La bibliothèque d'annotations UML. Elle embarque un processeur d'annotations, que javac
+      découvre par META-INF/services dès qu'elle est sur le classpath : il vérifie à la
+      compilation ce que les annotations déclarent.
+    -->
+    <dependency>
+      <groupId>io.github.oliviercailloux</groupId>
+      <artifactId>umlg</artifactId>
+      <version>1.0-SNAPSHOT</version>
+    </dependency>
+
+    <dependency>
+      <groupId>io.github.oliviercailloux</groupId>
+      <artifactId>jaris</artifactId>
+      <version>0.0.42</version>
+    </dependency>
+    <dependency>
+      <groupId>io.github.oliviercailloux</groupId>
+      <artifactId>svgb</artifactId>
+      <version>0.0.8</version>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+      <version>2.20.1</version>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-annotations</artifactId>
+      <version>2.20</version>
+    </dependency>
+
+    <dependency>
+      <groupId>ch.qos.logback</groupId>
+      <artifactId>logback-classic</artifactId>
+      <version>1.5.18</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <!--
+        Engendre les diagrammes : « mvn compile umlg:generate ».
+        Plus d'arguments positionnels ni de mainClass : les défauts du plugin disent l'usage —
+        target/classes analysé (avec le fichier umlg.rules que la construction y recopie),
+        diagrammes/ écrit à la racine du projet. Un seul fichier plutôt qu'un dossier :
+        « mvn compile umlg:generate -Dumlg.outputFile=Keyboardd.svg ».
+      -->
+      <plugin>
+        <groupId>io.github.oliviercailloux</groupId>
+        <artifactId>umlg-maven-plugin</artifactId>
+        <version>1.0-SNAPSHOT</version>
+        <executions>
+          <execution>
+            <goals>
+              <goal>generate</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!--
+        Sans showWarnings, Maven passe « -nowarn » à javac, ce qui fait taire tous les
+        avertissements du processeur d'annotations d'umlg — c'est-à-dire tout ce qu'il a à dire,
+        ses erreurs mises à part. Une compilation silencieuse cesserait alors de rien prouver.
+      -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.13.0</version>
+        <configuration>
+          <showWarnings>true</showWarnings>
+        </configuration>
+      </plugin>
+
+    </plugins>
+  </build>
+</project>

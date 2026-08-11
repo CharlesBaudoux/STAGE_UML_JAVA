@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" height="37.7953" width="128.5039" xmlns:kdd="https://io.github.oliviercailloux.keyboardd">
+    <style>text {
+text-anchor: middle;
+dominant-baseline: middle;
+font-size: 18.8976px;
+}</style>
+    <style>rect {
+fill-opacity: 0;
+stroke: black;
+stroke-width: 1px;
+}</style>
+    <rect height="37.7953" kdd:x-key-name="LCTL" rx="10" width="37.7953"/>
+    <g transform="translate(0, 0)">
+        <text x="18.8976" y="18.8976">⎈</text>
+    </g>
+    <rect height="37.7953" kdd:x-key-name="AB03" rx="10" width="37.7953" x="45.3543" y="0"/>
+    <g transform="translate(45.3543, 0)">
+        <text x="9.4488" y="18.8976">c</text>
+        <text x="28.3465" y="18.8976">C</text>
+    </g>
+    <rect height="37.7953" kdd:x-key-name="AB04" rx="10" width="37.7953" x="90.7087" y="0"/>
+    <g transform="translate(90.7087, 0)">
+        <text x="9.4488" y="18.8976">v</text>
+        <text x="28.3465" y="18.8976">V</text>
+    </g>
+</svg>

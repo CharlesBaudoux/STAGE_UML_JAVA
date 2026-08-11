@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" height="75.5906" width="226.7717" xmlns:kdd="https://io.github.oliviercailloux.keyboardd">
+    <style>text {
+text-anchor: middle;
+dominant-baseline: middle;
+font-size: 25.1969px;
+}</style>
+    <style>rect {
+fill-opacity: 0;
+stroke: black;
+stroke-width: 1px;
+}</style>
+    <rect height="75.5906" kdd:x-key-name="TAB" rx="10" width="113.3858"/>
+    <g transform="translate(0, 0)">
+        <text x="18.8976" y="56.6929">z</text>
+        <text x="18.8976" y="18.8976">Z</text>
+        <text x="56.6929" y="56.6929">â</text>
+        <text x="56.6929" y="18.8976">Â</text>
+        <text x="94.4882" y="56.6929">ζ</text>
+        <text x="94.4882" y="18.8976">Ζ</text>
+    </g>
+    <rect height="75.5906" kdd:x-key-name="AD01" rx="10" width="75.5906" x="151.1811" y="0"/>
+    <g transform="translate(151.1811, 0)">
+        <text x="12.5984" y="56.6929">a</text>
+        <text x="12.5984" y="18.8976">A</text>
+        <text x="37.7953" y="56.6929">æ</text>
+        <text x="37.7953" y="18.8976">Æ</text>
+        <text x="62.9922" y="56.6929">α</text>
+        <text x="62.9922" y="18.8976">Α</text>
+    </g>
+</svg>

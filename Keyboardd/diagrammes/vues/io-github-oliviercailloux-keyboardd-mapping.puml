@@ -1,0 +1,40 @@
+@startuml
+title io.github.oliviercailloux.keyboardd.mapping
+skinparam classAttributeIconSize 0
+hide empty members
+skinparam nodesep 60
+skinparam ranksep 90
+
+class "KeyboardMap" as KeyboardMap [[mapping.svg]] {
+  entries(xKeyName : String) : KeysymEntry [0..*]
+  canonicalize(canonicalXKeyNameByAlias : Map&#60;String, String&#62;) : KeyboardMap
+}
+
+interface "KeysymEntry" as KeysymEntry [[mapping.svg]] {
+}
+
+class "Code" as Code [[mapping.svg]] {
+  code : int
+}
+
+class "Mnemonic" as Mnemonic [[mapping.svg]] {
+  mnemonic : String
+}
+
+class "Ucp" as Ucp [[mapping.svg]] {
+  ucp : int
+}
+
+class "XkbSymbolsReader" as XkbSymbolsReader [[mapping.svg]] {
+  {static} read(source : CharSource) : KeyboardMap
+  {static} common() : KeyboardMap
+  {static} us() : KeyboardMap
+  {static} usIntl() : KeyboardMap
+}
+
+KeyboardMap -[hidden]-> KeysymEntry
+KeysymEntry -[hidden]-> XkbSymbolsReader
+KeysymEntry <|-- Code
+KeysymEntry <|-- Mnemonic
+KeysymEntry <|-- Ucp
+@enduml

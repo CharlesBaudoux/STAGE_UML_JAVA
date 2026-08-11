@@ -1,0 +1,18 @@
+@startuml
+title XKeys
+skinparam classAttributeIconSize 0
+hide empty members
+skinparam nodesep 60
+skinparam ranksep 90
+
+interface "Xkeys" as Xkeys {
+  xKeycodeByXKeyName : Map&#60;String, Short&#62;
+  xKeycodeByCanonicalXKeyName : BiMap&#60;String, Short&#62;
+  canonicalXKeyNameByAlias : Map&#60;String, String&#62;
+  --
+  {static} latest() : Xkeys
+  {static} fromSource(evdev : CharSource) : Xkeys
+  withoutAliases() : Xkeys
+}
+
+@enduml

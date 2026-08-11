@@ -1,0 +1,24 @@
+Classes seen without @UMLClass, hence not drawn (23):
+CanonicRepresentableSubZone
+CanonicRepresentableZone
+DefaultRepresentations
+EvdevReader
+GenericRepresentableZone
+JsonRectangularKeyboardReader
+JsonRectangularRowKey
+JsonRectangularRowKeyboard
+KeysymReader
+LineColDivision
+ParseUtils
+ParsedMnemonic
+RepresentableSubZone
+RepresentableZone
+SimpleRepresentableSubZone
+SvgKeysymEntry
+SvgRepresentedKeyboard
+SvgXKey
+UcpByCode
+VisibleKeyboardMapImpl
+XKeyNamesRepresenterImpl
+XkbKeymapDecomposer
+XkeysImpl

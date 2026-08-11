@@ -1,0 +1,44 @@
+@startuml
+title Mnemonics
+skinparam classAttributeIconSize 0
+hide empty members
+skinparam nodesep 60
+skinparam ranksep 90
+
+interface "CanonicalKeysymEntry" as CanonicalKeysymEntry {
+}
+
+class "CanonicalMnemonic" as CanonicalMnemonic {
+  mnemonic : String
+  code : int
+  nonDeprecatedAliases : String [0..*]
+  deprecatedAliases : String [0..*]
+  ucp : int [0..1]
+  deprecated : boolean
+}
+
+class "ImplicitUcp" as ImplicitUcp {
+  ucp : int
+}
+
+class "Mnemonics" as Mnemonics {
+  byKeysymMnemonic : Map&#60;String, CanonicalMnemonic&#62;
+  byKeysymCode : BiMap&#60;Integer, CanonicalMnemonic&#62;
+  byUcp : BiMap&#60;Integer, CanonicalMnemonic&#62;
+  --
+  {static} latest() : Mnemonics
+  {static} fromCanonicals(canonicalMnemonics : Set&#60;CanonicalMnemonic&#62;) : Mnemonics
+  {static} fromSource(keysyms : CharSource) : Mnemonics
+  withoutDeprecated() : Mnemonics
+}
+
+class "CanonicalKeyboardMap" as CanonicalKeyboardMap {
+  {static} canonicalize(map : KeyboardMap, mnemonics : Mnemonics) : CanonicalKeyboardMap
+  entries(xKeyName : String) : CanonicalKeysymEntry [0..*]
+}
+
+CanonicalKeysymEntry -[hidden]-> Mnemonics
+CanonicalKeysymEntry <|-- CanonicalMnemonic
+CanonicalKeysymEntry <|-- ImplicitUcp
+Mnemonics -[hidden]-> CanonicalKeyboardMap
+@enduml

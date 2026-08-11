@@ -1,0 +1,35 @@
+@startuml Mapping
+hide empty members
+left to right direction
+
+interface "KeysymEntry" {}
+class "Mnemonic" {
+  mnemonic: String
+}
+class "Ucp" {
+  ucp: int
+}
+class "Code" {
+  code: int
+}
+
+"KeysymEntry" <|-- "Mnemonic"
+"KeysymEntry" <|-- "Ucp"
+"KeysymEntry" <|-- "Code"
+
+class "KeyboardMap" {
+  entries(xKeyName: String): List<KeysymEntry>
+  canonicalize(canonicalXKeyNameByAlias: Map<String, String>): KeyboardMap
+}
+
+class "XkbSymbolsReader" {
+  read(CharSource source): KeyboardMap
+  common(): KeyboardMap
+  us(): KeyboardMap
+  usIntl(): KeyboardMap
+}
+
+KeysymEntry -[hidden]> KeyboardMap
+KeyboardMap -[hidden]> XkbSymbolsReader
+
+@enduml

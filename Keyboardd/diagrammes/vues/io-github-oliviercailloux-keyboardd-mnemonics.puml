@@ -1,0 +1,44 @@
+@startuml
+title io.github.oliviercailloux.keyboardd.mnemonics
+skinparam classAttributeIconSize 0
+hide empty members
+skinparam nodesep 60
+skinparam ranksep 90
+
+class "CanonicalKeyboardMap" as CanonicalKeyboardMap [[mnemonics.svg]] {
+  {static} canonicalize(map : KeyboardMap, mnemonics : Mnemonics) : CanonicalKeyboardMap
+  entries(xKeyName : String) : CanonicalKeysymEntry [0..*]
+}
+
+interface "CanonicalKeysymEntry" as CanonicalKeysymEntry [[mnemonics.svg]] {
+}
+
+class "CanonicalMnemonic" as CanonicalMnemonic [[mnemonics.svg]] {
+  mnemonic : String
+  code : int
+  nonDeprecatedAliases : String [0..*]
+  deprecatedAliases : String [0..*]
+  ucp : int [0..1]
+  deprecated : boolean
+}
+
+class "ImplicitUcp" as ImplicitUcp [[mnemonics.svg]] {
+  ucp : int
+}
+
+class "Mnemonics" as Mnemonics [[mnemonics.svg]] {
+  byKeysymMnemonic : Map&#60;String, CanonicalMnemonic&#62;
+  byKeysymCode : BiMap&#60;Integer, CanonicalMnemonic&#62;
+  byUcp : BiMap&#60;Integer, CanonicalMnemonic&#62;
+  --
+  {static} latest() : Mnemonics
+  {static} fromCanonicals(canonicalMnemonics : Set&#60;CanonicalMnemonic&#62;) : Mnemonics
+  {static} fromSource(keysyms : CharSource) : Mnemonics
+  withoutDeprecated() : Mnemonics
+}
+
+CanonicalKeyboardMap -[hidden]-> CanonicalKeysymEntry
+CanonicalKeysymEntry -[hidden]-> Mnemonics
+CanonicalKeysymEntry <|-- CanonicalMnemonic
+CanonicalKeysymEntry <|-- ImplicitUcp
+@enduml

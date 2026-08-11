@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" height="75.5906" width="226.7717" xmlns:kdd="https://io.github.oliviercailloux.keyboardd">
+    <style>rect {
+fill-opacity: 0;
+stroke: black;
+stroke-width: 1px;
+}</style>
+    <rect height="75.5906" rx="10" width="113.3858" kdd:x-key-name="TAB"/>
+    <rect height="75.5906" rx="10" width="75.5906" x="151.1811" kdd:x-key-name="AD01" y="0"/>
+</svg>

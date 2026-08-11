@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" height="37.7953" width="128.5039" xmlns:kdd="https://io.github.oliviercailloux.keyboardd">
+    <style>rect {
+fill-opacity: 0;
+stroke: black;
+stroke-width: 1px;
+}</style>
+    <rect height="37.7953" rx="10" width="37.7953" kdd:x-key-name="LCTL"/>
+    <rect height="37.7953" rx="10" width="37.7953" x="45.3543" kdd:x-key-name="AB03" y="0"/>
+    <rect height="37.7953" rx="10" width="37.7953" x="90.7087" kdd:x-key-name="AB04" y="0"/>
+</svg>
