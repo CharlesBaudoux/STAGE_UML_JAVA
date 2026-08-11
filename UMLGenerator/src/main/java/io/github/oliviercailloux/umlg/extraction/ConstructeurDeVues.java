@@ -23,6 +23,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.StreamSupport;
 
 // Taille le projet en vues : la vue intégrale, celles que le fichier déclare, celles qu'il fait
 // calculer.
@@ -244,7 +245,7 @@ public final class ConstructeurDeVues {
     // Les entités de la vue, élaguées de leurs traits sortants puis enchaînées dans l'ordre.
     private static ImmutableList<UmlEntity> ordonnees(Iterable<UmlEntity> retenues) {
         ImmutableSet<String> presentes = ImmutableSet.copyOf(
-            java.util.stream.StreamSupport.stream(retenues.spliterator(), false)
+            StreamSupport.stream(retenues.spliterator(), false)
                 .map(UmlEntity::qualifiedName).toList());
 
         List<UmlEntity> elaguees = new ArrayList<>();

@@ -5,6 +5,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableList;
 import io.github.oliviercailloux.umlg.annotation.UMLFlow;
+import java.text.Normalizer;
 import java.util.Locale;
 
 /**
@@ -63,7 +64,7 @@ public record UmlView(String name, ImmutableList<UmlEntity> entities, UMLFlow di
         // Les accents sont d'abord détachés de leur lettre (NFD : « é » devient « e » suivi d'un
         // accent aigu), puis les accents seuls sont retirés. Un nom de fichier accentué survit
         // bien à un système moderne, moins bien à une archive, à un partage réseau ou à une URL.
-        String sansAccents = java.text.Normalizer.normalize(name, java.text.Normalizer.Form.NFD)
+        String sansAccents = Normalizer.normalize(name, Normalizer.Form.NFD)
             .replaceAll("\\p{M}+", "");
         String remplace = sansAccents.replaceAll("[^\\p{IsAlphabetic}\\p{IsDigit}]+", "-");
         String propre = remplace.replaceAll("^-+|-+$", "");

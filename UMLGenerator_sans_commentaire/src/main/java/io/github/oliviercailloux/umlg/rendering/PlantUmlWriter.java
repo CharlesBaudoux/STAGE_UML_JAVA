@@ -21,6 +21,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Locale;
+import java.util.stream.Stream;
 import net.sourceforge.plantuml.BlockUml;
 import net.sourceforge.plantuml.FileFormat;
 import net.sourceforge.plantuml.FileFormatOption;
@@ -102,7 +103,7 @@ public class PlantUmlWriter {
             if (!Files.isDirectory(racine)) {
                 continue;
             }
-            try (java.util.stream.Stream<Path> fichiers = Files.list(racine)) {
+            try (Stream<Path> fichiers = Files.list(racine)) {
                 for (Path fichier : fichiers.sorted(Comparator.naturalOrder()).toList()) {
                     String nom = fichier.getFileName().toString();
                     if (Files.isRegularFile(fichier)

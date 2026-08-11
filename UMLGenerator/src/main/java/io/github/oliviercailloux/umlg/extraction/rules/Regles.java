@@ -11,6 +11,8 @@ import java.nio.charset.CharacterCodingException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 // Les règles que le projet applique à tous ses diagrammes.
 //
@@ -198,10 +200,13 @@ public final class Regles {
     //
     // C'est la seule entorse à l'immuabilité de cette classe, et elle est délibérée : savoir
     // qu'une ligne du fichier n'a rien fait exige de se souvenir de ce qui a servi, et seule
-    // Regles voit passer toutes les consultations. Un ensemble concurrent, comme la liste des
-    // classes ignorées du scanner : le parcours des classes ne promet pas son fil.
-    private final java.util.Set<String> aliasUtilises =
-        java.util.concurrent.ConcurrentHashMap.newKeySet();
+    // Regles voit passer toutes les consultations.
+    //
+    // L'ensemble est concurrent. Il l'était « comme la liste des classes ignorées du scanner »,
+    // qui ne l'est plus : ce parcours-là s'est révélé séquentiel, et sa synchronisation ne
+    // protégeait rien. Reste que Regles est consultée depuis ce parcours sans rien savoir de
+    // lui, et qu'un objet partagé qui ne connaît pas ses appelants a raison de se garder.
+    private final Set<String> aliasUtilises = ConcurrentHashMap.newKeySet();
 
     Regles(ImmutableMap<String, String> alias, boolean omettreRetourVoid,
         UMLVisibility strategie, boolean strategieDeclaree,
