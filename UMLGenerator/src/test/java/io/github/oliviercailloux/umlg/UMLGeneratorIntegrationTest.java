@@ -336,7 +336,7 @@ class UMLGeneratorIntegrationTest {
         // de target/test-classes doit continuer à produire un PlantUML que le moteur accepte.
         // C'est ce test qui attrape les alias vides ou en collision, qu'aucun assert sur la
         // taille du fichier ne peut voir.
-        UmlProject projet = ProjectScanner.scan(Paths.get("target", "test-classes"));
+        UmlProject projet = ProjectScanner.scan(Paths.get("target", "test-classes")).projet();
 
         String source = PlantUmlAssert.documentPour(projet.entities().toArray(new UmlEntity[0]));
 
@@ -345,7 +345,7 @@ class UMLGeneratorIntegrationTest {
 
     @Test
     void aliasDesCobayesDuProjet_sontTousUniques() throws Exception {
-        UmlProject projet = ProjectScanner.scan(Paths.get("target", "test-classes"));
+        UmlProject projet = ProjectScanner.scan(Paths.get("target", "test-classes")).projet();
         String source = PlantUmlAssert.documentPour(projet.entities().toArray(new UmlEntity[0]));
 
         List<String> alias = PlantUmlAssert.aliasDeclares(source);

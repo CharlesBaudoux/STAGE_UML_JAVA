@@ -5,6 +5,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableList;
 import io.github.oliviercailloux.umlg.extraction.ProjectScanner;
+import io.github.oliviercailloux.umlg.extraction.ResultatDeScan;
 import io.github.oliviercailloux.umlg.model.UmlProject;
 import io.github.oliviercailloux.umlg.rendering.PlantUmlWriter;
 import java.nio.file.Files;
@@ -105,8 +106,11 @@ public final class UMLGenerator {
      */
     public RapportDeGeneration generate() {
         try {
-            // Étape 1 : le code annoté devient un modèle, vues comprises.
-            UmlProject project = ProjectScanner.scan(sourceDirectory, classpath);
+            // Étape 1 : le code annoté devient un modèle, vues comprises. Le scan rend du même
+            // coup ce qu'il a laissé de côté : ces classes ne sont pas dans le modèle, et c'est
+            // précisément ce qu'il y a à en dire.
+            ResultatDeScan resultat = ProjectScanner.scan(sourceDirectory, classpath);
+            UmlProject project = resultat.projet();
 
             // Étape 2 : le modèle devient une ou plusieurs images sur le disque.
             //
@@ -125,7 +129,7 @@ public final class UMLGenerator {
             // La liste complète est écrite dans les deux modes. Elle ne l'était que pour un
             // dossier, si bien qu'un utilisateur du mode fichier unique lisait « 37 ignored »
             // sans aucun moyen de savoir lesquelles.
-            ImmutableList<String> ignorees = ProjectScanner.classesIgnorees();
+            ImmutableList<String> ignorees = resultat.classesIgnorees();
             Path liste = ecrireListeDesIgnorees(ignorees, ecrits);
 
             return new RapportDeGeneration(project.entities().size(), ignorees, ecrits, liste);

@@ -108,7 +108,7 @@ class ProjectScannerIntegrationTest {
             }
             """);
 
-        UmlProject projet = ProjectScanner.scan(sortie);
+        UmlProject projet = ProjectScanner.scan(sortie).projet();
 
         assertEquals(Set.of("Facture"), noms(projet));
         UmlEntity facture = projet.entities().iterator().next();
@@ -135,7 +135,7 @@ class ProjectScannerIntegrationTest {
             }
             """);
 
-        UmlProject projet = ProjectScanner.scan(sortie);
+        UmlProject projet = ProjectScanner.scan(sortie).projet();
 
         assertEquals(Set.of("Annotee"), noms(projet),
             "Seules les classes portant @UMLClass entrent dans le diagramme.");
@@ -157,7 +157,7 @@ class ProjectScannerIntegrationTest {
             }
             """);
 
-        UmlProject projet = ProjectScanner.scan(sortie);
+        UmlProject projet = ProjectScanner.scan(sortie).projet();
 
         assertEquals(Set.of("Interne"), noms(projet));
     }
@@ -178,7 +178,7 @@ class ProjectScannerIntegrationTest {
         Files.createDirectories(sortie.resolve("META-INF"));
         Files.writeString(sortie.resolve("META-INF/MANIFEST.MF"), "Manifest-Version : 1.0");
 
-        UmlProject projet = ProjectScanner.scan(sortie);
+        UmlProject projet = ProjectScanner.scan(sortie).projet();
 
         assertEquals(Set.of("Seule"), noms(projet));
     }
@@ -196,7 +196,7 @@ class ProjectScannerIntegrationTest {
             """);
 
         IllegalArgumentException e =
-            assertThrows(IllegalArgumentException.class, () -> ProjectScanner.scan(sortie));
+            assertThrows(IllegalArgumentException.class, () -> ProjectScanner.scan(sortie).projet());
 
         // Le message ne se contente pas de constater : le scan vient de lire cette classe, il
         // connaît son nom, et c'est celui-là qu'il faut annoter.
@@ -208,7 +208,7 @@ class ProjectScannerIntegrationTest {
     // Répertoire existant mais vide : le refus vient d'UmlProject, non du scan lui-même.
     @Test
     void dossierVide_estRefuse(@TempDir Path tmp) {
-        assertThrows(IllegalArgumentException.class, () -> ProjectScanner.scan(tmp));
+        assertThrows(IllegalArgumentException.class, () -> ProjectScanner.scan(tmp).projet());
     }
 
     @Test
@@ -234,7 +234,7 @@ class ProjectScannerIntegrationTest {
         Files.write(sortie.resolve("com/exemple/Corrompue.class"),
             new byte[] {(byte) 0xCA, (byte) 0xFE, (byte) 0xBA, (byte) 0xBE, 0, 0, 0, 0, 1, 2, 3});
 
-        UmlProject projet = ProjectScanner.scan(sortie);
+        UmlProject projet = ProjectScanner.scan(sortie).projet();
 
         assertEquals(1, projet.entities().size());
         assertEquals("com.exemple.Bonne",
@@ -252,7 +252,7 @@ class ProjectScannerIntegrationTest {
         Files.write(sortie.resolve("com/exemple/Corrompue.class"),
             new byte[] {(byte) 0xCA, (byte) 0xFE, (byte) 0xBA, (byte) 0xBE, 0, 0, 0, 0, 1, 2, 3});
 
-        assertThrows(IllegalArgumentException.class, () -> ProjectScanner.scan(sortie));
+        assertThrows(IllegalArgumentException.class, () -> ProjectScanner.scan(sortie).projet());
     }
 
     @Test
@@ -276,9 +276,9 @@ class ProjectScannerIntegrationTest {
             public class B {}
             """);
 
-        assertEquals(ProjectScanner.scan(sortie).entities(),
-            ProjectScanner.scan(sortie).entities());
-        assertEquals(Set.of("A", "B"), noms(ProjectScanner.scan(sortie)));
+        assertEquals(ProjectScanner.scan(sortie).projet().entities(),
+            ProjectScanner.scan(sortie).projet().entities());
+        assertEquals(Set.of("A", "B"), noms(ProjectScanner.scan(sortie).projet()));
     }
 
     @Test
@@ -296,7 +296,7 @@ class ProjectScannerIntegrationTest {
             """);
 
         IllegalArgumentException e =
-            assertThrows(IllegalArgumentException.class, () -> ProjectScanner.scan(sortie));
+            assertThrows(IllegalArgumentException.class, () -> ProjectScanner.scan(sortie).projet());
 
         assertTrue(e.getMessage().contains("rouge-vif"), e.getMessage());
     }
@@ -324,7 +324,7 @@ class ProjectScannerIntegrationTest {
             "# Guava n'apprend rien au lecteur du diagramme.\ntype ImmutableList -> List\n",
             StandardCharsets.UTF_8);
 
-        UmlEntity clavier = ProjectScanner.scan(sortie).entities().iterator().next();
+        UmlEntity clavier = ProjectScanner.scan(sortie).projet().entities().iterator().next();
 
         assertEquals("List<String>", clavier.fields().get(0).type(),
             "La règle du projet doit atteindre les boîtes : " + clavier.fields());
@@ -346,7 +346,7 @@ class ProjectScannerIntegrationTest {
             }
             """);
 
-        UmlEntity clavier = ProjectScanner.scan(sortie).entities().iterator().next();
+        UmlEntity clavier = ProjectScanner.scan(sortie).projet().entities().iterator().next();
 
         assertEquals("ImmutableList<String>", clavier.fields().get(0).type());
     }
@@ -372,7 +372,7 @@ class ProjectScannerIntegrationTest {
             }
             """);
 
-        UmlEntity vol = ProjectScanner.scan(sortie).entities().iterator().next();
+        UmlEntity vol = ProjectScanner.scan(sortie).projet().entities().iterator().next();
         UmlMethod reporter = vol.methods().get(0);
 
         assertEquals(List.of("String", "int"),
@@ -386,7 +386,7 @@ class ProjectScannerIntegrationTest {
         Path sortie = tmp.resolve("classes");
         compiler(tmp.resolve("src"), sortie, "com/exemple/Facture.java", UNE_BOITE);
 
-        assertEquals(UmlDiagram.defaut(), ProjectScanner.scan(sortie).diagram());
+        assertEquals(UmlDiagram.defaut(), ProjectScanner.scan(sortie).projet().diagram());
     }
 
     @Test
@@ -398,7 +398,7 @@ class ProjectScannerIntegrationTest {
                 + "show empty members\n",
             StandardCharsets.UTF_8);
 
-        UmlDiagram diagramme = ProjectScanner.scan(sortie).diagram();
+        UmlDiagram diagramme = ProjectScanner.scan(sortie).projet().diagram();
 
         assertEquals("Architecture du module Facturation", diagramme.title());
         assertEquals(UMLFlow.LEFT_TO_RIGHT, diagramme.direction());
@@ -412,7 +412,7 @@ class ProjectScannerIntegrationTest {
         Files.writeString(sortie.resolve("umlg.rules"), "title\n", StandardCharsets.UTF_8);
 
         IllegalArgumentException e =
-            assertThrows(IllegalArgumentException.class, () -> ProjectScanner.scan(sortie));
+            assertThrows(IllegalArgumentException.class, () -> ProjectScanner.scan(sortie).projet());
 
         assertTrue(e.getMessage().contains("title is missing"), e.getMessage());
     }
@@ -441,7 +441,7 @@ class ProjectScannerIntegrationTest {
         assertTrue(Files.exists(sortie.resolve("module-info.class")),
             "Le cas n'est pas reproduit si le descripteur n'est pas là.");
 
-        UmlProject projet = ProjectScanner.scan(sortie);
+        UmlProject projet = ProjectScanner.scan(sortie).projet();
 
         assertEquals(Set.of("Facture"), noms(projet),
             "Le module-info est ignoré, et les classes annotées sont bien lues.");
@@ -466,7 +466,7 @@ class ProjectScannerIntegrationTest {
                 """.replace("NOM", nom));
         }
 
-        List<String> lus = ProjectScanner.scan(sortie).entities().stream()
+        List<String> lus = ProjectScanner.scan(sortie).projet().entities().stream()
             .map(UmlEntity::name).toList();
 
         assertEquals(List.of("Alpha", "Milieu", "Zebre"), lus,
