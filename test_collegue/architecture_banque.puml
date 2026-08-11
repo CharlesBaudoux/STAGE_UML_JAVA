@@ -108,7 +108,7 @@ enum "TypeCompte" as TypeCompte {
   + {static} values() : TypeCompte[]
 }
 
-BanqueFacade "[numeroClient]" --> "clients 0..*" ClientPremium : <i>expose</i>
+BanqueFacade --> "clients 0..*" ClientPremium : <i>expose</i>
 BanqueFacade ..> ServiceNotification : <i>notifie via</i>
 BanqueFacade ..> JournalAudit : <i>trace dans</i>
 BanqueFacade ..> Devise
@@ -121,7 +121,7 @@ ClientPremium "titulaire 1" *-down- "comptes 1..* {ordered} {un compte courant a
 Personne <|-- ClientPremium
 Auditable <|.. ClientPremium
 Compte "*" -left-> "libellé en 1" Devise
-Compte "[dateOperation]" *-- "historique 0..* {ordered}" Operation : <i>enregistre</i>
+Compte *-- "historique 0..* {ordered}" Operation : <i>enregistre</i>
 Compte -up-> "1" TypeCompte : <i>de type</i>
 Compte ..> Confidentiel : <i>marque ses champs</i>
 Identifiable <|.. Compte
