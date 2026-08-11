@@ -7,20 +7,30 @@ import io.github.oliviercailloux.umlg.annotation.UMLExclude;
 import io.github.oliviercailloux.umlg.annotation.UMLNotation;
 import io.github.oliviercailloux.umlg.extraction.ConstraintExtractor;
 import io.github.oliviercailloux.umlg.extraction.MembresOrdonnes;
+import io.github.oliviercailloux.umlg.extraction.rules.Regles;
 import io.github.oliviercailloux.umlg.model.UmlAssociation;
 import java.lang.reflect.Field;
 
 // Relit les attributs d'une classe et en tire les associations.
 public final class AssociationExtractor implements RelationExtractor {
 
+    // Sans règles de projet : les attributs sont relus dans l'ordre alphabétique.
     @Override
     public ImmutableList<UmlAssociation> extraire(Class<?> clazz) {
+        return extraire(clazz, Regles.aucune());
+    }
+
+    // Avec les règles du projet. Elles n'ajoutent ni ne retirent aucun lien : elles disent dans
+    // quel ordre les attributs sont relus, donc dans quel ordre les traits sont écrits. Un projet
+    // qui demande « order declaration » l'obtient sur ses liens comme sur ses compartiments.
+    @Override
+    public ImmutableList<UmlAssociation> extraire(Class<?> clazz, Regles regles) {
         ImmutableList.Builder<UmlAssociation> result = ImmutableList.builder();
 
         // Les attributs déclarés par cette classe, quelle que soit leur visibilité, mais sans
         // ceux hérités — l'héritage se dessine par un autre trait. L'ordre est stable, sans quoi
         // deux exécutions dessineraient les mêmes liens dans un ordre différent.
-        for (Field field : MembresOrdonnes.champs(clazz)) {
+        for (Field field : MembresOrdonnes.champs(clazz, regles)) {
             // isSynthetic écarte ce que le compilateur a fabriqué (référence this$0 d'une classe
             // interne, tables de switch sur enum) : ce code n'existe pas pour l'utilisateur.
             if (field.isSynthetic() || !field.isAnnotationPresent(UMLAssociation.class)) {

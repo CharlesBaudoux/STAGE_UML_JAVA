@@ -6,7 +6,10 @@ import io.github.oliviercailloux.umlg.extraction.rules.Regles;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.Set;
+import java.util.WeakHashMap;
 import java.util.stream.Collectors;
 
 // Rend les membres d'une classe dans un ordre qui ne dépend que de la classe.
@@ -34,6 +37,14 @@ import java.util.stream.Collectors;
 // peut pas être relu, l'alphabet reprend la main, et un avertissement le dit : un ordre demandé
 // et non rendu ne doit pas passer inaperçu.
 //
+// TOUT APPELANT DIT LES RÈGLES
+//
+// Il n'existe pas de surcharge sans Regles. Celle qui existait fixait Regles.aucune(), et ses
+// deux appelants — l'extracteur d'associations et celui de notes — rangeaient donc leurs traits
+// et leurs bulles par alphabet quoi que le projet ait demandé, à côté d'attributs rangés dans
+// l'ordre du code. Un défaut commode à l'appel se paie en incohérence sur le dessin : le
+// paramètre est obligatoire, et le compilateur nomme désormais qui l'a oublié.
+//
 // Les littéraux d'une énumération font exception et ne passent pas par ici : leur ordre de
 // déclaration, lui, est porté par la notion d'ordinal, et il a un sens que l'alphabet
 // détruirait. MemberExtractor les lit avec getEnumConstants, qui les rend dans cet ordre.
@@ -43,11 +54,16 @@ public final class MembresOrdonnes {
     private static final Comparator<Method> PAR_SIGNATURE =
         Comparator.comparing(Method::getName).thenComparing(MembresOrdonnes::parametres);
 
-    private MembresOrdonnes() {}
+    // Les classes dont l'ordre perdu a déjà été signalé.
+    //
+    // Le fait rapporté est une propriété du fichier .class, pas de la génération : ce fichier est
+    // relu pour les attributs, pour les méthodes, pour les liens et pour les bulles, et le dire
+    // quatre fois n'apprend rien de plus la deuxième fois. Les clés sont tenues faiblement, pour
+    // qu'un ensemble statique ne retienne pas le chargeur du répertoire analysé.
+    private static final Set<Class<?>> ORDRE_PERDU_SIGNALE =
+        Collections.newSetFromMap(Collections.synchronizedMap(new WeakHashMap<>()));
 
-    public static ImmutableList<Field> champs(Class<?> clazz) {
-        return champs(clazz, Regles.aucune());
-    }
+    private MembresOrdonnes() {}
 
     public static ImmutableList<Field> champs(Class<?> clazz, Regles regles) {
         if (regles.ordreDeclaration()) {
@@ -62,10 +78,6 @@ public final class MembresOrdonnes {
         return Arrays.stream(clazz.getDeclaredFields())
             .sorted(Comparator.comparing(Field::getName))
             .collect(ImmutableList.toImmutableList());
-    }
-
-    public static ImmutableList<Method> methodes(Class<?> clazz) {
-        return methodes(clazz, Regles.aucune());
     }
 
     public static ImmutableList<Method> methodes(Class<?> clazz, Regles regles) {
@@ -94,7 +106,11 @@ public final class MembresOrdonnes {
 
     // L'ordre de déclaration a été demandé et ne peut pas être rendu pour cette classe : le dire
     // vaut mieux que de laisser l'utilisateur chercher pourquoi une boîte est restée alphabétique.
+    // Une fois par classe : voir ORDRE_PERDU_SIGNALE.
     private static void signalerOrdrePerdu(Class<?> clazz) {
+        if (!ORDRE_PERDU_SIGNALE.add(clazz)) {
+            return;
+        }
         Avertissements.dire("\"order\": \"declaration\" is asked for, but the class file of "
             + clazz.getName() + " cannot be re-read; the members of this box fall back to "
             + "alphabetical order.");

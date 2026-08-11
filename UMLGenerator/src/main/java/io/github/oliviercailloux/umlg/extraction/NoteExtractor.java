@@ -4,6 +4,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.github.oliviercailloux.umlg.annotation.UMLNote;
 import io.github.oliviercailloux.umlg.extraction.member.MemberExtractor;
+import io.github.oliviercailloux.umlg.extraction.rules.Regles;
 import io.github.oliviercailloux.umlg.model.UmlField;
 import io.github.oliviercailloux.umlg.model.UmlMethod;
 import io.github.oliviercailloux.umlg.model.UmlNote;
@@ -24,8 +25,18 @@ final class NoteExtractor {
 
     private NoteExtractor() {}
 
+    // Sans règles de projet : les membres sont parcourus dans l'ordre alphabétique, et les bulles
+    // en suivent l'ordre. Reste appelable telle quelle par EntityExtractor tant que celui-ci ne
+    // fait pas descendre ses Regles jusqu'ici.
     static ImmutableList<UmlNote> extraire(Class<?> clazz, List<UmlField> fields,
         List<UmlMethod> methods) {
+        return extraire(clazz, fields, methods, Regles.aucune());
+    }
+
+    // Avec les règles du projet : elles ne servent ici qu'à ranger les membres, donc les bulles,
+    // dans l'ordre demandé — « order declaration » vaut pour les notes comme pour les boîtes.
+    static ImmutableList<UmlNote> extraire(Class<?> clazz, List<UmlField> fields,
+        List<UmlMethod> methods, Regles regles) {
 
         ImmutableList.Builder<UmlNote> result = ImmutableList.builder();
 
@@ -42,7 +53,7 @@ final class NoteExtractor {
         ImmutableSet<String> methodesVisibles =
             methods.stream().map(UmlMethod::name).collect(ImmutableSet.toImmutableSet());
 
-        for (Field field : MembresOrdonnes.champs(clazz)) {
+        for (Field field : MembresOrdonnes.champs(clazz, regles)) {
             // Le nom affiché, et non celui du champ : une association écrite dans la boîte peut
             // y paraître sous son rôle cible, et c'est ce nom-là que PlantUML sait accrocher.
             // L'emplacement, lui, reste celui du code — c'est là que l'auteur ira corriger.
@@ -57,12 +68,18 @@ final class NoteExtractor {
             }
         }
 
-        for (Method method : MembresOrdonnes.methodes(clazz)) {
+        for (Method method : MembresOrdonnes.methodes(clazz, regles)) {
             // Le nom affiché, comme pour un attribut : @UMLInclude(name = ...) peut renommer la
             // méthode, et la bulle doit s'accrocher au nom qui paraît sur le dessin.
             String affiche = MemberExtractor.nomAffiche(method);
 
-            if (method.isSynthetic() || !methodesVisibles.contains(affiche)) {
+            // Les deux compartiments, et non le seul compartiment des méthodes : une méthode
+            // écrite en notation attribut — @UMLInclude(asAttribute = true) — quitte
+            // extractMethods pour devenir une UmlField, et ne figure donc que dans
+            // champsVisibles. La question posée est « ce membre est-il dessiné ? », pas « dans
+            // quel compartiment ? ».
+            if (method.isSynthetic()
+                || !(methodesVisibles.contains(affiche) || champsVisibles.contains(affiche))) {
                 continue;
             }
             for (UMLNote annotation : method.getAnnotationsByType(UMLNote.class)) {

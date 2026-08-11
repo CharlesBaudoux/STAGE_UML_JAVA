@@ -5,6 +5,10 @@ import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Method;
+import java.util.Collections;
+import java.util.Map;
+import java.util.Optional;
+import java.util.WeakHashMap;
 
 // Lit dans le fichier .class l'ordre où les membres ont été déclarés.
 //
@@ -26,21 +30,35 @@ import java.lang.reflect.Method;
 // Les méthodes sont désignées par « nom + descripteur » et non par leur seul nom : deux
 // surcharges partagent un nom, et seul le descripteur — la forme JVM de la signature — les
 // départage.
+// UNE SEULE LECTURE PAR CLASSE
+//
+// Le fichier est demandé quatre fois pour la même classe — les attributs, les méthodes, les
+// liens, les bulles — et il rend quatre fois la même réponse : un objet Class désigne un
+// chargement, donc des octets figés. La lecture est donc mémorisée. Les clés sont tenues
+// faiblement : le chargeur enraciné sur le répertoire analysé doit pouvoir être collecté avec les
+// classes qu'il a chargées, ce qu'une table statique à clés fortes empêcherait.
 final class OrdreDuFichierClasse {
+
+    private static final Map<Class<?>, Optional<Membres>> LECTURES =
+        Collections.synchronizedMap(new WeakHashMap<>());
 
     private OrdreDuFichierClasse() {}
 
     // Les noms des champs, dans l'ordre du fichier ; null si le fichier est introuvable ou
     // illisible — l'appelant retombe alors sur l'ordre alphabétique, en le disant.
     static ImmutableList<String> champs(Class<?> clazz) {
-        Membres membres = lire(clazz);
-        return membres == null ? null : membres.champs;
+        return membres(clazz).map(Membres::champs).orElse(null);
     }
 
     // Les « nom + descripteur » des méthodes, dans l'ordre du fichier ; null en cas d'échec.
     static ImmutableList<String> methodes(Class<?> clazz) {
-        Membres membres = lire(clazz);
-        return membres == null ? null : membres.methodes;
+        return membres(clazz).map(Membres::methodes).orElse(null);
+    }
+
+    // Optional et non null : une table ne distingue pas « pas encore lu » de « lu, et illisible »,
+    // et c'est précisément la relecture inutile qu'il s'agit d'éviter.
+    private static Optional<Membres> membres(Class<?> clazz) {
+        return LECTURES.computeIfAbsent(clazz, c -> Optional.ofNullable(lire(c)));
     }
 
     // La clé d'une méthode de la réflexion, sous la même forme que celle lue dans le fichier.
