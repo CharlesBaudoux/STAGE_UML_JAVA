@@ -1,69 +1,27 @@
-# Les regles du projet Keyboardd.
-#
-# Ce fichier reproduit les quatre diagrammes que le README presente, et en ajoute
-# quelques-uns que la bibliotheque sait calculer seule.
 
-# ---------------------------------------------------------------- le dessin d'ensemble
-title Keyboardd — vue d'ensemble
-
-# ---------------------------------------------------------------- ce que les boites montrent
-#
-# NONE : chaque boite choisit ses membres un par un, avec @UMLInclude. C'est le seul
-# moyen de tenir des boites aussi selectives que celles du README — SvgKeyboard a
-# quarante methodes publiques, dont six meritent d'etre montrees.
 strategy none
 
-# Ce fichier declarait ici quatre familles de bruit — « hide accessors », « hide
-# object-methods », « hide record-accessors », « hide enum-methods ». Le vocabulaire ne les
-# connait plus : « hide » ne prend que des motifs de noms, si bien que ces quatre lignes ne
-# visaient plus rien et que la bibliotheque les signalait comme mortes. Elles sont parties sans
-# rien changer au dessin : avec « strategy none », une boite ne montre que ce qu'elle inclut
-# expressement, et le bruit n'y entre jamais.
 
-# Les types de Guava n'apprennent rien au lecteur du diagramme : c'est leur interface
-# qui compte, pas leur implementation immuable.
 type ImmutableSet -> Set
 type ImmutableList -> List
 type ImmutableMap -> Map
 type ImmutableBiMap -> BiMap
 
-# Un retour void ne s'ecrit pas, comme dans les diagrammes tenus a la main.
+
 omit return void
 
-# La forme des conteneurs se traduit en multiplicites, comme dans les diagrammes du README :
-# « Set<String> » s'ecrit « String [0..*] », « Optional<Integer> » s'ecrit « int [0..1] ».
-# La regle remplace les cinq @UMLMultiplicity que le code portait : ils redisaient ce que
-# le type dit deja.
+
 multiplicity brackets
 
-# Le README n'ecrit pas les symboles de visibilite : il montre une structure, pas une API.
+
 omit visibility
 
-# Ni l'italique des operations abstraites : les boites abstraites de ce projet sont toutes des
-# interfaces, et le mot « interface » ecrit en tete de la boite le dit deja.
+
 omit abstract
 
-# Les membres dans l'ordre du code, comme dans les diagrammes du README : les fabriques
-# d'abord quand l'expose les presente d'abord, et non l'alphabet.
+
 order declaration
 
-# ---------------------------------------------------------------- ce que le code disait mal
-#
-# Le diagramme tenu a la main dessine Representation comme une hierarchie a trois classes ; le
-# code n'en avait qu'une, a deux champs dont un seul etait renseigne. Ce fichier a porte
-# successivement deux maquillages — declarer deux boites absentes du code, puis vider la boite
-# reelle — avant que les deux ne soient retires : ce qui n'est pas dans le code n'est pas sur
-# le diagramme, et une regle ne designe jamais un element par son nom.
-#
-# C'est donc le code qui a rattrape l'ecart. Representation est desormais une interface scellee
-# a deux implantations, StringRepresentation et SvgRepresentation, et l'invariant « l'un ou
-# l'autre, jamais les deux » est porte par le type plutot que par un checkArgument. Le diagramme
-# engendre montre la hierarchie parce qu'elle existe.
-
-# ---------------------------------------------------------------- les quatre vues du README
-#
-# L'ordre des classes est celui de l'expose : c'est lui qui place les boites que rien
-# ne relie.
 
 view "XKeys" = Xkeys
 
@@ -75,23 +33,11 @@ view "Mnemonics" = CanonicalKeysymEntry, CanonicalMnemonic, ImplicitUcp, Mnemoni
 view "Representable" = Representation, StringRepresentation, SvgRepresentation, XKeyNamesRepresenter, XKeyNamesAndRepresenter, CanonicalKeyboardMapRepresenter, RectangularKey, RectangularKeyboard, SvgKeyboard
 view "Representable" direction left-to-right
 
-# ---------------------------------------------------------------- ce que le README n'a pas
-#
-# Le voisinage d'une classe centrale : ce qu'il faut regarder pour la comprendre.
-#
-# Une seule vue, et sur KeysymEntry. Les deux precedentes visaient SvgKeyboard et
-# CanonicalKeyboardMap, qui ne declarent aucune relation : « around » n'y trouvait personne et
-# dessinait la classe toute seule. Deux vues d'une boite isolee ne montraient rien de ce que le
-# selecteur sait faire, et donnaient meme a croire le contraire.
-#
-# KeysymEntry a trois sous-classes — Code, Mnemonic, Ucp. La vue les rassemble sans qu'on ait a
-# les nommer, la ou « Mapping » les enumere : c'est precisement la difference entre le selecteur
-# qui se calcule et ceux qui se declarent.
-view "Autour de KeysymEntry" = around KeysymEntry
 
-# Une vue par paquetage, calculee sans rien declarer.
+
+view "Autour de SvgKeyboard" = around SvgKeyboard
+view "Autour de CanonicalKeyboardMap" = around CanonicalKeyboardMap
+
+
 views by package
 
-# Le sort de la generation precedente ne s'ecrit plus ici : il ne dit rien du modele, et se
-# regle a l'appel — « -Dumlg.keepPrevious=true » pour la conserver a cote, sous un nom
-# numerote. Sans lui, le dossier decrit toujours l'etat courant du code.
