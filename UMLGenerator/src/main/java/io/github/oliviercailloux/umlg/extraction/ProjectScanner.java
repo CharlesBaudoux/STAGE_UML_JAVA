@@ -29,7 +29,7 @@ public class ProjectScanner {
 
     private ProjectScanner() {}
 
-    public static UmlProject scan(Path rootPath) throws Exception {
+    public static ResultatDeScan scan(Path rootPath) throws Exception {
         return scan(rootPath, ImmutableList.of());
     }
 
@@ -40,7 +40,8 @@ public class ProjectScanner {
     // les jars du projet. Le classpath vide reste le cas ordinaire, celui d'un projet lancé dans
     // sa propre JVM, où ces jars y sont déjà ; le plugin Maven, lui, tourne dans la JVM de Maven
     // et doit les apporter.
-    public static UmlProject scan(Path rootPath, ImmutableList<Path> classpath) throws Exception {
+    public static ResultatDeScan scan(Path rootPath, ImmutableList<Path> classpath)
+        throws Exception {
         checkNotNull(rootPath);
         checkNotNull(classpath);
         checkArgument(Files.exists(rootPath) && Files.isDirectory(rootPath),
@@ -142,9 +143,9 @@ public class ProjectScanner {
             }
         }
 
-        // Le compte des ignorées est posé dès la fin du parcours, et non juste avant le retour :
-        // le message qui suit s'en sert, et il est émis sur un chemin d'échec.
-        DERNIER_SCAN.set(ImmutableList.sortedCopyOf(ignorees));
+        // Le compte des ignorées est arrêté dès la fin du parcours, et non juste avant le
+        // retour : le message d'erreur qui suit s'en sert, et il est émis sur un chemin d'échec.
+        ImmutableList<String> ignoreesTriees = ImmutableList.sortedCopyOf(ignorees);
 
         signalerClassesIllisibles(ImmutableList.sortedCopyOf(illisibles));
 
@@ -169,11 +170,11 @@ public class ProjectScanner {
         // classes et connaît leurs noms. Les dire, c'est la différence entre « ça ne marche pas »
         // et « voilà celle sur laquelle écrire @UMLClass ».
         if (duCode.isEmpty()) {
-            ImmutableList<String> vues = classesIgnorees();
-            String cequonAVu = vues.isEmpty()
+            String cequonAVu = ignoreesTriees.isEmpty()
                 ? "no class at all was found there"
-                : vues.size() + " class(es) were read, none of them annotated"
-                    + (vues.size() <= SEUIL_ENUMERATION ? " : " + String.join(", ", vues) : "");
+                : ignoreesTriees.size() + " class(es) were read, none of them annotated"
+                    + (ignoreesTriees.size() <= SEUIL_ENUMERATION
+                        ? " : " + String.join(", ", ignoreesTriees) : "");
             throw new IllegalArgumentException("No class carries @UMLClass in " + rootPath
                 + ", so there is nothing to draw — " + cequonAVu
                 + ". Annotate the classes the diagram is about, or point the analysis at the "
@@ -204,7 +205,7 @@ public class ProjectScanner {
         ImmutableList<UmlView> vues =
             ConstructeurDeVues.construire(entites, diagramme, regles);
 
-        return UmlProject.given(entites, diagramme, vues);
+        return new ResultatDeScan(UmlProject.given(entites, diagramme, vues), ignoreesTriees);
     }
 
     // Au-delà de ce nombre, les classes sont comptées mais pas nommées : une liste trop longue
@@ -312,18 +313,5 @@ public class ProjectScanner {
             + "the line.");
         return true;
     }
-
-    // Les classes que le dernier scan de ce fil a laissées de côté.
-    //
-    // Une variable de fil plutôt qu'une valeur rendue : scan() rend un UmlProject, et lui ajouter
-    // ce compte reviendrait à faire porter au modèle du diagramme une information qui ne le
-    // décrit pas — ces classes n'y sont justement pas. Le fil isole les générations concurrentes,
-    // et le compte rendu est lu juste après le scan qui l'a rempli.
-    public static ImmutableList<String> classesIgnorees() {
-        ImmutableList<String> dernieres = DERNIER_SCAN.get();
-        return dernieres == null ? ImmutableList.of() : dernieres;
-    }
-
-    private static final ThreadLocal<ImmutableList<String>> DERNIER_SCAN = new ThreadLocal<>();
 
 }
