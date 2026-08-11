@@ -69,14 +69,15 @@ public record RapportDeGeneration(int classesLues, ImmutableList<String> classes
         StringBuilder texte = new StringBuilder();
         texte.append(fichiers.size()).append(" diagram(s) written");
         if (!fichiers.isEmpty()) {
-            /**
-             * getParent() vaut null pour un chemin d'un seul segment — précisément le fichier
-             * par défaut, « diagramme_architecture.svg », écrit dans le répertoire courant. Le
-             * premier message qu'un utilisateur sans configuration lisait était donc « written
-             * to null » ; on nomme le fichier quand le dossier n'a pas de nom.
-             */
-            Path dossier = fichiers.get(0).getParent();
-            texte.append(" to ").append(dossier == null ? fichiers.get(0) : dossier);
+            // Un seul fichier se nomme ; plusieurs se résument par le dossier qui les tient.
+            //
+            // Nommer le dossier dans les deux cas taisait ce que l'utilisateur venait justement
+            // de demander : « written to docs » pour « docs/archi.svg », et « written to . » dès
+            // que le chemin commençait par « ./ ». Le null d'un chemin d'un seul segment était
+            // rattrapé — c'était le fichier par défaut, et le message disait « written to
+            // null » — mais le rattrapage traitait le symptôme, pas la question posée.
+            Path cible = fichiers.size() == 1 ? fichiers.get(0) : fichiers.get(0).getParent();
+            texte.append(" to ").append(cible == null ? fichiers.get(0) : cible);
         }
         texte.append('\n').append("  ").append(classesLues)
              .append(" class(es) drawn, ").append(classesIgnorees.size())

@@ -156,11 +156,7 @@ public final class UMLGenerator {
     // correspond plus au dessin d'à côté mentirait d'autant mieux qu'elle a l'air à sa place.
     private static Path ecrireListeDesIgnorees(ImmutableList<String> ignorees,
         ImmutableList<Path> ecrits) throws java.io.IOException {
-        Path racine = ecrits.get(0).getParent();
-        if (racine == null) {
-            return null;
-        }
-        Path fichier = racine.resolve(FICHIER_DES_CLASSES_IGNOREES);
+        Path fichier = dossierDeSortie(ecrits.get(0)).resolve(FICHIER_DES_CLASSES_IGNOREES);
         Files.deleteIfExists(fichier);
 
         if (ignorees.isEmpty()) {
@@ -174,6 +170,23 @@ public final class UMLGenerator {
         }
         Files.writeString(fichier, contenu.toString());
         return fichier;
+    }
+
+    // Le dossier où atterrit un fichier écrit.
+    //
+    // getParent() rend null pour un chemin d'un seul segment — « diagramme.svg » —, et ce null ne
+    // dit pas « nulle part » mais « le répertoire courant ». Le prendre pour une absence de
+    // destination faisait renoncer à écrire la liste, et c'est précisément la forme qu'ont les
+    // deux invocations les plus courantes : le nom par défaut, et un nom donné sans dossier. Le
+    // mode dossier, lui, ne passait jamais par là — d'où un défaut que seul le mode fichier
+    // unique montrait, et que « ./diagramme.svg » suffisait à masquer.
+    //
+    // Visible du paquetage plutôt que privée : le cas fautif est un chemin relatif d'un seul
+    // segment, que rien ne permet de produire depuis un @TempDir — dont les chemins sont tous
+    // absolus, donc tous pourvus d'un parent. Le contrôle se fait donc ici, sur la règle.
+    static Path dossierDeSortie(Path ecrit) {
+        Path parent = ecrit.getParent();
+        return parent == null ? Paths.get("") : parent;
     }
 
     /**

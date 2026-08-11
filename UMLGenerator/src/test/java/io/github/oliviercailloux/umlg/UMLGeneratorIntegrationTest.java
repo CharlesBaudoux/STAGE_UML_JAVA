@@ -205,6 +205,38 @@ class UMLGeneratorIntegrationTest {
     }
 
     @Test
+    void enModeFichierUnique_laListeEstEcriteAussi(@TempDir Path tmp) throws Exception {
+        // Le mode fichier unique n'avait aucun test sur ce point, alors que c'est celui de
+        // l'utilisateur qui n'a rien configuré — et donc celui qui a le plus besoin d'apprendre
+        // quelles classes ne sont pas sur son dessin.
+        Path classes = tmp.resolve("classes");
+        compiler(tmp.resolve("src"), classes, "com/banque/Compte.java", """
+            package com.banque;
+
+            import io.github.oliviercailloux.umlg.annotation.UMLClass;
+
+            @UMLClass
+            public class Compte {}
+
+            class Oubliee {}
+            """);
+
+        RapportDeGeneration rapport = UMLGenerator.builder()
+            .sourceDirectory(classes.toString())
+            .outputFile(tmp.resolve("archi.svg").toString())
+            .build()
+            .generate();
+
+        Path liste = tmp.resolve(UMLGenerator.FICHIER_DES_CLASSES_IGNOREES);
+        assertTrue(Files.exists(liste),
+            "La liste doit accompagner l'image, en mode fichier unique comme en mode dossier.");
+        assertTrue(Files.readString(liste, StandardCharsets.UTF_8).contains("Oubliee"));
+
+        // Et le compte rendu nomme le fichier demandé, non le dossier qui le contient.
+        assertTrue(rapport.resume().contains("archi.svg"), rapport.resume());
+    }
+
+    @Test
     void sansClasseIgnoree_leFichierPerimeEstRetire(@TempDir Path tmp) throws Exception {
         // Une liste laissée par une génération précédente mentirait d'autant mieux qu'elle a
         // l'air à sa place.

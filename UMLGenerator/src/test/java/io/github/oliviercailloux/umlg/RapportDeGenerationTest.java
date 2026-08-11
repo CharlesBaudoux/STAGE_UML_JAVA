@@ -44,6 +44,36 @@ class RapportDeGenerationTest {
     }
 
     @Test
+    void unSeulFichierDansUnDossier_estNommeLuiAussi() {
+        // Le compte rendu nommait le dossier quel que soit le nombre de fichiers : « written to
+        // docs » pour « docs/archi.svg ». Il taisait donc le nom que l'utilisateur venait de
+        // donner, et ne disait pas où regarder.
+        String resume = new RapportDeGeneration(5, ImmutableList.of(),
+            ImmutableList.of(Path.of("docs", "archi.svg"))).resume();
+
+        assertTrue(resume.contains(Path.of("docs", "archi.svg").toString()), resume);
+    }
+
+    @Test
+    void unSeulFichierPrefixeDePointSlash_estNommeLuiAussi() {
+        // La variante qui donnait « written to . » — le pire des cas, puisque le message
+        // désignait le répertoire courant tout entier.
+        String resume = new RapportDeGeneration(5, ImmutableList.of(),
+            ImmutableList.of(Path.of("./diagramme.svg"))).resume();
+
+        assertTrue(resume.contains("diagramme.svg"), resume);
+    }
+
+    @Test
+    void plusieursFichiers_sontResumesParLeurDossier() {
+        // L'autre moitié de la règle : vingt vues ne se listent pas, leur dossier suffit.
+        String resume = rapport(21, 0, 12).resume();
+
+        assertTrue(resume.contains("diagrammes"), resume);
+        assertFalse(resume.contains("v0.svg"), "Les vues ne doivent pas être listées : " + resume);
+    }
+
+    @Test
     void leCompteRendu_ditCeQuiAEteIgnore() {
         // L'information que personne n'avait : une classe sans @UMLClass est hors du diagramme,
         // et rien ne distinguait celle qu'on a écartée de celle qu'on a oubliée.
