@@ -4,6 +4,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
+import io.github.oliviercailloux.umlg.Avertissements;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -25,6 +26,8 @@ public final class AliasRegistry {
     // Nom complet de la classe -> son alias. Le nom complet est l'identité ; c'est par lui que
     // les relations retrouvent leurs extrémités.
     private final Map<String, String> aliasParNomQualifie = new HashMap<>();
+    // Nom affiché -> la première classe complète à l'avoir porté, pour dénoncer les homonymes.
+    private final Map<String, String> nomsAffichesParNom = new HashMap<>();
 
     // Appelée une fois par entité, au moment de déclarer sa boîte.
     public String enregistrer(String nomQualifie, String nomAffiche) {
@@ -47,7 +50,7 @@ public final class AliasRegistry {
         // classes complètes pour qu'il sache lesquelles.
         String homonyme = nomsAffichesParNom.put(nomAffiche, nomQualifie);
         if (homonyme != null) {
-            io.github.oliviercailloux.umlg.Avertissements.dire("\"" + nomAffiche + "\" is the "
+            Avertissements.dire("\"" + nomAffiche + "\" is the "
                 + "name of two boxes of the same diagram (" + homonyme + " and " + nomQualifie
                 + "). They are distinct classes, but nothing on the drawing tells them apart, "
                 + "nor which one a link reaches. Rename one with @UMLClass(name = ...), or split "
@@ -58,9 +61,6 @@ public final class AliasRegistry {
         aliasParNomQualifie.put(nomQualifie, alias);
         return alias;
     }
-
-    // Nom affiché -> la première classe complète à l'avoir porté, pour dénoncer les homonymes.
-    private final Map<String, String> nomsAffichesParNom = new HashMap<>();
 
     // Alias de la classe dont on est en train d'écrire les relations. Une absence ici est une
     // faute de la bibliothèque — les deux passes de PlantUmlWriter ont été mal ordonnées —,

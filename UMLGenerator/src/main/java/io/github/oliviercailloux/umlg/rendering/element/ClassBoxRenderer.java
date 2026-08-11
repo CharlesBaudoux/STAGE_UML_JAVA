@@ -5,7 +5,6 @@ import io.github.oliviercailloux.umlg.model.UmlField;
 import io.github.oliviercailloux.umlg.model.UmlMethod;
 import io.github.oliviercailloux.umlg.rendering.syntax.ColorCodec;
 import io.github.oliviercailloux.umlg.rendering.syntax.PlantUmlEscaper;
-import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -43,12 +42,8 @@ public final class ClassBoxRenderer {
 
     private ClassBoxRenderer() {}
 
-    // L'alias est fourni par l'appelant, qui le tient d'AliasRegistry.
-    public static String boite(UmlEntity entity, String alias) {
-        return boite(entity, alias, "");
-    }
-
-    // La même, avec un lien cliquable vers la vue où cette boîte est détaillée.
+    // L'alias est fourni par l'appelant, qui le tient d'AliasRegistry ; le lien mène à la vue où
+    // cette boîte est détaillée, et vaut "" quand il n'y en a pas.
     //
     // Un dossier de onze diagrammes est une collection d'images sans rapport tant qu'on ne peut
     // pas passer de l'une à l'autre. Le lien en fait une documentation qui se parcourt : depuis
@@ -63,16 +58,24 @@ public final class ClassBoxRenderer {
         // dans un cartouche au coin de la boîte, ce que PlantUML ne sait pas faire ; les écrire
         // à la suite dit la même chose, et vaut mieux que de les taire — un attribut de type T
         // dans une boîte nommée « Boite » ne renvoyait à rien.
+        //
+        // Le nom occupe à lui seul la première ligne dessinée de la boîte : c'est donc
+        // debutDeLigne et non label, sans quoi un nom valant « = titre » perdrait son signe égal,
+        // lu comme un titre Creole.
         boite.append(entity.kind().motCle())
              .append(" \"")
-             .append(PlantUmlEscaper.label(entity.name() + entity.typeParameters()))
+             .append(PlantUmlEscaper.debutDeLigne(entity.name() + entity.typeParameters()))
              .append("\" as ").append(alias);
 
-        // Le modèle garantit déjà le non-nul ; le test sur null est une ceinture de sécurité,
-        // celui sur isBlank distingue l'absence de stéréotype.
-        if (entity.stereotype() != null && !entity.stereotype().isBlank()) {
-            boite.append(" <<").append(PlantUmlEscaper.stereotype(entity.stereotype()))
-                 .append(">>");
+        // Le modèle garantit déjà le non-nul ; le test sur null est une ceinture de sécurité.
+        //
+        // La vacuité est éprouvée sur le texte échappé, et non sur celui du modèle : l'échappement
+        // supprime les caractères de contrôle, qu'isBlank() ne tient pas pour des blancs, et un
+        // stéréotype fait de ces seuls caractères engendrait « <<>> » — que le moteur refuse.
+        String stereotype =
+            entity.stereotype() == null ? "" : PlantUmlEscaper.stereotype(entity.stereotype());
+        if (!stereotype.isBlank()) {
+            boite.append(" <<").append(stereotype).append(">>");
         }
 
         // L'ORDRE DE CES DEUX MORCEAUX N'EST PAS LIBRE
@@ -122,31 +125,33 @@ public final class ClassBoxRenderer {
         return visibilite.isEmpty() ? "" : PlantUmlEscaper.label(visibilite) + " ";
     }
 
-    // Les règles formelles, chacune entre accolades, à la suite de l'élément qu'elles
-    // contraignent. Les accolades sont posées ici : l'utilisateur écrit la règle nue.
-    private static String contraintes(List<String> regles) {
-        StringBuilder sortie = new StringBuilder();
-        for (String regle : regles) {
-            sortie.append(" {").append(PlantUmlEscaper.label(regle)).append("}");
-        }
-        return sortie.toString();
-    }
-
     // Le nom d'un membre, précédé de la barre oblique s'il est dérivé.
     //
     // La barre se pose devant le nom, et devant lui seul : c'est la propriété qui est calculée,
     // non son type ni sa visibilité. Elle est écrite après l'échappement, sans passer par lui —
     // c'est une notation UML que nous produisons, pas un texte venu de l'utilisateur.
-    private static String derive(boolean derived, String nom) {
-        return (derived ? "/" : "") + PlantUmlEscaper.label(nom);
+    //
+    // ouvreLaLigne dit si rien ne précède le nom sur la ligne dessinée. C'est le cas quand le
+    // projet a demandé à taire les visibilités et que le membre n'est ni statique ni abstrait :
+    // le nom devient alors le premier caractère de la ligne, et un membre nommé « #total » se
+    // dessinait « total », son dièse lu comme une puce de liste.
+    private static String derive(boolean derived, String nom, boolean ouvreLaLigne) {
+        if (derived) {
+            // La barre oblique ouvre la ligne à la place du nom, et n'est pas un marqueur.
+            return "/" + PlantUmlEscaper.label(nom);
+        }
+        return ouvreLaLigne ? PlantUmlEscaper.debutDeLigne(nom) : PlantUmlEscaper.label(nom);
     }
 
     // Les littéraux d'une énumération, un par ligne. Ni visibilité, ni type, ni {static} : en
     // UML un EnumerationLiteral ne porte que son nom.
+    //
+    // Le littéral occupe donc à lui seul sa ligne dessinée, et rien ne le précède jamais : c'est
+    // la sixième position atteinte par le balisage de début de ligne.
     private static String literaux(UmlEntity entity) {
         StringBuilder compartiment = new StringBuilder();
         for (String literal : entity.literals()) {
-            compartiment.append("  ").append(PlantUmlEscaper.label(literal)).append("\n");
+            compartiment.append("  ").append(PlantUmlEscaper.debutDeLigne(literal)).append("\n");
         }
         return compartiment.toString();
     }
@@ -164,17 +169,20 @@ public final class ClassBoxRenderer {
     private static String attributs(UmlEntity entity) {
         StringBuilder compartiment = new StringBuilder();
         for (UmlField field : entity.fields()) {
-            compartiment.append("  ").append(prefixe(field.visibility()));
+            String visibilite = prefixe(field.visibility());
+            compartiment.append("  ").append(visibilite);
 
             // {static} demande à PlantUML de souligner le membre, comme le veut UML.
             if (field.isStatic()) {
                 compartiment.append("{static} ");
             }
 
-            compartiment.append(derive(field.derived(), field.name()))
-                        .append(" : ").append(PlantUmlEscaper.label(field.type()))
-                        .append(multiplicite(field.cardinality()))
-                        .append(contraintes(field.constraints())).append("\n");
+            compartiment
+                .append(derive(field.derived(), field.name(),
+                    visibilite.isEmpty() && !field.isStatic()))
+                .append(" : ").append(PlantUmlEscaper.label(field.type()))
+                .append(multiplicite(field.cardinality()))
+                .append(NotationContrainte.aLaSuite(field.constraints())).append("\n");
         }
         return compartiment.toString();
     }
@@ -183,7 +191,8 @@ public final class ClassBoxRenderer {
     private static String methodes(UmlEntity entity) {
         StringBuilder compartiment = new StringBuilder();
         for (UmlMethod method : entity.methods()) {
-            compartiment.append("  ").append(prefixe(method.visibility()));
+            String visibilite = prefixe(method.visibility());
+            compartiment.append("  ").append(visibilite);
 
             if (method.isStatic()) {
                 compartiment.append("{static} ");
@@ -194,10 +203,12 @@ public final class ClassBoxRenderer {
                 compartiment.append("{abstract} ");
             }
 
-            compartiment.append(derive(method.derived(), method.name()))
-                        .append("(").append(parametres(method)).append(")")
-                        .append(retour(method))
-                        .append("\n");
+            compartiment
+                .append(derive(method.derived(), method.name(),
+                    visibilite.isEmpty() && !method.isStatic() && !method.isAbstract()))
+                .append("(").append(parametres(method)).append(")")
+                .append(retour(method))
+                .append("\n");
         }
         return compartiment.toString();
     }

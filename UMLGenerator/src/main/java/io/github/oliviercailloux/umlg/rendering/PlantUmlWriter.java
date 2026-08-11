@@ -100,6 +100,19 @@ public class PlantUmlWriter {
         // La première vue est l'intégrale : ConstructeurDeVues la place toujours en tête.
         boolean integrale = true;
 
+        // Quelle vue a déjà pris chaque fichier — la ceinture du contrôle fait plus haut.
+        //
+        // UmlView.nomDeFichier réduit un nom de vue à un nom de fichier : accents retirés, tout
+        // ce qui n'est ni lettre ni chiffre remplacé par un tiret, minuscules. Des noms
+        // parfaitement distincts convergent donc — « Modèle » et « Modele » donnent tous deux
+        // « modele » —, et la seconde vue écrasait la première sans un mot, pendant que le rapport
+        // annonçait deux fichiers et que les liens de navigation menaient au mauvais diagramme.
+        //
+        // Le contrôle appartient à ConstructeurDeVues, seul endroit où toutes les vues sont
+        // réunies, et il y est fait. Celui-ci ne le remplace pas : il ferme le cas pour tout
+        // appelant qui construirait un UmlProject sans passer par là — writeViews est publique.
+        Map<Path, String> ecritPar = new LinkedHashMap<>();
+
         // Où mène chaque boîte : calculé une fois pour tout le dossier, puis restreint à chaque
         // vue — une boîte ne renvoie jamais vers la vue qu'on est en train de lire.
         Map<String, String> detailleePar = detailleePar(project, extension);
@@ -108,6 +121,12 @@ public class PlantUmlWriter {
             Path fichier = integrale
                 ? racine.resolve(NOM_DE_L_INTEGRALE + extension)
                 : desVues.resolve(vue.nomDeFichier() + extension);
+
+            String occupante = ecritPar.putIfAbsent(fichier, vue.name());
+            checkArgument(occupante == null,
+                "Views \"%s\" and \"%s\" both come down to the file %s: the second one would "
+                    + "overwrite the first, and nothing on the drawing would say so. Rename one "
+                    + "of them.", occupante, vue.name(), fichier);
 
             write(vue, project.diagram(), fichier.toString(), style,
                 navigation(vue, detailleePar, integrale, extension));
@@ -260,6 +279,12 @@ public class PlantUmlWriter {
         checkNotNull(project);
         checkNotNull(outputFileName);
         checkNotNull(style);
+        // Le même refus qu'en mode dossier, et il manquait ici : un nom sans point levait une
+        // StringIndexOutOfBoundsException « Range [0, -1) » au moment d'en retirer l'extension,
+        // message indéchiffrable pour un appelant de bibliothèque, et rendu bien après que le
+        // fichier eut été créé.
+        checkArgument(supporte(outputFileName),
+            "The output file name must end in .png or .svg (got: %s)", outputFileName);
 
         // Deux sources gouvernent le fichier engendré, et elles ne viennent pas du même endroit :
         // le style est choisi ici, à l'appel du générateur, tandis que les réglages d'ensemble
@@ -285,20 +310,26 @@ public class PlantUmlWriter {
 
         FileFormat format = formatPour(outputFileName);
 
+        // SourceStringReader analyse le texte PlantUML ; outputImage le dessine et l'écrit.
+        SourceStringReader reader = new SourceStringReader(codePlantUml);
+
+        // LES DEUX GARDES AVANT D'OUVRIR QUOI QUE CE SOIT
+        //
+        // Elles étaient posées à l'intérieur du try-with-resources, donc après la création du
+        // fichier : toute panne postérieure laissait à sa place un fichier de zéro octet — un
+        // diagramme que rien ne distingue d'un diagramme correct, sinon en l'ouvrant. Rien ne
+        // les oblige à voir le flux ; elles portent sur la source et sur l'environnement.
+        verifierAcceptation(reader, codePlantUml);
+        verifierMoteurDeDessin();
+
+        // La source acceptée est conservée à côté de l'image, sous le même nom : c'est elle
+        // qu'on retouche pour un essai, et elle que deux générations comparent utilement.
+        int point = outputFileName.lastIndexOf('.');
+        Files.writeString(Path.of(outputFileName.substring(0, point) + EXTENSION_PUML),
+            codePlantUml);
+
         // try-with-resources : le flux est fermé même si le rendu échoue.
         try (OutputStream os = new FileOutputStream(outputFileName)) {
-            // SourceStringReader analyse le texte PlantUML ; outputImage le dessine et l'écrit.
-            SourceStringReader reader = new SourceStringReader(codePlantUml);
-
-            verifierAcceptation(reader, codePlantUml);
-            verifierMoteurDeDessin();
-
-            // La source acceptée est conservée à côté de l'image, sous le même nom : c'est elle
-            // qu'on retouche pour un essai, et elle que deux générations comparent utilement.
-            int point = outputFileName.lastIndexOf('.');
-            Files.writeString(Path.of(outputFileName.substring(0, point) + EXTENSION_PUML),
-                codePlantUml);
-
             // Le plafond est posé sur le fil courant — c'est une ThreadLocal chez PlantUML —,
             // puis retiré : la bibliothèque ne laisse pas derrière elle un réglage global que
             // l'appelant n'a pas demandé.
@@ -308,7 +339,6 @@ public class PlantUmlWriter {
             } finally {
                 GraphvizUtils.removeLocalLimitSize();
             }
-
         }
     }
 

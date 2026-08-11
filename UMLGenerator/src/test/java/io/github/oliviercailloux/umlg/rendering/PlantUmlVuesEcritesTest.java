@@ -2,6 +2,7 @@ package io.github.oliviercailloux.umlg.rendering;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.common.collect.ImmutableList;
@@ -197,6 +198,46 @@ class PlantUmlVuesEcritesTest {
         assertTrue(integrale.contains("vues/le-vivant.svg"), "Le lien est bien posé.");
         assertTrue(integrale.contains("entity"), "Et le stéréotype reste écrit.");
         assertFalse(integrale.toLowerCase().contains("syntax error"), "Aucune image d'erreur.");
+    }
+
+    // --- Deux vues, un seul fichier ---
+
+    @Test
+    void deuxVuesDeMemeNomDeFichier_sontRefusees(@TempDir Path tmp) {
+        // UmlView.nomDeFichier réduit « Modèle » et « Modele » au même « modele » : la seconde
+        // vue écrasait la première sans un mot, le rapport annonçait deux fichiers dont l'un
+        // n'existait pas, et les liens de navigation menaient au mauvais diagramme.
+        //
+        // Le contrôle principal appartient à ConstructeurDeVues, seul endroit où toutes les vues
+        // sont réunies ; celui-ci est la ceinture, et il vaut pour tout appelant qui construit un
+        // UmlProject sans passer par là.
+        ImmutableList<UmlEntity> toutes = ImmutableList.of(boite("Facture"), boite("Client"));
+        UmlProject projet = UmlProject.given(Set.copyOf(toutes), UmlDiagram.defaut(), List.of(
+            new UmlView("Projet", toutes, UMLFlow.TOP_TO_BOTTOM),
+            new UmlView("Modèle", ImmutableList.of(boite("Facture")), UMLFlow.TOP_TO_BOTTOM),
+            new UmlView("Modele", ImmutableList.of(boite("Client")), UMLFlow.TOP_TO_BOTTOM)));
+        Path dossier = tmp.resolve("diagrammes");
+
+        IllegalArgumentException refus =
+            assertThrows(IllegalArgumentException.class, () -> PlantUmlWriter.writeViews(projet,
+                dossier, ".svg", UmlStyle.PLANTUML, false));
+
+        assertTrue(refus.getMessage().contains("Modèle"), refus.getMessage());
+        assertTrue(refus.getMessage().contains("Modele"),
+            "Le message doit nommer les deux vues : " + refus.getMessage());
+        assertTrue(refus.getMessage().contains("modele.svg"),
+            "Et le fichier qu'elles se disputent : " + refus.getMessage());
+    }
+
+    @Test
+    void deuxVuesDeNomsDistincts_sEcriventToutesLesDeux(@TempDir Path tmp) throws Exception {
+        // Le pendant du précédent : le garde-fou ne doit refuser que la collision réelle.
+        Path dossier = tmp.resolve("diagrammes");
+
+        PlantUmlWriter.writeViews(projet(), dossier, ".svg", UmlStyle.PLANTUML, false);
+
+        assertEquals(List.of("clients.puml", "clients.svg", "facturation.puml",
+            "facturation.svg"), fichiers(dossier.resolve("vues")));
     }
 
     // --- Ce que devient la génération précédente ---

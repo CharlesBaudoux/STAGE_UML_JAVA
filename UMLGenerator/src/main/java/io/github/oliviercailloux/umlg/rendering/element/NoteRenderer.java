@@ -30,8 +30,11 @@ public final class NoteRenderer {
 
     public static String note(UmlNote note, String alias) {
         if (!note.surMembre()) {
+            // Le texte occupe à lui seul la ligne dessinée : c'est donc debutDeLigne et non
+            // label, sans quoi une note valant « * voir le contrat » perdrait son astérisque, lue
+            // comme une puce de liste, et « # Attention » se dessinerait « 1. Attention ».
             return "note " + placement(note.direction()) + " of " + alias + " : "
-                + PlantUmlEscaper.label(note.text()) + "\n";
+                + PlantUmlEscaper.debutDeLigne(note.text()) + "\n";
         }
 
         // Le membre visé se désigne « Alias::membre ». Il est échappé comme le reste : c'est un
@@ -47,12 +50,16 @@ public final class NoteRenderer {
     //
     // PlantUML n'a pas de notation propre pour une contrainte d'élément ; UML, lui, la dessine
     // entre accolades à côté de la classe, ce qu'une note reproduit exactement. Les accolades
-    // sont posées ici, autour du texte déjà échappé : l'utilisateur écrit la règle nue.
+    // viennent de NotationContrainte, seul endroit où cette notation est écrite.
+    //
+    // La ligne dessinée s'ouvre alors sur l'accolade, que nous produisons et qui n'est pas un
+    // marqueur : le texte de l'utilisateur ne commence jamais la ligne ici, et debutDeLigne
+    // n'aurait rien à y neutraliser.
     //
     // La forme d'une seule ligne convient, une note de classe n'ayant pas de terminateur.
     public static String contrainte(String regle, String alias) {
-        return "note " + placement(UMLDirection.NONE) + " of " + alias + " : {"
-            + PlantUmlEscaper.label(regle) + "}\n";
+        return "note " + placement(UMLDirection.NONE) + " of " + alias + " : "
+            + NotationContrainte.une(regle) + "\n";
     }
 
     // PlantUML exige un côté : « note of X » n'existe pas. NONE doit donc se traduire par un

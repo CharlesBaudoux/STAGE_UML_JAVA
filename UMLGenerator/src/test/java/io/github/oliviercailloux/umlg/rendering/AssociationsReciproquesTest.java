@@ -1,6 +1,7 @@
 package io.github.oliviercailloux.umlg.rendering;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.common.collect.ImmutableList;
@@ -9,6 +10,9 @@ import io.github.oliviercailloux.umlg.annotation.UMLRelationType;
 import io.github.oliviercailloux.umlg.model.UmlAssociation;
 import io.github.oliviercailloux.umlg.model.UmlEntity;
 import io.github.oliviercailloux.umlg.model.UmlRelation;
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -147,6 +151,69 @@ class AssociationsReciproquesTest {
             .type(UMLRelationType.COMPOSITION).build());
 
         assertEquals(2, PlantUmlAssert.lignesDeLien(PlantUmlAssert.documentPour(a, b)).size());
+    }
+
+    // --- Ce que dit l'avertissement de non-fusion ---
+    //
+    // Il n'énonçait qu'une des deux causes, et son remède — « ne décorez qu'un seul côté » —
+    // était inapplicable à l'autre : quand le lien conservé a déjà écrit son propre côté source,
+    // retirer les décorations du partenaire ne change rien au dessin.
+
+    private static String avertissementPour(UmlEntity... entites) {
+        PrintStream avant = System.err;
+        ByteArrayOutputStream tampon = new ByteArrayOutputStream();
+        try {
+            System.setErr(new PrintStream(tampon, true, StandardCharsets.UTF_8));
+            AssociationsReciproques.de(List.of(entites));
+        } finally {
+            System.setErr(avant);
+        }
+        return tampon.toString(StandardCharsets.UTF_8);
+    }
+
+    @Test
+    void partenaireDecore_estLaCauseAnnoncee() {
+        UmlEntity a = entite("A", UmlAssociation.builder("bs", "dm.B").build());
+        UmlEntity b = entite("B", UmlAssociation.builder("a", "dm.A")
+            .type(UMLRelationType.COMPOSITION).build());
+
+        String dit = avertissementPour(a, b);
+
+        assertTrue(dit.contains("dm.B.a carries more than a role"), dit);
+        assertTrue(dit.contains("Keep the decorations on one side only"), dit);
+        assertFalse(dit.contains("source end"),
+            "Cette cause-là ne s'applique pas ici : " + dit);
+    }
+
+    @Test
+    void coteSourceDejaEcrit_estLautreCauseEtSonRemedePropre() {
+        // Le cas que le message taisait : rien n'est décoré, et pourtant la fusion n'a pas lieu.
+        // Le conseil « ne décorez qu'un seul côté » n'y avait aucune prise.
+        UmlEntity a = entite("A", UmlAssociation.builder("bs", "dm.B")
+            .sourceRole("proprietaire").sourceCardinality("1").build());
+        UmlEntity b = entite("B", UmlAssociation.builder("a", "dm.A")
+            .targetRole("autre").build());
+
+        String dit = avertissementPour(a, b);
+
+        assertTrue(dit.contains("dm.A.bs already names its own source end"), dit);
+        assertTrue(dit.contains("Drop that source end"), dit);
+        assertFalse(dit.contains("Keep the decorations on one side only"),
+            "Un remède inapplicable ne doit plus être proposé : " + dit);
+    }
+
+    @Test
+    void lesDeuxCauses_sontEnonceesEnsemble() {
+        // N'en corriger qu'une laisserait les deux traits, sans qu'on sache pourquoi.
+        UmlEntity a = entite("A", UmlAssociation.builder("bs", "dm.B")
+            .sourceRole("proprietaire").build());
+        UmlEntity b = entite("B", UmlAssociation.builder("a", "dm.A")
+            .type(UMLRelationType.COMPOSITION).build());
+
+        String dit = avertissementPour(a, b);
+
+        assertTrue(dit.contains("carries more than a role"), dit);
+        assertTrue(dit.contains("already names its own source end"), dit);
     }
 
     @Test

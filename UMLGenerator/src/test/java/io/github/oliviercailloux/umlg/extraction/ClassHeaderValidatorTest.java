@@ -66,4 +66,33 @@ class ClassHeaderValidatorTest {
         assertThrows(IllegalArgumentException.class,
             () -> ClassHeaderValidator.validateStereotype("   ", getClass()));
     }
+
+    // --- Ce que l'échappement vide, la validation doit le refuser ---
+    //
+    // isBlank() ne tient pas les caractères de contrôle pour des blancs, alors que l'échappement
+    // les supprime : un nom fait de ces seuls caractères traversait la validation, puis engendrait
+    // « class "" as C » — que PlantUML refuse. La garde du writer levait alors une
+    // IllegalStateException accusant « un défaut de la bibliothèque », message que l'utilisateur
+    // ne pouvait pas suivre. La question est donc posée au texte échappé, celui qui sera écrit.
+
+    @Test
+    void nomFaitDeCaracteresInvisibles_estRejete() {
+        assertThrows(IllegalArgumentException.class,
+            () -> ClassHeaderValidator.validateName("\1\2", getClass()),
+            "Ce nom se réduit à la chaîne vide dans le fichier engendré.");
+    }
+
+    @Test
+    void stereotypeFaitDeCaracteresInvisibles_estRejete() {
+        // Sa manifestation propre : « class \"E\" as E <<>> », que le moteur refuse aussi.
+        assertThrows(IllegalArgumentException.class,
+            () -> ClassHeaderValidator.validateStereotype("\1\2", getClass()));
+    }
+
+    @Test
+    void nomOrdinaireAvecUnCaractereDeControle_resteAccepte() {
+        // La correction ne durcit pas la règle : il suffit qu'il reste quelque chose à dessiner.
+        assertDoesNotThrow(() -> ClassHeaderValidator.validateName("Compte\1", getClass()));
+        assertDoesNotThrow(() -> ClassHeaderValidator.validateStereotype("entity\1", getClass()));
+    }
 }

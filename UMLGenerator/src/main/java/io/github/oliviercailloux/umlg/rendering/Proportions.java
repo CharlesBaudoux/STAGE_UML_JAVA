@@ -2,6 +2,7 @@ package io.github.oliviercailloux.umlg.rendering;
 
 import io.github.oliviercailloux.umlg.Avertissements;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -101,9 +102,22 @@ final class Proportions {
         return null;
     }
 
+    // Les premiers octets du fichier, et eux seuls.
+    //
+    // La méthode lisait le fichier entier avant de le tronquer, ce que son appelant croyait
+    // précisément éviter : sur un diagramme de plusieurs mégaoctets, tout était chargé en mémoire
+    // pour y chercher deux nombres écrits dans les deux cents premiers octets. readNBytes lit ce
+    // qu'on lui demande, et s'arrête là.
+    //
+    // Une coupe au milieu d'un caractère UTF-8 ne produit qu'un caractère de remplacement, sans
+    // conséquence : les attributs recherchés sont en ASCII, et se trouvent bien avant la fin.
     private static String entete(Path fichier, int octets) throws IOException {
-        byte[] tout = Files.readAllBytes(fichier);
-        return new String(tout, 0, Math.min(octets, tout.length), StandardCharsets.UTF_8);
+        byte[] debut = new byte[octets];
+        int lus;
+        try (InputStream flux = Files.newInputStream(fichier)) {
+            lus = flux.readNBytes(debut, 0, octets);
+        }
+        return new String(debut, 0, lus, StandardCharsets.UTF_8);
     }
 
     private static int entier(byte[] octets, int debut) {

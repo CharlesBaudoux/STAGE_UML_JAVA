@@ -297,6 +297,34 @@ class PlantUmlEscapeTest {
         assertEquals("&#91;[lien]]", PlantUmlEscaper.label("[[lien]]"));
     }
 
+    // --- Quand l'échappement vide la chaîne ---
+    //
+    // isBlank() ne tient pas les caractères de contrôle pour des blancs, alors que l'échappement
+    // les supprime : un texte fait de ces seuls caractères traversait toutes les gardes en amont,
+    // puis ressortait valant "". La chaîne vide est fautive à trois positions — « class "" as C »
+    // et « <<>> » sont refusés par le moteur, « <i></i> » se dessine « </i> » sur le trait —, et
+    // la question doit donc être posée au texte échappé.
+
+    // Le refus à l'extraction est éprouvé par ClassHeaderValidatorTest, qui atteint la classe de
+    // validation ; ici on éprouve la ceinture, côté rendu — un UmlEntity peut être construit à la
+    // main, sans passer par l'extraction, et « <<>> » resterait refusé par le moteur.
+    @Test
+    void stereotypeVideApresEchappement_nEcritPasDeChevronsVides() {
+        String source = PlantUmlAssert.documentPour(stereotypee("\1\2"));
+
+        assertFalse(source.contains("<<>>"), source);
+        PlantUmlAssert.assertCompile(source);
+    }
+
+    @Test
+    void nomVideApresEchappement_seVoitDansLaSourceEngendree() {
+        // La démonstration du défaut, à la position que la validation garde en amont : sans le
+        // refus de ClassHeaderValidator, c'est « class "" as C » qui serait écrit, et le moteur
+        // le rejette.
+        assertEquals("", PlantUmlEscaper.label("\1\2"));
+        assertEquals("", PlantUmlEscaper.stereotype("\1\2"));
+    }
+
     @Test
     void encodeur_appliqueDeuxFois_neProduitToujoursPasDeBalise() {
         // Encoder deux fois n'est pas l'identité (c'est attendu), mais ne doit jamais rouvrir

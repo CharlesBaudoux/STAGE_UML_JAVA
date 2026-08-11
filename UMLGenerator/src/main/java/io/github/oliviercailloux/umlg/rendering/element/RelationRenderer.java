@@ -64,11 +64,46 @@ public final class RelationRenderer {
 
         // Le label est commun à toutes les natures de liens : le traiter une fois ici évite
         // qu'une nature nouvelle l'oublie, ou l'habille autrement que ses voisines.
-        if (!relation.label().isEmpty()) {
-            trait +=
-                " : " + PlantUmlLayout.nomDeLien(style, PlantUmlEscaper.label(relation.label()));
+        String nom = nomDeLien(relation.label());
+        if (!nom.isEmpty()) {
+            trait += " : " + nom;
+            mesurer(relation.label());
         }
         return trait + "\n";
+    }
+
+    // Le nom du lien, habillé ligne par ligne.
+    //
+    // POURQUOI LE DÉCOUPAGE
+    //
+    // PlantUML coupe l'étiquette à chaque « \n » sans reporter les balises ouvertes. Un nom sur
+    // deux lignes s'écrivait « <i>lig1\nlig2</i> » : la seconde ligne perdait son italique et
+    // affichait « </i></color> » en toutes lettres sur le dessin. Rien ne l'attrapait — la source
+    // est valide, donc la garde du writer ne voyait pas d'erreur. Chaque ligne porte donc
+    // désormais son propre habillage.
+    //
+    // POURQUOI UNE LIGNE VIDE N'EST PAS HABILLÉE
+    //
+    // L'échappement peut vider une ligne — un texte fait de caractères de contrôle disparaît —,
+    // et « <i></i> » se dessine « </i> » sur le trait. Une ligne vide ne reçoit donc rien, et un
+    // nom entièrement vidé rend "", ce que l'appelant traduit par « pas de nom du tout ».
+    private String nomDeLien(String label) {
+        // -1 conserve les lignes vides finales, que le découpage supprimerait sinon.
+        String[] lignes = label.split("\r\n|\r|\n", -1);
+
+        StringBuilder sortie = new StringBuilder();
+        boolean quelqueChose = false;
+        for (int i = 0; i < lignes.length; i++) {
+            if (i > 0) {
+                sortie.append("\\n");
+            }
+            String echappee = PlantUmlEscaper.label(lignes[i]);
+            if (!echappee.isEmpty()) {
+                sortie.append(PlantUmlLayout.nomDeLien(style, echappee));
+                quelqueChose = true;
+            }
+        }
+        return quelqueChose ? sortie.toString() : "";
     }
 
     // Lue par PlantUmlSyntaxBuilder une fois toutes les relations écrites.
@@ -154,16 +189,35 @@ public final class RelationRenderer {
         return ligne.append(' ').append(aliasCible).toString();
     }
 
-    // Ajoute une extrémité entre guillemets, et met à jour la largeur maximale observée. C'est
-    // le seul point où l'accumulateur est touché, ce qui garantit qu'aucune étiquette écrite
-    // n'échappe au calcul.
-    private void ajouterExtremite(StringBuilder ligne, String extremite) {
-        if (extremite.isEmpty()) {
+    // Ajoute une extrémité entre guillemets, et met à jour la largeur maximale observée.
+    private void ajouterExtremite(StringBuilder ligne, Extremite.Etiquette extremite) {
+        if (extremite.estVide()) {
             return;
         }
-        ligne.append(" \"").append(extremite).append('"');
-        largeurEtiquetteMax =
-            Math.max(largeurEtiquetteMax, PlantUmlLayout.largeurEstimee(extremite));
+        ligne.append(" \"").append(extremite.ecrit()).append('"');
+        mesurer(extremite.affiche());
+    }
+
+    // Retient la largeur du texte le plus large posé sur un trait.
+    //
+    // DEUX CORRECTIONS TIENNENT DANS CETTE MÉTHODE
+    //
+    // La mesure porte sur le texte tel qu'il sera dessiné, et non sur sa forme échappée : un
+    // guillemet s'écrit « &#34; » dans la source et n'occupe qu'un caractère à l'écran. Mesurer
+    // la source écartait les boîtes de cinq fois la place réellement nécessaire.
+    //
+    // Et elle porte sur tous les textes d'un trait, extrémités comme nom du lien. UmlStyle
+    // annonce « l'espacement, calculé sur la plus longue étiquette du diagramme » ; seules les
+    // extrémités étaient comptées, alors que le nom du lien est en pratique le texte le plus long
+    // d'un trait, et qu'il se dessine exactement au même endroit — entre deux boîtes voisines.
+    //
+    // Un texte sur plusieurs lignes occupe la largeur de sa plus longue, et non leur somme : la
+    // mesure se fait donc ligne à ligne.
+    private void mesurer(String texteAffiche) {
+        for (String ligne : texteAffiche.split("\r\n|\r|\n", -1)) {
+            largeurEtiquetteMax =
+                Math.max(largeurEtiquetteMax, PlantUmlLayout.largeurEstimee(ligne));
+        }
     }
 
     // Le trait lui-même. La direction s'insère au milieu du connecteur : "-down->", "*-left-".

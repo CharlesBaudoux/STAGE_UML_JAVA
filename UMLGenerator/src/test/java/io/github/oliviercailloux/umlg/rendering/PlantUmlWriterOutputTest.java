@@ -173,15 +173,41 @@ class PlantUmlWriterOutputTest {
     }
 
     @Test
-    void extensionInconnue_bascculeEnPng(@TempDir Path tmp) throws Exception {
-        // Caractérisation : le writer n'est pas protégé par le Builder quand on l'appelle
-        // directement ; tout ce qui n'est pas .svg est traité comme du PNG.
+    void extensionInconnue_estRefusee(@TempDir Path tmp) {
+        // Le writer n'est pas protégé par le Builder quand on l'appelle directement, et il ne se
+        // protégeait pas lui-même : writeViews refuse une extension inconnue, celui-ci non. Tout
+        // ce qui n'était pas .svg passait pour du PNG, et un nom sans point du tout levait une
+        // StringIndexOutOfBoundsException « Range [0, -1) » — indéchiffrable pour un appelant.
+        IllegalArgumentException refus = assertThrows(IllegalArgumentException.class,
+            () -> PlantUmlWriter.write(projetCobaye(), tmp.resolve("diagramme.txt").toString()));
+
+        assertTrue(refus.getMessage().contains(".png"), refus.getMessage());
+        assertTrue(refus.getMessage().contains(".svg"), refus.getMessage());
+        assertTrue(refus.getMessage().contains("diagramme.txt"),
+            "Le message doit nommer le fichier fautif : " + refus.getMessage());
+    }
+
+    @Test
+    void nomSansExtension_estRefuseSansExceptionObscure(@TempDir Path tmp) {
+        assertThrows(IllegalArgumentException.class,
+            () -> PlantUmlWriter.write(projetCobaye(), tmp.resolve("diagramme").toString()));
+    }
+
+    @Test
+    void ecritureRefusee_neLaisseRienDerriereElle(@TempDir Path tmp) throws Exception {
+        // Le flux de sortie était ouvert avant toute vérification : le fichier existait déjà,
+        // vide, quand la panne survenait. Un diagramme de zéro octet ne se distingue d'un
+        // diagramme correct qu'en l'ouvrant — c'est le pire des résultats.
         Path sortie = tmp.resolve("diagramme.txt");
 
-        PlantUmlWriter.write(projetCobaye(), sortie.toString());
+        assertThrows(IllegalArgumentException.class,
+            () -> PlantUmlWriter.write(projetCobaye(), sortie.toString()));
 
-        byte[] entete = Arrays.copyOf(Files.readAllBytes(sortie), ENTETE_PNG.length);
-        assertArrayEquals(ENTETE_PNG, entete);
+        assertFalse(Files.exists(sortie), "Aucun fichier ne doit rester : " + sortie);
+        assertFalse(Files.exists(tmp.resolve("diagramme.puml")), "Ni la source PlantUML.");
+        try (var contenu = Files.list(tmp)) {
+            assertEquals(List.of(), contenu.toList(), "Le dossier doit être resté vide.");
+        }
     }
 
     @Test

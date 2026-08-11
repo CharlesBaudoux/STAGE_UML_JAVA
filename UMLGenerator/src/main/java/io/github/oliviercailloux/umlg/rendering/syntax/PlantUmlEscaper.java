@@ -42,6 +42,20 @@ public final class PlantUmlEscaper {
     // puisque PlantUML décode l'entité.
     private static final String MARQUEURS_DOUBLES = "*/~-_[";
 
+    // Les caractères qui ouvrent un balisage à eux seuls, mais seulement en tête d'une ligne
+    // rendue : « # » et « * » une liste à puces, « = » un titre, « | » une ligne de tableau.
+    //
+    // CE QUE LES PAIRES NE COUVRAIENT PAS
+    //
+    // Casser les marqueurs doublés a fermé le balisage qui s'ouvre n'importe où dans une ligne ;
+    // il en restait un second, que PlantUML n'applique qu'au premier caractère. Partout où le
+    // texte de l'utilisateur ouvre une ligne — le nom d'une boîte, celui d'un rectangle, le titre
+    // du diagramme, une note d'une seule ligne, un membre dont la visibilité est tue —, il était
+    // altéré en silence : « # Attention » se dessinait « 1. Attention », « * voir le contrat »
+    // perdait son astérisque, « = titre » son signe égal. C'est le même défaut que les paires,
+    // sous une autre grammaire, et il appelle la même promesse : dessiner ce qui est écrit.
+    private static final String MARQUEURS_DE_LIGNE = "#*=|";
+
     private PlantUmlEscaper() {}
 
     // Vrai si le caractère à cet indice ouvre une paire de marqueurs.
@@ -93,6 +107,26 @@ public final class PlantUmlEscaper {
             }
         }
         return sortie.toString();
+    }
+
+    // Pour un texte que PlantUML dessine en tête d'une ligne rendue.
+    //
+    // C'est label(), plus la neutralisation du balisage à un seul caractère. Le premier caractère
+    // n'est encodé que s'il est réellement un marqueur de ligne : l'encoder toujours, comme le
+    // fait noteBloc pour une autre raison, rendrait illisible la source engendrée — que le projet
+    // conserve précisément pour qu'on puisse la relire et la comparer.
+    //
+    // Le test porte sur le texte échappé, et non sur le texte d'origine : label() supprime les
+    // caractères de contrôle, si bien qu'un texte commençant par un caractère invisible suivi
+    // d'un « # » ouvrirait bel et bien une ligne par ce « # ».
+    public static String debutDeLigne(String texte) {
+        checkNotNull(texte);
+
+        String echappe = label(texte);
+        if (echappe.isEmpty() || MARQUEURS_DE_LIGNE.indexOf(echappe.charAt(0)) < 0) {
+            return echappe;
+        }
+        return neutraliserPremierCaractere(echappe);
     }
 
     // Pour le texte d'une note écrite en bloc, que PlantUML referme par une ligne « end note ».
@@ -174,6 +208,14 @@ public final class PlantUmlEscaper {
     // Les caractères de contrôle (en dessous de l'espace) et le caractère de suppression (0x7F)
     // sont simplement supprimés : invisibles à l'écran, ils ne feraient que perturber le
     // fichier engendré. Les accents et les caractères non latins, eux, passent intacts.
+    //
+    // CONSÉQUENCE POUR QUI VÉRIFIE QU'UN TEXTE N'EST PAS VIDE
+    //
+    // Cette suppression peut vider la chaîne : un nom fait d'un seul caractère de contrôle passe
+    // isBlank() — qui ne tient pas ces caractères pour des blancs — et ressort ici valant "". Les
+    // trois positions où la chaîne vide est fautive écrivaient alors « class "" as C », « <<>> »
+    // ou « <i></i> », que PlantUML refuse ou dessine de travers. Un contrôle de vacuité doit donc
+    // porter sur le texte échappé, jamais sur le texte d'origine.
     private static void appendSiImprimable(StringBuilder sortie, char c) {
         if (c >= ' ' && c != 0x7F) {
             sortie.append(c);

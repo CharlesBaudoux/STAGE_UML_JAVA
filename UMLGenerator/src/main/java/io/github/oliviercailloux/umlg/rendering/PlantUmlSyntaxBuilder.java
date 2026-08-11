@@ -86,8 +86,13 @@ final class PlantUmlSyntaxBuilder {
         // Le titre est un texte de l'utilisateur, et passe donc par l'échappement comme tous les
         // autres : PlantUML lit « title » jusqu'à la fin de la ligne, et un retour à la ligne
         // brut y ferait commencer une directive que personne n'a écrite.
+        //
+        // debutDeLigne et non label : le titre occupe à lui seul la ligne dessinée en tête du
+        // diagramme, et un titre valant « === Facturation === » y perdait ses trois premiers
+        // signes égal, lus comme un titre Creole.
         if (diagramme.aUnTitre()) {
-            tete.append("title ").append(PlantUmlEscaper.label(diagramme.title())).append('\n');
+            tete.append("title ").append(PlantUmlEscaper.debutDeLigne(diagramme.title()))
+                .append('\n');
         }
         if (diagramme.direction() == UMLFlow.LEFT_TO_RIGHT) {
             tete.append("left to right direction\n");

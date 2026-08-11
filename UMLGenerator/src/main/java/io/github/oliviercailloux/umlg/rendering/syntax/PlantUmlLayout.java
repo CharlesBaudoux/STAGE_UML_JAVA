@@ -77,12 +77,19 @@ public final class PlantUmlLayout {
 
     private PlantUmlLayout() {}
 
-    // Met en forme le nom d'une association posé au milieu du trait.
+    // Met en forme une ligne du nom d'une association posé au milieu du trait.
     //
     // L'italique est commun aux deux apparences, et pour une raison de lecture : la cardinalité
     // se pose au même endroit que le nom du lien, PlantUML seul décidant où, et rien d'autre ne
     // permettrait au lecteur de savoir lequel des deux textes nomme le trait. La couleur, elle,
     // appartient au thème — sous UmlStyle.PLANTUML le nom reste noir, comme le reste.
+    //
+    // UNE LIGNE, ET UNE SEULE
+    //
+    // L'habillage ne franchit pas un passage à la ligne : PlantUML coupe l'étiquette au « \n »
+    // sans reporter les balises ouvertes, et la seconde ligne afficherait « </i></color> » en
+    // toutes lettres. L'appelant découpe donc le texte et appelle cette méthode par ligne ; elle
+    // n'a pas à connaître ce découpage, seulement à ne jamais l'enjamber.
     public static String nomDeLien(UmlStyle style, String labelDejaEchappe) {
         checkNotNull(style);
 

@@ -88,14 +88,8 @@ public final class AssociationsReciproques {
                 String clefPartenaire = clef(enFace.qualifiedName(), partenaire);
 
                 if (!fusionnable(association, partenaire)) {
-                    Avertissements.dire(entite.qualifiedName() + "." + association.fieldName()
-                        + " and " + enFace.qualifiedName() + "." + partenaire.fieldName()
-                        + " declare the same association from both sides, and both carry more "
-                        + "than a role and a multiplicity (a type, a label, a constraint or a "
-                        + "slash). UML would draw one line with two "
-                        + "ends; two are drawn, because merging them would silently drop what "
-                        + "the second one says. Keep the decorations on one side only to get a "
-                        + "single line.");
+                    Avertissements.dire(
+                        pourquoiPasFusionnee(entite, association, enFace, partenaire));
                     // Marquées comme traitées, pour que la paire ne soit pas réexaminée depuis
                     // l'autre bout et l'avertissement dit deux fois.
                     fusionnees.put(clef, association);
@@ -151,12 +145,57 @@ public final class AssociationsReciproques {
     // ni dérivation — et que le lien conservé n'ait pas déjà écrit son propre côté source, qui
     // l'emporterait alors sur ce que dit l'autre.
     private static boolean fusionnable(UmlAssociation gardee, UmlAssociation partenaire) {
-        return partenaire.type() == UMLRelationType.ASSOCIATION
-            && partenaire.label().isEmpty()
-            && partenaire.constraints().isEmpty()
-            && !partenaire.derived()
-            && gardee.sourceRole().isEmpty()
-            && gardee.sourceCardinality().isEmpty();
+        return !partenaireDecore(partenaire) && !cotesourceDejaEcrit(gardee);
+    }
+
+    // Le partenaire dit-il plus qu'un rôle et une multiplicité ?
+    private static boolean partenaireDecore(UmlAssociation partenaire) {
+        return partenaire.type() != UMLRelationType.ASSOCIATION
+            || !partenaire.label().isEmpty()
+            || !partenaire.constraints().isEmpty()
+            || partenaire.derived();
+    }
+
+    // Le lien conservé a-t-il déjà nommé lui-même son extrémité source ?
+    private static boolean cotesourceDejaEcrit(UmlAssociation gardee) {
+        return !gardee.sourceRole().isEmpty() || !gardee.sourceCardinality().isEmpty();
+    }
+
+    // Pourquoi cette paire garde ses deux traits, et quoi faire pour n'en avoir qu'un.
+    //
+    // DEUX CAUSES, DEUX REMÈDES
+    //
+    // Le message n'énonçait que la première — « les deux portent plus qu'un rôle et une
+    // multiplicité » — et donnait pour remède de ne décorer qu'un seul côté. Or la seconde cause
+    // est tout autre : le lien conservé a déjà écrit son propre côté source, qui est justement la
+    // place où ce que dit l'autre bout se serait inscrit. Retirer des décorations n'y change rien,
+    // et l'utilisateur suivait un conseil sans effet sur son diagramme.
+    //
+    // Les deux causes peuvent valoir ensemble, et le message les énonce alors toutes les deux :
+    // n'en corriger qu'une laisserait les deux traits, sans qu'on sache pourquoi.
+    private static String pourquoiPasFusionnee(UmlEntity entite, UmlAssociation association,
+        UmlEntity enFace, UmlAssociation partenaire) {
+
+        String ici = entite.qualifiedName() + "." + association.fieldName();
+        String laBas = enFace.qualifiedName() + "." + partenaire.fieldName();
+
+        StringBuilder message = new StringBuilder(ici + " and " + laBas
+            + " declare the same association from both sides. UML would draw one line with two "
+            + "ends; two are drawn, because merging them would silently drop what the second one "
+            + "says.");
+
+        if (partenaireDecore(partenaire)) {
+            message.append(" ").append(laBas).append(" carries more than a role and a "
+                + "multiplicity (a type, a label, a constraint or a slash), and the end of a line "
+                + "cannot hold any of those. Keep the decorations on one side only.");
+        }
+        if (cotesourceDejaEcrit(association)) {
+            message.append(" ").append(ici).append(" already names its own source end "
+                + "(sourceRole or sourceCardinality), which is exactly where ").append(laBas)
+                .append(" would have been written. Drop that source end, and let the class "
+                    + "opposite say what it is called.");
+        }
+        return message.toString();
     }
 
     // Le lien conservé, dont l'extrémité source reçoit ce que la classe d'en face dit d'elle.

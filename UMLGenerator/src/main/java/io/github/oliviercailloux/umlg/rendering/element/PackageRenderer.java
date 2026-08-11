@@ -91,9 +91,12 @@ public final class PackageRenderer {
     // La ligne qui ouvre un rectangle. Le nom est entre guillemets, ce qui permet espaces et
     // accents ; la couleur, elle, est validée par ColorCodec plutôt qu'échappée — son
     // vocabulaire est fermé.
+    //
+    // Le nom occupe à lui seul l'étiquette dessinée du rectangle : c'est donc debutDeLigne et non
+    // label, sans quoi un groupe nommé « |a|b| » se dessinerait en tableau à deux cellules.
     public static String ouverture(UmlPackage groupe) {
         StringBuilder ligne = new StringBuilder("package \"")
-            .append(PlantUmlEscaper.label(groupe.name())).append('"');
+            .append(PlantUmlEscaper.debutDeLigne(groupe.name())).append('"');
 
         if (!groupe.color().isEmpty()) {
             ligne.append(' ').append(ColorCodec.code(groupe.color(), groupe.name()));
