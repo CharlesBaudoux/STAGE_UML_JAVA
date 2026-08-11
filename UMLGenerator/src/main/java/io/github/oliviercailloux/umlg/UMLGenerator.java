@@ -2,6 +2,7 @@ package io.github.oliviercailloux.umlg;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedSet;
@@ -16,6 +17,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * La façade : le seul point d'entrée de la bibliothèque.
@@ -107,9 +109,33 @@ public final class UMLGenerator {
      * appelant programmatique en fait ce qu'il veut — échouer sur « 15 classes ignorées », par
      * exemple.
      *
-     * @return le compte rendu : ce qui a été lu, ce qui a été ignoré, et les fichiers écrits.
+     * <p><b>Les avertissements sont dans le compte rendu.</b> Il n'y a rien à poser ni à retirer
+     * pour les lire : {@code rapport.avertissements()} les porte tous, et
+     * {@code if (rapport.avertissements().isEmpty())} s'écrit donc. {@link Avertissements} reste
+     * là pour l'autre besoin, celui d'un relais qui les voit arriver au lieu de les relire.
+     *
+     * @return le compte rendu : ce qui a été lu, ce qui a été ignoré, les fichiers écrits, et ce
+     *     qu'il y a eu à signaler en chemin.
      */
     public RapportDeGeneration generate() {
+        // Les avertissements de cette génération-ci entrent dans le compte rendu qu'elle rend.
+        // C'est generate() qui pose le canal et le retire, et non plus l'appelant : lui demander
+        // d'encadrer son appel d'un versLeCanal et d'un retablirLeDefaut, c'était lui demander de
+        // ne pas oublier le second — un canal laissé en place capte la génération d'après, sur un
+        // fil qu'un pool réutilise.
+        //
+        // « en plus » et non « à la place » : le canal que l'appelant avait posé — le log de
+        // Maven — continue de tout recevoir au fil de l'eau. Le remplacer ferait taire le relais
+        // temps réel exactement pendant le moment où il sert.
+        ImmutableList.Builder<String> avertissements = ImmutableList.builder();
+        try (Avertissements.Canal capture =
+            Avertissements.enPlusDuCanalCourant(avertissements::add)) {
+            return genere(avertissements);
+        }
+    }
+
+    // Le corps de generate(), une fois le canal des avertissements en place.
+    private RapportDeGeneration genere(ImmutableList.Builder<String> avertissements) {
         try {
             // Étape 1 : le code annoté devient un modèle, vues comprises. Le scan rend du même
             // coup ce qu'il a laissé de côté : ces classes ne sont pas dans le modèle, et c'est
@@ -127,6 +153,7 @@ public final class UMLGenerator {
                 ecrits = PlantUmlWriter.writeViews(project, outputDirectory, extension, style,
                     keepPrevious);
             } else {
+                signalerLesVuesPerdues(project);
                 PlantUmlWriter.write(project, outputFileName, style);
                 ecrits = ImmutableList.of(Paths.get(outputFileName));
             }
@@ -135,9 +162,10 @@ public final class UMLGenerator {
             // dossier, si bien qu'un utilisateur du mode fichier unique lisait « 37 ignored »
             // sans aucun moyen de savoir lesquelles.
             ImmutableList<String> ignorees = resultat.classesIgnorees();
-            Path liste = ecrireListeDesIgnorees(ignorees, ecrits);
+            Optional<Path> liste = ecrireListeDesIgnorees(ignorees, ecrits);
 
-            return new RapportDeGeneration(project.entities().size(), ignorees, ecrits, liste);
+            return new RapportDeGeneration(project.entities().size(), ignorees, ecrits, liste,
+                avertissements.build());
         } catch (FileSystemException e) {
             // Le message d'une FileSystemException se réduit au chemin — « /tmp/ro/x » —, et
             // l'enveloppe générique le répétait donc sans rien apprendre à personne. La raison
@@ -166,18 +194,38 @@ public final class UMLGenerator {
         }
     }
 
-    // Écrit la liste complète des classes ignorées à la racine du dossier de sortie, ou rend
-    // null s'il n'y a rien à nommer.
+    // Ce qu'un fichier unique ne peut pas contenir.
+    //
+    // Le projet déclare des vues — dans son fichier de règles, ou par « views by package » — et la
+    // sortie demandée est un fichier : seul le diagramme d'ensemble sera écrit, et les autres
+    // seront perdues sans un mot. C'est le troisième des réglages qui se contredisaient en
+    // silence, et le seul qui ne se voie pas à la lecture du code d'appel : rien, dans
+    // « .outputFile("archi.svg") », ne dit ce que le fichier de règles a demandé par ailleurs.
+    //
+    // Le test porte sur « plus d'une » et non sur « au moins une » : la première vue est
+    // l'intégrale, que ConstructeurDeVues place toujours en tête et que le fichier unique contient
+    // précisément. Ce sont les suivantes qui n'ont nulle part où aller.
+    private static void signalerLesVuesPerdues(UmlProject project) {
+        int perdues = project.views().size() - 1;
+        if (perdues > 0) {
+            Avertissements.dire("this project declares " + perdues + " partial view(s), which a "
+                + "single output file cannot hold: only the whole-project diagram is written. "
+                + "Ask for a directory — .outputDirectory(\"diagrammes\") — to get them all.");
+        }
+    }
+
+    // Écrit la liste complète des classes ignorées à la racine du dossier de sortie, ou rend un
+    // Optional vide s'il n'y a rien à nommer.
     //
     // Le fichier périmé d'une génération précédente est retiré d'abord : une liste qui ne
     // correspond plus au dessin d'à côté mentirait d'autant mieux qu'elle a l'air à sa place.
-    private static Path ecrireListeDesIgnorees(ImmutableList<String> ignorees,
+    private static Optional<Path> ecrireListeDesIgnorees(ImmutableList<String> ignorees,
         ImmutableList<Path> ecrits) throws IOException {
         Path fichier = dossierDeSortie(ecrits.get(0)).resolve(FICHIER_DES_CLASSES_IGNOREES);
         Files.deleteIfExists(fichier);
 
         if (ignorees.isEmpty()) {
-            return null;
+            return Optional.empty();
         }
         StringBuilder contenu = new StringBuilder();
         contenu.append("Classes seen without @UMLClass, hence not drawn (")
@@ -186,7 +234,7 @@ public final class UMLGenerator {
             contenu.append(classe).append('\n');
         }
         Files.writeString(fichier, contenu.toString());
-        return fichier;
+        return Optional.of(fichier);
     }
 
     // Le dossier où atterrit un fichier écrit.
@@ -264,7 +312,9 @@ public final class UMLGenerator {
      * De quoi configurer une génération, un appel à la fois.
      *
      * <p>Le builder valide au fur et à mesure : une erreur de chemin ou d'extension se signale dès
-     * l'appel fautif, et non au bout de plusieurs secondes d'analyse.
+     * l'appel fautif, et non au bout de plusieurs secondes d'analyse. Ce qu'un appel ne peut pas
+     * juger seul — la cohérence de deux réglages entre eux — est vérifié par {@link #build()},
+     * dernier moment où la configuration est encore complète et rien n'a été calculé.
      */
     public static final class Builder {
         private Path sourceDirectory;
@@ -272,6 +322,11 @@ public final class UMLGenerator {
         // Null tant qu'aucun dossier n'est demandé : c'est ce qui distingue les deux sorties.
         private Path outputDirectory;
         private String extension = ".svg";
+        // Ce que l'utilisateur a demandé lui-même, par opposition aux défauts ci-dessus. Deux
+        // défauts ne se contredisent pas ; deux demandes, si — et c'est la seule chose que
+        // build() a besoin de savoir pour le dire.
+        private boolean fichierDemande;
+        private boolean formatDemande;
         // L'apparence de PlantUML : ne rien imposer est le défaut le moins présomptueux.
         private UmlStyle style = UmlStyle.PLANTUML;
         // Vide par défaut : le répertoire analysé se suffit quand ses classes ne mentionnent
@@ -315,6 +370,7 @@ public final class UMLGenerator {
                 "The output format must be .png or .svg (got: %s)", fileName);
 
             this.outputFileName = fileName;
+            this.fichierDemande = true;
             return this;
         }
 
@@ -376,6 +432,7 @@ public final class UMLGenerator {
                 "The output format must be .png or .svg (got: %s)", extensionDemandee);
 
             this.extension = normalisee;
+            this.formatDemande = true;
             return this;
         }
 
@@ -416,13 +473,32 @@ public final class UMLGenerator {
         /**
          * Fige la configuration.
          *
+         * <p>C'est ici que se juge la cohérence de l'ensemble, faute de pouvoir la juger appel par
+         * appel : {@code outputFile} et {@code outputDirectory} demandent deux sorties différentes,
+         * et {@code outputFormat} ne veut rien dire sans dossier. {@code generate()} tranchait
+         * jusqu'ici en silence — le fichier nommé n'était jamais écrit, ou le format demandé jamais
+         * lu —, ce qui laissait l'utilisateur devant un résultat qu'il n'avait pas demandé et sans
+         * rien pour comprendre.
+         *
          * @return le générateur, prêt à {@link UMLGenerator#generate()}.
          * @throws NullPointerException si le répertoire source n'a pas été fourni : il n'a pas de
          *     défaut raisonnable.
+         * @throws IllegalStateException si deux réglages se contredisent : un fichier et un dossier
+         *     de sortie demandés ensemble, ou un format d'image demandé hors du mode dossier.
          */
         public UMLGenerator build() {
             checkNotNull(sourceDirectory,
                 "The source directory is mandatory. Use .sourceDirectory(...)");
+            checkState(!(fichierDemande && outputDirectory != null),
+                "Both an output file (%s) and an output directory (%s) are asked for, and only "
+                    + "one of them can be written. Keep .outputFile(...) for the single "
+                    + "whole-project diagram, or .outputDirectory(...) to get every view.",
+                outputFileName, outputDirectory);
+            checkState(!(formatDemande && outputDirectory == null),
+                "An output format (%s) is asked for, but no output directory: in single-file mode "
+                    + "the format is read from the file name. Write .outputFile(\"diagram%s\"), or "
+                    + "ask for a directory with .outputDirectory(...).",
+                extension, extension);
             return new UMLGenerator(this);
         }
     }

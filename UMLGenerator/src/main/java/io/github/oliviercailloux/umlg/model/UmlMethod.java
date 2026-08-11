@@ -1,5 +1,6 @@
 package io.github.oliviercailloux.umlg.model;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableList;
@@ -39,14 +40,26 @@ public record UmlMethod(
     /**
      * Vérifie les invariants de la méthode.
      *
-     * @throws NullPointerException si le type de retour, la multiplicité ou la liste des
-     *     paramètres est nulle ; l'absence des deux premiers se dit avec la chaîne vide.
-     * @throws IllegalArgumentException si la multiplicité n'est pas une multiplicité UML.
+     * <p>Comme pour {@link UmlField}, le nom et la visibilité n'étaient pas contrôlés : une méthode
+     * sans nom traversait le modèle et ne se voyait qu'à la lecture du dessin. Le type de retour,
+     * lui, admet bien la chaîne vide — c'est ce qu'écrit la règle « omit return void » —, mais pas
+     * un blanc, qui serait un oubli déguisé.
+     *
+     * @throws NullPointerException si le nom, le type de retour, la multiplicité, la visibilité ou
+     *     la liste des paramètres est nulle ; l'absence de type de retour, de multiplicité et de
+     *     visibilité se dit avec la chaîne vide.
+     * @throws IllegalArgumentException si le nom est vide, si le type de retour n'est fait que
+     *     d'espaces, si la visibilité n'est pas un symbole UML, ou si la multiplicité n'est pas une
+     *     multiplicité UML.
      */
     public UmlMethod {
+        UmlField.verifierNom(name);
         checkNotNull(returnType, "The return type cannot be null (use an empty string).");
+        checkArgument(returnType.isEmpty() || !returnType.isBlank(),
+            "The return type of \"%s\" cannot be made of whitespace only.", name);
         checkNotNull(cardinality, "The cardinality cannot be null (use an empty string).");
         Multiplicites.valider(cardinality, "cardinality");
+        UmlField.verifierVisibilite(visibility, name);
 
         // Recopie défensive : la liste passée par l'appelant reste modifiable de son côté, celle
         // du record ne l'est pas. copyOf refuse au passage les éléments nuls.

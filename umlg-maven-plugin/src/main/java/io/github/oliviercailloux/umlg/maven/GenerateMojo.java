@@ -99,8 +99,13 @@ public class GenerateMojo extends AbstractMojo {
         // [WARNING] et la place que Maven leur réserve dans son récapitulatif de fin. Ils
         // partaient jusqu'ici sur la sortie d'erreur, nus, au milieu du log — le message le plus
         // utile de l'outil était celui qu'on voyait le moins.
-        Avertissements.versLeCanal(getLog()::warn);
-        try {
+        //
+        // Le canal est posé ici, et non lu dans le compte rendu, parce que ce qui compte pour un
+        // build est de les voir arriver : un avertissement écrit à sa place dans le log dit ce
+        // que la construction était en train de faire quand il est né. Sa fermeture rend au fil
+        // son canal d'origine — Maven réutilise ses fils d'un module à l'autre, et un canal
+        // laissé en place écrirait les avertissements du module suivant dans le log de celui-ci.
+        try (Avertissements.Canal canal = Avertissements.versLeCanal(getLog()::warn)) {
             // La construction du builder est dans le try, et ce n'est pas un détail de style :
             // hors de lui, une faute de configuration — « -Dumlg.format=pdf » — s'échappait en
             // IllegalArgumentException nue, et Maven la présentait en PluginExecutionException,
@@ -131,10 +136,6 @@ public class GenerateMojo extends AbstractMojo {
             }
         } catch (RuntimeException e) {
             throw new MojoExecutionException(e.getMessage(), e);
-        } finally {
-            // Maven réutilise ses fils d'un module à l'autre : un canal laissé en place capterait
-            // les avertissements du module suivant, et les écrirait dans le log de celui-ci.
-            Avertissements.retablirLeDefaut();
         }
     }
 }

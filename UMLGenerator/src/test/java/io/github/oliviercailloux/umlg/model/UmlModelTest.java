@@ -63,6 +63,36 @@ class UmlModelTest {
         assertEquals(UmlDiagram.defaut(), UmlProject.given(Set.of(entiteMinimale())).diagram());
     }
 
+    // L'IDENTITÉ, TENUE PAR LE PROJET
+    //
+    // UmlEntity dit de qualifiedName qu'il est « l'identité de l'entité ». Mais l'ImmutableSet des
+    // entités dédoublonne sur les quatorze composantes du record : deux entités de même nom
+    // qualifié ne différant que par une couleur y tenaient toutes les deux, et la faute ne se
+    // découvrait qu'au rendu — ou pas du tout en usage purement programmatique.
+
+    @Test
+    void deuxEntitesDeMemeNomQualifie_sontRefusees() {
+        UmlEntity bleue = UmlEntity.builder("com.banque.Compte", "Compte").color("#DDEEFF").build();
+        UmlEntity rouge = UmlEntity.builder("com.banque.Compte", "Compte").color("#FFDDDD").build();
+
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+            () -> UmlProject.given(new LinkedHashSet<>(List.of(bleue, rouge))));
+
+        assertTrue(e.getMessage().contains("com.banque.Compte"),
+            "Le message doit nommer le doublon, seule chose à corriger : " + e.getMessage());
+    }
+
+    @Test
+    void deuxEntitesDeNomsQualifiesDistincts_cohabitent() {
+        // Le contrôle porte sur le nom complet, et non sur le nom affiché : deux classes de même
+        // nom simple dans deux paquetages différents sont deux boîtes légitimes.
+        UmlEntity ici = UmlEntity.builder("com.banque.Compte", "Compte").build();
+        UmlEntity ailleurs = UmlEntity.builder("com.clients.Compte", "Compte").build();
+
+        assertEquals(2, UmlProject.given(new LinkedHashSet<>(List.of(ici, ailleurs)))
+            .entities().size());
+    }
+
     @Test
     void entitesDUnProjet_sontImmuables() {
         UmlProject projet = UmlProject.given(Set.of(entiteMinimale()));
@@ -198,8 +228,9 @@ class UmlModelTest {
 
     // --- UmlField ---
 
-    // UmlField n'a aucun constructeur compact : ces deux tests ne vérifient que l'égalité par
-    // valeur engendrée par le record, dont dépendent les comparaisons de listes ailleurs.
+    // Ces deux tests-ci ne vérifient que l'égalité par valeur engendrée par le record, dont
+    // dépendent les comparaisons de listes ailleurs ; ceux qui suivent portent sur les invariants
+    // du constructeur compact.
     @Test
     void champsIdentiques_sontEgaux() {
         assertEquals(new UmlField("a", "int", "+", false), new UmlField("a", "int", "+", false));
@@ -208,5 +239,73 @@ class UmlModelTest {
     @Test
     void champStatiqueEtNonStatique_neSontPasEgaux() {
         assertNotEquals(new UmlField("a", "int", "+", true), new UmlField("a", "int", "+", false));
+    }
+
+    // LES TROIS COMPOSANTES QUI N'ÉTAIENT PAS TENUES
+    //
+    // UmlField et UmlMethod étaient les deux seuls records du modèle à ne contrôler ni le nom, ni
+    // le type, ni la visibilité : « new UmlField(null, null, null, false) » passait sans broncher,
+    // et le rendu écrivait « - null : null » dans la boîte, deux couches plus loin. Le voisin
+    // immédiat UmlParameter refusait pourtant déjà un type vide.
+
+    @Test
+    void champSansNom_estRefuse() {
+        assertThrows(NullPointerException.class, () -> new UmlField(null, "int", "+", false));
+        assertThrows(IllegalArgumentException.class, () -> new UmlField("  ", "int", "+", false));
+    }
+
+    @Test
+    void champSansType_estRefuse() {
+        assertThrows(NullPointerException.class, () -> new UmlField("a", null, "+", false));
+
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+            () -> new UmlField("a", "", "+", false));
+        assertTrue(e.getMessage().contains("a"),
+            "Le message doit nommer l'attribut fautif : " + e.getMessage());
+    }
+
+    @Test
+    void champDeVisibiliteInconnue_estRefuse() {
+        assertThrows(NullPointerException.class, () -> new UmlField("a", "int", null, false));
+
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+            () -> new UmlField("a", "int", "?", false));
+        assertTrue(e.getMessage().contains("?"), e.getMessage());
+    }
+
+    @Test
+    void champSansVisibiliteEcrite_estAccepte() {
+        // La chaîne vide n'est pas un oubli : c'est ce que produit la règle « omit visibility »
+        // du projet, qui demande de ne rien écrire devant le membre.
+        assertEquals("", new UmlField("a", "int", "", false).visibility());
+    }
+
+    // --- UmlMethod, mêmes invariants ---
+
+    @Test
+    void methodeSansNom_estRefusee() {
+        assertThrows(NullPointerException.class,
+            () -> new UmlMethod(null, "void", "+", false, List.of()));
+        assertThrows(IllegalArgumentException.class,
+            () -> new UmlMethod(" ", "void", "+", false, List.of()));
+    }
+
+    @Test
+    void methodeDeVisibiliteInconnue_estRefusee() {
+        assertThrows(IllegalArgumentException.class,
+            () -> new UmlMethod("m", "void", "?", false, List.of()));
+    }
+
+    @Test
+    void methodeSansTypeDeRetourEcrit_estAcceptee() {
+        // UML tient le type de retour pour facultatif, et la règle « omit return void » s'en sert :
+        // la chaîne vide dit « ne rien écrire après les parenthèses ».
+        assertEquals("", new UmlMethod("m", "", "+", false, List.of()).returnType());
+    }
+
+    @Test
+    void methodeDontLeTypeDeRetourNEstQueDesEspaces_estRefusee() {
+        assertThrows(IllegalArgumentException.class,
+            () -> new UmlMethod("m", " ", "+", false, List.of()));
     }
 }
