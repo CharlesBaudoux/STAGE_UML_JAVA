@@ -5,6 +5,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableList;
 import io.github.oliviercailloux.umlg.annotation.UMLFlow;
+import java.text.Normalizer;
 import java.util.Locale;
 
 /**
@@ -58,7 +59,7 @@ public record UmlView(String name, ImmutableList<UmlEntity> entities, UMLFlow di
      *     sur {@code vue}.
      */
     public String nomDeFichier() {
-        String sansAccents = java.text.Normalizer.normalize(name, java.text.Normalizer.Form.NFD)
+        String sansAccents = Normalizer.normalize(name, Normalizer.Form.NFD)
             .replaceAll("\\p{M}+", "");
         String remplace = sansAccents.replaceAll("[^\\p{IsAlphabetic}\\p{IsDigit}]+", "-");
         String propre = remplace.replaceAll("^-+|-+$", "");

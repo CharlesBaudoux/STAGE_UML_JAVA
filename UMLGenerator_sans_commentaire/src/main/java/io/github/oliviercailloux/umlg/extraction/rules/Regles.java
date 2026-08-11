@@ -11,6 +11,8 @@ import java.nio.charset.CharacterCodingException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class Regles {
 
@@ -51,8 +53,7 @@ public final class Regles {
 
     private final boolean omettreAbstrait;
 
-    private final java.util.Set<String> aliasUtilises =
-        java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private final Set<String> aliasUtilises = ConcurrentHashMap.newKeySet();
 
     Regles(ImmutableMap<String, String> alias, boolean omettreRetourVoid,
         UMLVisibility strategie, boolean strategieDeclaree,

@@ -23,6 +23,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.StreamSupport;
 
 public final class ConstructeurDeVues {
 
@@ -169,7 +170,7 @@ public final class ConstructeurDeVues {
 
     private static ImmutableList<UmlEntity> ordonnees(Iterable<UmlEntity> retenues) {
         ImmutableSet<String> presentes = ImmutableSet.copyOf(
-            java.util.stream.StreamSupport.stream(retenues.spliterator(), false)
+            StreamSupport.stream(retenues.spliterator(), false)
                 .map(UmlEntity::qualifiedName).toList());
 
         List<UmlEntity> elaguees = new ArrayList<>();

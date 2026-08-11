@@ -26,6 +26,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Parameter;
 import java.lang.reflect.RecordComponent;
+import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -263,7 +264,7 @@ public final class MemberExtractor {
     //
     // L'annotation l'emporte : c'est la décision individuelle, et la règle n'est qu'un défaut —
     // le même ordre de préséance que partout ailleurs dans la bibliothèque.
-    private static String multiplicite(AnnotatedElement membre, java.lang.reflect.Type type,
+    private static String multiplicite(AnnotatedElement membre, Type type,
         Regles regles) {
         String declaree = multiplicite(membre);
         if (!declaree.isEmpty() || !regles.multiplicitesDeduites()) {
