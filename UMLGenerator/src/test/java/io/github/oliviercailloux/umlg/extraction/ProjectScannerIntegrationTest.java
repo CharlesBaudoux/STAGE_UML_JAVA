@@ -294,11 +294,8 @@ class ProjectScannerIntegrationTest {
     // capterait les avertissements du test suivant, qui tourne sur le même fil.
     private static List<String> avertissementsDuScan(Path sortie) throws IOException {
         List<String> dits = new ArrayList<>();
-        Avertissements.versLeCanal(dits::add);
-        try {
+        try (Avertissements.Canal canal = Avertissements.versLeCanal(dits::add)) {
             ProjectScanner.scan(sortie);
-        } finally {
-            Avertissements.retablirLeDefaut();
         }
         return dits;
     }
@@ -403,13 +400,10 @@ class ProjectScannerIntegrationTest {
         Files.delete(sortie.resolve("com/exemple/Absente.class"));
 
         List<String> dits = new ArrayList<>();
-        Avertissements.versLeCanal(dits::add);
-        try {
+        try (Avertissements.Canal canal = Avertissements.versLeCanal(dits::add)) {
             IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
                 () -> ProjectScanner.scan(sortie).projet());
             assertTrue(e.getMessage().contains("No class carries @UMLClass"), e.getMessage());
-        } finally {
-            Avertissements.retablirLeDefaut();
         }
 
         assertTrue(avertissementSur(dits, "com.exemple.Porteuse")

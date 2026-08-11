@@ -139,20 +139,17 @@ class OrdreDuFichierClasseTest {
         // les bulles. Le même constat répété quatre fois n'apprend rien de plus la deuxième fois,
         // et noie les autres avertissements.
         Runnable lambda = () -> {};
-        Regles regles = Regles.lues(ImmutableList.of("order declaration"), "umlg.rules");
+        Regles regles = Regles.lues("{ \"order\": \"declaration\" }", "umlg.json");
         List<String> dits = new ArrayList<>();
 
-        Avertissements.versLeCanal(dits::add);
-        try {
+        try (Avertissements.Canal canal = Avertissements.versLeCanal(dits::add)) {
             MembresOrdonnes.champs(lambda.getClass(), regles);
             MembresOrdonnes.methodes(lambda.getClass(), regles);
             MembresOrdonnes.champs(lambda.getClass(), regles);
-        } finally {
-            Avertissements.retablirLeDefaut();
         }
 
         assertEquals(1, dits.size(), dits::toString);
-        assertTrue(dits.get(0).contains("order declaration"), dits.get(0));
+        assertTrue(dits.get(0).contains("\"order\": \"declaration\""), dits.get(0));
         assertTrue(dits.get(0).contains("alphabetical order"), dits.get(0));
     }
 }

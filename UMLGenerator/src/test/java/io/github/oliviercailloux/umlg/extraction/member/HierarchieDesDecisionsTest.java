@@ -15,7 +15,9 @@ import io.github.oliviercailloux.umlg.extraction.relation.AssociationExtractor;
 import io.github.oliviercailloux.umlg.extraction.rules.Regles;
 import io.github.oliviercailloux.umlg.model.UmlAssociation;
 import io.github.oliviercailloux.umlg.model.UmlField;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 
 // La hiérarchie des décisions, éprouvée là où deux mécanismes se croisent.
@@ -30,8 +32,11 @@ import org.junit.jupiter.api.Test;
 // ET un record, un motif ET une association. Ce fichier ne contient que des croisements.
 class HierarchieDesDecisionsTest {
 
-    private static Regles regles(String... lignes) {
-        return Regles.lues(ImmutableList.copyOf(lignes), "umlg.rules");
+    private static Regles regles(String... motifs) {
+        String liste = Arrays.stream(motifs)
+            .map(motif -> "\"" + motif + "\"")
+            .collect(Collectors.joining(", "));
+        return Regles.lues("{ \"hide\": [" + liste + "] }", "umlg.json");
     }
 
     private static List<String> noms(List<UmlField> champs) {
@@ -51,7 +56,7 @@ class HierarchieDesDecisionsTest {
         // ce que le record EST. Un motif est un défaut général, comme la stratégie, et il ne
         // défait pas plus qu'elle une définition.
         List<UmlField> champs =
-            MemberExtractor.extractFields(Sac.class, UMLVisibility.NONE, regles("hide log*"));
+            MemberExtractor.extractFields(Sac.class, UMLVisibility.NONE, regles("log*"));
 
         assertEquals(List.of("garde", "logTexte"), noms(champs), champs.toString());
     }
@@ -63,7 +68,7 @@ class HierarchieDesDecisionsTest {
         // L'autre moitié de la règle : ce qu'un défaut général ne peut pas faire, le veto
         // individuel le peut — sans quoi plus rien ne pourrait retirer un composant.
         List<UmlField> champs =
-            MemberExtractor.extractFields(SacExclu.class, UMLVisibility.NONE, regles("hide log*"));
+            MemberExtractor.extractFields(SacExclu.class, UMLVisibility.NONE, regles("log*"));
 
         assertEquals(List.of("garde"), noms(champs), champs.toString());
     }
@@ -86,7 +91,7 @@ class HierarchieDesDecisionsTest {
     @Test
     void unMotif_neFaitPasDisparaitreUnLienEcritDansLaBoite() {
         List<UmlField> champs =
-            MemberExtractor.extractFields(Journal.class, UMLVisibility.NONE, regles("hide log*"));
+            MemberExtractor.extractFields(Journal.class, UMLVisibility.NONE, regles("log*"));
 
         assertEquals(List.of("logCibles"), noms(champs), champs.toString());
         assertEquals("Cible", champs.get(0).type());
@@ -101,7 +106,7 @@ class HierarchieDesDecisionsTest {
         ImmutableList<UmlAssociation> traits =
             new AssociationExtractor().extraire(JournalEnTrait.class);
         List<UmlField> lignes = MemberExtractor.extractFields(Journal.class, UMLVisibility.NONE,
-            regles("hide log*"));
+            regles("log*"));
 
         assertEquals(1, traits.size(), traits.toString());
         assertEquals(1, lignes.size(), lignes.toString());
@@ -116,7 +121,7 @@ class HierarchieDesDecisionsTest {
     @Test
     void surUneAssociationEcriteDansLaBoite_seulUmlExcludeGardeLeDernierMot() {
         assertTrue(MemberExtractor
-            .extractFields(JournalExclu.class, UMLVisibility.NONE, regles("hide log*")).isEmpty());
+            .extractFields(JournalExclu.class, UMLVisibility.NONE, regles("log*")).isEmpty());
     }
 
     // --- Le même croisement, sur les trois autres compartiments ---
@@ -136,7 +141,7 @@ class HierarchieDesDecisionsTest {
         // La décision individuelle bat le réglage général, et le nom qu'elle donne vaut aussi :
         // les deux moitiés de la même question, posées au même endroit.
         List<UmlField> champs =
-            MemberExtractor.extractFields(Bavarde.class, UMLVisibility.PUBLIC, regles("hide log*"));
+            MemberExtractor.extractFields(Bavarde.class, UMLVisibility.PUBLIC, regles("log*"));
 
         assertEquals(List.of("compte", "logRetenu"), noms(champs), champs.toString());
     }
@@ -153,7 +158,7 @@ class HierarchieDesDecisionsTest {
         // asAttribute est écrit dans un @UMLInclude : la demande est individuelle, et le motif ne
         // la défait pas plus ici qu'ailleurs.
         List<UmlField> champs = MemberExtractor.methodesEnAttributs(Accesseurs.class,
-            UMLVisibility.NONE, regles("hide log*"));
+            UMLVisibility.NONE, regles("log*"));
 
         assertEquals(List.of("logEtat"), noms(champs), champs.toString());
     }
@@ -172,7 +177,7 @@ class HierarchieDesDecisionsTest {
         // Un littéral échappait à tout ce qui vaut pour les autres membres : aucun motif ne
         // l'atteignait jamais, et rien ne le documentait.
         ImmutableList<String> litteraux = MemberExtractor.extractLiterals(Devise.class,
-            UMLVisibility.PUBLIC, regles("hide LOG*"));
+            UMLVisibility.PUBLIC, regles("LOG*"));
 
         assertEquals(List.of("EURO", "LOGEE"), litteraux, litteraux.toString());
     }
@@ -186,11 +191,8 @@ class HierarchieDesDecisionsTest {
 
     private static ImmutableList<String> avertissementsDe(Runnable action) {
         ImmutableList.Builder<String> dits = ImmutableList.builder();
-        Avertissements.versLeCanal(dits::add);
-        try {
+        try (Avertissements.Canal canal = Avertissements.versLeCanal(dits::add)) {
             action.run();
-        } finally {
-            Avertissements.retablirLeDefaut();
         }
         return dits.build();
     }

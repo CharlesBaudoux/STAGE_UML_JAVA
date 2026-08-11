@@ -137,7 +137,7 @@
               Le chemin est absolu par ${project.basedir} : javac résout un chemin relatif
               contre son répertoire de travail, qui n'est pas nécessairement celui du projet.
             -->
-            <arg>-Aumlg.rules=${project.basedir}/src/main/resources/umlg.rules</arg>
+            <arg>-Aumlg.rules=${project.basedir}/src/main/resources/umlg.json</arg>
           </compilerArgs>
         </configuration>
       </plugin>

@@ -22,7 +22,7 @@ import org.junit.jupiter.api.Test;
 class OrdreDesRelationsTest {
 
     private static Regles declaration() {
-        return Regles.lues(ImmutableList.of("order declaration"), "umlg.rules");
+        return Regles.lues("{ \"order\": \"declaration\" }", "umlg.json");
     }
 
     @UMLClass

@@ -138,7 +138,7 @@ class EnumLiteralTest {
     void unMotifDuFichierDeRegles_atteintUnLitteral() {
         // Le seul chemin d'extraction qui ne recevait pas les règles du projet : « hide EU* »
         // vidait tous les compartiments sauf celui-ci, sans que rien ne le documente.
-        Regles regles = Regles.lues(ImmutableList.of("hide DOL*"), "umlg.rules");
+        Regles regles = Regles.lues("{ \"hide\": [\"DOL*\"] }", "umlg.json");
 
         assertEquals(ImmutableList.of("Euro"),
             EntityExtractor.extract(DeviseNommee.class, regles).literals());

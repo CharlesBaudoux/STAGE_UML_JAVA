@@ -120,9 +120,9 @@ public final class UMLGenerator {
     public RapportDeGeneration generate() {
         // Les avertissements de cette génération-ci entrent dans le compte rendu qu'elle rend.
         // C'est generate() qui pose le canal et le retire, et non plus l'appelant : lui demander
-        // d'encadrer son appel d'un versLeCanal et d'un retablirLeDefaut, c'était lui demander de
-        // ne pas oublier le second — un canal laissé en place capte la génération d'après, sur un
-        // fil qu'un pool réutilise.
+        // d'encadrer son appel d'un versLeCanal et de sa fermeture, c'était lui demander de ne pas
+        // oublier la seconde — un canal laissé en place capte la génération d'après, sur un fil
+        // qu'un pool réutilise.
         //
         // « en plus » et non « à la place » : le canal que l'appelant avait posé — le log de
         // Maven — continue de tout recevoir au fil de l'eau. Le remplacer ferait taire le relais

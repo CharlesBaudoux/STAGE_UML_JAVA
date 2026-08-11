@@ -126,7 +126,7 @@ class NoteAncrageEtOrdreTest {
     void surDemande_lesBullesSuiventLOrdreDuCode() {
         // Des attributs rangés dans l'ordre du code et des bulles rangées par alphabet
         // désigneraient les mêmes membres dans deux ordres différents sur le même dessin.
-        Regles regles = Regles.lues(ImmutableList.of("order declaration"), "umlg.rules");
+        Regles regles = Regles.lues("{ \"order\": \"declaration\" }", "umlg.json");
 
         assertEquals(List.of("zebre", "autruche", "zoo", "arche"), notesSous(regles));
     }

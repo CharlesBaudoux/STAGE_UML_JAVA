@@ -128,11 +128,8 @@ class ProjectScannerTest {
     // Ce qu'une méthode de signalement écrit, plutôt que ce qu'elle rend.
     private static String ditPar(Runnable signalement) {
         List<String> dits = new ArrayList<>();
-        Avertissements.versLeCanal(dits::add);
-        try {
+        try (Avertissements.Canal canal = Avertissements.versLeCanal(dits::add)) {
             signalement.run();
-        } finally {
-            Avertissements.retablirLeDefaut();
         }
         assertEquals(1, dits.size(), dits.toString());
         return dits.get(0);
@@ -141,11 +138,8 @@ class ProjectScannerTest {
     @Test
     void aucuneBoitePerdue_neDitRien() {
         List<String> dits = new ArrayList<>();
-        Avertissements.versLeCanal(dits::add);
-        try {
+        try (Avertissements.Canal canal = Avertissements.versLeCanal(dits::add)) {
             assertFalse(ProjectScanner.signalerBoitesPerdues(ImmutableList.of()));
-        } finally {
-            Avertissements.retablirLeDefaut();
         }
 
         assertEquals(List.of(), dits);

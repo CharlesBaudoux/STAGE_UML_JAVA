@@ -41,9 +41,11 @@ public final class EntityExtractor {
         return extract(clazz, Regles.aucune());
     }
 
-    // Avec les règles du projet, celles que ProjectScanner a lues une fois pour toutes. Elles ne
-    // traversent l'extracteur que pour atteindre MemberExtractor : c'est le nom des types
-    // affichés dans les boîtes qu'elles gouvernent, et rien d'autre.
+    // Avec les règles du projet, celles que ProjectScanner a lues une fois pour toutes. Elles
+    // traversent l'extracteur pour atteindre tout ce qu'elles gouvernent : le nom des types
+    // affichés, les membres retenus, et l'ordre — celui des attributs et des méthodes, mais aussi
+    // celui des liens et des bulles, qui se rangeaient autrefois par alphabet quoi que le projet
+    // ait demandé, faute que les règles descendent jusqu'ici.
     public static UmlEntity extract(Class<?> clazz, Regles regles) {
         checkNotNull(clazz);
         checkNotNull(regles);
@@ -87,13 +89,13 @@ public final class EntityExtractor {
             .literals(MemberExtractor.extractLiterals(clazz, finalStrategy, regles))
             .fields(fields)
             .methods(methods)
-            .notes(NoteExtractor.extraire(clazz, fields, methods))
+            .notes(NoteExtractor.extraire(clazz, fields, methods, regles))
             .constraints(ConstraintExtractor.de(clazz, clazz.getName()))
-            .group(PackageExtractor.extraire(clazz, regles))
+            .group(PackageExtractor.extraire(clazz))
             .typeParameters(parametresDeType(clazz, regles));
 
         for (RelationExtractor extracteur : EXTRACTEURS) {
-            builder.relations(extracteur.extraire(clazz));
+            builder.relations(extracteur.extraire(clazz, regles));
         }
         return builder.build();
     }
