@@ -1,6 +1,7 @@
 package io.github.oliviercailloux.umlg.processing;
 
 import com.google.common.collect.ImmutableList;
+import io.github.oliviercailloux.umlg.annotation.UMLClass;
 import java.lang.annotation.Annotation;
 import java.util.List;
 import java.util.Map;
@@ -9,6 +10,7 @@ import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.Elements;
 import javax.tools.Diagnostic;
 
@@ -43,13 +45,6 @@ final class Rapporteur {
         messager.printMessage(Diagnostic.Kind.ERROR, message);
     }
 
-    void avertissement(String message) {
-        if (!avertir) {
-            return;
-        }
-        messager.printMessage(Diagnostic.Kind.WARNING, message);
-    }
-
     // Un avertissement qui porte sur le processeur lui-même, et non sur le code examiné : il
     // échappe donc à -Aumlg.warnings=none.
     //
@@ -57,8 +52,12 @@ final class Rapporteur {
     // code » ; cela ne peut pas vouloir dire « ne me dis pas que tu es mal configuré ». Un
     // fichier de règles introuvable désarme la moitié des contrôles : le taire ferait passer un
     // processeur aveugle pour un processeur satisfait, et le silence n'apprendrait plus rien.
+    //
+    // MANDATORY_WARNING, et non WARNING : c'est la seule gravité que -nowarn ne supprime pas.
+    // Contourner -Aumlg.warnings=none sans elle ne servait à rien, puisque Maven passe -nowarn
+    // par défaut — le cas courant était donc précisément le cas muet.
     void avertissementDeConfiguration(String message) {
-        messager.printMessage(Diagnostic.Kind.WARNING, message);
+        messager.printMessage(Diagnostic.Kind.MANDATORY_WARNING, message);
     }
 
     // Erreur positionnée sur une valeur précise : « target = Commande.class » sera souligné.
@@ -93,6 +92,28 @@ final class Rapporteur {
             return;
         }
         messager.printMessage(Diagnostic.Kind.WARNING, message, element, annotation);
+    }
+
+    // « La classe porteuse n'est pas sur le diagramme », l'erreur que neuf vérificateurs sur dix
+    // avaient recopiée.
+    //
+    // Rien de ce qu'écrit la bibliothèque n'a de sens hors d'une boîte : une note s'accroche à
+    // une boîte, une association part d'une boîte, une dérogation arbitre ce qu'une boîte montre.
+    // La question est donc la même partout, et sa réponse aussi ; seule change la conséquence —
+    // « la note n'aurait rien où s'accrocher », « le lien partirait de nulle part » —, qui reste
+    // au site d'appel parce qu'elle seule dit à l'auteur ce qu'il perd.
+    //
+    // Rend vrai quand la boîte existe et que l'appelant peut poursuivre, faux quand l'erreur
+    // vient d'être signalée.
+    boolean exigerBoite(TypeElement boite, String contexte, String consequence, Element porteur,
+        AnnotationMirror annotation) {
+        if (boite.getAnnotation(UMLClass.class) != null) {
+            return true;
+        }
+        erreur(contexte + ": " + boite.getQualifiedName() + " does not carry @UMLClass, so it is "
+            + "not part of the diagram and " + consequence + ". Annotate it, or remove this "
+            + "annotation.", porteur, annotation);
+        return false;
     }
 
     // Le tronc commun aux deux gravités : une valeur absente du source ne peut pas être
@@ -142,6 +163,36 @@ final class Rapporteur {
             }
         }
         return resultat.build();
+    }
+
+    // Le contexte d'une annotation répétée, son rang écrit dans le texte.
+    //
+    // Une annotation répétée perd sa position : javac les emballe dans un conteneur synthétique,
+    // qui n'existe nulle part dans le source et n'a donc aucune ligne à montrer. Le diagnostic se
+    // pose alors sur la déclaration entière, et sur cinq @UMLNote dont une seule est fautive,
+    // rien ne dit laquelle. L'API ne donne pas de quoi retrouver la place perdue — le texte est
+    // le seul endroit qui reste pour la dire.
+    //
+    // Le rang n'est écrit que lorsqu'il y en a plusieurs : sur une annotation seule, javac sait
+    // parfaitement la situer, et « the 1st » ne serait que du bruit.
+    static String contexteDeLaRepetee(String nomAnnotation, String emplacement, int rang,
+        int total) {
+        String annotation = total == 1
+            ? "@" + nomAnnotation
+            : "the " + ordinal(rang + 1) + " @" + nomAnnotation;
+        return annotation + " on " + emplacement;
+    }
+
+    // « 1st », « 2nd », « 3rd », « 4th »… La règle anglaise, y compris ses trois exceptions de
+    // l'adolescence : 11th, 12th et 13th, et non 11st, 12nd, 13rd.
+    private static String ordinal(int rang) {
+        String suffixe = switch (rang % 100 >= 11 && rang % 100 <= 13 ? 0 : rang % 10) {
+            case 1 -> "st";
+            case 2 -> "nd";
+            case 3 -> "rd";
+            default -> "th";
+        };
+        return rang + suffixe;
     }
 
     // La valeur d'un membre, défauts compris : getElementValues() ne rend que ce qui est

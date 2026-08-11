@@ -1,5 +1,6 @@
 package io.github.oliviercailloux.umlg.processing;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.oliviercailloux.umlg.processing.CompilationCobaye.Verdict;
@@ -37,7 +38,14 @@ class UmlgAvertissementTest {
     // --- Les dérogations qui ne dérogent à rien ---
 
     @Test
-    void includeSurUnAttributDejaVisible_avertit(@TempDir Path tmp) throws IOException {
+    void includeSurUnAttributDejaVisible_seTaitSansLesRegles(@TempDir Path tmp) throws IOException {
+        // Le reproche « @UMLInclude ne sert à rien, la stratégie montre déjà ce champ » dépend de
+        // deux axes, pas d'un : la stratégie, que la classe déclare ici en toutes lettres, et les
+        // motifs « hide » du fichier de règles, que javac ne lit pas sans -Aumlg.rules. Sous
+        // « hide nom », ce @UMLInclude serait le seul moyen de garder la ligne, et le retirer
+        // comme le processeur le conseillait effaçait le champ du diagramme.
+        //
+        // Le même code, l'option donnée, retrouve son avertissement : voir UmlgOptionReglesTest.
         Verdict verdict = compiler(tmp, """
             @UMLClass(strategy = UMLVisibility.PUBLIC)
             class Client {
@@ -46,10 +54,8 @@ class UmlgAvertissementTest {
             }
             """);
 
-        assertAvertit(verdict, "@UMLInclude has no effect");
-        // Le message doit nommer la stratégie qui rend la dérogation inutile : sans elle,
-        // l'utilisateur sait que c'est inutile, mais pas pourquoi.
-        assertAvertit(verdict, "strategy = PUBLIC");
+        assertTrue(verdict.reussie(), verdict.rapport());
+        assertTrue(verdict.avertissements().isEmpty(), verdict.rapport());
     }
 
     @Test
@@ -164,6 +170,36 @@ class UmlgAvertissementTest {
     }
 
     @Test
+    void parametreDeTraitFautifSousLaNotationAttribute_estRefuseEtSignale(@TempDir Path tmp)
+        throws IOException {
+        // Le processeur disait deux choses contraires du même paramètre : « 3..1 » y était refusé
+        // comme partout, et la ligne suivante annonçait que sourceCardinality ne serait de toute
+        // façon pas dessinée. L'auteur corrigeait une valeur pour s'entendre dire ensuite de
+        // l'effacer.
+        //
+        // Il dit maintenant les deux ensemble, et dans cet ordre : une valeur impossible reste
+        // impossible — la génération la refuse aussi —, et elle est de surcroît inutile ici.
+        Verdict verdict = compiler(tmp, """
+            @UMLClass
+            class Commande {}
+
+            @UMLClass
+            class Client {
+                @UMLAssociation(target = Commande.class, notation = UMLNotation.ATTRIBUTE,
+                    sourceCardinality = "3..1")
+                private Commande commande;
+            }
+            """);
+
+        assertFalse(verdict.reussie(), verdict.rapport());
+        assertTrue(verdict.erreurContient("the lower bound exceeds the upper bound"),
+            verdict.rapport());
+        assertTrue(verdict.avertissementContient("decorate a path between two boxes"),
+            "L'inutilité du paramètre doit être dite en même temps que sa faute : "
+                + verdict.rapport());
+    }
+
+    @Test
     void notationAttributeSansParametreDeTrait_neDitRien(@TempDir Path tmp) throws IOException {
         Verdict verdict = compiler(tmp, """
             @UMLClass
@@ -201,8 +237,11 @@ class UmlgAvertissementTest {
     }
 
     @Test
-    void includeSurUneAssociationDansLaBoite_avertitQueLaLigneYEstDeja(@TempDir Path tmp)
+    void includeSurUneAssociationDansLaBoite_seTaitSansLesRegles(@TempDir Path tmp)
         throws IOException {
+        // « Déjà montré, quelle que soit la stratégie » était vrai de la stratégie et faux du
+        // fichier de règles : le filtre anti-bruit écarte aussi cette ligne-là. Sans le fichier,
+        // le processeur ne peut pas savoir, et se tait.
         Verdict verdict = compiler(tmp, """
             @UMLClass
             class Commande {}
@@ -215,7 +254,8 @@ class UmlgAvertissementTest {
             }
             """);
 
-        assertAvertit(verdict, "already shown in the attribute compartment");
+        assertTrue(verdict.reussie(), verdict.rapport());
+        assertTrue(verdict.avertissements().isEmpty(), verdict.rapport());
     }
 
     @Test
@@ -545,6 +585,23 @@ class UmlgAvertissementTest {
     }
 
     @Test
+    void deriveSurUnMembreExclu_avertit(@TempDir Path tmp) throws IOException {
+        // Le pendant de deriveRattrapeParUnInclude : la question « ce membre sera-t-il dessiné ? »
+        // consulte les deux dérogations, et @UMLExclude retire un membre que la stratégie
+        // montrerait. La barre oblique s'en va avec lui.
+        Verdict verdict = compiler(tmp, """
+            @UMLClass(strategy = UMLVisibility.PUBLIC)
+            class Personne {
+                @UMLDerived
+                @UMLExclude
+                public int age;
+            }
+            """);
+
+        assertAvertit(verdict, "@UMLDerived has no visible effect");
+    }
+
+    @Test
     void deriveSurUnMembreAffiche_neDitRien(@TempDir Path tmp) throws IOException {
         Verdict verdict = compiler(tmp, """
             @UMLClass(strategy = UMLVisibility.PRIVATE)
@@ -789,5 +846,34 @@ class UmlgAvertissementTest {
 
         assertTrue(!verdict.reussie(), verdict.rapport());
         assertTrue(verdict.erreurContient("Color unknown to PlantUML"), verdict.rapport());
+    }
+
+    @Test
+    void optionAvecUneValeurInconnue_estRefusee(@TempDir Path tmp) throws IOException {
+        Verdict verdict = CompilationCobaye.compiler(tmp, "Cobaye.java", ENTETE + """
+            @UMLClass
+            class Client {}
+            """, List.of("-Aumlg.warnings=off"));
+
+        assertFalse(verdict.reussie(), verdict.rapport());
+        assertTrue(verdict.erreurContient("unknown value"), verdict.rapport());
+    }
+
+    @Test
+    void optionSansValeur_estRefusee(@TempDir Path tmp) throws IOException {
+        // « -Aumlg.warnings » tout court est la faute de frappe même que le contrôle des valeurs
+        // dit avoir corrigée, et elle passait par le même trou : javac range alors la clé avec
+        // une valeur nulle, que le test « l'option est-elle absente ? » confondait avec l'absence.
+        // L'utilisateur croyait avoir fait taire le processeur, et se demandait pourquoi il
+        // parlait encore.
+        Verdict verdict = CompilationCobaye.compiler(tmp, "Cobaye.java", ENTETE + """
+            @UMLClass(stereotype = "<<Service>>")
+            class Paiement {}
+            """, List.of("-Aumlg.warnings"));
+
+        assertFalse(verdict.reussie(), verdict.rapport());
+        assertTrue(verdict.erreurContient("no value"), verdict.rapport());
+        // Le message dit quoi écrire, et non seulement ce qui ne va pas.
+        assertTrue(verdict.erreurContient("-Aumlg.warnings=none"), verdict.rapport());
     }
 }

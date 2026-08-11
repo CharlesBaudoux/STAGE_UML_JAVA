@@ -28,16 +28,20 @@ final class Cible {
     // Rend le nom complet de la classe visée, ou null si elle ne peut pas être une extrémité.
     // Dans ce second cas l'erreur a déjà été signalée : l'appelant n'a qu'à s'arrêter.
     String resoudre(AnnotationMirror annotation, String membre, String contexte, Element porteur) {
-        return resoudre(annotation, membre, contexte, porteur, null);
+        // Le repli ne sert qu'à @UMLAssociation : partout ailleurs, la valeur est obligatoire et
+        // javac refuse déjà l'annotation qui l'omet. La plainte n'a donc jamais à être dite.
+        return resoudre(annotation, membre, contexte, porteur, null,
+            contexte + ": " + membre + "() is not written, and it has no default.");
     }
 
     // La même chose, avec un repli quand la valeur n'est pas écrite.
     //
     // Sert à @UMLAssociation, dont le target est facultatif depuis que le type de l'attribut
-    // suffit à le dire. Le repli est la classe que ce type désigne ; s'il n'en désigne aucune, le
-    // message demande d'écrire la cible plutôt que de laisser deviner.
+    // suffit à le dire. Le repli est la classe que ce type désigne ; s'il n'en désigne aucune, la
+    // plainte — celle-là même que la génération ferait entendre, mot pour mot — demande d'écrire
+    // la cible plutôt que de laisser deviner.
     String resoudre(AnnotationMirror annotation, String membre, String contexte, Element porteur,
-        TypeMirror repli) {
+        TypeMirror repli, String plainteSansRepli) {
         AnnotationValue valeur = rapporteur.valeur(annotation, membre);
         AnnotationValue position = rapporteur.valeurEcrite(annotation, membre);
 
@@ -48,9 +52,7 @@ final class Cible {
         // void est la sentinelle « rien d'écrit » : on se rabat alors sur ce que dit le type.
         if (cible.getKind() == TypeKind.VOID) {
             if (repli == null) {
-                rapporteur.erreur(contexte + ": target() is not written, and the field's type "
-                    + "does not name a single class of the diagram. Write it explicitly.",
-                    porteur, annotation);
+                rapporteur.erreur(plainteSansRepli, porteur, annotation);
                 return null;
             }
             cible = repli;

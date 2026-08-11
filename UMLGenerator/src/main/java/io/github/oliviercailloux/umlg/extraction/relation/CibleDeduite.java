@@ -48,17 +48,35 @@ public final class CibleDeduite {
         // Un type qui n'est pas paramétré est lui-même la cible : « private Commande courante ».
         Class<?> declare = field.getType();
         checkArgument(!declare.isPrimitive() && !declare.isArray(),
-            "%s: target() is not written, and the field's type (%s) does not name a class of the "
-                + "diagram. Write target explicitly.",
-            contexte, declare.getSimpleName());
+            messageCibleIndeductible(contexte, declare.getSimpleName()));
 
         // Une collection sans paramètre de type ne dit rien de son contenu : c'est exactement le
         // manque que target vient combler, et le seul cas où l'annotation reste indispensable.
         checkArgument(!Iterable.class.isAssignableFrom(declare),
-            "%s: target() is not written, and the field's type (%s) does not say what it "
-                + "contains. Write target explicitly, or give the collection a type parameter.",
-            contexte, declare.getSimpleName());
+            messageContenuIndeductible(contexte, declare.getSimpleName()));
 
         return declare;
+    }
+
+    // Les deux refus, écrits ici une seule fois.
+    //
+    // Le processeur d'annotations pose la même question à la compilation, sur un type qu'il voit
+    // sous une autre forme — un TypeMirror et non une Class. Le raisonnement, lui, est le même,
+    // et le message doit l'être aussi : celui du processeur avait cessé de nommer le type
+    // fautif, si bien qu'un projet à plusieurs associations laissait son auteur chercher laquelle
+    // était visée. La règle vit ici ; le processeur vient lire ce qu'elle dit.
+
+    // « Rien dans ce type ne nomme une classe » : une primitive, un tableau.
+    public static String messageCibleIndeductible(String contexte, String type) {
+        return contexte + ": target() is not written, and the field's type (" + type + ") does "
+            + "not name a class of the diagram. Write target explicitly.";
+    }
+
+    // « Ce type contient quelque chose, mais ne dit pas quoi » : une collection sans paramètre,
+    // ou dont le paramètre ne nomme pas une classe.
+    public static String messageContenuIndeductible(String contexte, String type) {
+        return contexte + ": target() is not written, and the field's type (" + type + ") does "
+            + "not say what it contains. Write target explicitly, or give the collection a type "
+            + "parameter.";
     }
 }

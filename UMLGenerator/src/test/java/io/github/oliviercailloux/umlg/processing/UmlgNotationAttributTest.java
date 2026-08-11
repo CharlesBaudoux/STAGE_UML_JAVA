@@ -97,6 +97,22 @@ class UmlgNotationAttributTest {
     }
 
     @Test
+    void decorerUnComposant_neLeDitJamaisInvisible(@TempDir Path tmp) throws IOException {
+        // La question « ce membre sera-t-il dessiné ? » est désormais posée une seule fois, pour
+        // les quatre décorations. Un composant de record est dessiné quelle que soit la
+        // stratégie : le déclarer invisible serait un contresens, et sous strategy = NONE c'est
+        // le seul cas où le raisonnement pouvait basculer d'un coup pour les quatre.
+        Verdict verdict = compiler(tmp, """
+            @UMLClass(strategy = UMLVisibility.NONE)
+            @UMLConstraint(rule = "x >= 0")
+            record Point(@UMLDerived @UMLMultiplicity("1") @UMLNote(text = "abscisse") int x) {}
+            """);
+
+        assertTrue(verdict.reussie(), verdict.rapport());
+        assertTrue(verdict.avertissements().isEmpty(), verdict.rapport());
+    }
+
+    @Test
     void inclureUnComposant_resteSilencieux(@TempDir Path tmp) throws IOException {
         // L'annotation écrite sur le composant est clonée par javac sur le champ et sur
         // l'accesseur : un avertissement désignerait une ligne que l'auteur n'a pas écrite.

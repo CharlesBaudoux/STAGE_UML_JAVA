@@ -4,7 +4,6 @@ import io.github.oliviercailloux.umlg.annotation.UMLAssociation;
 import io.github.oliviercailloux.umlg.annotation.UMLClass;
 import io.github.oliviercailloux.umlg.annotation.UMLExclude;
 import io.github.oliviercailloux.umlg.annotation.UMLInclude;
-import io.github.oliviercailloux.umlg.extraction.member.VisibilityPolicy;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
@@ -47,14 +46,11 @@ final class VerificateurMembre {
 
         // Une dérogation ne déroge à rien si la classe n'est pas sur le diagramme.
         TypeElement porteuse = (TypeElement) membre.getEnclosingElement();
-        UMLClass classe = porteuse.getAnnotation(UMLClass.class);
-        if (classe == null) {
-            rapporteur.erreur(Membre.emplacement(membre) + ": the declaring class does not "
-                + "carry @UMLClass, so it is not part of the diagram and this annotation has no "
-                + "effect. Annotate " + porteuse.getQualifiedName() + ", or remove it.",
-                membre, presente);
+        if (!rapporteur.exigerBoite(porteuse, Membre.emplacement(membre),
+            "this annotation has no effect", membre, presente)) {
             return;
         }
+        UMLClass classe = porteuse.getAnnotation(UMLClass.class);
 
         if (inclusion != null && !verifierRenommage(membre, inclusion)) {
             return;
@@ -144,13 +140,6 @@ final class VerificateurMembre {
         boolean association = lien != null;
         boolean trait = association && Notation.trait(rapporteur, lien);
 
-        // La même question que se posera l'extraction, posée à la même règle, dérogations mises
-        // de côté : « ce membre serait-il affiché si celle-ci n'était pas là ? »
-        //
-        // Elle n'a de réponse que si la classe déclare sa stratégie. Quand elle s'en remet au
-        // fichier de règles, que javac ne lit pas, les deux avertissements qui en dépendent se
-        // taisent — ceux qui portent sur les associations, eux, restent dus : ils ne consultent
-        // aucune stratégie.
         // Les composants de record et leurs accesseurs échappent aux raisonnements qui suivent,
         // pour deux raisons qui se cumulent : le composant est dessiné quelle que soit la
         // stratégie — « déjà caché par strategy NONE » serait un contresens, @UMLExclude est
@@ -161,10 +150,15 @@ final class VerificateurMembre {
             return;
         }
 
-        boolean strategieConnue = strategie.connue(classe);
-        boolean visibleSansDerogation = strategieConnue
-            && VisibilityPolicy.estVisible(Membre.bits(membre), strategie.effective(classe),
-                false, false);
+        // La même question que se posera l'extraction, posée à la même règle, dérogations mises
+        // de côté : « ce membre serait-il affiché si celle-ci n'était pas là ? »
+        //
+        // Elle n'a de réponse que si la classe déclare sa stratégie. Quand elle s'en remet au
+        // fichier de règles, que javac ne lit pas, les deux avertissements qui en dépendent se
+        // taisent — ceux qui portent sur les associations, eux, restent dus : ils ne consultent
+        // aucune stratégie.
+        Strategie.Affichage sansDerogation =
+            strategie.membreAfficheSansDerogation(membre, classe);
 
         if (inclusion) {
             // Un renommage est un effet : dès que name est écrit, @UMLInclude fait quelque
@@ -182,7 +176,12 @@ final class VerificateurMembre {
                 return;
             }
             if (association) {
-                if (!renomme) {
+                // « Déjà montré, quelle que soit la stratégie » est vrai de la stratégie et faux
+                // du fichier de règles : un motif « hide log* » retire aussi cette ligne-là, et
+                // @UMLInclude est alors le seul moyen de la garder. Le reproche exige donc de
+                // savoir ce que le fichier dit — et de vérifier qu'il ne masque pas ce champ.
+                if (!renomme && strategie.reglesConnues()
+                    && !strategie.champMasqueParUneRegle(membre.getSimpleName().toString())) {
                     rapporteur.avertissement(Membre.emplacement(membre) + ": @UMLInclude has no "
                         + "effect, this field carries @UMLAssociation(notation = ATTRIBUTE) and "
                         + "is therefore already shown in the attribute compartment, whatever "
@@ -198,8 +197,12 @@ final class VerificateurMembre {
             // Les attributs, eux, ont leur propre façon d'être écartés : un motif « "hide": ["log*"] ».
             // Un @UMLInclude qui y déroge n'est pas sans effet, il est même le seul moyen de
             // ramener le champ — le reproche visait exactement le remède.
-            if (!renomme && strategieConnue && Membre.estAttribut(membre)
-                && visibleSansDerogation
+            //
+            // D'où reglesConnues() et non connue() : une classe qui déclare « strategy = PUBLIC »
+            // rend la stratégie décidable sans rien dire des motifs, et le reproche exige les
+            // deux. Sans le fichier, le processeur ne peut que se taire.
+            if (!renomme && strategie.reglesConnues() && Membre.estAttribut(membre)
+                && sansDerogation == Strategie.Affichage.AFFICHE
                 && !strategie.champMasqueParUneRegle(membre.getSimpleName().toString())) {
                 rapporteur.avertissement(Membre.emplacement(membre) + ": @UMLInclude has no "
                     + "effect, the field is already shown by strategy = "
@@ -228,7 +231,9 @@ final class VerificateurMembre {
                 + "@UMLAssociation instead if that is what you meant.", membre, presente);
             return;
         }
-        if (strategieConnue && !visibleSansDerogation) {
+        // Le sens inverse, lui, n'a pas besoin du fichier de règles : un motif ne peut que
+        // masquer davantage, si bien qu'un membre déjà masqué par la stratégie l'est à coup sûr.
+        if (sansDerogation == Strategie.Affichage.MASQUE) {
             rapporteur.avertissement(Membre.emplacement(membre) + ": @UMLExclude has no effect, "
                 + "strategy = " + strategie.effective(classe)
                 + " on the declaring class already hides "

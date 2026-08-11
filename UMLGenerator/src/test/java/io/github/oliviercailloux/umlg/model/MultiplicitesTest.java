@@ -1,6 +1,7 @@
 package io.github.oliviercailloux.umlg.model;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -27,6 +28,23 @@ class MultiplicitesTest {
     void lesFormesFautives_sontRefusees(String multiplicite) {
         assertThrows(IllegalArgumentException.class,
             () -> Multiplicites.valider(multiplicite, "value"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "*", "0", "1", "42", "0..1", "1..*", "0..*", "3..3", "999999999"})
+    void lesFormesLicites_sontReconnues(String multiplicite) {
+        // La question que la classe promettait de savoir répondre, et qu'elle n'offrait qu'en
+        // levant : savoir devait passer par un try, et une exception tenait lieu de réponse.
+        assertTrue(Multiplicites.estValide(multiplicite));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"n", "1..n", "-1", "1.2", "1...2", "0..1..2", " ", "1 .. 2", "**",
+        "1..", "..1", "1234567890", "3..1"})
+    void lesFormesFautives_sontReconnues(String multiplicite) {
+        // Les deux questions ne peuvent pas répondre différemment : elles lisent la même règle,
+        // « 3..1 » compris, que seule la comparaison des bornes écarte.
+        assertFalse(Multiplicites.estValide(multiplicite));
     }
 
     @Test

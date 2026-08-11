@@ -3,9 +3,6 @@ package io.github.oliviercailloux.umlg.processing;
 import io.github.oliviercailloux.umlg.annotation.UMLAssociation;
 import io.github.oliviercailloux.umlg.annotation.UMLClass;
 import io.github.oliviercailloux.umlg.annotation.UMLDerived;
-import io.github.oliviercailloux.umlg.annotation.UMLExclude;
-import io.github.oliviercailloux.umlg.annotation.UMLInclude;
-import io.github.oliviercailloux.umlg.extraction.member.VisibilityPolicy;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
@@ -31,15 +28,11 @@ final class VerificateurDerive {
             return;
         }
         TypeElement porteuse = (TypeElement) membre.getEnclosingElement();
-        UMLClass classe = porteuse.getAnnotation(UMLClass.class);
-
-        if (classe == null) {
-            rapporteur.erreur(Membre.emplacement(membre) + ": the declaring class does not carry "
-                + "@UMLClass, so it is not part of the diagram and this annotation has no "
-                + "effect. Annotate " + porteuse.getQualifiedName() + ", or remove it.",
-                membre, annotation);
+        if (!rapporteur.exigerBoite(porteuse, Membre.emplacement(membre),
+            "this annotation has no effect", membre, annotation)) {
             return;
         }
+        UMLClass classe = porteuse.getAnnotation(UMLClass.class);
 
         AnnotationMirror association = rapporteur.miroir(membre, UMLAssociation.class);
         if (association != null) {
@@ -76,23 +69,7 @@ final class VerificateurDerive {
     // masque déjà est donc masqué à coup sûr, et le dire ici ne risque aucun faux reproche.
     private void signalerMembreInvisible(Element membre, UMLClass classe,
         AnnotationMirror annotation) {
-        // Sans les règles du projet, une stratégie laissée à PROJECT est hors de portée de
-        // javac : le contrôle se tait plutôt que de deviner. L'option -Aumlg.rules la lui donne.
-        if (!strategie.connue(classe)) {
-            return;
-        }
-        // Un composant de record est dessiné quelle que soit la stratégie : le déclarer invisible
-        // serait un contresens, et l'avertissement désignerait de surcroît l'un des deux clones
-        // que javac fabrique — champ et accesseur — donc une ligne que personne n'a écrite.
-        if (Membre.vientDUnComposant(membre)) {
-            return;
-        }
-        boolean visible = VisibilityPolicy.estVisible(Membre.bits(membre),
-            strategie.effective(classe),
-            rapporteur.miroir(membre, UMLInclude.class) != null,
-            rapporteur.miroir(membre, UMLExclude.class) != null);
-
-        if (visible) {
+        if (strategie.membreAffiche(membre, classe) != Strategie.Affichage.MASQUE) {
             return;
         }
         rapporteur.avertissement(Membre.emplacement(membre) + ": @UMLDerived has no visible "

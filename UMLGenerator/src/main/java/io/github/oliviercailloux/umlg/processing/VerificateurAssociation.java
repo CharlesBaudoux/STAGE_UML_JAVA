@@ -42,30 +42,32 @@ final class VerificateurAssociation {
         // Une association part d'une boîte : sans @UMLClass sur la classe porteuse, il n'y a
         // aucune boîte d'où partir, et l'annotation ne produirait rien. C'est presque toujours
         // un @UMLClass oublié.
-        if (porteuse.getAnnotation(UMLClass.class) == null) {
-            rapporteur.erreur(contexte + ": the carrying class does not carry @UMLClass, so it is "
-                + "not part of the diagram and this association would be drawn from nowhere. "
-                + "Annotate " + porteuse.getQualifiedName() + ", or remove this annotation.",
-                champ, annotation);
+        if (!rapporteur.exigerBoite(porteuse, contexte,
+            "this association would be drawn from nowhere", champ, annotation)) {
             return;
         }
 
         // La cible est écrite, ou lue dans le type de l'attribut — « List<Commande> » la dit.
         String nomCible = cible.resoudre(annotation, "target", contexte, champ,
-            typeAttribut.elementSeul(champ.asType()));
+            typeAttribut.elementSeul(champ.asType()),
+            typeAttribut.plainteCibleIndeductible(contexte, champ.asType()));
         if (nomCible == null) {
             // La cible est déjà en faute ; poursuivre ne ferait qu'empiler des messages sur la
             // même ligne.
             return;
         }
 
+        // Avant la validation des valeurs, et non après : sous la notation ATTRIBUTE, un
+        // paramètre de trait est refusé s'il est mal écrit — comme partout ailleurs — et
+        // signalé s'il est inutile. Signaler d'abord épargne à l'auteur de corriger une valeur
+        // pour s'entendre dire ensuite de l'effacer.
+        if (!Notation.trait(rapporteur, annotation)) {
+            signalerParametresSansPlace(champ, annotation, contexte);
+        }
         if (!verifierValeurs(champ, annotation, contexte, nomCible)) {
             // Une multiplicité illisible ne peut pas être confrontée au type de l'attribut : le
             // second message ne ferait que répéter le premier autrement.
             return;
-        }
-        if (!Notation.trait(rapporteur, annotation)) {
-            signalerParametresSansPlace(champ, annotation, contexte);
         }
         signalerIncoherences(champ, annotation, contexte);
     }
@@ -74,8 +76,15 @@ final class VerificateurAssociation {
     //
     // Une ligne de boîte n'a qu'un type et une multiplicité. Le losange d'une composition, le
     // rôle écrit le long du trait, le libellé posé au milieu, la contrainte de placement : tout
-    // cela suppose un trait, et disparaît avec lui. Ce n'est pas une faute — le diagramme reste
-    // valide —, mais l'auteur a écrit ces valeurs pour obtenir un effet qu'il n'aura pas.
+    // cela suppose un trait, et disparaît avec lui. L'auteur a écrit ces valeurs pour obtenir un
+    // effet qu'il n'aura pas, d'où l'avertissement — le diagramme, lui, reste dessinable, ce qui
+    // interdit l'erreur.
+    //
+    // Inutile ne veut pas dire dispensé de sens : verifierValeurs valide ces paramètres quelle
+    // que soit la notation, et la génération les refuse de même. Une multiplicité « 3..1 » reste
+    // une multiplicité impossible, qu'elle finisse dessinée ou non ; les tolérer ici serait
+    // accepter qu'une annotation dise n'importe quoi pourvu que personne ne la lise, et graver
+    // dans le code une valeur fausse que la première bascule vers ARROW ferait surgir.
     private void signalerParametresSansPlace(Element champ, AnnotationMirror annotation,
         String contexte) {
         // Seuls les paramètres réellement écrits dans le source sont cités : reprocher un défaut

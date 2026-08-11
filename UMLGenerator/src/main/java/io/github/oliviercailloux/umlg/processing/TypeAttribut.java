@@ -1,5 +1,7 @@
 package io.github.oliviercailloux.umlg.processing;
 
+import io.github.oliviercailloux.umlg.extraction.relation.CibleDeduite;
+import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.ArrayType;
 import javax.lang.model.type.DeclaredType;
@@ -96,19 +98,27 @@ final class TypeAttribut {
     //
     // « List<Commande> » et « Optional<Commande> » donnent Commande, « Commande » se donne
     // lui-même. Null pour tout ce qui n'en désigne pas une seule — un conteneur écrit sans
-    // paramètre, un tableau, une variable de type —, auquel cas la cible doit être écrite.
+    // paramètre, un tableau —, auquel cas la cible doit être écrite.
+    //
+    // Une variable de type désigne sa borne : « T extends Commande » vaut Commande, ce que rend
+    // déjà l'effacement. C'est exactement ce que voit la génération, où field.getType() rend
+    // l'effacement du type déclaré ; s'en écarter faisait refuser à la compilation un champ que
+    // la génération dessinait sans broncher — le plus coûteux des écarts, puisqu'il bloque.
+    // Une variable non bornée s'efface en Object, qui ne désigne aucune classe : la cible doit
+    // alors être écrite, et la génération l'exige tout autant.
     //
     // Une Map n'est pas un conteneur au sens d'ici : elle se donne elle-même, exactement comme
     // à l'exécution, et c'est alors l'absence de @UMLClass sur Map qui sera signalée.
     TypeMirror elementSeul(TypeMirror type) {
-        if (type.getKind() != TypeKind.DECLARED || indetermine(type)) {
+        TypeMirror examine = type.getKind() == TypeKind.TYPEVAR ? types.erasure(type) : type;
+        if (examine.getKind() != TypeKind.DECLARED || indetermine(examine)) {
             return null;
         }
-        DeclaredType declare = (DeclaredType) type;
-        if (!estUnConteneur(type)) {
+        DeclaredType declare = (DeclaredType) examine;
+        if (!estUnConteneur(examine)) {
             // Un type ordinaire est lui-même la cible ; ses éventuels paramètres ne changent
             // rien à la classe visée.
-            return types.erasure(type);
+            return types.erasure(examine);
         }
         // Un conteneur : c'est son unique paramètre qui nomme la cible.
         if (declare.getTypeArguments().size() != 1) {
@@ -116,6 +126,35 @@ final class TypeAttribut {
         }
         TypeMirror argument = declare.getTypeArguments().get(0);
         return argument.getKind() == TypeKind.DECLARED ? types.erasure(argument) : null;
+    }
+
+    // Ce qu'il faut dire quand elementSeul n'a rien trouvé et que target() n'est pas écrit.
+    //
+    // Le texte vient de CibleDeduite, à qui la règle appartient : le refus de javac est mot pour
+    // mot celui de la génération, et nomme comme lui le type fautif. La version du processeur
+    // l'omettait, laissant l'auteur chercher lequel de ses champs était visé — c'est exactement
+    // ainsi que deux textes recopiés à la main finissent par diverger.
+    String plainteCibleIndeductible(String contexte, TypeMirror type) {
+        String nom = nomSimple(type);
+        // Le partage de la génération : une collection dit qu'elle ne sait pas ce qu'elle
+        // contient, tout autre type qu'il ne nomme aucune classe.
+        return estIterable(type)
+            ? CibleDeduite.messageContenuIndeductible(contexte, nom)
+            : CibleDeduite.messageCibleIndeductible(contexte, nom);
+    }
+
+    // Le nom court d'un type, celui que la génération lit sur la Class : « List », « int »,
+    // « Commande[] ». asElement ne rend rien pour un tableau ou une primitive, dont le toString
+    // de l'effacement est déjà la bonne réponse.
+    private String nomSimple(TypeMirror type) {
+        TypeMirror brut = types.erasure(type);
+        Element element = types.asElement(brut);
+        return element == null ? brut.toString() : element.getSimpleName().toString();
+    }
+
+    private boolean estIterable(TypeMirror type) {
+        return type.getKind() == TypeKind.DECLARED && iterable != null
+            && types.isAssignable(types.erasure(type), iterable);
     }
 
     // « Ce type est-il une enveloppe dont l'élément est la vraie propriété ? » : un Iterable ou

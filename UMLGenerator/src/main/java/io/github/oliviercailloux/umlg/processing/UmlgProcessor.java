@@ -22,6 +22,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.lang.annotation.Annotation;
+import java.util.Map;
 import java.util.Set;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.ProcessingEnvironment;
@@ -100,7 +101,8 @@ public final class UmlgProcessor extends AbstractProcessor {
     public synchronized void init(ProcessingEnvironment environnement) {
         super.init(environnement);
 
-        String demande = environnement.getOptions().get(OPTION_AVERTISSEMENTS);
+        Map<String, String> options = environnement.getOptions();
+        String demande = options.get(OPTION_AVERTISSEMENTS);
         boolean avertir = !AVERTISSEMENTS_MUETS.equals(demande);
 
         rapporteur = new Rapporteur(environnement.getMessager(), environnement.getElementUtils(),
@@ -112,10 +114,20 @@ public final class UmlgProcessor extends AbstractProcessor {
         // reconnue est « none », et toute autre laissait les avertissements passer sans que rien
         // ne signale la faute de frappe. L'utilisateur croyait avoir fait taire le processeur, et
         // se demandait pourquoi il parlait encore.
-        if (demande != null && !AVERTISSEMENTS_MUETS.equals(demande)) {
-            rapporteur.erreur("-A" + OPTION_AVERTISSEMENTS + "=" + demande + ": unknown value. "
-                + "The only one this processor understands is \"" + AVERTISSEMENTS_MUETS
-                + "\", which silences its warnings; remove the option to keep them.");
+        //
+        // La forme sans valeur — « -Aumlg.warnings » tout court — est la même faute, et elle
+        // passait par le même trou : javac range alors la clé avec une valeur nulle, que le test
+        // sur null confondait avec l'option absente. containsKey les sépare, et c'est la seule
+        // chose qui les sépare.
+        if (options.containsKey(OPTION_AVERTISSEMENTS)
+            && !AVERTISSEMENTS_MUETS.equals(demande)) {
+            String ecrit = demande == null
+                ? "-A" + OPTION_AVERTISSEMENTS + ": no value"
+                : "-A" + OPTION_AVERTISSEMENTS + "=" + demande + ": unknown value";
+            rapporteur.erreur(ecrit + ". The only one this processor understands is \""
+                + AVERTISSEMENTS_MUETS + "\", which silences its warnings; write -A"
+                + OPTION_AVERTISSEMENTS + "=" + AVERTISSEMENTS_MUETS
+                + ", or remove the option to keep them.");
         }
 
         // Le fichier de règles est lu avant que le silence ne s'applique à ce qui le concerne :
@@ -123,8 +135,7 @@ public final class UmlgProcessor extends AbstractProcessor {
         // pas de taire que le processeur lui-même est mal configuré. Un fichier de règles
         // introuvable désarme la moitié des contrôles, et le taire ferait passer un processeur
         // aveugle pour un processeur satisfait.
-        Strategie strategie = new Strategie(
-            lireRegles(environnement.getOptions().get(OPTION_REGLES)));
+        Strategie strategie = new Strategie(lireRegles(options.get(OPTION_REGLES)));
         Cible cible = new Cible(rapporteur, environnement.getTypeUtils());
         TypeAttribut typeAttribut = new TypeAttribut(environnement.getTypeUtils(),
             environnement.getElementUtils());
@@ -174,9 +185,18 @@ public final class UmlgProcessor extends AbstractProcessor {
         Path fichier = Paths.get(chemin);
 
         if (!Files.isRegularFile(fichier)) {
-            rapporteur.avertissementDeConfiguration("-A" + OPTION_REGLES + "=" + chemin + ": no such file. The "
-                + "checks that depend on the project strategy cannot conclude, and will stay "
-                + "silent.");
+            // Le chemin cherché est dit en toutes lettres. Un chemin relatif est résolu contre le
+            // répertoire de travail de javac, qui n'est pas celui du projet dès que la
+            // construction est lancée d'ailleurs — et le message précédent, qui répétait
+            // seulement ce que l'utilisateur avait écrit, ne donnait aucun moyen de s'en
+            // apercevoir.
+            rapporteur.avertissementDeConfiguration("-A" + OPTION_REGLES + "=" + chemin
+                + ": no such file; looked for " + fichier.toAbsolutePath()
+                + (fichier.isAbsolute() ? ""
+                    : " (a relative path is resolved against the compiler's working directory, "
+                        + "not the project directory)")
+                + ". The checks that depend on the project strategy cannot conclude, and will "
+                + "stay silent.");
             return null;
         }
         try {
@@ -185,9 +205,9 @@ public final class UmlgProcessor extends AbstractProcessor {
             rapporteur.erreur(chemin + " : " + e.getMessage());
             return null;
         } catch (IOException e) {
-            rapporteur.avertissementDeConfiguration("-A" + OPTION_REGLES + "=" + chemin + ": cannot be read ("
-                + e.getMessage() + "). The checks that depend on the project strategy will stay "
-                + "silent.");
+            rapporteur.avertissementDeConfiguration("-A" + OPTION_REGLES + "=" + chemin
+                + ": cannot be read (" + e.getMessage() + "). The checks that depend on the "
+                + "project strategy will stay silent.");
             return null;
         }
     }

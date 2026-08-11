@@ -1,8 +1,12 @@
 package io.github.oliviercailloux.umlg.processing;
 
 import io.github.oliviercailloux.umlg.annotation.UMLClass;
+import io.github.oliviercailloux.umlg.annotation.UMLExclude;
+import io.github.oliviercailloux.umlg.annotation.UMLInclude;
 import io.github.oliviercailloux.umlg.annotation.UMLVisibility;
+import io.github.oliviercailloux.umlg.extraction.member.VisibilityPolicy;
 import io.github.oliviercailloux.umlg.extraction.rules.Regles;
+import javax.lang.model.element.Element;
 
 // Ce que le processeur sait de la stratégie d'une classe.
 //
@@ -25,6 +29,23 @@ import io.github.oliviercailloux.umlg.extraction.rules.Regles;
 // seule ligne de configuration qui l'en empêche.
 final class Strategie {
 
+    // Ce que le processeur peut dire de la présence d'un membre sur le diagramme.
+    //
+    // Trois réponses et non deux, parce que « je ne sais pas » n'est pas « il n'y sera pas ». La
+    // stratégie d'une classe qui s'en remet au projet reste hors de portée de javac tant que
+    // -Aumlg.rules n'a pas été donnée, et un avertissement qui devinerait se tromperait.
+    //
+    // MASQUE veut dire « masqué à coup sûr » : le filtre anti-bruit du fichier de règles ne fait
+    // qu'en retirer davantage, si bien que ce qui est déjà masqué par la stratégie l'est quoi que
+    // dise le fichier. AFFICHE, lui, ne dit rien de ce filtre — d'où reglesConnues() et
+    // champMasqueParUneRegle, sans lesquels un « ce membre est déjà montré » serait un faux
+    // reproche.
+    enum Affichage {
+        AFFICHE,
+        MASQUE,
+        INDECIDABLE
+    }
+
     // Les règles du projet, ou null quand l'option n'a pas été donnée. Null plutôt qu'un jeu vide
     // : « aucune règle » et « des règles qui ne disent rien » mènent au même diagramme, mais pas
     // au même savoir — le second permet de conclure, le premier non.
@@ -38,8 +59,66 @@ final class Strategie {
     //
     // Elle l'est dès que la classe la déclare — le fichier n'a alors rien à dire —, et sinon dès
     // que le processeur a reçu les règles du projet.
-    boolean connue(UMLClass classe) {
+    //
+    // Privée : les vérificateurs ne posent plus cette question directement, ils demandent
+    // membreAffiche, dont l'indécision est l'une des trois réponses. C'est ce qui a permis à
+    // l'une des cinq copies de conclure autrement que les quatre autres.
+    private boolean connue(UMLClass classe) {
         return classe.strategy() != UMLVisibility.PROJECT || regles != null;
+    }
+
+    // Le fichier de règles du projet est-il sous la main ?
+    //
+    // Question distincte de connue(), et c'est tout l'objet de la distinction. Une classe qui
+    // déclare « strategy = PRIVATE » rend connue() vraie sans que le fichier ait été lu : l'axe
+    // de la stratégie est alors décidable, celui des motifs « hide » ne l'est toujours pas. Or
+    // les deux décident du même dessin.
+    //
+    // Les avertissements qui disent « ce membre est déjà montré, ta dérogation est inutile »
+    // dépendent des deux axes : sans le fichier, ils accusaient un @UMLInclude qui était en
+    // réalité le seul moyen de garder la ligne, et le suivre l'effaçait du diagramme. Ceux qui
+    // disent l'inverse — « il est déjà masqué » — n'en dépendent pas, un motif ne pouvant que
+    // masquer davantage.
+    boolean reglesConnues() {
+        return regles != null;
+    }
+
+    // Ce membre sera-t-il dessiné, ses dérogations comprises ?
+    //
+    // La question que se posent quatre vérificateurs — @UMLDerived, @UMLMultiplicity, @UMLNote,
+    // @UMLConstraint — pour savoir si ce qu'ils décorent aura un porteur. Elle était écrite
+    // quatre fois à l'identique, et une cinquième fois différemment ; c'est dans la copie
+    // divergente que s'était logé le faux reproche que reglesConnues() corrige.
+    Affichage membreAffiche(Element membre, UMLClass classe) {
+        return decider(membre, classe,
+            membre.getAnnotation(UMLInclude.class) != null,
+            membre.getAnnotation(UMLExclude.class) != null);
+    }
+
+    // La même question, les dérogations mises de côté : « ce membre serait-il affiché si
+    // celle-ci n'était pas là ? »
+    //
+    // C'est la seule façon de savoir si une @UMLInclude ou une @UMLExclude change quelque chose,
+    // et donc la question du vérificateur des dérogations.
+    Affichage membreAfficheSansDerogation(Element membre, UMLClass classe) {
+        return decider(membre, classe, false, false);
+    }
+
+    private Affichage decider(Element membre, UMLClass classe, boolean inclusion,
+        boolean exclusion) {
+        // Sans les règles du projet, une stratégie laissée à PROJECT est hors de portée de
+        // javac : mieux vaut ne pas conclure que deviner. L'option -Aumlg.rules la lui donne.
+        if (!connue(classe)) {
+            return Affichage.INDECIDABLE;
+        }
+        // Un composant de record est dessiné quelle que soit la stratégie : le déclarer invisible
+        // serait un contresens, et l'avertissement désignerait de surcroît l'un des deux clones
+        // que javac fabrique — champ et accesseur — donc une ligne que personne n'a écrite.
+        if (Membre.vientDUnComposant(membre)) {
+            return Affichage.AFFICHE;
+        }
+        return VisibilityPolicy.estVisible(Membre.bits(membre), effective(classe), inclusion,
+            exclusion) ? Affichage.AFFICHE : Affichage.MASQUE;
     }
 
     // La stratégie qui s'appliquera réellement à cette classe.

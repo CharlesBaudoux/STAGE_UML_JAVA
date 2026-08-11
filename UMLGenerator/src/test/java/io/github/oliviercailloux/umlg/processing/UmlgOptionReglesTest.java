@@ -83,6 +83,72 @@ class UmlgOptionReglesTest {
     }
 
     @Test
+    void unMotifQuiMasqueLeChamp_neReprochePasLInclude(@TempDir Path tmp) throws IOException {
+        // Le cœur de la question : « strategy public » afficherait ce champ, mais « hide nom »
+        // l'écarte, et le @UMLInclude est alors le seul moyen de le garder. Le suivre — « remove
+        // it » — effaçait la ligne du diagramme.
+        Path regles = ecrireRegles(tmp, "strategy public\nhide nom\n");
+
+        Verdict verdict = compiler(tmp, List.of("-Aumlg.rules=" + regles));
+
+        assertTrue(verdict.reussie(), verdict.rapport());
+        assertTrue(verdict.avertissements().isEmpty(), verdict.rapport());
+    }
+
+    @Test
+    void surUneAssociationDansLaBoite_lAvertissementDependAussiDesRegles(@TempDir Path tmp)
+        throws IOException {
+        // « Déjà montré dans le compartiment des attributs, quelle que soit la stratégie » : vrai
+        // de la stratégie, faux du filtre anti-bruit, qui écarte aussi cette ligne-là. Avec les
+        // règles, et elles seules, le processeur peut conclure.
+        String code = ENTETE + """
+            @UMLClass
+            class Commande {}
+
+            @UMLClass
+            class Client {
+                @UMLInclude
+                @UMLAssociation(target = Commande.class, notation = UMLNotation.ATTRIBUTE)
+                private Commande commande;
+            }
+            """;
+        Path regles = ecrireRegles(tmp, "strategy public\n");
+
+        Verdict avecRegles = CompilationCobaye.compiler(tmp, "Cobaye.java", code,
+            List.of("-Aumlg.rules=" + regles));
+
+        assertTrue(avecRegles.reussie(), avecRegles.rapport());
+        assertTrue(avecRegles.avertissementContient("already shown in the attribute compartment"),
+            avecRegles.rapport());
+
+        // Et le motif qui masque ce champ referme la bouche du processeur.
+        Path masquant = ecrireRegles(tmp, "strategy public\nhide commande\n");
+
+        Verdict masque = CompilationCobaye.compiler(tmp, "Cobaye.java", code,
+            List.of("-Aumlg.rules=" + masquant));
+
+        assertTrue(masque.reussie(), masque.rapport());
+        assertTrue(masque.avertissements().isEmpty(), masque.rapport());
+    }
+
+    @Test
+    void lExcludeSansEffet_parleSansLesRegles(@TempDir Path tmp) throws IOException {
+        // L'avertissement de sens inverse n'a pas le même besoin : un motif ne peut que masquer
+        // davantage, si bien qu'un membre déjà masqué par la stratégie l'est à coup sûr. Le
+        // resserrement ne doit donc pas déborder sur lui.
+        Verdict verdict = CompilationCobaye.compiler(tmp, "Cobaye.java", ENTETE + """
+            @UMLClass(strategy = UMLVisibility.PUBLIC)
+            class Client {
+                @UMLExclude
+                private String motDePasse;
+            }
+            """);
+
+        assertTrue(verdict.reussie(), verdict.rapport());
+        assertTrue(verdict.avertissementContient("@UMLExclude has no effect"), verdict.rapport());
+    }
+
+    @Test
     void fichierIntrouvable_estSignaleSansArreterLaCompilation(@TempDir Path tmp)
         throws IOException {
         // L'utilisateur a nommé un fichier qu'il n'a pas écrit : son code reste juste, mais il
@@ -91,6 +157,41 @@ class UmlgOptionReglesTest {
 
         assertTrue(verdict.reussie(), verdict.rapport());
         assertTrue(verdict.avertissementContient("no such file"), verdict.rapport());
+    }
+
+    @Test
+    void cheminRelatifIntrouvable_ditOuIlAChercher(@TempDir Path tmp) throws IOException {
+        // Un chemin relatif est résolu contre le répertoire de travail de javac, qui n'est pas
+        // celui du projet dès que la construction est lancée d'ailleurs. Le message se contentait
+        // de répéter ce que l'utilisateur avait écrit, ce qui ne lui apprenait rien : il cherchait
+        // un fichier qui était pourtant bien là.
+        Verdict verdict = compiler(tmp, List.of("-Aumlg.rules=regles/umlg.rules"));
+
+        assertTrue(verdict.reussie(), verdict.rapport());
+        assertTrue(verdict.avertissementContient("looked for "), verdict.rapport());
+        assertTrue(verdict.avertissementContient(
+            Path.of("regles/umlg.rules").toAbsolutePath().toString()), verdict.rapport());
+        assertTrue(verdict.avertissementContient("working directory"), verdict.rapport());
+    }
+
+    @Test
+    void nowarn_neFaitPasTaireLAvertissementDeConfiguration(@TempDir Path tmp) throws IOException {
+        // Faire taire les avertissements veut dire « ne me dis pas ce que tu as trouvé dans mon
+        // code » ; cela ne peut pas vouloir dire « ne me dis pas que tu es mal configuré ». Le
+        // contournement d'-Aumlg.warnings=none ne servait pourtant à rien, faute d'être écrit
+        // dans la gravité que -nowarn respecte — et Maven passe -nowarn par défaut, si bien que
+        // le cas courant était le cas muet.
+        Verdict verdict = CompilationCobaye.compiler(tmp, "Cobaye.java", ENTETE + """
+            @UMLClass(stereotype = "<<Service>>")
+            class Paiement {}
+            """, List.of("-nowarn", "-Aumlg.rules=" + tmp.resolve("absent.rules")));
+
+        assertTrue(verdict.reussie(), verdict.rapport());
+        assertTrue(verdict.avertissementContient("no such file"), verdict.rapport());
+        // Le témoin : l'avertissement qui porte sur le code, lui, se tait bel et bien.
+        assertTrue(verdict.avertissements().stream()
+            .noneMatch(message -> message.contains("already contains the guillemets")),
+            "-nowarn doit taire ce que le processeur a trouvé dans le code : " + verdict.rapport());
     }
 
     @Test

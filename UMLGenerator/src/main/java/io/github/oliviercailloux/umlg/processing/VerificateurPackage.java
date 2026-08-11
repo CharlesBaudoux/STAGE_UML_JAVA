@@ -1,6 +1,5 @@
 package io.github.oliviercailloux.umlg.processing;
 
-import io.github.oliviercailloux.umlg.annotation.UMLClass;
 import io.github.oliviercailloux.umlg.annotation.UMLPackage;
 import io.github.oliviercailloux.umlg.rendering.syntax.ColorCodec;
 import java.util.HashMap;
@@ -33,10 +32,8 @@ final class VerificateurPackage {
         }
         String contexte = "@UMLPackage on " + classe.getQualifiedName();
 
-        if (classe.getAnnotation(UMLClass.class) == null) {
-            rapporteur.erreur(contexte + ": the declaring class does not carry @UMLClass, so it "
-                + "is not part of the diagram and there is no box to group. Annotate it, or "
-                + "remove this annotation.", classe, annotation);
+        if (!rapporteur.exigerBoite(classe, contexte, "there is no box to group", classe,
+            annotation)) {
             return;
         }
 

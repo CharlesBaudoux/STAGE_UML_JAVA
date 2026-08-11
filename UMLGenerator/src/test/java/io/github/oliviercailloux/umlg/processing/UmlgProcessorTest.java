@@ -454,4 +454,77 @@ class UmlgProcessorTest {
         assertFalse(verdict.reussie(), verdict.rapport());
         assertTrue(verdict.erreurContient("target"), verdict.rapport());
     }
+
+    // --- La cible déduite du type de l'attribut : le processeur doit dire ce que dit la
+    // génération, ni plus ni moins ---
+
+    @Test
+    void associationSurUnChampDeTypeVariable_compile(@TempDir Path tmp) throws IOException {
+        // Le processeur arrêtait la compilation d'un code que la génération dessinait sans
+        // broncher : il tenait « T » pour indéterminé, là où la réflexion lit l'effacement,
+        // c'est-à-dire la borne. C'est l'écart le plus coûteux des deux moitiés, puisqu'il bloque
+        // l'utilisateur au lieu de le laisser voir un dessin discutable.
+        Verdict verdict = compiler(tmp, """
+            @UMLClass
+            class Commande {}
+
+            @UMLClass
+            class Boite<T extends Commande> {
+                @UMLAssociation(targetCardinality = "1")
+                private T contenu;
+            }
+            """);
+
+        assertTrue(verdict.reussie(), verdict.rapport());
+        assertTrue(verdict.avertissements().isEmpty(), verdict.rapport());
+    }
+
+    @Test
+    void collectionBruteSansCible_nommeLeTypeFautif(@TempDir Path tmp) throws IOException {
+        // Le message vient désormais de CibleDeduite, à qui la règle appartient : celui du
+        // processeur ne nommait pas le type, et un projet à plusieurs associations laissait son
+        // auteur chercher laquelle était visée.
+        Verdict verdict = compiler(tmp, """
+            @UMLClass
+            class Client {
+                @UMLAssociation(targetCardinality = "0..*")
+                private List commandes;
+            }
+            """);
+
+        assertFalse(verdict.reussie(), verdict.rapport());
+        assertTrue(verdict.erreurContient("the field's type (List) does not say what it contains"),
+            verdict.rapport());
+    }
+
+    @Test
+    void champPrimitifSansCible_nommeLeTypeFautif(@TempDir Path tmp) throws IOException {
+        Verdict verdict = compiler(tmp, """
+            @UMLClass
+            class Client {
+                @UMLAssociation(targetCardinality = "1")
+                private int compteur;
+            }
+            """);
+
+        assertFalse(verdict.reussie(), verdict.rapport());
+        assertTrue(
+            verdict.erreurContient("the field's type (int) does not name a class of the diagram"),
+            verdict.rapport());
+    }
+
+    @Test
+    void contrainteVide_reprendLeMessageDuModele(@TempDir Path tmp) throws IOException {
+        // La règle n'est plus réécrite ici : le refus de javac est mot pour mot celui que la
+        // génération aurait produit. Les deux textes avaient déjà divergé.
+        Verdict verdict = compiler(tmp, """
+            @UMLClass
+            @UMLConstraint(rule = " ")
+            class Compte {}
+            """);
+
+        assertFalse(verdict.reussie(), verdict.rapport());
+        assertTrue(verdict.erreurContient(
+            "A constraint cannot be empty or made of whitespace only."), verdict.rapport());
+    }
 }
