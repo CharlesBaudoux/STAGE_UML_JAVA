@@ -1100,6 +1100,99 @@ Deux s'y ajoutent, qui touchent à la notation UML. Les \textbf{paramètres de t
 La lecture ayant lieu après compilation (section \ref{sec:lecture}), deux informations ont disparu : les \textbf{valeurs d'initialisation des attributs}, et le \textbf{corps des méthodes} --- d'où \texttt{@UMLDependency}, seule façon de déclarer un lien qui ne se lit que dans un appel. Le \textbf{contenu des collections}, longtemps rangé ici, n'y a pas sa place : les paramètres de type survivent dans les signatures déclarées, d'où \texttt{target} facultatif sur \texttt{@UMLAssociation}. Ce qui reste réellement indéductible est la \textbf{multiplicité} : rien dans \texttt{Set<String>} ne dit \texttt{0..*} plutôt que \texttt{1..*}, cela relève du métier, et le deviner produirait un diagramme faux une fois sur deux. Quant au \textbf{nom des paramètres de méthode}, il ne s'agit pas d'une déduction impossible mais d'une option de construction du projet analysé, \texttt{-parameters} (section \ref{sec:membres}) : aucune annotation ne vient combler ce manque, le compilateur sachant déjà le faire.
 
 % ---------------------------------------------------------
+\clearpage
+\section{Mode d'emploi : de zéro à un dossier de diagrammes}
+\label{sec:modedemploi}
+
+Cette dernière section rassemble, dans l'ordre où on les fait, les gestes que les précédentes décrivent chacune à sa place.
+
+\subsection{1. Déclarer la bibliothèque dans le \texttt{pom}}
+Une dépendance et un plugin. La dépendance apporte \textbf{deux choses en une} : les annotations à écrire, et le processeur que \texttt{javac} découvre seul par \texttt{META-INF/services} dès qu'elle est sur le classpath (section \ref{sec:verification}). Le plugin apporte le goal qui dessine.
+
+\begin{lstlisting}[language=XML]
+<properties><maven.compiler.parameters>true</maven.compiler.parameters></properties>
+<dependency>  <!-- les annotations, et le processeur qu'elles embarquent -->
+    <groupId>io.github.oliviercailloux</groupId>
+    <artifactId>umlg</artifactId> <version>1.0-SNAPSHOT</version>
+</dependency>
+<plugin>      <!-- le goal qui dessine -->
+    <groupId>io.github.oliviercailloux</groupId>
+    <artifactId>umlg-maven-plugin</artifactId> <version>1.0-SNAPSHOT</version>
+    <executions><execution><goals><goal>generate</goal></goals></execution></executions>
+</plugin>
+<plugin>      <!-- version epinglee, sinon Maven resout la 3.1 de 2013 -->
+    <groupId>org.apache.maven.plugins</groupId>
+    <artifactId>maven-compiler-plugin</artifactId> <version>3.13.0</version>
+    <configuration><showWarnings>true</showWarnings></configuration>
+</plugin>
+\end{lstlisting}
+Les deux réglages du compilateur ne sont pas décoratifs : sans \texttt{parameters}, les diagrammes écrivent \texttt{entries(String)} au lieu d'\texttt{entries(xKeyName: String)} ; sans \texttt{showWarnings}, Maven passe \texttt{-nowarn} à \texttt{javac} et fait taire tout ce que le processeur a à dire (section \ref{sec:sortie}).
+
+\subsection{2. Annoter le code}
+\texttt{@UMLClass} sur les classes à dessiner suffit à obtenir un diagramme. Tout le reste est facultatif et se pose au fur et à mesure qu'on veut dire plus : \texttt{@UMLExclude} et \texttt{@UMLInclude} pour trancher membre par membre, \texttt{@UMLAssociation} et \texttt{@UMLAssociationClass} pour les liens métier, \texttt{@UMLMultiplicity}, \texttt{@UMLDerived}, \texttt{@UMLConstraint}, \texttt{@UMLDependency}, \texttt{@UMLNote}, \texttt{@UMLPackage}. Onze annotations en tout, aucune obligatoire hors la première.
+
+\subsection{3. Poser \texttt{umlg.rules} --- à un endroit précis, et à un seul}
+\label{sec:ou-regles}
+
+\textbf{Non, le fichier ne se met pas n'importe où.} La bibliothèque le cherche à \textbf{un seul chemin}, qu'elle calcule et ne devine pas :
+
+\begin{center}
+\meta{répertoire analysé}\texttt{/umlg.rules}
+\end{center}
+
+Trois conséquences, qu'il vaut mieux connaître avant de chercher pourquoi une règle « ne marche pas » :
+\begin{itemize}
+    \item \textbf{Le nom est fixe} --- exactement \texttt{umlg.rules}, casse comprise. \texttt{umlg.rule}, \texttt{UMLG.rules} ou \texttt{regles.umlg} ne sont pas lus.
+    \item \textbf{La recherche ne descend pas.} Seule la racine du répertoire analysé est regardée ; un fichier posé dans un sous-dossier est invisible.
+    \item \textbf{Aucune option ne le déplace} pour la génération. On ne change pas où le fichier est cherché, on change ce qu'est le répertoire analysé.
+\end{itemize}
+
+Or le répertoire analysé est celui des \textbf{classes compilées} --- \texttt{target/classes} par défaut (section \ref{sec:lecture}) --- et non celui des sources. On n'écrit donc pas le fichier là : on l'écrit à l'endroit d'où la construction le \textit{recopiera} là. D'où le chemin du cas nominal, \textbf{\texttt{src/main/resources/umlg.rules}}, lu en \texttt{target/classes/umlg.rules}. Il n'a rien d'arbitraire : \texttt{src/main/resources} est précisément le dossier dont Maven recopie le contenu à la racine de \texttt{target/classes}. Le fichier est ainsi \textbf{versionné avec le code} qu'il décrit, ce qu'un fichier posé dans \texttt{target/} ne serait pas --- un \texttt{mvn clean} l'effacerait.
+
+\paragraph{Si l'on analyse un autre répertoire.} \texttt{-Dumlg.sourceDirectory=autre/chemin} déplace le répertoire analysé ; le fichier doit alors se trouver à \texttt{autre/chemin/umlg.rules}. La règle ne change pas, c'est sa racine qui a bougé.
+
+\paragraph{Le fichier est facultatif.} Son absence ne produit ni erreur ni avertissement : elle donne exactement les mêmes règles qu'un fichier vide, c'est-à-dire aucune. Un fichier \textit{présent mais fautif} est une tout autre affaire, et arrête la génération (section \ref{sec:regles-projet}).
+
+\paragraph{La seule exception, et elle ne concerne pas le dessin.} \texttt{javac} ne connaît pas \texttt{target/classes} : le processeur d'annotations ne peut donc pas trouver le fichier par la règle ci-dessus, et se voit donner son chemin \textbf{nommément} par \texttt{-Aumlg.rules=src/main/resources/umlg.rules} (section \ref{sec:option-regles}). Là, et là seulement, le chemin et le nom sont libres --- c'est un fichier désigné, non un fichier cherché. Cette option ne change jamais le diagramme produit : elle rend au processeur six vérifications qu'il tairait sans elle.
+
+\subsection{4. Lancer}
+Trois façons, la première étant celle à préférer : \textbf{depuis Maven}, \texttt{mvn compile umlg:generate} ; \textbf{en ligne de commande}, \texttt{UMLGenerator} \meta{répertoire} \texttt{[fichier.svg|dossier] [png|svg]} ; \textbf{par programme}, \texttt{UMLGenerator.builder()\ldots build().generate()}.
+
+Le \texttt{compile} n'est pas facultatif : il n'y a rien à analyser tant que les \texttt{.class} ne sont pas écrits, et c'est lui qui recopie \texttt{umlg.rules} au bon endroit. Le goal seul sur un projet non compilé s'arrête en le disant.
+
+\paragraph{Tout ce qui se règle à l'appel.} Six propriétés, chacune surchargeable aussi par \texttt{<configuration>} dans le \texttt{pom} ; \texttt{umlg:help} les énumère.
+
+\begin{center}
+\begin{tabular}{@{}L{5.6cm}L{4.0cm}L{6.5cm}@{}}
+\hline
+\textbf{Propriété} & \textbf{Défaut} & \textbf{Ce qu'elle décide} \\
+\hline
+\texttt{umlg.sourceDirectory} & \texttt{target/classes} & Le répertoire analysé --- et donc où \texttt{umlg.rules} est cherché. \\[0.4em]
+\texttt{umlg.outputDirectory} & \texttt{diagrammes/} & Le dossier écrit, à la racine du module. \\[0.4em]
+\texttt{umlg.outputFile} & --- & Un seul fichier au lieu du dossier ; son extension décide du format. \\[0.4em]
+\texttt{umlg.format} & \texttt{svg} & \texttt{svg} ou \texttt{png}, pour les images du dossier. \\[0.4em]
+\texttt{umlg.keepPrevious} & \texttt{false} & Écrire dans un dossier voisin numéroté plutôt qu'effacer. \\[0.4em]
+\texttt{umlg.skip} & \texttt{false} & Sauter la génération sans arrêter la construction. \\
+\hline
+\end{tabular}
+\end{center}
+
+\noindent Les chemins relatifs s'entendent depuis la racine du module, jamais depuis le répertoire d'où Maven a été lancé : dans un réacteur, tous les modules écriraient sinon le même fichier. Deux exemples suffisent à couvrir l'usage courant :
+
+\begin{lstlisting}[language=]
+mvn compile umlg:generate                              # le dossier, en SVG
+mvn compile umlg:generate -Dumlg.format=png            # le dossier, en PNG
+mvn compile umlg:generate -Dumlg.outputFile=archi.svg  # la seule vue d'ensemble
+\end{lstlisting}
+
+\paragraph{Ce que le plugin n'expose pas.} L'\textbf{apparence} (\texttt{UmlStyle.PLANTUML} ou \texttt{UMLG}, section \ref{sec:style}) ne se choisit que \textbf{par programme}, via \texttt{.style(...)} sur le builder. Le \texttt{pom} n'a donc pas de réglage esthétique, ce qui est cohérent avec le reste : le plugin décide de \textit{ce qui est écrit et où}, pas de ce à quoi cela ressemble.
+
+\subsection{5. Ce qu'on obtient}
+Un dossier \texttt{diagrammes/} contenant la vue intégrale à sa racine, les vues déclarées dans \texttt{vues/}, la source \texttt{.puml} à côté de chaque image, et \texttt{ignored-classes.txt} au-delà d'une douzaine de classes écartées (section \ref{sec:vues}). Le compte rendu part dans le log de Maven, les avertissements aussi, en \texttt{[WARNING]}. Le dossier vit \textbf{à la racine du projet} et non dans \texttt{target/} : les diagrammes sont une documentation, faite pour être versionnée, non un sous-produit que \texttt{clean} efface.
+
+\paragraph{Les trois endroits, récapitulés.} Une chose sur \textit{cet} élément s'écrit dans une \textbf{annotation}, sur l'élément lui-même ; une chose valant pour tout le projet ou pour une vue, dans \textbf{\texttt{src/main/resources/umlg.rules}} ; une chose qui ne touche pas au modèle, à l'\textbf{appel} --- \texttt{-Dumlg.*} ou le builder. La question « où dois-je écrire ceci ? » se tranche par le critère d'une ligne de la section \ref{sec:partage} : \textit{cette décision désigne-t-elle un élément par son nom ?}
+
+% ---------------------------------------------------------
 \begin{comment}
 \end{comment}
 
