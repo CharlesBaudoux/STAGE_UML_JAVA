@@ -1,6 +1,7 @@
 package io.github.oliviercailloux.umlg;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -140,5 +141,37 @@ class UMLGeneratorTest {
         UMLGenerator.main(new String[] {"target/test-classes", sortie.toString(), "png"});
 
         assertTrue(Files.exists(sortie.resolve("projet.png")));
+    }
+
+    // OÙ DÉPOSER LA LISTE DES CLASSES IGNORÉES
+    //
+    // Un nom de fichier nu n'a pas de parent, et ce n'est pas la même chose que n'avoir pas de
+    // destination : c'est le répertoire courant. Confondre les deux privait de sa liste
+    // l'invocation par défaut — « umlg target/classes » — ainsi que toute sortie nommée sans
+    // dossier, tandis que le même appel préfixé de « ./ » l'obtenait. Deux commandes qui
+    // déposent le fichier au même endroit doivent se comporter pareil.
+
+    @Test
+    void unNomDeFichierNu_designeLeRepertoireCourant() {
+        Path dossier = UMLGenerator.dossierDeSortie(Path.of("diagramme.svg"));
+
+        assertEquals(Path.of(""), dossier);
+        assertEquals(Path.of(UMLGenerator.FICHIER_DES_CLASSES_IGNOREES),
+            dossier.resolve(UMLGenerator.FICHIER_DES_CLASSES_IGNOREES));
+    }
+
+    @Test
+    void unNomNuEtLeMemeEnPointSlash_menentAuMemeFichier() {
+        Path nu = UMLGenerator.dossierDeSortie(Path.of("diagramme.svg"))
+            .resolve(UMLGenerator.FICHIER_DES_CLASSES_IGNOREES);
+        Path pointSlash = UMLGenerator.dossierDeSortie(Path.of("./diagramme.svg"))
+            .resolve(UMLGenerator.FICHIER_DES_CLASSES_IGNOREES);
+
+        assertEquals(nu.toAbsolutePath().normalize(), pointSlash.toAbsolutePath().normalize());
+    }
+
+    @Test
+    void unCheminAvecDossier_gardeSonDossier() {
+        assertEquals(Path.of("docs"), UMLGenerator.dossierDeSortie(Path.of("docs", "archi.svg")));
     }
 }
