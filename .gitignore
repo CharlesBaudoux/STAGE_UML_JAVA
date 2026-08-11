@@ -23,3 +23,5 @@ target/
 # Fichiers systèmes
 .DS_Store
 Thumbs.db
+# Worktrees des agents
+.claude/

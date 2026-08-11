@@ -155,6 +155,68 @@ class RecordsEtExclusionsHeriteesTest {
             methodes.toString());
     }
 
+    // --- L'exclusion héritée franchit l'effacement de type ---
+
+    interface Boite<T> {
+        @UMLExclude
+        void ranger(T objet);
+
+        @UMLExclude
+        T lire();
+    }
+
+    static class BoiteDeTexte implements Boite<String> {
+        @Override
+        public void ranger(String objet) {}
+
+        @Override
+        public String lire() {
+            return "";
+        }
+
+        public void metier() {}
+    }
+
+    @Test
+    void unExcludeSurUneInterfaceGenerique_vautPourLaRealisation() {
+        // Le cas que la recherche par signature exacte manquait : « Boite<T>.ranger(T) » s'écrit
+        // « ranger(Object) » dans le .class, tandis que la réalisation porte String. L'exclusion
+        // se perdait donc pour Comparator, Function, et toute interface métier paramétrée — un
+        // membre que l'auteur croit exclu reparaissait sur chacune de ses réalisations.
+        //
+        // « lire() », sans paramètre, était bien exclue : c'est ce qui rendait le défaut
+        // invisible, la fonctionnalité marchant sur la moitié des cas.
+        List<UmlMethod> methodes =
+            MemberExtractor.extractMethods(BoiteDeTexte.class, UMLVisibility.PUBLIC);
+
+        assertEquals(List.of("metier"), methodes.stream().map(UmlMethod::name).toList(),
+            methodes.toString());
+    }
+
+    interface Rangeuse {
+        @UMLExclude
+        void ranger(Object objet);
+    }
+
+    static class RangeuseStricte implements Rangeuse {
+        @Override
+        public void ranger(Object objet) {}
+
+        // Une surcharge, et non une redéfinition : le surtype n'a jamais parlé d'elle.
+        public void ranger(String texte, int rang) {}
+    }
+
+    @Test
+    void uneSurchargeDArite_differente_nEstPasTouchee() {
+        // La reconnaissance se fait sur le nom, l'arité et l'assignabilité : une surcharge qui
+        // prend un argument de plus ne redéfinit rien, et l'exclusion ne doit pas la suivre.
+        List<UmlMethod> methodes =
+            MemberExtractor.extractMethods(RangeuseStricte.class, UMLVisibility.PUBLIC);
+
+        assertEquals(1, methodes.size(), methodes.toString());
+        assertEquals(2, methodes.get(0).parameters().size(), methodes.toString());
+    }
+
     static class Homonyme {
         // Statique : elle ne redéfinit rien, l'exclusion d'un homonyme hérité ne la vise pas.
         public static void technique() {}

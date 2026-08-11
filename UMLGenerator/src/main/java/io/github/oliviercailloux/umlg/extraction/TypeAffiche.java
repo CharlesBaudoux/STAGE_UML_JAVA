@@ -98,29 +98,82 @@ public final class TypeAffiche {
     // lit « zéro ou plusieurs ensembles », ce qui est faux : il y a un ensemble, contenant zéro
     // ou plusieurs chaînes. La forme juste est « aliases: String [0..*] ».
     //
-    // L'enveloppe n'est retirée que si elle en est une — un Iterable ou un Optional — et qu'elle
-    // n'a qu'un seul paramètre de type. Une Map en a deux, et rien ne dirait lequel est la
-    // propriété : elle est alors écrite en entier, ce qui reste exact.
+    // L'enveloppe n'est retirée que si elle en est une — un Iterable, un Optional, ou un tableau,
+    // qui est la façon la plus ancienne qu'a Java d'écrire « plusieurs ». Un conteneur à deux
+    // paramètres de type n'en est pas une : une Map est alors écrite en entier, rien ne disant
+    // lequel des deux serait la propriété, et cela reste exact.
     public static String deLElement(Type type, Regles regles) {
         checkNotNull(type);
         checkNotNull(regles);
 
+        ParameterizedType conteneur = conteneurAUnElement(type);
+        if (conteneur != null) {
+            Type element = conteneur.getActualTypeArguments()[0];
+            // Un élément enveloppé — Integer dans Optional<Integer> — redevient primitif, sauf si
+            // une règle du projet a donné à l'enveloppe un autre nom : la demande explicite
+            // l'emporte. Le déballage ne vaut que pour un conteneur : « Integer[] » est un choix
+            // de l'auteur, que « int[] » lui offrait déjà.
+            if (element instanceof Class<?> classe) {
+                String primitif = PRIMITIFS.get(classe);
+                if (primitif != null && regles.nomAffiche(classe).equals(classe.getSimpleName())) {
+                    return primitif;
+                }
+            }
+            return de(sansJoker(element), regles);
+        }
+        // Un tableau devant une multiplicité perd ses crochets : « String[] [1..*] » se lirait
+        // « un ou plusieurs tableaux de chaînes », alors que le code n'en déclare qu'un, contenant
+        // une ou plusieurs chaînes. Le tableau EST la multiplicité, exactement comme le conteneur.
+        Type composante = composanteDeTableau(type);
+        if (composante != null) {
+            return de(composante, regles);
+        }
+        return de(type, regles);
+    }
+
+    // Le type vu comme un conteneur ne portant qu'un seul élément — « Set<X> », « Optional<X> » —,
+    // ou null.
+    //
+    // Les trois questions que cette classe pose devant une multiplicité — quel type écrire,
+    // quelle multiplicité déduire, quelle classe l'association vise — ont la même condition
+    // d'entrée, et elle s'écrit donc ici seulement : un type paramétré, dont le type brut est un
+    // conteneur, et qui n'a qu'un seul argument de type. Une Map en a deux, un type brut aucun —
+    // l'élément serait indicible, et la multiplicité avec lui.
+    private static ParameterizedType conteneurAUnElement(Type type) {
         if (!(type instanceof ParameterizedType parametre)) {
-            return de(type, regles);
+            return null;
         }
-        Type[] arguments = parametre.getActualTypeArguments();
-        if (arguments.length != 1 || !estUnConteneur(parametre.getRawType())) {
-            return de(type, regles);
+        if (parametre.getActualTypeArguments().length != 1
+            || !estUnConteneur(parametre.getRawType())) {
+            return null;
         }
-        // Un élément enveloppé — Integer dans Optional<Integer> — redevient primitif, sauf si
-        // une règle du projet a donné à l'enveloppe un autre nom : la demande explicite l'emporte.
-        if (arguments[0] instanceof Class<?> classe) {
-            String primitif = PRIMITIFS.get(classe);
-            if (primitif != null && regles.nomAffiche(classe).equals(classe.getSimpleName())) {
-                return primitif;
+        return parametre;
+    }
+
+    // Ce dont ce type est un tableau, ou null s'il n'en est pas un. Les deux formes que rend la
+    // réflexion sont couvertes : « String[] » est une Class, « T[] » un GenericArrayType.
+    private static Type composanteDeTableau(Type type) {
+        if (type instanceof GenericArrayType tableau) {
+            return tableau.getGenericComponentType();
+        }
+        if (type instanceof Class<?> classe && classe.isArray()) {
+            return classe.getComponentType();
+        }
+        return null;
+    }
+
+    // Le joker retiré devant une multiplicité : « ? extends CharSequence [0..*] » se lit « zéro ou
+    // plusieurs choses qui étendent CharSequence », là où « CharSequence [0..*] » dit la même
+    // chose et se lit. La borne était tout ce que le joker apportait ; sans elle — un « ? » nu, un
+    // « ? super X » —, il s'écrit tel quel, comme partout ailleurs.
+    private static Type sansJoker(Type type) {
+        if (type instanceof WildcardType joker) {
+            Type[] hautes = joker.getUpperBounds();
+            if (hautes.length == 1 && hautes[0] != Object.class) {
+                return hautes[0];
             }
         }
-        return de(arguments[0], regles);
+        return type;
     }
 
     // La multiplicité que la forme du type déclare, ou la chaîne vide.
@@ -131,19 +184,16 @@ public final class TypeAffiche {
     // forme de toutes les lignes à collection, et c'est au projet de choisir sa notation. Elle ne
     // dit jamais plus que le type : « 0..* » et non « 1..* », qu'aucun Set ne garantit.
     //
-    // Les mêmes conditions que deLElement : un conteneur d'un seul paramètre de type. Une Map en
-    // a deux, un type brut n'en a pas — l'élément serait indicible, la multiplicité aussi.
+    // La même condition d'entrée que deLElement, et écrite au même endroit : un conteneur d'un
+    // seul paramètre de type (voir conteneurAUnElement).
     public static String multipliciteDeduite(Type type) {
         checkNotNull(type);
 
-        if (!(type instanceof ParameterizedType parametre)) {
+        ParameterizedType conteneur = conteneurAUnElement(type);
+        if (conteneur == null) {
             return "";
         }
-        if (parametre.getActualTypeArguments().length != 1
-            || !estUnConteneur(parametre.getRawType())) {
-            return "";
-        }
-        Class<?> brut = (Class<?>) parametre.getRawType();
+        Class<?> brut = (Class<?>) conteneur.getRawType();
         return Optional.class.isAssignableFrom(brut) ? "0..1" : "0..*";
     }
 
@@ -154,14 +204,11 @@ public final class TypeAffiche {
     public static Class<?> elementSeul(Type type) {
         checkNotNull(type);
 
-        if (!(type instanceof ParameterizedType parametre)) {
+        ParameterizedType conteneur = conteneurAUnElement(type);
+        if (conteneur == null) {
             return null;
         }
-        Type[] arguments = parametre.getActualTypeArguments();
-        if (arguments.length != 1 || !estUnConteneur(parametre.getRawType())) {
-            return null;
-        }
-        return arguments[0] instanceof Class<?> classe ? classe : null;
+        return conteneur.getActualTypeArguments()[0] instanceof Class<?> classe ? classe : null;
     }
 
     private static boolean estUnConteneur(Type brut) {

@@ -21,6 +21,10 @@ public final class VisibilityPolicy {
     // Trois niveaux de décision, du plus fort au plus faible : @UMLExclude, puis @UMLInclude,
     // puis la stratégie de la classe. Les deux annotations sont des vetos individuels ; la
     // stratégie n'est qu'un défaut.
+    //
+    // C'est la question que pose le processeur d'annotations, qui n'a pas de fichier de règles
+    // sous la main. L'extraction, elle, en a un : elle compose elle-même les deux défauts
+    // généraux — cette stratégie et les motifs « hide » — et passe donc par parLaStrategie.
     public static boolean estVisible(int modifiers, UMLVisibility strategy, boolean hasInclude,
         boolean hasExclude) {
 
@@ -31,6 +35,15 @@ public final class VisibilityPolicy {
             return true;
         }
 
+        return parLaStrategie(modifiers, strategy);
+    }
+
+    // La seule stratégie, sans les vetos : ce que la classe montre par défaut.
+    //
+    // Séparer les deux permet à l'appelant qui a d'autres défauts généraux à composer — les
+    // motifs du fichier de règles, dans MemberExtractor — de les mettre au même rang que
+    // celui-ci, plutôt que de trancher avant ou après la hiérarchie complète.
+    public static boolean parLaStrategie(int modifiers, UMLVisibility strategy) {
         return switch (strategy) {
             case NONE -> false;
 

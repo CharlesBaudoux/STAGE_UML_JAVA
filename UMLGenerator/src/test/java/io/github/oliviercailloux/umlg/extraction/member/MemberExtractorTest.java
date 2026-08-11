@@ -234,6 +234,26 @@ class MemberExtractorTest {
         assertEquals(List.of("int[]"), types(lister));
     }
 
+    @UMLClass(strategy = UMLVisibility.PUBLIC)
+    static class MethodeVariadique {
+        public void journaliser(String format, Object... arguments) {}
+
+        public void copier(int[] source) {}
+    }
+
+    @Test
+    void unParametreVariadique_secritAvecTroisPoints() {
+        // Le .class ne connaît qu'un tableau, mais l'auteur a écrit « Object... », et
+        // « journaliser(String, Object[]) » se lit comme une méthode qu'on appelle avec un
+        // tableau. isVarArgs est la seule façon de distinguer les deux, le type étant le même —
+        // c'est ce que montre le voisin, un vrai tableau, qui garde ses crochets.
+        UmlEntity entity = EntityExtractor.extract(MethodeVariadique.class);
+
+        assertEquals(List.of("String", "Object..."),
+            types(methode(entity, "journaliser").orElseThrow()));
+        assertEquals(List.of("int[]"), types(methode(entity, "copier").orElseThrow()));
+    }
+
     // --- Modificateur static ---
 
     @UMLClass(strategy = UMLVisibility.PUBLIC)

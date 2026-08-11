@@ -73,7 +73,7 @@ public final class EntityExtractor {
         // classe stocke d'abord, ce qu'elle expose ensuite.
         ImmutableList<UmlField> fields = ImmutableList.<UmlField>builder()
             .addAll(MemberExtractor.extractFields(clazz, finalStrategy, regles))
-            .addAll(MemberExtractor.methodesEnAttributs(clazz, regles))
+            .addAll(MemberExtractor.methodesEnAttributs(clazz, finalStrategy, regles))
             .build();
         ImmutableList<UmlMethod> methods =
             MemberExtractor.extractMethods(clazz, finalStrategy, regles);
@@ -84,7 +84,7 @@ public final class EntityExtractor {
             .color(finalColor)
             .strategy(finalStrategy)
 
-            .literals(MemberExtractor.extractLiterals(clazz, finalStrategy))
+            .literals(MemberExtractor.extractLiterals(clazz, finalStrategy, regles))
             .fields(fields)
             .methods(methods)
             .notes(NoteExtractor.extraire(clazz, fields, methods))

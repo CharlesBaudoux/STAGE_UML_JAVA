@@ -156,6 +156,56 @@ class TypesGeneriquesTest {
             .type());
     }
 
+    @UMLClass(strategy = UMLVisibility.PRIVATE)
+    static class AvecEnveloppes {
+        @UMLMultiplicity("1..*")
+        private String[] noms;
+
+        @UMLMultiplicity("0..*")
+        private List<? extends CharSequence> textes;
+
+        @UMLMultiplicity("0..*")
+        private List<? super Commande> receptacles;
+
+        @UMLMultiplicity("0..*")
+        private List<String[]> lots;
+
+        @UMLMultiplicity("1..*")
+        private Integer[] compteurs;
+    }
+
+    @Test
+    void unTableau_devantUneMultiplicite_perdSesCrochets() {
+        // « noms : String[] [1..*] » se lit « un ou plusieurs tableaux de chaînes », alors que le
+        // code n'en déclare qu'un. Un tableau est la façon la plus ancienne qu'a Java d'écrire
+        // « plusieurs » : devant des crochets de multiplicité, il est l'enveloppe, comme un Set.
+        assertEquals("String", champ(EntityExtractor.extract(AvecEnveloppes.class), "noms").type());
+    }
+
+    @Test
+    void unJoker_devantUneMultiplicite_seReduitASaBorne() {
+        // « ? extends CharSequence [0..*] » dit « zéro ou plusieurs choses qui étendent
+        // CharSequence » ; la borne est tout ce que le joker apportait.
+        UmlEntity entity = EntityExtractor.extract(AvecEnveloppes.class);
+
+        assertEquals("CharSequence", champ(entity, "textes").type());
+        // Sans borne haute, le joker n'a rien à dire de plus et s'écrit tel quel — « Object »
+        // serait une affirmation que le code ne fait pas.
+        assertEquals("?", champ(entity, "receptacles").type());
+    }
+
+    @Test
+    void uneSeuleEnveloppe_estRetiree() {
+        // « zéro ou plusieurs tableaux de chaînes » est exactement ce que le code déclare ici :
+        // le tableau est à l'intérieur, et c'est la liste qui porte la multiplicité.
+        UmlEntity entity = EntityExtractor.extract(AvecEnveloppes.class);
+
+        assertEquals("String[]", champ(entity, "lots").type());
+        // Et le déballage vers le primitif reste réservé aux conteneurs : « Integer[] » est un
+        // choix de l'auteur, que « int[] » lui offrait déjà.
+        assertEquals("Integer", champ(entity, "compteurs").type());
+    }
+
     @Test
     void uneMapNEstPasDepliee() {
         // Deux paramètres : rien ne dirait lequel est la propriété. Le type reste écrit en
