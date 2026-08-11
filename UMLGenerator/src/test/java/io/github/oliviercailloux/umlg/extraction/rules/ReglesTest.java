@@ -606,4 +606,211 @@ class ReglesTest {
             { "hide": ["Representation.*"] }
             """));
     }
+
+    @Test
+    void unBomEnTete_estNommeEtNonPrisPourUneNoteEgaree() {
+        // Le décodage rend la marque telle quelle, et l'analyseur JSON la refusait alors comme un
+        // caractère inattendu — refus auquel on ajoutait le rappel de la convention « _ », qui
+        // envoyait chercher une note là où il n'y en avait pas. La marque étant invisible dans un
+        // éditeur, la nommer est la seule façon de dire quoi corriger.
+        var refus = assertThrows(IllegalArgumentException.class,
+            () -> regles((char) 0xFEFF + "{ \"strategy\": \"public\" }"));
+
+        assertTrue(refus.getMessage().contains("byte order mark"), refus.getMessage());
+        assertFalse(refus.getMessage().contains("\"_\""), refus.getMessage());
+    }
+
+    // --- Un motif qui prend tout ---
+
+    @Test
+    void motifFaitDEtoilesSeules_estRefuseCommeLEtoileSeule() {
+        // Le refus portait sur la lettre écrite et non sur ce que le motif attrape : « ** » se
+        // traduit en « .*.* », qui prend n'importe quel nom tout comme « * ». Il vidait donc en
+        // silence tous les compartiments de toutes les boîtes, sans même paraître dans le relevé
+        // des règles mortes — le motif ayant bel et bien servi.
+        var refus = assertThrows(IllegalArgumentException.class, () -> regles("""
+            { "hide": ["**"] }
+            """));
+
+        assertTrue(refus.getMessage().contains("would hide every member of every class"),
+            refus.getMessage());
+        assertTrue(refus.getMessage().contains("\"**\""), refus.getMessage());
+    }
+
+    @Test
+    void etoileSeule_resteRefusee() {
+        var refus = assertThrows(IllegalArgumentException.class, () -> regles("""
+            { "hide": ["*"] }
+            """));
+
+        assertTrue(refus.getMessage().contains("would hide every member of every class"),
+            refus.getMessage());
+    }
+
+    @Test
+    void motifQuiNePrendPasTout_resteAccepte() {
+        // Le contrôle vise ce qui prend tout, et rien de plus : « *e* » porte deux étoiles et ne
+        // masque pourtant que les noms qui contiennent un « e ».
+        Regles regles = regles("""
+            { "hide": ["*e*"] }
+            """);
+
+        assertTrue(regles.membreMasque("nomme"));
+        assertFalse(regles.membreMasque("total"));
+    }
+
+    // --- Une espace, quelle qu'en soit la forme ---
+
+    @Test
+    void motifAvecUneTabulation_estRefuse() {
+        // « contains(" ") » ne voyait que l'espace ordinaire, si bien qu'un motif tabulé était
+        // accepté puis ne correspondait à aucun nom Java.
+        var refus = assertThrows(IllegalArgumentException.class, () -> regles("""
+            { "hide": ["get\\tNom"] }
+            """));
+
+        assertTrue(refus.getMessage().contains("cannot contain a space"), refus.getMessage());
+    }
+
+    @Test
+    void motifAvecUneEspaceInsecable_estRefuse() {
+        // L'insécable est ce que produit un copier-coller depuis un traitement de texte : c'est le
+        // cas le plus probable, et le seul que la relecture ne rattrape jamais.
+        var refus = assertThrows(IllegalArgumentException.class, () -> regles("""
+            { "hide": ["get\\u00a0Nom"] }
+            """));
+
+        assertTrue(refus.getMessage().contains("cannot contain a space"), refus.getMessage());
+    }
+
+    @Test
+    void typeAvecUneEspaceInsecable_estRefuse() {
+        var refus = assertThrows(IllegalArgumentException.class, () -> regles("""
+            { "types": { "Immutable\\u00a0List": "List" } }
+            """));
+
+        assertTrue(refus.getMessage().contains("cannot contain a space"), refus.getMessage());
+    }
+
+    // --- Un motif écrit deux fois ---
+
+    @Test
+    void deuxFoisLeMemeMotif_sontRefuses() {
+        // « omit » refusait déjà le doublon ; « hide » l'acceptait, et le second motif ne masquait
+        // rien de plus. Pire, une famille de noms écrite deux fois et ne visant personne était
+        // signalée deux fois en fin de scan, pour une seule entrée à corriger.
+        var refus = assertThrows(IllegalArgumentException.class, () -> regles("""
+            { "hide": ["log", "get*", "log"] }
+            """));
+
+        assertTrue(refus.getMessage().contains("already asked for"), refus.getMessage());
+        assertTrue(refus.getMessage().contains("hide[2]"), refus.getMessage());
+    }
+
+    @Test
+    void deuxMotifsDistincts_restentAcceptes() {
+        Regles regles = regles("""
+            { "hide": ["log", "get*"] }
+            """);
+
+        assertTrue(regles.membreMasque("log"));
+        assertTrue(regles.membreMasque("getNom"));
+    }
+
+    // --- La convention « _ » vaut à tous les niveaux ---
+
+    @Test
+    void noteDansTypes_nEstNiUneRegleNiUneFaute() {
+        // « types » est le second objet du format dont les clés sont écrites à la main, et la
+        // convention y valait comme ailleurs — sauf dans le code. Une note d'un mot y devenait une
+        // règle de renommage morte, et une note ordinaire était refusée par un message qui parlait
+        // d'espace dans un nom de type sans jamais mentionner la convention.
+        Regles regles = regles("""
+            {
+              "types": {
+                "_note": "les types de Guava n'apprennent rien au lecteur",
+                "ImmutableList": "List"
+              }
+            }
+            """);
+
+        assertEquals("List", regles.nomAffiche(ImmutableList.class));
+        assertEquals(List.of(), regles.reglesSansEffet(),
+            "Une note n'est pas une règle, donc jamais une règle morte.");
+    }
+
+    @Test
+    void noteDansUneVue_nEstNiUneCleNiUneFaute() {
+        assertEquals(1, regles("""
+            {
+              "views": [
+                { "_": "pourquoi cette vue", "name": "Facturation", "retain": ["Facture"] }
+              ]
+            }
+            """).vues().size());
+    }
+
+    // --- La casse des mots énumérés ---
+
+    @Test
+    void strategieEnMajuscules_estRefuseeCommeLesAutresMots() {
+        // La tolérance ne venait d'aucune décision mais du toUpperCase que valueOf réclamait :
+        // « PUBLIC » passait, tandis que « Declaration », « Left-To-Right » et « Brackets » étaient
+        // refusés. Un format dont un mot sur cinq accepte les majuscules apprend au lecteur une
+        // règle fausse quatre fois sur cinq.
+        var refus = assertThrows(IllegalArgumentException.class, () -> regles("""
+            { "strategy": "PUBLIC" }
+            """));
+
+        assertTrue(refus.getMessage().contains("unknown strategy"), refus.getMessage());
+        assertTrue(refus.getMessage().contains("lower case"), refus.getMessage());
+    }
+
+    @Test
+    void strategieEnMinuscules_resteLue() {
+        assertEquals(UMLVisibility.PROTECTED, regles("""
+            { "strategy": "protected" }
+            """).strategie());
+    }
+
+    @Test
+    void strategieProject_estRefuseeEnDisantPourquoi() {
+        // « project » est le renvoi qu'écrit une classe vers cette clé : le projet ne peut pas se
+        // renvoyer à lui-même.
+        var refus = assertThrows(IllegalArgumentException.class, () -> regles("""
+            { "strategy": "project" }
+            """));
+
+        assertTrue(refus.getMessage().contains("defer to this key"), refus.getMessage());
+    }
+
+    // --- « vides » répond à la question posée ---
+
+    @Test
+    void unDefautEcrit_neFaitPasDesReglesVides() {
+        // « vides » sert à savoir si un fichier a écrit quelque chose. Elle comparait les quinze
+        // réglages à leurs valeurs par défaut, si bien qu'un fichier écrivant un défaut — ce que le
+        // format autorise explicitement, un fichier qui dit tout haut ce qu'il fait se relisant
+        // mieux — se voyait répondre « aucune règle ».
+        assertFalse(regles("""
+            { "showEmptyMembers": false }
+            """).vides());
+        assertFalse(regles("""
+            { "order": "alphabetical" }
+            """).vides());
+        assertFalse(regles("""
+            { "viewsByPackage": false }
+            """).vides());
+        assertFalse(regles("""
+            { "direction": "top-to-bottom" }
+            """).vides());
+    }
+
+    @Test
+    void desNotesSeules_laissentLesReglesVides() {
+        // Une note n'est pas une règle : un fichier qui n'écrit que des notes n'a rien demandé.
+        assertTrue(regles("""
+            { "_": "rien à demander pour l'instant", "_suite": "vraiment rien" }
+            """).vides());
+    }
 }

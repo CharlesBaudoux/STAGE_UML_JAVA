@@ -131,6 +131,31 @@ public record UmlEntity(
     }
 
     /**
+     * La même entité, avec d'autres liens.
+     *
+     * <p>C'est le seul remaniement qu'une entité subisse après sa construction, et il n'a qu'un
+     * client : le découpage en vues. Une vue élague les traits dont l'autre bout n'est pas
+     * dessiné, puis en ajoute d'invisibles pour poser l'ordre des boîtes — deux fois la même
+     * reconstruction, écrite deux fois, quatorze composantes à la main dont treize inchangées.
+     * Recopier treize composantes pour en changer une est l'occasion d'en oublier une, et rien
+     * n'aurait dit laquelle.
+     *
+     * @param relations les liens qui remplacent ceux de cette entité.
+     * @return une entité identique à celle-ci, à ses relations près ; celle-ci même si les liens
+     *     donnés sont ceux qu'elle porte déjà, une copie à l'identique n'apprenant rien à
+     *     personne.
+     * @throws NullPointerException si la liste est nulle.
+     */
+    public UmlEntity avecRelations(ImmutableList<UmlRelation> relations) {
+        checkNotNull(relations, "The list of relations cannot be null.");
+        if (relations.equals(this.relations)) {
+            return this;
+        }
+        return new UmlEntity(qualifiedName, name, kind, stereotype, color, strategy, literals,
+            fields, methods, relations, notes, constraints, group, typeParameters);
+    }
+
+    /**
      * Rend les relations d'une nature donnée.
      *
      * <p>Le paramètre de type {@code T} suit celui du {@code Class<T>} passé en argument, si bien
@@ -232,7 +257,6 @@ public record UmlEntity(
         private ImmutableList<UmlNote> notes = ImmutableList.of();
         private ImmutableList<String> constraints = ImmutableList.of();
         private UmlPackage group = UmlPackage.aucun();
-        private boolean declared;
         private String typeParameters = "";
         // Un builder de Guava, et non une liste mutable : les relations s'ajoutent en plusieurs
         // fois — une passe par extracteur — et lui seul accumule sans jamais exposer d'état

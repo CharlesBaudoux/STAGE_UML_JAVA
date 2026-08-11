@@ -24,13 +24,19 @@ final class PackageExtractor {
 
     private PackageExtractor() {}
 
-    // Sans règles de projet : le cas d'une classe extraite isolément, et celui des tests.
-    static UmlPackage extraire(Class<?> clazz) {
-        return extraire(clazz, Regles.aucune());
-    }
-
+    // La surcharge qui reçoit les règles du projet, et n'en fait rien.
+    //
+    // Le paramètre est le dernier vestige de « group package », la règle qui rangeait tout un
+    // paquetage d'une ligne : depuis son retrait, aucune règle ne décide d'un groupe, et il n'y a
+    // plus rien à lire ici. Il était checkNotNull-é puis jamais employé, ce qui donnait à croire
+    // qu'il servait. La surcharge ne subsiste que le temps que son unique appelant — la ligne
+    // EntityExtractor:92, qui vit hors de ce chantier — cesse de les passer ; elle part avec lui.
     static UmlPackage extraire(Class<?> clazz, Regles regles) {
         checkNotNull(regles);
+        return extraire(clazz);
+    }
+
+    static UmlPackage extraire(Class<?> clazz) {
         UMLPackage annotation = clazz.getAnnotation(UMLPackage.class);
         if (annotation == null) {
             return UmlPackage.aucun();

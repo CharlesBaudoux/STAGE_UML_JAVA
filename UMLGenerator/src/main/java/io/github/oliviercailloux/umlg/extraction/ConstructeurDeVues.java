@@ -47,6 +47,14 @@ public final class ConstructeurDeVues {
     // projet, celui qu'on ouvre pour savoir ce qui existe.
     public static final String VUE_INTEGRALE = "Projet";
 
+    // Le nom que porte la vue du paquetage par défaut, faute que celui-ci en ait un.
+    //
+    // En anglais, comme tout ce que la bibliothèque montre à son utilisateur : c'était la seule
+    // chaîne française de la surface visible — « (défaut) » — au milieu de vingt-trois fichiers
+    // dont les messages sont en anglais. Et ce libellé n'est pas un message : il devient un nom de
+    // vue, donc un titre de diagramme, donc un nom de fichier — « defaut.svg ».
+    static final String PAQUETAGE_PAR_DEFAUT = "(default)";
+
     // Au-delà de ce nombre de blocs, la vue n'est plus ordonnée du tout.
     //
     // Enchaîner deux ou trois groupes dit une intention : « on lit d'abord ceci, puis cela ».
@@ -74,20 +82,68 @@ public final class ConstructeurDeVues {
         if (entites.isEmpty()) {
             return ImmutableList.of();
         }
-        ImmutableList.Builder<UmlView> vues = ImmutableList.builder();
+        // Ce que le fichier déclare, puis ce qu'il fait calculer : les unes et les autres se
+        // rangent dans le même dossier, et se nomment d'après leur propre nom.
+        ImmutableList.Builder<UmlView> nommees = ImmutableList.builder();
+        for (DefinitionDeVue definition : regles.vues()) {
+            nommees.add(declaree(definition, entites));
+        }
+        if (regles.vuesParPaquetage()) {
+            nommees.addAll(parPaquetage(entites));
+        }
+        ImmutableList<UmlView> vues = nommees.build();
+        verifierLesNomsDeFichier(vues);
 
         // L'intégrale d'abord : elle porte le titre et le sens de lecture du fichier de règles,
         // faute de quoi ces réglages n'auraient plus où s'appliquer.
         String titre = diagramme.aUnTitre() ? diagramme.title() : VUE_INTEGRALE;
-        vues.add(new UmlView(titre, ImmutableList.copyOf(entites), diagramme.direction()));
+        return ImmutableList.<UmlView>builder()
+            .add(new UmlView(titre, ImmutableList.copyOf(entites), diagramme.direction()))
+            .addAll(vues)
+            .build();
+    }
 
-        for (DefinitionDeVue definition : regles.vues()) {
-            vues.add(declaree(definition, entites));
+    // Refuse deux vues qui se ramèneraient au même fichier.
+    //
+    // POURQUOI ICI
+    //
+    // Le lecteur du fichier de règles refuse déjà deux vues de nom identique. Mais l'identité qui
+    // compte en aval n'est pas le nom : c'est UmlView.nomDeFichier(), qui détache puis retire les
+    // accents, remplace par un tiret tout ce qui n'est ni lettre ni chiffre, et passe en
+    // minuscules. La réduction fait converger des noms parfaitement distincts — « Modèle » et
+    // « Modele », « Le mapping » et « Le-Mapping », « Mapping » et « Mapping ! ». Le lecteur ne
+    // peut pas voir la collision : il ne connaît que les vues déclarées, tandis que
+    // « viewsByPackage » en ajoute que l'auteur n'a jamais écrites, donc jamais relues. C'est ici,
+    // et ici seulement, que les unes et les autres sont réunies.
+    //
+    // CE QUE COÛTAIT LE SILENCE
+    //
+    // Trois dégâts d'un coup, et aucun signalé : la seconde vue écrasait la première, qui
+    // disparaissait sans un mot ; le rapport rendu à l'appelant annonçait deux fichiers dont l'un
+    // n'existait pas ; et la navigation des boîtes de la vue perdue pointait vers un fichier qui
+    // montre désormais autre chose — les liens cliquables menaient au mauvais diagramme.
+    //
+    // POURQUOI L'INTÉGRALE N'EN EST PAS
+    //
+    // Elle seule ne tire pas son nom de fichier de son nom : elle s'écrit toujours sous le même,
+    // et à la racine du dossier plutôt que dans le sous-dossier des vues, parce que c'est le
+    // diagramme qu'on ouvre en premier et qu'il doit se trouver toujours au même endroit (voir
+    // PlantUmlWriter). Elle ne peut donc écraser personne, ni être écrasée — et l'inclure ici
+    // refuserait, en accusant à tort un écrasement, un projet dont une vue porterait le nom du
+    // titre général.
+    private static void verifierLesNomsDeFichier(ImmutableList<UmlView> vues) {
+        Map<String, String> parFichier = new LinkedHashMap<>();
+        for (UmlView vue : vues) {
+            String fichier = vue.nomDeFichier();
+            String premiere = parFichier.putIfAbsent(fichier, vue.name());
+            checkArgument(premiere == null,
+                "Views \"%s\" and \"%s\" both come down to the file name \"%s\", so the second "
+                    + "would overwrite the first. A file name is the view name without its "
+                    + "accents, with everything that is neither a letter nor a digit turned into "
+                    + "a dash, in lower case: give one of the two a name that differs by more "
+                    + "than punctuation or case.",
+                premiere, vue.name(), fichier);
         }
-        if (regles.vuesParPaquetage()) {
-            vues.addAll(parPaquetage(entites));
-        }
-        return vues.build();
     }
 
     // Une vue déclarée : on résout ce qu'elle retient, on retranche ce qu'elle retire.
@@ -127,12 +183,11 @@ public final class ConstructeurDeVues {
         return vues.build();
     }
 
-    // Le paquetage d'une entité, lu dans son nom complet. La chaîne vide pour le paquetage par
-    // défaut, que la vue nommera « (défaut) » faute de mieux.
+    // Le paquetage d'une entité, lu dans son nom complet.
     private static String paquetageDe(UmlEntity entite) {
         String complet = entite.qualifiedName();
         int point = complet.lastIndexOf('.');
-        return point < 0 ? "(défaut)" : complet.substring(0, point);
+        return point < 0 ? PAQUETAGE_PAR_DEFAUT : complet.substring(0, point);
     }
 
     // Les entités que ce sélecteur désigne.
@@ -252,23 +307,14 @@ public final class ConstructeurDeVues {
         for (UmlEntity entite : retenues) {
             elaguees.add(elaguer(entite, presentes));
         }
-        return enchainer(elaguees, presentes);
+        return enchainer(elaguees);
     }
 
     // La même entité, privée des relations dont l'autre bout n'est pas dessiné.
     private static UmlEntity elaguer(UmlEntity entite, ImmutableSet<String> presentes) {
-        ImmutableList<UmlRelation> tenues = entite.relations().stream()
+        return entite.avecRelations(entite.relations().stream()
             .filter(relation -> presentes.containsAll(extremites(relation)))
-            .collect(ImmutableList.toImmutableList());
-
-        if (tenues.size() == entite.relations().size()) {
-            // Rien à retirer : on rend l'originale plutôt qu'une copie identique.
-            return entite;
-        }
-        return new UmlEntity(entite.qualifiedName(), entite.name(), entite.kind(),
-            entite.stereotype(), entite.color(), entite.strategy(), entite.literals(),
-            entite.fields(), entite.methods(), tenues, entite.notes(), entite.constraints(),
-            entite.group(), entite.typeParameters());
+            .collect(ImmutableList.toImmutableList()));
     }
 
     // Enchaîne par des liens invisibles les blocs de boîtes que rien ne relie entre eux.
@@ -296,8 +342,7 @@ public final class ConstructeurDeVues {
     // calcule donc les blocs — au sens des composantes connexes de la vue —, on les range selon
     // la première de leurs boîtes écrite par l'utilisateur, et on tire un seul lien invisible
     // d'un bloc au suivant. Le reste, le moteur s'en charge, et il le fait mieux que nous.
-    private static ImmutableList<UmlEntity> enchainer(List<UmlEntity> entites,
-        ImmutableSet<String> presentes) {
+    private static ImmutableList<UmlEntity> enchainer(List<UmlEntity> entites) {
         if (entites.size() < 2) {
             return ImmutableList.copyOf(entites);
         }
@@ -326,15 +371,10 @@ public final class ConstructeurDeVues {
 
     // La même entité, plus un lien invisible vers la boîte donnée.
     private static UmlEntity avecOrdre(UmlEntity entite, String suivant) {
-        ImmutableList<UmlRelation> relations = ImmutableList.<UmlRelation>builder()
+        return entite.avecRelations(ImmutableList.<UmlRelation>builder()
             .addAll(entite.relations())
             .add(new UmlLayout(suivant, UMLDirection.NONE))
-            .build();
-
-        return new UmlEntity(entite.qualifiedName(), entite.name(), entite.kind(),
-            entite.stereotype(), entite.color(), entite.strategy(), entite.literals(),
-            entite.fields(), entite.methods(), relations, entite.notes(), entite.constraints(),
-            entite.group(), entite.typeParameters());
+            .build());
     }
 
     // Les blocs de la vue : des groupes de boîtes que les traits relient, directement ou de

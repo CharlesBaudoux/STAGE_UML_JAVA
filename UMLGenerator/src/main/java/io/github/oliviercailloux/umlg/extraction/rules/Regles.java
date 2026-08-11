@@ -109,10 +109,7 @@ public final class Regles {
     // Le nom du fichier, à la racine du répertoire analysé.
     public static final String NOM_DU_FICHIER = "umlg.json";
 
-    private static final Regles AUCUNE = new Regles(ImmutableMap.of(), false,
-        UMLVisibility.NONE, false, ImmutableList.of(),
-        ImmutableList.of(), false, "",
-        UMLFlow.TOP_TO_BOTTOM, true, false, false, false, false, false);
+    private static final Regles AUCUNE = constructeur().construire();
 
     // Clé : le nom de type écrit à gauche de la flèche, simple ou complet. Valeur : ce qui
     // s'affiche à sa place.
@@ -214,28 +211,159 @@ public final class Regles {
     // lui, et qu'un objet partagé qui ne connaît pas ses appelants a raison de se garder.
     private final Set<String> aliasUtilises = ConcurrentHashMap.newKeySet();
 
-    Regles(ImmutableMap<String, String> alias, boolean omettreRetourVoid,
-        UMLVisibility strategie, boolean strategieDeclaree,
-        ImmutableList<Motif> membresMasques, ImmutableList<DefinitionDeVue> vues,
-        boolean vuesParPaquetage, String titre, UMLFlow direction,
-        boolean masquerMembresVides, boolean omettreVisibilite,
-        boolean omettreNomsDeParametres, boolean ordreDeclaration,
-        boolean multiplicitesDeduites, boolean omettreAbstrait) {
-        this.alias = checkNotNull(alias);
-        this.omettreRetourVoid = omettreRetourVoid;
-        this.strategie = checkNotNull(strategie);
-        this.strategieDeclaree = strategieDeclaree;
-        this.membresMasques = checkNotNull(membresMasques);
-        this.vues = checkNotNull(vues);
-        this.vuesParPaquetage = vuesParPaquetage;
-        this.titre = checkNotNull(titre);
-        this.direction = checkNotNull(direction);
-        this.masquerMembresVides = masquerMembresVides;
-        this.omettreVisibilite = omettreVisibilite;
-        this.omettreNomsDeParametres = omettreNomsDeParametres;
-        this.ordreDeclaration = ordreDeclaration;
-        this.multiplicitesDeduites = multiplicitesDeduites;
-        this.omettreAbstrait = omettreAbstrait;
+    // Le fichier a-t-il écrit au moins une règle ? Voir vides().
+    private final boolean auMoinsUneRegle;
+
+    private Regles(Constructeur pose) {
+        this.alias = pose.alias;
+        this.omettreRetourVoid = pose.omettreRetourVoid;
+        this.strategie = pose.strategie;
+        this.strategieDeclaree = pose.strategieDeclaree;
+        this.membresMasques = pose.membresMasques;
+        this.vues = pose.vues;
+        this.vuesParPaquetage = pose.vuesParPaquetage;
+        this.titre = pose.titre;
+        this.direction = pose.direction;
+        this.masquerMembresVides = pose.masquerMembresVides;
+        this.omettreVisibilite = pose.omettreVisibilite;
+        this.omettreNomsDeParametres = pose.omettreNomsDeParametres;
+        this.ordreDeclaration = pose.ordreDeclaration;
+        this.multiplicitesDeduites = pose.multiplicitesDeduites;
+        this.omettreAbstrait = pose.omettreAbstrait;
+        this.auMoinsUneRegle = pose.auMoinsUneRegle;
+    }
+
+    // De quoi poser un jeu de règles sans compter les arguments.
+    static Constructeur constructeur() {
+        return new Constructeur();
+    }
+
+    // Un réglage à la fois, chacun sous son nom.
+    //
+    // POURQUOI PAS UN CONSTRUCTEUR
+    //
+    // Il en prenait quinze, positionnels, dont neuf booléens de suite : le compilateur ne
+    // distinguera jamais « ordreDeclaration » de « multiplicitesDeduites », et deux valeurs
+    // interverties auraient donné un dessin faux sans une ligne rouge nulle part. Le seul appel
+    // qui existait était juste, ce qui ne dit rien du prochain — c'est l'absence de filet qui
+    // était le défaut, non une faute constatée.
+    //
+    // DEUX RÉGLAGES QUI ÉTAIENT ENCODÉS PLUTÔT QU'ÉCRITS
+    //
+    // Le lecteur passait « !montrerMembresVides » : le fichier dit « montre », le champ dit
+    // « masque », et l'inversion se faisait sur la ligne d'appel, là où personne ne la relit.
+    // Elle se fait maintenant dans le setter, qui porte le mot du fichier.
+    //
+    // Il passait de même « strategie == null ? NONE : strategie, strategie != null », c'est-à-dire
+    // deux informations tirées d'un même null. Ici, appeler strategie(...) dit à lui seul qu'une
+    // stratégie a été écrite, et ne pas l'appeler dit qu'il n'y en a pas.
+    static final class Constructeur {
+
+        private ImmutableMap<String, String> alias = ImmutableMap.of();
+        private boolean omettreRetourVoid;
+        private UMLVisibility strategie = UMLVisibility.NONE;
+        private boolean strategieDeclaree;
+        private ImmutableList<Motif> membresMasques = ImmutableList.of();
+        private ImmutableList<DefinitionDeVue> vues = ImmutableList.of();
+        private boolean vuesParPaquetage;
+        private String titre = "";
+        private UMLFlow direction = UMLFlow.TOP_TO_BOTTOM;
+        private boolean masquerMembresVides = true;
+        private boolean omettreVisibilite;
+        private boolean omettreNomsDeParametres;
+        private boolean ordreDeclaration;
+        private boolean multiplicitesDeduites;
+        private boolean omettreAbstrait;
+        private boolean auMoinsUneRegle;
+
+        private Constructeur() {}
+
+        // Toute clé de règle lue passe par ici, y compris celle qui redit le défaut : c'est ce
+        // qui permet à vides() de répondre à la question posée — « le fichier écrit-il quelque
+        // chose ? » — et non à une autre.
+        private Constructeur ecrite() {
+            auMoinsUneRegle = true;
+            return this;
+        }
+
+        Constructeur types(ImmutableMap<String, String> alias) {
+            this.alias = checkNotNull(alias);
+            return ecrite();
+        }
+
+        Constructeur motifsMasques(ImmutableList<Motif> membresMasques) {
+            this.membresMasques = checkNotNull(membresMasques);
+            return ecrite();
+        }
+
+        // La stratégie que le fichier écrit. L'appeler dit qu'une stratégie a été écrite ; ne pas
+        // l'appeler dit que le fichier se tait, et le silence vaut NONE.
+        Constructeur strategie(UMLVisibility strategie) {
+            this.strategie = checkNotNull(strategie);
+            this.strategieDeclaree = true;
+            return ecrite();
+        }
+
+        Constructeur vues(ImmutableList<DefinitionDeVue> vues) {
+            this.vues = checkNotNull(vues);
+            return ecrite();
+        }
+
+        Constructeur vuesParPaquetage(boolean vuesParPaquetage) {
+            this.vuesParPaquetage = vuesParPaquetage;
+            return ecrite();
+        }
+
+        Constructeur titre(String titre) {
+            this.titre = checkNotNull(titre);
+            return ecrite();
+        }
+
+        Constructeur direction(UMLFlow direction) {
+            this.direction = checkNotNull(direction);
+            return ecrite();
+        }
+
+        // Le mot du fichier — « showEmptyMembers » —, et non celui du champ : l'inversion vit ici,
+        // à un seul endroit, et non sur la ligne d'appel.
+        Constructeur montrerMembresVides(boolean montrer) {
+            this.masquerMembresVides = !montrer;
+            return ecrite();
+        }
+
+        Constructeur omettreVisibilite(boolean omettreVisibilite) {
+            this.omettreVisibilite = omettreVisibilite;
+            return ecrite();
+        }
+
+        Constructeur omettreNomsDeParametres(boolean omettreNomsDeParametres) {
+            this.omettreNomsDeParametres = omettreNomsDeParametres;
+            return ecrite();
+        }
+
+        Constructeur omettreRetourVoid(boolean omettreRetourVoid) {
+            this.omettreRetourVoid = omettreRetourVoid;
+            return ecrite();
+        }
+
+        Constructeur omettreAbstrait(boolean omettreAbstrait) {
+            this.omettreAbstrait = omettreAbstrait;
+            return ecrite();
+        }
+
+        Constructeur ordreDeclaration(boolean ordreDeclaration) {
+            this.ordreDeclaration = ordreDeclaration;
+            return ecrite();
+        }
+
+        Constructeur multiplicitesDeduites(boolean multiplicitesDeduites) {
+            this.multiplicitesDeduites = multiplicitesDeduites;
+            return ecrite();
+        }
+
+        Regles construire() {
+            return new Regles(this);
+        }
     }
 
     public boolean omettreVisibilite() {
@@ -435,15 +563,17 @@ public final class Regles {
         return nomAffiche(type);
     }
 
-    // Vrai quand aucune règle n'a été écrite. Lu par les tests, et par qui veut savoir si un
+    // Vrai quand le fichier n'a écrit aucune règle. Lu par les tests, et par qui veut savoir si un
     // fichier a été trouvé.
+    //
+    // La question est bien « le fichier écrit-il quelque chose ? », et non « le dessin
+    // s'en trouve-t-il changé ? ». Ces deux questions se confondaient : la méthode comparait les
+    // quinze réglages à leurs valeurs par défaut, si bien qu'un fichier écrivant
+    // « "showEmptyMembers": false » — que le format autorise explicitement, un fichier qui dit
+    // tout haut ce qu'il fait se relisant mieux — se voyait répondre « aucune règle ». La réponse
+    // était fausse pour l'usage annoncé, et les quinze comparaisons étaient de surcroît une
+    // quinzième occasion d'oublier un champ à chaque réglage ajouté.
     public boolean vides() {
-        return alias.isEmpty() && !omettreRetourVoid && strategie == UMLVisibility.NONE
-            && !strategieDeclaree
-            && membresMasques.isEmpty()
-            && vues.isEmpty() && !vuesParPaquetage && titre.isEmpty()
-            && direction == UMLFlow.TOP_TO_BOTTOM && masquerMembresVides && !omettreVisibilite
-            && !omettreNomsDeParametres && !ordreDeclaration && !multiplicitesDeduites
-            && !omettreAbstrait;
+        return !auMoinsUneRegle;
     }
 }

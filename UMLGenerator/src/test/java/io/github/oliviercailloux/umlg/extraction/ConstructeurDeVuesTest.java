@@ -2,6 +2,7 @@ package io.github.oliviercailloux.umlg.extraction;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -237,6 +238,23 @@ class ConstructeurDeVuesTest {
     }
 
     @Test
+    void uneBoiteDontAucunLienNeSort_nEstPasRecopiee() {
+        // La reconstruction des quatorze composantes s'écrivait deux fois, à la main, et rien
+        // n'aurait dit laquelle avait été oubliée : elle vit maintenant dans
+        // UmlEntity.avecRelations, qui rend l'entité même quand il n'y a rien à changer.
+        ImmutableSet<UmlEntity> projet = projet();
+        UmlEntity adresse = projet.stream().filter(e -> e.name().equals("Adresse"))
+            .findFirst().orElseThrow();
+
+        UmlView tout = ConstructeurDeVues.construire(projet, UmlDiagram.defaut(),
+            Regles.lues("""
+                { "views": [ { "name": "Tout", "retain": [{ "package": "%s" }] } ] }
+                """.formatted(PAQ), "test")).get(1);
+
+        assertSame(adresse, tout.entities().get(2));
+    }
+
+    @Test
     void lIntegrale_neRetireAucunLien() {
         assertEquals(1, vues("{}").get(0).entities().iterator().next().associations().size());
     }
@@ -345,6 +363,90 @@ class ConstructeurDeVuesTest {
     }
 
     // --- Le nom de fichier ---
+
+    @Test
+    void deuxVuesQuiSeRamenentAuMemeFichier_sontRefusees() {
+        // Le lecteur du fichier refuse deux vues de nom identique, et « Modèle » n'est pas
+        // « Modele ». Mais l'identité qui compte en aval est le nom de fichier, où l'accent est
+        // retiré : les deux vues s'écrivaient dans « vues/modele.svg », la seconde effaçait la
+        // première sans un mot, le rapport annonçait deux fichiers dont l'un n'existait pas, et
+        // les liens cliquables de la vue perdue menaient au diagramme de l'autre.
+        IllegalArgumentException refus =
+            assertThrows(IllegalArgumentException.class, () -> vues("""
+                {
+                  "views": [
+                    { "name": "Modèle", "retain": ["Facture"] },
+                    { "name": "Modele", "retain": ["Client"] }
+                  ]
+                }
+                """));
+
+        assertTrue(refus.getMessage().contains("\"Modèle\""), refus.getMessage());
+        assertTrue(refus.getMessage().contains("\"Modele\""), refus.getMessage());
+        assertTrue(refus.getMessage().contains("\"modele\""), refus.getMessage());
+    }
+
+    @Test
+    void deuxVuesQuiNeDifferentQueParLaPonctuation_sontRefusees() {
+        // La réduction ne garde ni la casse, ni la ponctuation, ni les espaces : « Le mapping »,
+        // « Le Mapping » et « Le-mapping » donnent tous « le-mapping ».
+        assertThrows(IllegalArgumentException.class, () -> vues("""
+            {
+              "views": [
+                { "name": "Le mapping", "retain": ["Facture"] },
+                { "name": "Le-Mapping", "retain": ["Client"] }
+              ]
+            }
+            """));
+    }
+
+    @Test
+    void uneVueDeclareeEtUneVueDePaquetage_neSeMarchentPasDessusEnSilence() {
+        // « viewsByPackage » ajoute des noms que l'auteur n'a jamais écrits, donc jamais relus :
+        // c'est le cas où la collision est la plus difficile à voir depuis le fichier.
+        assertThrows(IllegalArgumentException.class, () -> vues("""
+            {
+              "viewsByPackage": true,
+              "views": [ { "name": "com, autre", "retain": ["Journal"] } ]
+            }
+            """));
+    }
+
+    @Test
+    void desVuesDeNomsBienDistincts_sontToutesProduites() {
+        assertEquals(3, vues("""
+            {
+              "views": [
+                { "name": "Modèle", "retain": ["Facture"] },
+                { "name": "Journal", "retain": ["Journal"] }
+              ]
+            }
+            """).size());
+    }
+
+    @Test
+    void uneVueQuiPorteLeNomDeLIntegrale_resteAcceptee() {
+        // L'intégrale seule ne tire pas son nom de fichier de son nom : elle s'écrit toujours sous
+        // le même, et à la racine plutôt que dans le sous-dossier des vues. Elle ne peut donc ni
+        // écraser ni être écrasée, et l'accuser d'une collision serait un refus sans objet.
+        assertEquals(2, vues("""
+            { "views": [ { "name": "Projet", "retain": ["Facture"] } ] }
+            """).size());
+    }
+
+    // --- Le paquetage par défaut ---
+
+    @Test
+    void leNomDuPaquetageParDefaut_estEnAnglais() {
+        // Ce libellé n'est pas un message : il devient un nom de vue, donc un titre de diagramme,
+        // donc un nom de fichier. C'était la seule chaîne française que la bibliothèque montrait.
+        ImmutableList<UmlView> toutes = ConstructeurDeVues.construire(
+            ImmutableSet.of(UmlEntity.builder("SansPaquetage", "SansPaquetage").build()),
+            UmlDiagram.defaut(), Regles.lues("{ \"viewsByPackage\": true }", "test"));
+
+        assertEquals(ConstructeurDeVues.PAQUETAGE_PAR_DEFAUT, toutes.get(1).name());
+        assertEquals("default", toutes.get(1).nomDeFichier());
+    }
 
     @Test
     void leNomDeFichier_estNettoye() {

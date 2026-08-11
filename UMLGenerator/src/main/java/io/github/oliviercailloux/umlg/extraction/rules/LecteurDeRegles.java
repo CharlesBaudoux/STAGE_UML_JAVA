@@ -15,6 +15,7 @@ import io.github.oliviercailloux.umlg.annotation.UMLFlow;
 import io.github.oliviercailloux.umlg.annotation.UMLVisibility;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -49,7 +50,9 @@ import java.util.Set;
 // Des commentaires. Le fichier est écrit à la main, et un fichier de règles a besoin de dire
 // pourquoi il masque telle famille de noms. D'où la seule convention que ce lecteur ajoute au
 // format : une clé dont le nom commence par « _ » n'est pas une règle et n'est pas lue. C'est du
-// JSON valide, et c'est l'usage établi partout où le format sert de fichier de configuration.
+// JSON valide, et c'est l'usage établi partout où le format sert de fichier de configuration. La
+// convention vaut à tous les niveaux, dans les trois objets à clés libres — l'objet de tête, une
+// vue, et « types » ; voir estUneNote.
 //
 // LES REFUS
 //
@@ -71,6 +74,10 @@ final class LecteurDeRegles {
     private static final String ORDER = "order";
     private static final String MULTIPLICITY = "multiplicity";
     private static final String DIRECTION = "direction";
+
+    // La marque d'ordre des octets d'un fichier UTF-8, telle que le décodage la rend. Écrite par
+    // son numéro : posée telle quelle, elle serait aussi invisible dans ce fichier-ci.
+    private static final char BOM = (char) 0xFEFF;
 
     // Les clés d'une vue, et celles d'un sélecteur qui n'est pas un simple nom de classe.
     private static final String NAME = "name";
@@ -135,46 +142,32 @@ final class LecteurDeRegles {
         Lieu racine = new Lieu(origine, "");
         JsonNode objet = arbre(contenu, racine);
 
-        // Les valeurs par défaut sont celles d'un projet sans fichier : une clé absente ne dit
-        // rien, et ne rien dire c'est laisser le code se décrire tel qu'il est écrit.
-        ImmutableMap<String, String> alias = ImmutableMap.of();
-        ImmutableList<Motif> membresMasques = ImmutableList.of();
-        ImmutableList<DefinitionDeVue> vues = ImmutableList.of();
-        Set<Omission> omissions = EnumSet.noneOf(Omission.class);
-        boolean vuesParPaquetage = false;
-        String titre = "";
-        UMLFlow direction = UMLFlow.TOP_TO_BOTTOM;
-        boolean montrerMembresVides = false;
-        boolean ordreDeclaration = false;
-        boolean multiplicitesDeduites = false;
-        // Null veut dire « aucune clé strategy », ce qui n'est pas la même chose que
-        // « "strategy": "none" » : le premier cas est un silence, le second un choix, et la
-        // génération ne les signale pas de la même façon (voir Regles.strategieDeclaree).
-        UMLVisibility strategie = null;
+        // Ce que le constructeur ne reçoit pas garde sa valeur par défaut, qui est celle d'un
+        // projet sans fichier : une clé absente ne dit rien, et ne rien dire c'est laisser le code
+        // se décrire tel qu'il est écrit.
+        Regles.Constructeur regles = Regles.constructeur();
 
         for (Map.Entry<String, JsonNode> champ : objet.properties()) {
             String cle = champ.getKey();
             JsonNode valeur = champ.getValue();
             Lieu lieu = racine.dans(cle);
 
-            // Le commentaire du pauvre, et le seul que JSON autorise : une clé qui commence par
-            // « _ » n'est pas une règle. Voir l'en-tête de cette classe.
-            if (cle.startsWith("_")) {
+            if (estUneNote(cle)) {
                 continue;
             }
 
             switch (cle) {
-                case TYPES -> alias = lireTypes(valeur, lieu);
-                case HIDE -> membresMasques = lireHide(valeur, lieu);
-                case OMIT -> omissions = lireOmit(valeur, lieu);
-                case STRATEGY -> strategie = lireStrategy(valeur, lieu);
-                case VIEWS -> vues = lireViews(valeur, lieu);
-                case VIEWS_BY_PACKAGE -> vuesParPaquetage = booleen(valeur, lieu);
-                case TITLE -> titre = lireTitle(valeur, lieu);
-                case SHOW_EMPTY_MEMBERS -> montrerMembresVides = booleen(valeur, lieu);
-                case ORDER -> ordreDeclaration = lireOrder(valeur, lieu);
-                case MULTIPLICITY -> multiplicitesDeduites = lireMultiplicity(valeur, lieu);
-                case DIRECTION -> direction = lireFlux(valeur, lieu);
+                case TYPES -> regles.types(lireTypes(valeur, lieu));
+                case HIDE -> regles.motifsMasques(lireHide(valeur, lieu));
+                case OMIT -> omissions(regles, lireOmit(valeur, lieu));
+                case STRATEGY -> regles.strategie(lireStrategy(valeur, lieu));
+                case VIEWS -> regles.vues(lireViews(valeur, lieu));
+                case VIEWS_BY_PACKAGE -> regles.vuesParPaquetage(booleen(valeur, lieu));
+                case TITLE -> regles.titre(lireTitle(valeur, lieu));
+                case SHOW_EMPTY_MEMBERS -> regles.montrerMembresVides(booleen(valeur, lieu));
+                case ORDER -> regles.ordreDeclaration(lireOrder(valeur, lieu));
+                case MULTIPLICITY -> regles.multiplicitesDeduites(lireMultiplicity(valeur, lieu));
+                case DIRECTION -> regles.direction(lireFlux(valeur, lieu));
                 default -> throw new IllegalArgumentException(racine + ": unknown rule \"" + cle
                     + "\". Known rules: " + STRATEGY + ", " + TYPES + ", " + HIDE + ", " + OMIT
                     + ", " + TITLE + ", " + DIRECTION + ", " + ORDER + ", " + MULTIPLICITY + ", "
@@ -182,12 +175,31 @@ final class LecteurDeRegles {
                     + " name starts with \"_\" is ignored, and that is where a note goes.");
             }
         }
-        return new Regles(alias, omissions.contains(Omission.RETOUR_VOID),
-            strategie == null ? UMLVisibility.NONE : strategie, strategie != null,
-            membresMasques, vues, vuesParPaquetage, titre, direction,
-            !montrerMembresVides, omissions.contains(Omission.VISIBILITE),
-            omissions.contains(Omission.NOMS_DE_PARAMETRES), ordreDeclaration,
-            multiplicitesDeduites, omissions.contains(Omission.ABSTRAIT));
+        return regles.construire();
+    }
+
+    // Une clé qui n'est pas une règle : le commentaire du pauvre, et le seul que JSON autorise.
+    //
+    // La convention vaut pour tout objet à clés libres du format, et non pour le seul objet de
+    // tête : elle est énoncée sans restriction dans l'en-tête de cette classe, dans celui de
+    // Regles et dans le README. Elle manquait pourtant à « types », l'autre objet dont les clés
+    // sont écrites par l'utilisateur — une note d'un mot y devenait une règle de renommage morte,
+    // et une note ordinaire y était refusée par un message qui ne mentionnait jamais la
+    // convention. D'où cette méthode : la règle n'est écrite qu'une fois, et les trois endroits
+    // qui la posent appellent la même.
+    private static boolean estUneNote(String cle) {
+        return cle.startsWith("_");
+    }
+
+    // Les quatre réglages que porte la clé « omit », posés d'un bloc.
+    //
+    // Tous les quatre, et non les seuls demandés : ce que le tableau ne cite pas, il le refuse, et
+    // le dire explicitement vaut mieux que de compter sur le défaut du constructeur.
+    private static void omissions(Regles.Constructeur regles, Set<Omission> demandees) {
+        regles.omettreVisibilite(demandees.contains(Omission.VISIBILITE))
+            .omettreNomsDeParametres(demandees.contains(Omission.NOMS_DE_PARAMETRES))
+            .omettreRetourVoid(demandees.contains(Omission.RETOUR_VOID))
+            .omettreAbstrait(demandees.contains(Omission.ABSTRAIT));
     }
 
     // Le contenu du fichier, analysé, et dont on sait qu'il porte un objet.
@@ -198,6 +210,15 @@ final class LecteurDeRegles {
         if (contenu.isBlank()) {
             return ANALYSEUR.createObjectNode();
         }
+        // La marque d'ordre des octets, que certains éditeurs Windows posent en tête d'un fichier
+        // UTF-8 sans jamais la montrer. JSON ne l'autorise pas, et l'analyseur la refusait donc —
+        // mais par un message auquel on ajoutait le rappel de la convention « _ », qui n'a rien à
+        // voir avec le sujet et envoyait chercher une faute là où il n'y en avait pas. Une marque
+        // invisible mérite d'être nommée : c'est la seule façon pour l'auteur du fichier de
+        // comprendre ce qu'il doit corriger.
+        checkArgument(contenu.charAt(0) != BOM,
+            "%s: the file starts with a UTF-8 byte order mark, which JSON does not allow. The mark "
+                + "is invisible in an editor; re-save the file as UTF-8 without BOM.", racine);
 
         JsonNode lu;
         try {
@@ -305,7 +326,7 @@ final class LecteurDeRegles {
             String cle = champ.getKey();
             Lieu ou = lieu.dans(cle);
 
-            if (cle.startsWith("_")) {
+            if (estUneNote(cle)) {
                 continue;
             }
 
@@ -393,7 +414,7 @@ final class LecteurDeRegles {
             "%s: a %s selector cannot be empty or made of whitespace only.", lieu, sorte);
         // Une espace au milieu d'un nom trahit deux noms écrits dans la même chaîne, là où le
         // tableau JSON attend une entrée par sélecteur.
-        checkArgument(!nom.contains(" "),
+        checkArgument(!contientUneEspace(nom),
             "%s: \"%s\" contains a space, so it is not a name. Write one selector per entry of "
                 + "the array.", lieu, nom);
 
@@ -412,16 +433,25 @@ final class LecteurDeRegles {
     }
 
     // « "strategy": "public" » : ce que prennent les classes qui ne déclarent pas la leur.
+    //
+    // La casse compte, comme pour les quatre autres mots énumérés du format — « declaration »,
+    // « left-to-right », « brackets », « visibility ». Elle ne comptait pas ici, et c'était le seul
+    // endroit : la tolérance ne venait d'aucune décision mais du toUpperCase que valueOf
+    // réclamait, aucun test ne la fixait, et rien ne la documentait. Un format dont un mot sur
+    // cinq accepte les majuscules apprend au lecteur une règle qui est fausse quatre fois sur
+    // cinq.
     private static UMLVisibility lireStrategy(JsonNode valeur, Lieu lieu) {
         String ecrit = texte(valeur, lieu);
 
-        UMLVisibility lue;
-        try {
-            lue = UMLVisibility.valueOf(ecrit.toUpperCase(Locale.ROOT));
-        } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException(lieu + ": unknown strategy \"" + ecrit
-                + "\". Known strategies: none, public, protected, package, private.", e);
+        UMLVisibility lue = null;
+        for (UMLVisibility candidate : UMLVisibility.values()) {
+            if (candidate.name().toLowerCase(Locale.ROOT).equals(ecrit)) {
+                lue = candidate;
+            }
         }
+        checkArgument(lue != null, "%s: unknown strategy \"%s\". Known strategies: none, public, "
+            + "protected, package, private — in lower case, like every other word of the file.",
+            lieu, ecrit);
         // PROJECT est le renvoi qu'écrit @UMLClass vers cette clé même : l'accepter ici
         // demanderait au projet de se renvoyer à lui-même.
         checkArgument(lue != UMLVisibility.PROJECT,
@@ -444,13 +474,18 @@ final class LecteurDeRegles {
             lieu, sorte(valeur));
 
         ImmutableList.Builder<Motif> motifs = ImmutableList.builder();
+        // Les motifs déjà lus, pour refuser le doublon comme « omit » le refuse : le second ne
+        // masquerait rien de plus, et une entrée écrite deux fois est signalée deux fois en fin de
+        // scan quand elle ne vise personne — deux avertissements pour une seule ligne à corriger.
+        Set<String> deja = new LinkedHashSet<>();
+
         for (int rang = 0; rang < valeur.size(); rang++) {
             Lieu ou = lieu.indice(rang);
             String motif = texte(valeur.get(rang), ou);
 
             checkArgument(!motif.isBlank(),
                 "%s: a name pattern cannot be empty or made of whitespace only.", ou);
-            checkArgument(!motif.contains(" "),
+            checkArgument(!contientUneEspace(motif),
                 "%s: a name pattern cannot contain a space (read \"%s\"). Write one pattern per "
                     + "entry of the array, or did you mean \"" + OMIT + "\"?",
                 ou, motif);
@@ -462,11 +497,19 @@ final class LecteurDeRegles {
                     + "by name. Put @UMLExclude on that member instead, or write a pattern that "
                     + "describes a family of names.",
                 ou, motif);
-            // « * » seul masquerait tout le compartiment : c'est licite, mais assez inattendu
-            // pour mériter d'être écrit autrement le jour où la règle existera.
-            checkArgument(!motif.equals("*"),
-                "%s: the pattern \"*\" would hide every member of every class.", ou);
+            // Un motif qui prend tout masquerait tout le compartiment : c'est licite, mais assez
+            // inattendu pour mériter d'être écrit autrement le jour où la règle existera.
+            //
+            // Le contrôle porte sur ce que le motif attrape, et non sur la lettre qu'on a écrite :
+            // comparer la chaîne à « * » laissait passer « ** », que Motif traduit en « .*.* » —
+            // lequel prend tout autant, et vidait donc en silence tous les compartiments de toutes
+            // les boîtes sans même paraître dans le relevé des règles mortes, le motif ayant bien
+            // servi.
+            checkArgument(!motif.chars().allMatch(caractere -> caractere == '*'),
+                "%s: the pattern \"%s\" would hide every member of every class.", ou, motif);
+            checkArgument(!deja.contains(motif), "%s: \"%s\" is already asked for.", ou, motif);
 
+            deja.add(motif);
             motifs.add(Motif.de(motif));
         }
         return motifs.build();
@@ -530,6 +573,12 @@ final class LecteurDeRegles {
         ImmutableMap.Builder<String, String> alias = ImmutableMap.builder();
         for (Map.Entry<String, JsonNode> champ : valeur.properties()) {
             String source = champ.getKey();
+
+            // « types » est le second objet du format dont les clés sont écrites par
+            // l'utilisateur, et la convention « _ » y vaut comme ailleurs.
+            if (estUneNote(source)) {
+                continue;
+            }
             Lieu ou = lieu.dans(source);
             String affiche = texte(champ.getValue(), ou);
 
@@ -540,13 +589,26 @@ final class LecteurDeRegles {
                     + "write: leave the entry out.", ou);
             // Une espace au milieu d'un nom de type trahit un mot en trop ; le laisser passer
             // écrirait dans la boîte un texte que personne ne relirait.
-            checkArgument(!source.contains(" ") && !affiche.contains(" "),
+            checkArgument(!contientUneEspace(source) && !contientUneEspace(affiche),
                 "%s: a type name cannot contain a space (read \"%s\" -> \"%s\").",
                 ou, source, affiche);
 
             alias.put(source, affiche);
         }
         return alias.build();
+    }
+
+    // Ce texte porte-t-il une espace, quelle qu'en soit la forme ?
+    //
+    // « contains(" ") » ne voyait que l'espace ordinaire. La tabulation passait, et surtout
+    // l'espace insécable — U+00A0 —, qui est précisément ce que produit un copier-coller depuis un
+    // traitement de texte : invisible à la relecture, et fatal au motif, qui ne correspondra alors
+    // à aucun nom Java. Il faut les deux prédicats, et c'est le piège : isWhitespace ne tient pas
+    // l'insécable pour un blanc — c'est tout son propos —, et isSpaceChar ne tient pas la
+    // tabulation pour une espace.
+    private static boolean contientUneEspace(String texte) {
+        return texte.chars()
+            .anyMatch(c -> Character.isWhitespace(c) || Character.isSpaceChar(c));
     }
 
     // La valeur d'une clé qui attend vrai ou faux.
