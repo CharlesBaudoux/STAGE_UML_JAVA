@@ -21,6 +21,8 @@ import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Stream;
@@ -138,7 +140,7 @@ public class ProjectScanner {
             // fuite de descripteurs de fichiers.
             try (Stream<Path> paths = Files.walk(rootPath)) {
                 paths.filter(Files::isRegularFile)
-                     .filter(p -> p.toString().endsWith(".class"))
+                     .filter(p -> p.toString().endsWith(EXTENSION_CLASSE))
                      .forEach(classFilePath -> {
                          String className = nomDeClasse(rootPath, classFilePath);
 
@@ -229,12 +231,19 @@ public class ProjectScanner {
     // Du chemin au nom qualifié : le chemin relatif à la racine, les séparateurs de répertoires
     // devenus points, l'extension retirée.
     // Ex. : com/banque/Compte.class -> com.banque.Compte
+    //
+    // L'extension est coupée par la longueur, et non par un replace(".class", "") : celui-ci
+    // remplaçait toutes les occurrences, si bien qu'un répertoire nommé « x.class.y » aurait
+    // amputé le nom en son milieu. Le flux ne retient que les fichiers finissant par .class,
+    // donc le suffixe est toujours là.
     private static String nomDeClasse(Path rootPath, Path classFilePath) {
-        return rootPath.relativize(classFilePath)
+        String chemin = rootPath.relativize(classFilePath)
             .toString()
-            .replace(File.separatorChar, '.')
-            .replace(".class", "");
+            .replace(File.separatorChar, '.');
+        return chemin.substring(0, chemin.length() - EXTENSION_CLASSE.length());
     }
+
+    private static final String EXTENSION_CLASSE = ".class";
 
     // Le répertoire ne contient aucune classe annotée. C'est le premier essai type, et le message
     // ne se contentait jusqu'ici de le constater : le scan vient pourtant de lire ces classes et
@@ -292,8 +301,8 @@ public class ProjectScanner {
             || !entite.methods().isEmpty()) {
             return false;
         }
-        return java.util.Arrays.stream(clazz.getDeclaredFields()).anyMatch(f -> !f.isSynthetic())
-            || java.util.Arrays.stream(clazz.getDeclaredMethods())
+        return Arrays.stream(clazz.getDeclaredFields()).anyMatch(f -> !f.isSynthetic())
+            || Arrays.stream(clazz.getDeclaredMethods())
                 .anyMatch(m -> !m.isSynthetic());
     }
 
@@ -320,12 +329,12 @@ public class ProjectScanner {
     // dessinée ait un paramètre, et qu'aucun paramètre d'aucune méthode n'ait de nom. Un projet
     // compilé avec l'option a tous les noms ; un projet qui les a tus par la règle « omit
     // parameter names » les a tus volontairement, et n'est pas signalé.
-    static boolean signalerParametresAnonymes(java.util.Collection<UmlEntity> entites,
+    static boolean signalerParametresAnonymes(Collection<UmlEntity> entites,
         Regles regles) {
         if (regles.omettreNomsDeParametres()) {
             return false;
         }
-        java.util.List<UmlParameter> parametres = entites.stream()
+        List<UmlParameter> parametres = entites.stream()
             .flatMap(entite -> entite.methods().stream())
             .flatMap(methode -> methode.parameters().stream())
             .toList();

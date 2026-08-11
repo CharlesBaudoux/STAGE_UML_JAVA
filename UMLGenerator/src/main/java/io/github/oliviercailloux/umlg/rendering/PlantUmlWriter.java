@@ -15,8 +15,10 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Locale;
 import net.sourceforge.plantuml.BlockUml;
@@ -368,7 +370,7 @@ public class PlantUmlWriter {
         private static final boolean UTILISABLE;
 
         static {
-            java.util.List<String> lignes = new java.util.ArrayList<>();
+            List<String> lignes = new ArrayList<>();
             // Le même contrôle que « java -jar plantuml.jar -testdot » : 0 quand tout va bien.
             // Le second argument demande un diagnostic en texte nu, sans balisage PlantUML.
             int statut = GraphvizUtils.addDotStatus(lignes, false);

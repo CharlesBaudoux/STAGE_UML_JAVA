@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 // Deux attributs qui se font face ne sont qu'une association.
 //
@@ -127,7 +128,7 @@ public final class AssociationsReciproques {
 
     // L'association de « enFace » qui vise « nomSource », et qu'aucune paire n'a déjà prise.
     private static UmlAssociation reciproque(UmlEntity enFace, String nomSource,
-        java.util.Set<String> absorbees, java.util.Set<String> fusionnees) {
+        Set<String> absorbees, Set<String> fusionnees) {
         for (UmlRelation relation : enFace.relations()) {
             if (!(relation instanceof UmlAssociation candidate)) {
                 continue;

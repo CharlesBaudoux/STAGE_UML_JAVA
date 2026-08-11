@@ -4,15 +4,18 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSortedSet;
 import io.github.oliviercailloux.umlg.extraction.ProjectScanner;
 import io.github.oliviercailloux.umlg.extraction.ResultatDeScan;
 import io.github.oliviercailloux.umlg.model.UmlProject;
 import io.github.oliviercailloux.umlg.rendering.PlantUmlWriter;
+import io.github.oliviercailloux.umlg.rendering.syntax.ColorCodec;
 import java.io.IOException;
 import java.nio.file.FileSystemException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 
 /**
  * La façade : le seul point d'entrée de la bibliothèque.
@@ -35,6 +38,17 @@ import java.nio.file.Paths;
  * pour le projet entier : par exemple qu'un ImmutableList s'affiche « List ». Il est facultatif.
  */
 public final class UMLGenerator {
+
+    /**
+     * Le nom du fichier qui, dans le dossier de sortie, nomme toutes les classes ignorées.
+     *
+     * <p>Le compte rendu, lui, s'arrête de les nommer au-delà d'une douzaine — c'est juste pour un
+     * affichage, et c'est trop tôt pour le cas qui a motivé la fonctionnalité : un projet réel de
+     * trente et une classes en avait quinze hors du diagramme, soit précisément trop pour être
+     * nommées. Le fichier n'a pas cette limite ; il est là pour être ouvert quand le nombre a
+     * donné l'alerte.
+     */
+    public static final String FICHIER_DES_CLASSES_IGNOREES = "ignored-classes.txt";
 
     private final Path sourceDirectory;
     private final String outputFileName;
@@ -76,20 +90,9 @@ public final class UMLGenerator {
      *
      * @return les noms acceptés, par ordre alphabétique.
      */
-    public static com.google.common.collect.ImmutableSortedSet<String> couleursConnues() {
-        return io.github.oliviercailloux.umlg.rendering.syntax.ColorCodec.nomsConnus();
+    public static ImmutableSortedSet<String> couleursConnues() {
+        return ColorCodec.nomsConnus();
     }
-
-    /**
-     * Le nom du fichier qui, dans le dossier de sortie, nomme toutes les classes ignorées.
-     *
-     * <p>Le compte rendu, lui, s'arrête de les nommer au-delà d'une douzaine — c'est juste pour un
-     * affichage, et c'est trop tôt pour le cas qui a motivé la fonctionnalité : un projet réel de
-     * trente et une classes en avait quinze hors du diagramme, soit précisément trop pour être
-     * nommées. Le fichier n'a pas cette limite ; il est là pour être ouvert quand le nombre a
-     * donné l'alerte.
-     */
-    public static final String FICHIER_DES_CLASSES_IGNOREES = "ignored-classes.txt";
 
     /**
      * Lit le code annoté et écrit le ou les diagrammes demandés.
@@ -402,7 +405,7 @@ public final class UMLGenerator {
          * @param entrees les chemins de ces dépendances.
          * @return ce builder.
          */
-        public Builder classpath(java.util.List<String> entrees) {
+        public Builder classpath(List<String> entrees) {
             checkNotNull(entrees, "The classpath cannot be null (use an empty list).");
             this.classpath = entrees.stream()
                 .map(Paths::get)

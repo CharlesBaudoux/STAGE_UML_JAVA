@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -75,7 +76,7 @@ final class Proportions {
 
     // Les dimensions de l'image, ou null si le format n'est pas reconnu.
     private static int[] dimensions(Path fichier) throws IOException {
-        String nom = fichier.getFileName().toString().toLowerCase(java.util.Locale.ROOT);
+        String nom = fichier.getFileName().toString().toLowerCase(Locale.ROOT);
 
         if (nom.endsWith(".svg")) {
             // L'en-tête suffit : les dimensions y figurent dans les premiers octets, et relire

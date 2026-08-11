@@ -8,6 +8,7 @@ import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.lang.reflect.TypeVariable;
 import java.lang.reflect.WildcardType;
+import java.util.Map;
 import java.util.Optional;
 import java.util.StringJoiner;
 
@@ -43,7 +44,7 @@ public final class TypeAffiche {
     // de l'auteur. Quand le conteneur est retiré, la garder écrirait « Integer [0..1] » là où la
     // propriété est un entier — le diagramme doit dire « int », comme l'aurait écrit l'auteur si
     // le langage l'avait laissé faire.
-    private static final java.util.Map<Class<?>, String> PRIMITIFS = java.util.Map.of(
+    private static final Map<Class<?>, String> PRIMITIFS = Map.of(
         Boolean.class, "boolean", Byte.class, "byte", Character.class, "char",
         Short.class, "short", Integer.class, "int", Long.class, "long",
         Float.class, "float", Double.class, "double");
