@@ -43,7 +43,7 @@ public record UmlField(
      */
     public UmlField {
         checkNotNull(cardinality, "The cardinality cannot be null (use an empty string).");
-        UmlAssociation.validateCardinality(cardinality, "cardinality");
+        Multiplicites.valider(cardinality, "cardinality");
         constraints = Contraintes.validees(constraints);
     }
 

@@ -1,13 +1,12 @@
 package io.github.oliviercailloux.umlg.processing;
 
-import com.google.common.collect.ImmutableList;
 import io.github.oliviercailloux.umlg.annotation.UMLAssociation;
 import io.github.oliviercailloux.umlg.annotation.UMLClass;
 import io.github.oliviercailloux.umlg.annotation.UMLExclude;
 import io.github.oliviercailloux.umlg.annotation.UMLInclude;
 import io.github.oliviercailloux.umlg.annotation.UMLMultiplicity;
 import io.github.oliviercailloux.umlg.extraction.member.VisibilityPolicy;
-import io.github.oliviercailloux.umlg.model.UmlField;
+import io.github.oliviercailloux.umlg.model.Multiplicites;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
@@ -63,6 +62,12 @@ final class VerificateurMultiplicite {
     //
     // Une multiplicité vide est licite pour le modèle — c'est ainsi qu'on dit « rien à
     // afficher » — mais l'écrire dans une annotation revient à ne rien demander du tout.
+    //
+    // La question était posée en construisant un UmlField jetable, seule façon d'atteindre une
+    // grammaire qui vivait sur UmlAssociation, et qui n'était pas visible d'ici. Le détour
+    // donnait la bonne réponse, mais l'aurait perdue au premier contrôle ajouté au constructeur
+    // d'UmlField : l'erreur aurait parlé du nom ou du type là où l'utilisateur avait écrit une
+    // multiplicité. Multiplicites.valider pose la question directement.
     private boolean verifierValeur(Element membre, AnnotationMirror annotation) {
         String valeur = rapporteur.texte(annotation, "value");
 
@@ -74,7 +79,7 @@ final class VerificateurMultiplicite {
         }
 
         try {
-            new UmlField("m", "T", valeur, "+", false, false, ImmutableList.of());
+            Multiplicites.valider(valeur, "cardinality");
             return true;
         } catch (IllegalArgumentException e) {
             rapporteur.erreur(Membre.emplacement(membre) + " : " + e.getMessage(), membre,

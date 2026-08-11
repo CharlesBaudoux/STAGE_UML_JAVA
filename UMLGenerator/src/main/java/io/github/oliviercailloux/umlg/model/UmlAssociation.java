@@ -7,8 +7,6 @@ import com.google.common.collect.ImmutableList;
 import io.github.oliviercailloux.umlg.annotation.UMLDirection;
 import io.github.oliviercailloux.umlg.annotation.UMLRelationType;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Un trait entre deux boîtes : la traduction d'un attribut annoté {@code @UMLAssociation}.
@@ -50,13 +48,6 @@ public record UmlAssociation(
     ImmutableList<String> constraints
 ) implements UmlRelation {
 
-    // Grammaire d'une multiplicité UML : soit "*", soit un entier, soit un intervalle
-    // "min..max" dont la borne haute peut être "*".
-    // Les groupes servent aussi à la validation min <= max : groupe 1 = borne basse,
-    // groupe 3 = borne haute. La limite à 9 chiffres évite un débordement au parseLong.
-    private static final Pattern CARDINALITE =
-        Pattern.compile("\\*|(\\d{1,9})(\\.\\.(\\d{1,9}|\\*))?");
-
     /**
      * Toutes les vérifications sont ici : quel que soit le chemin de construction, une
      * {@code UmlAssociation} qui existe est une association valide.
@@ -84,8 +75,8 @@ public record UmlAssociation(
         checkArgument(!fieldName.isBlank(), "The name of the carrying field cannot be empty.");
         checkArgument(!targetQualifiedName.isBlank(), "The target qualified name cannot be empty.");
 
-        validateCardinality(sourceCardinality, "sourceCardinality");
-        validateCardinality(targetCardinality, "targetCardinality");
+        Multiplicites.valider(sourceCardinality, "sourceCardinality");
+        Multiplicites.valider(targetCardinality, "targetCardinality");
 
         validateTexteLibre(sourceRole, "sourceRole");
         validateTexteLibre(targetRole, "targetRole");
@@ -103,31 +94,6 @@ public record UmlAssociation(
      */
     public static Builder builder(String fieldName, String targetQualifiedName) {
         return new Builder(fieldName, targetQualifiedName);
-    }
-
-    static void validateCardinality(String cardinality, String parametre) {
-
-        if (cardinality.isEmpty()) {
-            return;
-        }
-
-        Matcher m = CARDINALITE.matcher(cardinality);
-        checkArgument(m.matches(),
-            "%s = \"%s\" is not a valid UML multiplicity (expected: an integer, \"*\", "
-                + "or a range such as \"0..1\" or \"1..*\").",
-            parametre, cardinality);
-
-        String borneHaute = m.group(3);
-
-        if (borneHaute == null || borneHaute.equals("*")) {
-            return;
-        }
-        long min = Long.parseLong(m.group(1));
-        long max = Long.parseLong(borneHaute);
-
-        checkArgument(min <= max,
-            "%s = \"%s\": the lower bound exceeds the upper bound.",
-            parametre, cardinality);
     }
 
     private static void validateTexteLibre(String valeur, String parametre) {
