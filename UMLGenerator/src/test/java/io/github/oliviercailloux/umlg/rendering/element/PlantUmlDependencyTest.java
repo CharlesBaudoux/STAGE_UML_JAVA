@@ -186,7 +186,7 @@ class PlantUmlDependencyTest {
     @UMLClass
     @UMLDependency(target = ServiceBancaire.class, label = "facture via")
     static class Panier {
-        @UMLAssociation(target = ServiceBancaire.class, targetCardinality = "0..1")
+        @UMLAssociation(target = ServiceBancaire.class, targetMultiplicity = "0..1")
         private ServiceBancaire dernierPaiement;
     }
 

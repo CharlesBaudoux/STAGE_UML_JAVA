@@ -52,7 +52,7 @@ class MultiplicitesDeduitesTest {
     @Test
     void unSet_secritElementEtEtoile() {
         assertEquals("String", champ("aliases").type());
-        assertEquals("0..*", champ("aliases").cardinality());
+        assertEquals("0..*", champ("aliases").multiplicity());
     }
 
     @Test
@@ -60,27 +60,27 @@ class MultiplicitesDeduitesTest {
         // Le déballage rend aussi le primitif : Java interdit « Optional<int> », l'enveloppe
         // Integer est une contrainte du langage, pas un choix de l'auteur.
         assertEquals("int", champ("ucp").type());
-        assertEquals("0..1", champ("ucp").cardinality());
+        assertEquals("0..1", champ("ucp").multiplicity());
     }
 
     @Test
     void uneMap_resteEcriteEnEntier() {
         // Deux paramètres de type : rien ne dirait lequel est la propriété.
         assertEquals("Map<String, Integer>", champ("table").type());
-        assertEquals("", champ("table").cardinality());
+        assertEquals("", champ("table").multiplicity());
     }
 
     @Test
     void unTypeSimple_neRecoitRien() {
         assertEquals("String", champ("nom").type());
-        assertEquals("", champ("nom").cardinality());
+        assertEquals("", champ("nom").multiplicity());
     }
 
     @Test
     void uneMultipliciteDeclaree_lEmporteSurLaDeduction() {
         // « 1..* » dit plus que le type — un Set n'interdit pas d'être vide — et c'est
         // l'annotation qui le sait.
-        assertEquals("1..*", champ("obligatoires").cardinality());
+        assertEquals("1..*", champ("obligatoires").multiplicity());
         assertEquals("String", champ("obligatoires").type());
     }
 
@@ -92,7 +92,7 @@ class MultiplicitesDeduitesTest {
             champs.stream().filter(f -> f.name().equals("aliases")).findFirst().orElseThrow();
 
         assertEquals("Set<String>", aliases.type());
-        assertEquals("", aliases.cardinality());
+        assertEquals("", aliases.multiplicity());
     }
 
     @Test
@@ -103,7 +103,7 @@ class MultiplicitesDeduitesTest {
             methodes.stream().filter(m -> m.name().equals("names")).findFirst().orElseThrow();
 
         assertEquals("String", names.returnType());
-        assertEquals("0..*", names.cardinality());
+        assertEquals("0..*", names.multiplicity());
     }
 
     // --- La lecture de la règle ---

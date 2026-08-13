@@ -176,8 +176,8 @@ public final class ClassBoxRenderer {
     // Écrite sans échappement, et c'est sans risque : le modèle n'accepte qu'une multiplicité
     // conforme à la grammaire UML, faite de chiffres, de points et d'étoiles. Les crochets, eux,
     // sont une notation que nous produisons — les échapper les afficherait tels quels.
-    private static String multiplicite(String cardinality) {
-        return cardinality.isEmpty() ? "" : " [" + cardinality + "]";
+    private static String multiplicite(String multiplicity) {
+        return multiplicity.isEmpty() ? "" : " [" + multiplicity + "]";
     }
 
     // Format « visibilité [{static}] nom: type [multiplicité] {contraintes} ».
@@ -196,7 +196,7 @@ public final class ClassBoxRenderer {
                 .append(derive(field.derived(), field.name(),
                     visibilite.isEmpty() && !field.isStatic()))
                 .append(" : ").append(PlantUmlEscaper.label(field.type()))
-                .append(multiplicite(field.cardinality()))
+                .append(multiplicite(field.multiplicity()))
                 .append(NotationContrainte.aLaSuite(field.constraints())).append("\n");
         }
         return compartiment.toString();
@@ -238,7 +238,7 @@ public final class ClassBoxRenderer {
             return "";
         }
         return " : " + PlantUmlEscaper.label(method.returnType())
-            + multiplicite(method.cardinality());
+            + multiplicite(method.multiplicity());
     }
 
     // Les paramètres entre parenthèses, séparés par des virgules.

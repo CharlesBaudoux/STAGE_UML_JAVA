@@ -18,8 +18,8 @@ import java.util.List;
  * @param fieldName le nom de l'attribut qui porte le lien. Ni nul ni vide.
  * @param targetQualifiedName le nom complet de la boîte d'arrivée. Ni nul ni vide.
  * @param type la nature du lien : association simple, agrégation ou composition.
- * @param sourceCardinality la multiplicité écrite du côté de la source, ou la chaîne vide.
- * @param targetCardinality la multiplicité écrite du côté de la cible, ou la chaîne vide.
+ * @param sourceMultiplicity la multiplicité écrite du côté de la source, ou la chaîne vide.
+ * @param targetMultiplicity la multiplicité écrite du côté de la cible, ou la chaîne vide.
  * @param sourceRole le rôle écrit du côté de la source, ou la chaîne vide.
  * @param targetRole le rôle écrit du côté de la cible, ou la chaîne vide.
  * @param label le texte posé au milieu du trait, ou la chaîne vide.
@@ -38,8 +38,8 @@ public record UmlAssociation(
     String fieldName,
     String targetQualifiedName,
     UMLRelationType type,
-    String sourceCardinality,
-    String targetCardinality,
+    String sourceMultiplicity,
+    String targetMultiplicity,
     String sourceRole,
     String targetRole,
     String label,
@@ -63,10 +63,10 @@ public record UmlAssociation(
         checkNotNull(fieldName, "The name of the carrying field cannot be null.");
         checkNotNull(targetQualifiedName, "The target qualified name cannot be null.");
         checkNotNull(type, "The relation type cannot be null.");
-        checkNotNull(sourceCardinality,
-            "The source cardinality cannot be null (use an empty string).");
-        checkNotNull(targetCardinality,
-            "The target cardinality cannot be null (use an empty string).");
+        checkNotNull(sourceMultiplicity,
+            "The source multiplicity cannot be null (use an empty string).");
+        checkNotNull(targetMultiplicity,
+            "The target multiplicity cannot be null (use an empty string).");
         checkNotNull(sourceRole, "The source role cannot be null (use an empty string).");
         checkNotNull(targetRole, "The target role cannot be null (use an empty string).");
         checkNotNull(label, "The label cannot be null (use an empty string).");
@@ -75,8 +75,8 @@ public record UmlAssociation(
         checkArgument(!fieldName.isBlank(), "The name of the carrying field cannot be empty.");
         checkArgument(!targetQualifiedName.isBlank(), "The target qualified name cannot be empty.");
 
-        Multiplicites.valider(sourceCardinality, "sourceCardinality");
-        Multiplicites.valider(targetCardinality, "targetCardinality");
+        Multiplicites.valider(sourceMultiplicity, "sourceMultiplicity");
+        Multiplicites.valider(targetMultiplicity, "targetMultiplicity");
 
         validateTexteLibre(sourceRole, "sourceRole");
         validateTexteLibre(targetRole, "targetRole");
@@ -112,8 +112,8 @@ public record UmlAssociation(
         private final String fieldName;
         private final String targetQualifiedName;
         private UMLRelationType type = UMLRelationType.ASSOCIATION;
-        private String sourceCardinality = "";
-        private String targetCardinality = "";
+        private String sourceMultiplicity = "";
+        private String targetMultiplicity = "";
         private String sourceRole = "";
         private String targetRole = "";
         private String label = "";
@@ -142,22 +142,22 @@ public record UmlAssociation(
         /**
          * Fixe la multiplicité du côté de la source.
          *
-         * @param cardinality la multiplicité du côté de la source, par exemple {@code 1}.
+         * @param multiplicity la multiplicité du côté de la source, par exemple {@code 1}.
          * @return ce builder.
          */
-        public Builder sourceCardinality(String cardinality) {
-            this.sourceCardinality = checkNotNull(cardinality);
+        public Builder sourceMultiplicity(String multiplicity) {
+            this.sourceMultiplicity = checkNotNull(multiplicity);
             return this;
         }
 
         /**
          * Fixe la multiplicité du côté de la cible.
          *
-         * @param cardinality la multiplicité du côté de la cible, par exemple {@code 0..*}.
+         * @param multiplicity la multiplicité du côté de la cible, par exemple {@code 0..*}.
          * @return ce builder.
          */
-        public Builder targetCardinality(String cardinality) {
-            this.targetCardinality = checkNotNull(cardinality);
+        public Builder targetMultiplicity(String multiplicity) {
+            this.targetMultiplicity = checkNotNull(multiplicity);
             return this;
         }
 
@@ -233,8 +233,8 @@ public record UmlAssociation(
          * @return le lien, immuable et vérifié.
          */
         public UmlAssociation build() {
-            return new UmlAssociation(fieldName, targetQualifiedName, type, sourceCardinality,
-                targetCardinality, sourceRole, targetRole, label, direction, derived, constraints);
+            return new UmlAssociation(fieldName, targetQualifiedName, type, sourceMultiplicity,
+                targetMultiplicity, sourceRole, targetRole, label, direction, derived, constraints);
         }
     }
 }

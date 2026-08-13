@@ -75,8 +75,8 @@ public final class AssociationExtractor implements RelationExtractor {
             // cible.getName() : le nom complet, celui qui sert d'identité aux entités.
             return UmlAssociation.builder(field.getName(), cible.getName())
                 .type(annotation.type())
-                .sourceCardinality(annotation.sourceCardinality())
-                .targetCardinality(annotation.targetCardinality())
+                .sourceMultiplicity(annotation.sourceMultiplicity())
+                .targetMultiplicity(annotation.targetMultiplicity())
                 .sourceRole(annotation.sourceRole())
                 .targetRole(annotation.targetRole())
                 .label(annotation.label())

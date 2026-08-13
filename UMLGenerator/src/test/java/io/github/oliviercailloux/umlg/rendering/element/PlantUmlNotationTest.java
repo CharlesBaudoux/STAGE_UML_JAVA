@@ -36,13 +36,13 @@ class PlantUmlNotationTest {
 
     @UMLClass(name = "Defaut")
     static class Defaut {
-        @UMLAssociation(target = Commande.class, targetCardinality = "0..*")
+        @UMLAssociation(target = Commande.class, targetMultiplicity = "0..*")
         private List<Commande> commandes;
     }
 
     @UMLClass(name = "DansLaBoite")
     static class DansLaBoite {
-        @UMLAssociation(target = Commande.class, targetCardinality = "0..*",
+        @UMLAssociation(target = Commande.class, targetMultiplicity = "0..*",
             notation = UMLNotation.ATTRIBUTE)
         private List<Commande> commandes;
     }
@@ -122,7 +122,7 @@ class PlantUmlNotationTest {
         @UMLConstraint(rule = "ordered")
         @UMLConstraint(rule = "non vide")
         @UMLDerived
-        @UMLAssociation(target = Commande.class, targetCardinality = "1..*",
+        @UMLAssociation(target = Commande.class, targetMultiplicity = "1..*",
             notation = UMLNotation.ATTRIBUTE)
         protected List<Commande> achats;
     }
@@ -144,7 +144,7 @@ class PlantUmlNotationTest {
     static class Clavier {
         @UMLNote(text = "Doublons autorises")
         @UMLAssociation(target = Commande.class, targetRole = "physicalKeys",
-            targetCardinality = "0..*", notation = UMLNotation.ATTRIBUTE)
+            targetMultiplicity = "0..*", notation = UMLNotation.ATTRIBUTE)
         private List<Commande> keys;
     }
 
@@ -176,7 +176,7 @@ class PlantUmlNotationTest {
 
     @UMLClass(strategy = UMLVisibility.NONE)
     static class StrategieMuette {
-        @UMLAssociation(target = Commande.class, targetCardinality = "0..*",
+        @UMLAssociation(target = Commande.class, targetMultiplicity = "0..*",
             notation = UMLNotation.ATTRIBUTE)
         private List<Commande> commandes;
     }
@@ -194,7 +194,7 @@ class PlantUmlNotationTest {
     @UMLClass(strategy = UMLVisibility.PRIVATE)
     static class Retiree {
         @UMLExclude
-        @UMLAssociation(target = Commande.class, targetCardinality = "0..*",
+        @UMLAssociation(target = Commande.class, targetMultiplicity = "0..*",
             notation = UMLNotation.ATTRIBUTE)
         private List<Commande> commandes;
     }
@@ -231,7 +231,7 @@ class PlantUmlNotationTest {
     }
 
     static class MultipliciteFautive {
-        @UMLAssociation(target = Commande.class, targetCardinality = "3..1",
+        @UMLAssociation(target = Commande.class, targetMultiplicity = "3..1",
             notation = UMLNotation.ATTRIBUTE)
         private List<Commande> commandes;
     }
@@ -250,11 +250,11 @@ class PlantUmlNotationTest {
 
     @UMLClass
     static class Melangee {
-        @UMLAssociation(target = Commande.class, targetCardinality = "0..*",
+        @UMLAssociation(target = Commande.class, targetMultiplicity = "0..*",
             notation = UMLNotation.ATTRIBUTE)
         private List<Commande> archivees;
 
-        @UMLAssociation(target = Commande.class, targetCardinality = "1", targetRole = "courante")
+        @UMLAssociation(target = Commande.class, targetMultiplicity = "1", targetRole = "courante")
         private Commande courante;
     }
 

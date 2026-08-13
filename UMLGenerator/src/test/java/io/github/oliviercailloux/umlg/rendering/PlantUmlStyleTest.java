@@ -39,7 +39,7 @@ class PlantUmlStyleTest {
         return new UmlEntity[] {
             UmlEntity.builder("com.exemple.Client", "Client")
                 .associations(ImmutableList.of(UmlAssociation.builder("champ", "com.exemple.Cible")
-                    .targetCardinality("0..*").label("détient").build()))
+                    .targetMultiplicity("0..*").label("détient").build()))
                 .build(),
             UmlEntity.builder("com.exemple.Cible", "Cible").build()};
     }
@@ -128,7 +128,7 @@ class PlantUmlStyleTest {
     @ParameterizedTest
     @EnumSource(UmlStyle.class)
     void nomDeLien_resteEnItaliqueDansLesDeuxCas(UmlStyle style) {
-        // L'italique n'est pas une coquetterie : la cardinalité se pose au même endroit que le
+        // L'italique n'est pas une coquetterie : la multiplicité se pose au même endroit que le
         // nom du lien, et rien d'autre ne permet au lecteur de savoir lequel nomme le trait.
         // Il est donc commun aux deux apparences.
         assertTrue(PlantUmlAssert.documentPour(style, paire()).contains("<i>détient</i>"));

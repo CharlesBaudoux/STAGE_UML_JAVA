@@ -63,7 +63,7 @@ class DuCodeCompileAuPumlTest {
 
         @UMLClass(strategy = UMLVisibility.PUBLIC)
         class Eleve extends Personne {
-            @UMLAssociation(targetCardinality = "0..*", targetRole = "cours")
+            @UMLAssociation(targetMultiplicity = "0..*", targetRole = "cours")
             public List<Cours> cours;
 
             @Override
@@ -74,7 +74,7 @@ class DuCodeCompileAuPumlTest {
         class Cours {
             public String intitule;
 
-            @UMLAssociation(targetCardinality = "1..*", targetRole = "inscrits")
+            @UMLAssociation(targetMultiplicity = "1..*", targetRole = "inscrits")
             public List<Eleve> inscrits;
         }
 

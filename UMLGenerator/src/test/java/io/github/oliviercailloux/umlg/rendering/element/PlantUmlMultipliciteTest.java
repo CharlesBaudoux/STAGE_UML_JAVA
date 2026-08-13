@@ -137,7 +137,7 @@ class PlantUmlMultipliciteTest {
 
     static class DeuxMultiplicites {
         @UMLMultiplicity("0..*")
-        @UMLAssociation(target = Cible.class, targetCardinality = "1..*")
+        @UMLAssociation(target = Cible.class, targetMultiplicity = "1..*")
         private List<Cible> cibles;
     }
 
@@ -148,6 +148,6 @@ class PlantUmlMultipliciteTest {
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
             () -> MemberExtractor.extractFields(DeuxMultiplicites.class, UMLVisibility.PRIVATE));
 
-        assertTrue(e.getMessage().contains("targetCardinality"), e.getMessage());
+        assertTrue(e.getMessage().contains("targetMultiplicity"), e.getMessage());
     }
 }

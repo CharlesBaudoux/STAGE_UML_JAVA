@@ -68,18 +68,18 @@ class PlantUmlLisibiliteTest {
         throw new AssertionError("Texte « " + contenu + " » absent du rendu :\n" + svg);
     }
 
-    // --- Distinguer le nom du lien de ses cardinalités ---
+    // --- Distinguer le nom du lien de ses multiplicités ---
 
     @Test
-    void nomDuLien_etCardinalite_neSeRessemblentPas() throws Exception {
+    void nomDuLien_etMultiplicite_neSeRessemblentPas() throws Exception {
         String svg = PlantUmlAssert.svg(paire(UmlAssociation.builder("champ", "Cible")
-            .targetCardinality("0..*").label("détient").build()));
+            .targetMultiplicity("0..*").label("détient").build()));
 
-        // La cardinalité est régulièrement posée sur le trait, voire traversée par lui : c'est
+        // La multiplicité est régulièrement posée sur le trait, voire traversée par lui : c'est
         // PlantUML qui en décide, et aucun réglage n'y change rien. Ne reste que l'apparence
         // pour que le lecteur sache lequel des deux textes nomme le lien.
         assertNotEquals(apparence(svg, "0..*"), apparence(svg, "détient"),
-            "Le nom du lien et la cardinalité doivent se distinguer au premier coup d'œil.");
+            "Le nom du lien et la multiplicité doivent se distinguer au premier coup d'œil.");
     }
 
     @Test
@@ -111,10 +111,10 @@ class PlantUmlLisibiliteTest {
     @Test
     void etiquetteLongue_ecarteDavantageLesBoites() {
         String court = PlantUmlAssert.documentPour(paire(
-            UmlAssociation.builder("champ", "Cible").targetCardinality("1").build()));
+            UmlAssociation.builder("champ", "Cible").targetMultiplicity("1").build()));
         String long_ = PlantUmlAssert.documentPour(paire(
             UmlAssociation.builder("champ", "Cible")
-                .targetRole("comptesDuTitulaire").targetCardinality("1..*")
+                .targetRole("comptesDuTitulaire").targetMultiplicity("1..*")
                 .constraints(ImmutableList.of("ordered")).build()));
 
         assertTrue(nodesep(long_) > nodesep(court),

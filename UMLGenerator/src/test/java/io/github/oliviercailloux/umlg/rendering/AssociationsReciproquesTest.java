@@ -37,9 +37,9 @@ class AssociationsReciproquesTest {
     @Test
     void deuxAttributsQuiSeFontFace_neDonnentQuUnSeulTrait() {
         UmlEntity a = entite("A", UmlAssociation.builder("bs", "dm.B")
-            .targetRole("bs").targetCardinality("0..*").build());
+            .targetRole("bs").targetMultiplicity("0..*").build());
         UmlEntity b = entite("B", UmlAssociation.builder("a", "dm.A")
-            .targetRole("a").targetCardinality("1").build());
+            .targetRole("a").targetMultiplicity("1").build());
 
         assertEquals(1, relationsDe("A", a, b).size());
         assertTrue(relationsDe("B", a, b).isEmpty(),
@@ -51,16 +51,16 @@ class AssociationsReciproquesTest {
         // Le rôle d'une extrémité est le nom sous lequel l'autre bout la désigne : « B.a » nomme
         // donc l'extrémité A du trait, et c'est ce que la fusion doit produire.
         UmlEntity a = entite("A", UmlAssociation.builder("bs", "dm.B")
-            .targetRole("bs").targetCardinality("0..*").build());
+            .targetRole("bs").targetMultiplicity("0..*").build());
         UmlEntity b = entite("B", UmlAssociation.builder("a", "dm.A")
-            .targetRole("a").targetCardinality("1").build());
+            .targetRole("a").targetMultiplicity("1").build());
 
         UmlAssociation trait = (UmlAssociation) relationsDe("A", a, b).get(0);
 
         assertEquals("a", trait.sourceRole());
-        assertEquals("1", trait.sourceCardinality());
+        assertEquals("1", trait.sourceMultiplicity());
         assertEquals("bs", trait.targetRole());
-        assertEquals("0..*", trait.targetCardinality());
+        assertEquals("0..*", trait.targetMultiplicity());
     }
 
     @Test
@@ -93,7 +93,7 @@ class AssociationsReciproquesTest {
         // L'utilisateur a déjà dit ce que porte l'extrémité source ; ce qu'il a écrit l'emporte
         // sur ce que la classe d'en face en dirait.
         UmlEntity a = entite("A", UmlAssociation.builder("bs", "dm.B")
-            .sourceRole("proprietaire").sourceCardinality("1").build());
+            .sourceRole("proprietaire").sourceMultiplicity("1").build());
         UmlEntity b = entite("B", UmlAssociation.builder("a", "dm.A")
             .targetRole("autre").build());
 
@@ -132,9 +132,9 @@ class AssociationsReciproquesTest {
         // des tests recopiait cette séquence au lieu de l'appeler, il écrivait l'ancien document
         // — deux traits — sans qu'aucun test ne s'en aperçoive.
         UmlEntity a = entite("A", UmlAssociation.builder("bs", "dm.B")
-            .targetRole("bs").targetCardinality("0..*").build());
+            .targetRole("bs").targetMultiplicity("0..*").build());
         UmlEntity b = entite("B", UmlAssociation.builder("a", "dm.A")
-            .targetRole("a").targetCardinality("1").build());
+            .targetRole("a").targetMultiplicity("1").build());
 
         List<String> traits = PlantUmlAssert.lignesDeLien(PlantUmlAssert.documentPour(a, b));
 
@@ -190,7 +190,7 @@ class AssociationsReciproquesTest {
         // Le cas que le message taisait : rien n'est décoré, et pourtant la fusion n'a pas lieu.
         // Le conseil « ne décorez qu'un seul côté » n'y avait aucune prise.
         UmlEntity a = entite("A", UmlAssociation.builder("bs", "dm.B")
-            .sourceRole("proprietaire").sourceCardinality("1").build());
+            .sourceRole("proprietaire").sourceMultiplicity("1").build());
         UmlEntity b = entite("B", UmlAssociation.builder("a", "dm.A")
             .targetRole("autre").build());
 

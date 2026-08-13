@@ -38,8 +38,8 @@ class UmlgProcessorTest {
             @UMLClass(strategy = UMLVisibility.PUBLIC)
             @UMLDependency(target = ServiceBancaire.class, label = "facture via")
             class Client {
-                @UMLAssociation(target = Commande.class, targetCardinality = "0..*",
-                    sourceCardinality = "1", targetRole = "achats")
+                @UMLAssociation(target = Commande.class, targetMultiplicity = "0..*",
+                    sourceMultiplicity = "1", targetRole = "achats")
                 private List<Commande> commandes;
 
                 @UMLInclude
@@ -81,13 +81,13 @@ class UmlgProcessorTest {
             @UMLClass
             class Client {
                 @UMLMultiplicity("0..*")
-                @UMLAssociation(target = Commande.class, targetCardinality = "1..*")
+                @UMLAssociation(target = Commande.class, targetMultiplicity = "1..*")
                 private List<Commande> commandes;
             }
             """);
 
         assertFalse(verdict.reussie(), verdict.rapport());
-        assertTrue(verdict.erreurContient("already given by targetCardinality"), verdict.rapport());
+        assertTrue(verdict.erreurContient("already given by targetMultiplicity"), verdict.rapport());
     }
 
     @Test
@@ -150,7 +150,7 @@ class UmlgProcessorTest {
 
             @UMLClass
             class Client {
-                @UMLAssociation(target = Commande.class, targetCardinality = "3..1")
+                @UMLAssociation(target = Commande.class, targetMultiplicity = "3..1")
                 private Commande commande;
             }
             """);
@@ -168,7 +168,7 @@ class UmlgProcessorTest {
 
             @UMLClass
             class Client {
-                @UMLAssociation(target = Commande.class, sourceCardinality = "beaucoup")
+                @UMLAssociation(target = Commande.class, sourceMultiplicity = "beaucoup")
                 private Commande commande;
             }
             """);
@@ -177,7 +177,7 @@ class UmlgProcessorTest {
         assertTrue(verdict.erreurContient("valid UML multiplicity"), verdict.rapport());
         // Le message vient du modèle : il nomme le paramètre fautif, ce que le positionnement
         // sur l'annotation entière ne dirait pas.
-        assertTrue(verdict.erreurContient("sourceCardinality"), verdict.rapport());
+        assertTrue(verdict.erreurContient("sourceMultiplicity"), verdict.rapport());
     }
 
     // --- La couleur ---
@@ -450,7 +450,7 @@ class UmlgProcessorTest {
         Verdict verdict = compiler(tmp, """
             @UMLClass
             class Client {
-                @UMLAssociation(targetCardinality = "1")
+                @UMLAssociation(targetMultiplicity = "1")
                 private String nom;
             }
             """);
@@ -474,7 +474,7 @@ class UmlgProcessorTest {
 
             @UMLClass
             class Boite<T extends Commande> {
-                @UMLAssociation(targetCardinality = "1")
+                @UMLAssociation(targetMultiplicity = "1")
                 private T contenu;
             }
             """);
@@ -491,7 +491,7 @@ class UmlgProcessorTest {
         Verdict verdict = compiler(tmp, """
             @UMLClass
             class Client {
-                @UMLAssociation(targetCardinality = "0..*")
+                @UMLAssociation(targetMultiplicity = "0..*")
                 private List commandes;
             }
             """);
@@ -506,7 +506,7 @@ class UmlgProcessorTest {
         Verdict verdict = compiler(tmp, """
             @UMLClass
             class Client {
-                @UMLAssociation(targetCardinality = "1")
+                @UMLAssociation(targetMultiplicity = "1")
                 private int compteur;
             }
             """);

@@ -15,10 +15,10 @@ final class VerificateurAssociation {
 
     // Les paramètres qui ne veulent dire quelque chose que le long d'un trait. Sous la notation
     // ATTRIBUTE, l'annotation garde ce qu'une ligne de boîte sait porter : target — le type
-    // affiché —, targetCardinality — la multiplicité entre crochets — et targetRole, qui est
+    // affiché —, targetMultiplicity — la multiplicité entre crochets — et targetRole, qui est
     // alors le nom même de la propriété.
     private static final ImmutableList<String> PARAMETRES_DE_TRAIT = ImmutableList.of(
-        "type", "sourceCardinality", "sourceRole", "label", "direction");
+        "type", "sourceMultiplicity", "sourceRole", "label", "direction");
 
     private final Rapporteur rapporteur;
     private final Cible cible;
@@ -115,8 +115,8 @@ final class VerificateurAssociation {
         String nomCible) {
         try {
             UmlAssociation.builder(champ.getSimpleName().toString(), nomCible)
-                .sourceCardinality(rapporteur.texte(annotation, "sourceCardinality"))
-                .targetCardinality(rapporteur.texte(annotation, "targetCardinality"))
+                .sourceMultiplicity(rapporteur.texte(annotation, "sourceMultiplicity"))
+                .targetMultiplicity(rapporteur.texte(annotation, "targetMultiplicity"))
                 .sourceRole(rapporteur.texte(annotation, "sourceRole"))
                 .targetRole(rapporteur.texte(annotation, "targetRole"))
                 .label(rapporteur.texte(annotation, "label"))
@@ -165,11 +165,11 @@ final class VerificateurAssociation {
     // La multiplicité côté cible, confrontée au nombre d'objets que le type peut tenir.
     private void signalerMultiplicite(Element champ, AnnotationMirror annotation, String contexte,
         TypeMirror type) {
-        String multiplicite = rapporteur.texte(annotation, "targetCardinality");
+        String multiplicite = rapporteur.texte(annotation, "targetMultiplicity");
         boolean multivalue = typeAttribut.multivalue(type);
-        // Souligne « targetCardinality = "1" » là où il est écrit ; null quand la valeur vient du
+        // Souligne « targetMultiplicity = "1" » là où il est écrit ; null quand la valeur vient du
         // défaut, et le Rapporteur se rabat alors sur l'annotation entière.
-        AnnotationValue position = rapporteur.valeurEcrite(annotation, "targetCardinality");
+        AnnotationValue position = rapporteur.valeurEcrite(annotation, "targetMultiplicity");
 
         if (multivalue && multiplicite.isEmpty()) {
             // « le lien » ou « l'attribut », selon la notation : c'est la même multiplicité
@@ -177,7 +177,7 @@ final class VerificateurAssociation {
             String porteur = Notation.trait(rapporteur, annotation) ? "link" : "attribute";
 
             rapporteur.avertissement(contexte + ": the field's type (" + type + ") holds several "
-                + "objects, but targetCardinality is not set, so the " + porteur + " will carry "
+                + "objects, but targetMultiplicity is not set, so the " + porteur + " will carry "
                 + "no multiplicity at all. Only you know whether it is \"0..*\" or \"1..*\".",
                 champ, annotation, position);
             return;
@@ -186,13 +186,13 @@ final class VerificateurAssociation {
             return;
         }
         if (multivalue && !permetPlusieurs(multiplicite)) {
-            rapporteur.avertissement(contexte + ": targetCardinality = \"" + multiplicite
+            rapporteur.avertissement(contexte + ": targetMultiplicity = \"" + multiplicite
                 + "\" allows at most one object, but the field's type (" + type + ") holds "
                 + "several.", champ, annotation, position);
             return;
         }
         if (!multivalue && permetPlusieurs(multiplicite) && !typeAttribut.indetermine(type)) {
-            rapporteur.avertissement(contexte + ": targetCardinality = \"" + multiplicite
+            rapporteur.avertissement(contexte + ": targetMultiplicity = \"" + multiplicite
                 + "\" allows several objects, but the field's type (" + type + ") holds a single "
                 + "one.", champ, annotation, position);
         }

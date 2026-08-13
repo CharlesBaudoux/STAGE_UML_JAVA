@@ -11,7 +11,7 @@ import com.google.common.collect.ImmutableList;
  * @param name le nom affiché.
  * @param type nom simple du type ({@code String}, et non {@code java.lang.String}) : la boîte
  *     doit rester lisible.
- * @param cardinality la multiplicité de la propriété, écrite entre crochets à la suite du nom :
+ * @param multiplicity la multiplicité de la propriété, écrite entre crochets à la suite du nom :
  *     {@code - Commande commandes [0..*]}. Vide = rien d'affiché, ce qui vaut « exactement un »
  *     en UML et couvre l'immense majorité des attributs. Elle n'est renseignée aujourd'hui que
  *     par une {@code @UMLAssociation} dessinée dans la boîte, seul cas où la bibliothèque
@@ -27,7 +27,7 @@ import com.google.common.collect.ImmutableList;
 public record UmlField(
     String name,
     String type,
-    String cardinality,
+    String multiplicity,
     String visibility,
     boolean isStatic,
     boolean derived,
@@ -56,8 +56,8 @@ public record UmlField(
         verifierNom(name);
         checkNotNull(type, "The field type cannot be null.");
         checkArgument(!type.isBlank(), "The type of field \"%s\" cannot be empty.", name);
-        checkNotNull(cardinality, "The cardinality cannot be null (use an empty string).");
-        Multiplicites.valider(cardinality, "cardinality");
+        checkNotNull(multiplicity, "The multiplicity cannot be null (use an empty string).");
+        Multiplicites.valider(multiplicity, "multiplicity");
         verifierVisibilite(visibility, name);
         constraints = Contraintes.validees(constraints);
     }

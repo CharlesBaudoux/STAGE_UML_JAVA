@@ -40,7 +40,7 @@ final class VerificateurMultiplicite {
         }
 
         // Une propriété n'a qu'une multiplicité. Sur un attribut porteur de @UMLAssociation,
-        // c'est targetCardinality qui la donne — quelle que soit la notation, puisque le lien la
+        // c'est targetMultiplicity qui la donne — quelle que soit la notation, puisque le lien la
         // porte aussi bien à l'extrémité d'un trait qu'à la suite d'une ligne.
         //
         // Le message vient de MemberExtractor, à qui la règle appartient : il n'est plus recopié
@@ -76,7 +76,7 @@ final class VerificateurMultiplicite {
         }
 
         try {
-            Multiplicites.valider(valeur, "cardinality");
+            Multiplicites.valider(valeur, "multiplicity");
             return true;
         } catch (IllegalArgumentException e) {
             rapporteur.erreur(Membre.emplacement(membre) + " : " + e.getMessage(), membre,

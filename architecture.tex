@@ -223,7 +223,7 @@ masque ce qu'elle afficherait. En cas de conflit, \texttt{@UMLExclude} gagne. \\
 \addlinespace
 \texttt{UMLAssociation} &
 Posée sur un \emph{attribut}, elle le transforme en trait entre deux boîtes. Tous ses
-paramètres sont facultatifs : cardinalités, rôles, étiquette, sens du trait, et
+paramètres sont facultatifs : multiplicités, rôles, étiquette, sens du trait, et
 \texttt{target} pour désigner explicitement la classe visée quand elle ne peut pas se déduire. \\
 \addlinespace
 \texttt{UMLRelationType} &
@@ -314,14 +314,14 @@ seule} liste de liens, toutes natures confondues. Voir la section~\ref{sec:crois
 explique ce que cela change concrètement. \\
 \addlinespace
 \texttt{UmlAssociation} &
-Un lien \emph{structurel} : une extrémité détient l'autre. Porte les cardinalités, les rôles,
+Un lien \emph{structurel} : une extrémité détient l'autre. Porte les multiplicités, les rôles,
 le qualificatif, l'étiquette et le sens. Vérifie ici que les multiplicités sont bien formées
 \emph{et} cohérentes : \texttt{5..2} est syntaxiquement irréprochable et vide de sens, PlantUML
 l'afficherait sans broncher. \\
 \addlinespace
 \texttt{UmlDependency} &
 Un lien d'\emph{usage} : la source a besoin de la cible, sans la détenir. D'où l'absence de
-cardinalité et de rôle — il n'y a pas d'extrémité à décrire, seulement un usage à signaler. \\
+multiplicité et de rôle — il n'y a pas d'extrémité à décrire, seulement un usage à signaler. \\
 \addlinespace
 \texttt{UmlInheritance} \newline \texttt{UmlAssociationClass} \newline \texttt{UmlLayout} &
 Les trois autres natures de liens : l'héritage (lu dans \texttt{extends} et \texttt{implements},

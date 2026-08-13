@@ -141,7 +141,7 @@ public final class ProjetDeReference {
         // stratégie, exactement comme le trait ci-dessous.
         @UMLAssociation(
             target = Commande.class,
-            targetCardinality = "0..*",
+            targetMultiplicity = "0..*",
             notation = UMLNotation.ATTRIBUTE)
         private List<Commande> archivees;
 
@@ -155,8 +155,8 @@ public final class ProjetDeReference {
             target = Commande.class,
             notation = UMLNotation.ARROW,
             type = UMLRelationType.COMPOSITION,
-            sourceCardinality = "1",
-            targetCardinality = "0..*",
+            sourceMultiplicity = "1",
+            targetMultiplicity = "0..*",
             sourceRole = "acheteur",
             targetRole = "achats",
             label = "passe",

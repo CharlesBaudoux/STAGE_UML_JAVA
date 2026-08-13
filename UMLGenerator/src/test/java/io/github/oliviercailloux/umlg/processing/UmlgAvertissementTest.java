@@ -151,7 +151,7 @@ class UmlgAvertissementTest {
 
             @UMLClass
             class Client {
-                @UMLAssociation(target = Commande.class, targetCardinality = "0..*",
+                @UMLAssociation(target = Commande.class, targetMultiplicity = "0..*",
                     notation = UMLNotation.ATTRIBUTE, type = UMLRelationType.COMPOSITION,
                     label = "passe")
                 private List<Commande> commandes;
@@ -159,7 +159,7 @@ class UmlgAvertissementTest {
             """);
 
         assertAvertit(verdict, "decorate a path between two boxes");
-        // Les paramètres fautifs sont nommés, et eux seuls : targetCardinality, qui s'écrit bel
+        // Les paramètres fautifs sont nommés, et eux seuls : targetMultiplicity, qui s'écrit bel
         // et bien, ne doit pas figurer dans la liste.
         assertAvertit(verdict, "type, label");
     }
@@ -168,7 +168,7 @@ class UmlgAvertissementTest {
     void parametreDeTraitFautifSousLaNotationAttribute_estRefuseEtSignale(@TempDir Path tmp)
         throws IOException {
         // Le processeur disait deux choses contraires du même paramètre : « 3..1 » y était refusé
-        // comme partout, et la ligne suivante annonçait que sourceCardinality ne serait de toute
+        // comme partout, et la ligne suivante annonçait que sourceMultiplicity ne serait de toute
         // façon pas dessinée. L'auteur corrigeait une valeur pour s'entendre dire ensuite de
         // l'effacer.
         //
@@ -181,7 +181,7 @@ class UmlgAvertissementTest {
             @UMLClass
             class Client {
                 @UMLAssociation(target = Commande.class, notation = UMLNotation.ATTRIBUTE,
-                    sourceCardinality = "3..1")
+                    sourceMultiplicity = "3..1")
                 private Commande commande;
             }
             """);
@@ -202,7 +202,7 @@ class UmlgAvertissementTest {
 
             @UMLClass
             class Client {
-                @UMLAssociation(target = Commande.class, targetCardinality = "0..*",
+                @UMLAssociation(target = Commande.class, targetMultiplicity = "0..*",
                     notation = UMLNotation.ATTRIBUTE)
                 private List<Commande> commandes;
             }
@@ -285,7 +285,7 @@ class UmlgAvertissementTest {
             @UMLClass
             @UMLDependency(target = Commande.class, label = "facture")
             class Client {
-                @UMLAssociation(target = Commande.class, targetCardinality = "0..*",
+                @UMLAssociation(target = Commande.class, targetMultiplicity = "0..*",
                     notation = UMLNotation.ATTRIBUTE)
                 private List<Commande> commandes;
             }
@@ -389,7 +389,7 @@ class UmlgAvertissementTest {
             @UMLClass
             @UMLDependency(target = Commande.class, label = "facture")
             class Client {
-                @UMLAssociation(target = Commande.class, targetCardinality = "0..*")
+                @UMLAssociation(target = Commande.class, targetMultiplicity = "0..*")
                 private List<Commande> commandes;
             }
             """);
@@ -409,7 +409,7 @@ class UmlgAvertissementTest {
             @UMLClass
             @UMLDependency(target = Journal.class, label = "trace")
             class Client {
-                @UMLAssociation(target = Commande.class, targetCardinality = "0..*")
+                @UMLAssociation(target = Commande.class, targetMultiplicity = "0..*")
                 private List<Commande> commandes;
             }
             """);
@@ -432,7 +432,7 @@ class UmlgAvertissementTest {
             }
             """);
 
-        assertAvertit(verdict, "targetCardinality is not set");
+        assertAvertit(verdict, "targetMultiplicity is not set");
     }
 
     @Test
@@ -443,7 +443,7 @@ class UmlgAvertissementTest {
 
             @UMLClass
             class Client {
-                @UMLAssociation(target = Commande.class, targetCardinality = "0..1")
+                @UMLAssociation(target = Commande.class, targetMultiplicity = "0..1")
                 private List<Commande> commandes;
             }
             """);
@@ -459,7 +459,7 @@ class UmlgAvertissementTest {
 
             @UMLClass
             class Client {
-                @UMLAssociation(target = Commande.class, targetCardinality = "1..*")
+                @UMLAssociation(target = Commande.class, targetMultiplicity = "1..*")
                 private Commande commande;
             }
             """);
@@ -475,7 +475,7 @@ class UmlgAvertissementTest {
 
             @UMLClass
             class Client {
-                @UMLAssociation(target = Commande.class, targetCardinality = "1")
+                @UMLAssociation(target = Commande.class, targetMultiplicity = "1")
                 private Commande[] commandes;
             }
             """);
@@ -491,10 +491,10 @@ class UmlgAvertissementTest {
 
             @UMLClass
             class Client {
-                @UMLAssociation(target = Commande.class, targetCardinality = "0..*")
+                @UMLAssociation(target = Commande.class, targetMultiplicity = "0..*")
                 private List<Commande> commandes;
 
-                @UMLAssociation(target = Commande.class, targetCardinality = "0..1")
+                @UMLAssociation(target = Commande.class, targetMultiplicity = "0..1")
                 private Commande derniere;
             }
             """);
@@ -515,7 +515,7 @@ class UmlgAvertissementTest {
 
             @UMLClass
             class Client {
-                @UMLAssociation(target = Commande.class, targetCardinality = "0..1")
+                @UMLAssociation(target = Commande.class, targetMultiplicity = "0..1")
                 private Facture facture;
             }
             """);
@@ -533,10 +533,10 @@ class UmlgAvertissementTest {
 
             @UMLClass
             class Client {
-                @UMLAssociation(target = Commande.class, targetCardinality = "0..*")
+                @UMLAssociation(target = Commande.class, targetMultiplicity = "0..*")
                 private Map<String, List<Commande>> parReference;
 
-                @UMLAssociation(target = Commande.class, targetCardinality = "0..*")
+                @UMLAssociation(target = Commande.class, targetMultiplicity = "0..*")
                 private List<? extends Commande> variantes;
             }
             """);
@@ -554,7 +554,7 @@ class UmlgAvertissementTest {
 
             @UMLClass
             class Client {
-                @UMLAssociation(target = Commande.class, targetCardinality = "0..*")
+                @UMLAssociation(target = Commande.class, targetMultiplicity = "0..*")
                 private List commandes;
             }
             """);
@@ -639,7 +639,7 @@ class UmlgAvertissementTest {
             @UMLClass
             class Client {
                 @UMLDerived
-                @UMLAssociation(target = Commande.class, targetCardinality = "0..*")
+                @UMLAssociation(target = Commande.class, targetMultiplicity = "0..*")
                 private List<Commande> commandes;
             }
             """);
@@ -656,7 +656,7 @@ class UmlgAvertissementTest {
             @UMLClass
             class Client {
                 @UMLDerived
-                @UMLAssociation(target = Commande.class, targetCardinality = "0..*",
+                @UMLAssociation(target = Commande.class, targetMultiplicity = "0..*",
                     targetRole = "encours")
                 private List<Commande> commandes;
             }
@@ -691,7 +691,7 @@ class UmlgAvertissementTest {
             @UMLClass(strategy = UMLVisibility.PRIVATE)
             class Client {
                 @UMLNote(text = "Perdue")
-                @UMLAssociation(target = Commande.class, targetCardinality = "0..1")
+                @UMLAssociation(target = Commande.class, targetMultiplicity = "0..1")
                 private Commande commande;
             }
             """);
@@ -788,7 +788,7 @@ class UmlgAvertissementTest {
             @UMLClass
             class Client {
                 @UMLConstraint(rule = "subset")
-                @UMLAssociation(target = Commande.class, targetCardinality = "0..*",
+                @UMLAssociation(target = Commande.class, targetMultiplicity = "0..*",
                     targetRole = "achats")
                 private List<Commande> commandes;
             }

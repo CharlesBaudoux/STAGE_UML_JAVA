@@ -26,11 +26,11 @@ class AssociationDeriveeTest {
 
         @UMLDerived
         @UMLAssociation(target = Commande.class, targetRole = "encours",
-            targetCardinality = "0..*")
+            targetMultiplicity = "0..*")
         private List<Commande> commandesEnCours;
 
         @UMLAssociation(target = Commande.class, targetRole = "archives",
-            targetCardinality = "0..*")
+            targetMultiplicity = "0..*")
         private List<Commande> commandesArchivees;
     }
 

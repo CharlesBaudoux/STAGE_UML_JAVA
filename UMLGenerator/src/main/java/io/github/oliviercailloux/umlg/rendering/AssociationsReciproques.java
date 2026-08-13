@@ -158,7 +158,7 @@ public final class AssociationsReciproques {
 
     // Le lien conservé a-t-il déjà nommé lui-même son extrémité source ?
     private static boolean cotesourceDejaEcrit(UmlAssociation gardee) {
-        return !gardee.sourceRole().isEmpty() || !gardee.sourceCardinality().isEmpty();
+        return !gardee.sourceRole().isEmpty() || !gardee.sourceMultiplicity().isEmpty();
     }
 
     // Pourquoi cette paire garde ses deux traits, et quoi faire pour n'en avoir qu'un.
@@ -191,7 +191,7 @@ public final class AssociationsReciproques {
         }
         if (cotesourceDejaEcrit(association)) {
             message.append(" ").append(ici).append(" already names its own source end "
-                + "(sourceRole or sourceCardinality), which is exactly where ").append(laBas)
+                + "(sourceRole or sourceMultiplicity), which is exactly where ").append(laBas)
                 .append(" would have been written. Drop that source end, and let the class "
                     + "opposite say what it is called.");
         }
@@ -204,7 +204,7 @@ public final class AssociationsReciproques {
     // bout la désigne. « B.a » nomme donc l'extrémité A du trait.
     private static UmlAssociation fusionner(UmlAssociation gardee, UmlAssociation partenaire) {
         return new UmlAssociation(gardee.fieldName(), gardee.targetQualifiedName(), gardee.type(),
-            partenaire.targetCardinality(), gardee.targetCardinality(),
+            partenaire.targetMultiplicity(), gardee.targetMultiplicity(),
             partenaire.targetRole(), gardee.targetRole(),
             gardee.label(), gardee.direction(), gardee.derived(), gardee.constraints());
     }

@@ -50,7 +50,7 @@ class MultiplicitesTest {
     @Test
     void uneBorneBasseSuperieureALaHaute_estRefusee() {
         var refus = assertThrows(IllegalArgumentException.class,
-            () -> Multiplicites.valider("3..1", "targetCardinality"));
+            () -> Multiplicites.valider("3..1", "targetMultiplicity"));
 
         assertTrue(refus.getMessage().contains("the lower bound exceeds the upper bound"),
             refus.getMessage());
@@ -59,11 +59,11 @@ class MultiplicitesTest {
     @Test
     void leMessage_nommeLeParametreDeLAppelant() {
         // C'est tout l'intérêt du second argument : le message doit désigner ce que
-        // l'utilisateur a écrit, « sourceCardinality » ou « value », et non un nom interne.
+        // l'utilisateur a écrit, « sourceMultiplicity » ou « value », et non un nom interne.
         var refus = assertThrows(IllegalArgumentException.class,
-            () -> Multiplicites.valider("beaucoup", "sourceCardinality"));
+            () -> Multiplicites.valider("beaucoup", "sourceMultiplicity"));
 
-        assertTrue(refus.getMessage().startsWith("sourceCardinality = \"beaucoup\""),
+        assertTrue(refus.getMessage().startsWith("sourceMultiplicity = \"beaucoup\""),
             refus.getMessage());
     }
 }

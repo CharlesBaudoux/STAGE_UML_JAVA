@@ -125,7 +125,7 @@ L'ordre des morceaux est fixe. Pour un attribut : la visibilité, \texttt{\{stat
     \item \textbf{Les noms des paramètres} ne sont affichés que si le projet a été compilé avec \texttt{-parameters} (section \ref{sec:modedemploi}) ; sinon la signature se réduit à \texttt{reporter(String, int) : void}. Un avertissement le \textbf{signale} quand aucun paramètre d'aucune méthode dessinée ne porte de nom.
     \item \textbf{L'ordre des membres} est \textbf{alphabétique} par défaut, la réflexion ne promettant aucun ordre stable ; \texttt{"order": "declaration"} rétablit l'ordre du source. Les littéraux d'une énumération font exception : leur ordre est celui des ordinaux.
     \item \textbf{Devant une multiplicité}, le type écrit est celui de l'\textbf{élément}, jamais celui du conteneur : un \texttt{Set<String>} marqué \texttt{[0..*]} s'écrit \texttt{alias : String [0..*]}. Une \texttt{Map}, ayant deux paramètres, s'écrit en entier.
-    \item \textbf{La multiplicité} n'est écrite que déclarée : par \texttt{targetCardinality} sous \texttt{notation = ATTRIBUTE} (section \ref{sec:notation}), ou par \texttt{@UMLMultiplicity} (section \ref{sec:multiplicite}). Absente, elle vaut \textit{exactement un}.
+    \item \textbf{La multiplicité} n'est écrite que déclarée : par \texttt{targetMultiplicity} sous \texttt{notation = ATTRIBUTE} (section \ref{sec:notation}), ou par \texttt{@UMLMultiplicity} (section \ref{sec:multiplicite}). Absente, elle vaut \textit{exactement un}.
 \end{itemize}
 
 \subsection{Directions et répétabilité}
@@ -244,20 +244,20 @@ public class MoteurDeRecherche {
 % ---------------------------------------------------------
 \section{La Précision Métier : \texttt{@UMLAssociation}}
 
-Précise la sémantique UML d'une relation portée par un attribut : type de lien, cardinalités, rôles, classe ciblée. Le code \texttt{List<Commande> commandes} indique qu'il y a plusieurs commandes ; seul le métier sait si c'est \texttt{0..*} ou \texttt{1..*}, et s'il s'agit d'une association ou d'une composition.
+Précise la sémantique UML d'une relation portée par un attribut : type de lien, multiplicités, rôles, classe ciblée. Le code \texttt{List<Commande> commandes} indique qu'il y a plusieurs commandes ; seul le métier sait si c'est \texttt{0..*} ou \texttt{1..*}, et s'il s'agit d'une association ou d'une composition.
 
 \begin{itemize}
     \item \texttt{target} (Class) : la classe cible. \textbf{Facultatif}, le type de l'attribut la nommant déjà (section \ref{sec:lecture}) ; nécessaire quand le type ne dit rien --- collection sans paramètre, \texttt{Map} dont on ne saurait quelle moitié est visée, classe absente du type.
     \item \texttt{notation} (Enum) : \texttt{ARROW} (défaut) ou \texttt{ATTRIBUTE} --- la \textbf{forme} du dessin (section \ref{sec:notation}).
     \item \texttt{type} (Enum) : \texttt{ASSOCIATION}, \texttt{COMPOSITION}, \texttt{AGGREGATION}.
-    \item \texttt{sourceCardinality}, \texttt{targetCardinality} (String) : multiplicités (ex. \texttt{"1"}, \texttt{"0..1"}, \texttt{"0..*"}) ; \texttt{sourceRole}, \texttt{targetRole} (String) : noms des rôles aux extrémités ; \texttt{label} (String) : texte sur la flèche ; \texttt{direction} (Enum) : \texttt{UMLDirection}, qui contraint le placement de \textit{ce} trait.
+    \item \texttt{sourceMultiplicity}, \texttt{targetMultiplicity} (String) : multiplicités (ex. \texttt{"1"}, \texttt{"0..1"}, \texttt{"0..*"}) ; \texttt{sourceRole}, \texttt{targetRole} (String) : noms des rôles aux extrémités ; \texttt{label} (String) : texte sur la flèche ; \texttt{direction} (Enum) : \texttt{UMLDirection}, qui contraint le placement de \textit{ce} trait.
 \end{itemize}
 
 \noindent L'ordre n'est pas un paramètre : il s'écrit \texttt{@UMLConstraint(rule = "ordered")}, comme n'importe quelle autre règle formelle.
 
 \begin{lstlisting}
 @UMLConstraint(rule = "ordered")
-@UMLAssociation(target = Commande.class, targetCardinality = "0..*")
+@UMLAssociation(target = Commande.class, targetMultiplicity = "0..*")
 private List<Commande> commandes;   // "achats 0..* {ordered}"
 \end{lstlisting}
 
@@ -267,8 +267,8 @@ public class Utilisateur {
     @UMLAssociation(
         target = Commande.class,
         type = UMLRelationType.COMPOSITION,
-        sourceCardinality = "1",
-        targetCardinality = "0..*",
+        sourceMultiplicity = "1",
+        targetMultiplicity = "0..*",
         targetRole = "achats",
         label = "passe"
     )
@@ -296,23 +296,23 @@ UML n'autorise \textbf{qu'une notation à la fois} : un trait entre deux boîtes
 @UMLClass
 public class Client {
     // Un trait vers Commande (comportement par defaut).
-    @UMLAssociation(target = Commande.class, targetCardinality = "1")
+    @UMLAssociation(target = Commande.class, targetMultiplicity = "1")
     private Commande courante;
 
     // Une ligne dans la boite : "- archivees: Commande [0..*]"
-    @UMLAssociation(target = Commande.class, targetCardinality = "0..*",
+    @UMLAssociation(target = Commande.class, targetMultiplicity = "0..*",
                     notation = UMLNotation.ATTRIBUTE)
     private List<Commande> archivees;
 }
 \end{lstlisting}
 
-\paragraph{Ce que la notation \texttt{ATTRIBUTE} retient.} Trois paramètres : \texttt{target} donne le \textbf{type} affiché (la classe visée, et non \texttt{List}) ; \texttt{targetCardinality} la \textbf{multiplicité} entre crochets ; \texttt{targetRole} le \textbf{nom} de la propriété, à défaut celui de l'attribut Java. S'y ajoutent la visibilité et \texttt{\{static\}}, la barre oblique de \texttt{@UMLDerived}, puis les \texttt{@UMLConstraint}. Les paramètres qui décorent un \textit{trait} --- \texttt{type}, \texttt{sourceCardinality}, \texttt{sourceRole}, \texttt{label}, \texttt{direction} --- ne sont pas dessinés, et le compilateur les nomme un à un. La classe visée doit porter \texttt{@UMLClass} dans les deux notations.
+\paragraph{Ce que la notation \texttt{ATTRIBUTE} retient.} Trois paramètres : \texttt{target} donne le \textbf{type} affiché (la classe visée, et non \texttt{List}) ; \texttt{targetMultiplicity} la \textbf{multiplicité} entre crochets ; \texttt{targetRole} le \textbf{nom} de la propriété, à défaut celui de l'attribut Java. S'y ajoutent la visibilité et \texttt{\{static\}}, la barre oblique de \texttt{@UMLDerived}, puis les \texttt{@UMLConstraint}. Les paramètres qui décorent un \textit{trait} --- \texttt{type}, \texttt{sourceMultiplicity}, \texttt{sourceRole}, \texttt{label}, \texttt{direction} --- ne sont pas dessinés, et le compilateur les nomme un à un. La classe visée doit porter \texttt{@UMLClass} dans les deux notations.
 
 \begin{lstlisting}
 @UMLConstraint(rule = "ordered")
 @UMLConstraint(rule = "non vide")
 @UMLDerived
-@UMLAssociation(target = Commande.class, targetCardinality = "1..*",
+@UMLAssociation(target = Commande.class, targetMultiplicity = "1..*",
                 notation = UMLNotation.ATTRIBUTE)
 protected List<Commande> achats;
 // Ligne produite : # /achats: Commande [1..*] {ordered} {non vide}
@@ -372,7 +372,7 @@ public class CanonicalMnemonic {
 }
 \end{lstlisting}
 
-\texttt{value} (String) : la multiplicité, dans le vocabulaire d'UML --- \texttt{"1"}, \texttt{"0..1"}, \texttt{"*"}, \texttt{"1..*"}, \texttt{"2..5"} ; le nom \texttt{value} permet la forme courte \texttt{@UMLMultiplicity("0..*")}. Elle vise les propriétés qui n'ont \textbf{aucune classe à l'autre bout} : la multiplicité d'un \textit{lien} se déclare par \texttt{targetCardinality}, et cumuler les deux est une erreur. Avec \texttt{@UMLDerived} et \texttt{@UMLConstraint} la combinaison est libre : \texttt{- /etiquettes: String [1..*] \{sans doublon\}}.
+\texttt{value} (String) : la multiplicité, dans le vocabulaire d'UML --- \texttt{"1"}, \texttt{"0..1"}, \texttt{"*"}, \texttt{"1..*"}, \texttt{"2..5"} ; le nom \texttt{value} permet la forme courte \texttt{@UMLMultiplicity("0..*")}. Elle vise les propriétés qui n'ont \textbf{aucune classe à l'autre bout} : la multiplicité d'un \textit{lien} se déclare par \texttt{targetMultiplicity}, et cumuler les deux est une erreur. Avec \texttt{@UMLDerived} et \texttt{@UMLConstraint} la combinaison est libre : \texttt{- /etiquettes: String [1..*] \{sans doublon\}}.
 
 \paragraph{Ce que le projet peut traduire à sa place.} La règle \texttt{"multiplicity": "brackets"} transcrit ce que le type dit déjà : \texttt{Optional<X>} vaut « zéro ou un », \texttt{Set<X>} « zéro ou plusieurs ». Elle ne dit jamais \textit{plus} que le type --- \texttt{0..*} et non \texttt{1..*} --- et l'annotation l'emporte sur elle. Un type enveloppe redevient alors primitif : \texttt{Optional<Integer>} s'écrit \texttt{int [0..1]}.
 
@@ -393,11 +393,11 @@ public class Personne {
 
     @UMLDerived
     @UMLAssociation(target = Commande.class, targetRole = "encours",
-                    targetCardinality = "0..*")
+                    targetMultiplicity = "0..*")
     private List<Commande> commandesEnCours; // Trait portant "/encours 0..*"
 
     @UMLDerived
-    @UMLAssociation(target = Commande.class, targetCardinality = "0..*",
+    @UMLAssociation(target = Commande.class, targetMultiplicity = "0..*",
                     notation = UMLNotation.ATTRIBUTE)
     private List<Commande> commandesSoldees; // - /commandesSoldees: Commande [0..*]
 }
@@ -800,11 +800,11 @@ La bibliothèque embarque un \textbf{processeur d'annotations} (JSR 269) qui s'e
 \endhead
 \texttt{@UMLInclude} sur un membre déjà affiché, \texttt{@UMLExclude} sur un membre déjà masqué, \texttt{@UMLInclude(name)} reprenant le nom du code & La dérogation ne déroge à rien, le renommage n'a pas eu lieu. Un \texttt{name} qui renomme vraiment n'est jamais signalé. \\
 \texttt{@UMLInclude} ou \texttt{@UMLExclude} sur un attribut porteur de \texttt{@UMLAssociation} & Sous \texttt{ARROW} l'attribut est un lien --- rien ne l'y ramène, et l'exclure supprime le \textbf{trait} ; sous \texttt{ATTRIBUTE} il est déjà affiché, et c'est la \textbf{ligne} qui disparaît. \\
-Paramètre de trait écrit sous \texttt{notation = ATTRIBUTE} (\texttt{type}, \texttt{label}, \texttt{direction}, \texttt{sourceRole}, \texttt{sourceCardinality}) & Ces valeurs ne seront dessinées nulle part ; le message les nomme une à une. \\
+Paramètre de trait écrit sous \texttt{notation = ATTRIBUTE} (\texttt{type}, \texttt{label}, \texttt{direction}, \texttt{sourceRole}, \texttt{sourceMultiplicity}) & Ces valeurs ne seront dessinées nulle part ; le message les nomme une à une. \\
 \texttt{stereotype} contenant déjà \texttt{<<~>>}, ou \texttt{rule} portant déjà ses accolades & Elles seraient dessinées en double. \\
 Deux classes affichant la même étiquette, ou deux couleurs pour un même groupe & Deux rectangles que le lecteur ne peut pas distinguer ; pour la couleur, la première l'emporte. \\
 \texttt{@UMLDependency} vers une classe déjà atteinte par une association \textbf{dessinée en trait} & Une association dit strictement plus qu'une dépendance. Sous \texttt{ATTRIBUTE}, rien n'est signalé. \\
-Attribut de type collection sans \texttt{targetCardinality}, ou multiplicité que le type contredit (\texttt{List} pour \texttt{"0..1"}) & Aucune multiplicité ne sera portée, ou bien l'un des deux se trompe. \\
+Attribut de type collection sans \texttt{targetMultiplicity}, ou multiplicité que le type contredit (\texttt{List} pour \texttt{"0..1"}) & Aucune multiplicité ne sera portée, ou bien l'un des deux se trompe. \\
 \texttt{target} absent du type de l'attribut & Le lien sera tout de même dessiné vers la classe déclarée. \\
 \texttt{@UMLDerived}, \texttt{@UMLMultiplicity}, \texttt{@UMLNote} ou \texttt{@UMLConstraint} sur un membre que le diagramme n'affiche pas & Barre oblique, crochets, bulle ou accolades ne se voient que si l'élément marqué est dessiné. \texttt{@UMLMultiplicity("")} ne demande rien. \\
 \texttt{@UMLDerived} sur un lien \textbf{en trait} sans \texttt{targetRole} & La barre se pose devant le rôle cible ; sans rôle, rien ne peut la porter. \\

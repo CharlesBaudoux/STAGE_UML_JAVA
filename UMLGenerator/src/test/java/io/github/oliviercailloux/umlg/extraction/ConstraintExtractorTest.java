@@ -39,7 +39,7 @@ class ConstraintExtractorTest {
 
         @UMLConstraint(rule = "subset")
         @UMLAssociation(target = Commande.class, targetRole = "achats",
-            targetCardinality = "0..*")
+            targetMultiplicity = "0..*")
         private List<Commande> commandes;
     }
 

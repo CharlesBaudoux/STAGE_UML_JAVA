@@ -79,12 +79,12 @@ class HierarchieDesDecisionsTest {
     static class Cible {}
 
     static class Journal {
-        @UMLAssociation(targetCardinality = "0..*", notation = UMLNotation.ATTRIBUTE)
+        @UMLAssociation(targetMultiplicity = "0..*", notation = UMLNotation.ATTRIBUTE)
         private List<Cible> logCibles;
     }
 
     static class JournalEnTrait {
-        @UMLAssociation(targetCardinality = "0..*")
+        @UMLAssociation(targetMultiplicity = "0..*")
         private List<Cible> logCibles;
     }
 
@@ -95,7 +95,7 @@ class HierarchieDesDecisionsTest {
 
         assertEquals(List.of("logCibles"), noms(champs), champs.toString());
         assertEquals("Cible", champs.get(0).type());
-        assertEquals("0..*", champs.get(0).cardinality());
+        assertEquals("0..*", champs.get(0).multiplicity());
     }
 
     @Test
@@ -114,7 +114,7 @@ class HierarchieDesDecisionsTest {
 
     static class JournalExclu {
         @UMLExclude
-        @UMLAssociation(targetCardinality = "0..*", notation = UMLNotation.ATTRIBUTE)
+        @UMLAssociation(targetMultiplicity = "0..*", notation = UMLNotation.ATTRIBUTE)
         private List<Cible> logCibles;
     }
 

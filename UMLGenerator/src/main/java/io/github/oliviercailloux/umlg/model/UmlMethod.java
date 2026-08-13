@@ -14,7 +14,7 @@ import java.util.List;
  *     admise, et veut dire « ne rien écrire après les parenthèses » : UML tient le type de retour
  *     pour facultatif, et beaucoup de diagrammes tenus à la main taisent le {@code void}, qui
  *     n'apprend rien. C'est une règle du projet qui en décide ; par défaut le type est écrit.
- * @param cardinality combien d'objets la méthode rend, écrit entre crochets après le type de
+ * @param multiplicity combien d'objets la méthode rend, écrit entre crochets après le type de
  *     retour : {@code names(): String [0..*]}. Vide = rien d'affiché, ce qui vaut « exactement
  *     un ». Renseignée par {@code @UMLMultiplicity}.
  * @param visibility le symbole UML de visibilité, comme pour {@link UmlField}.
@@ -30,7 +30,7 @@ import java.util.List;
 public record UmlMethod(
     String name,
     String returnType,
-    String cardinality,
+    String multiplicity,
     String visibility,
     boolean isStatic,
     ImmutableList<UmlParameter> parameters,
@@ -57,8 +57,8 @@ public record UmlMethod(
         checkNotNull(returnType, "The return type cannot be null (use an empty string).");
         checkArgument(returnType.isEmpty() || !returnType.isBlank(),
             "The return type of \"%s\" cannot be made of whitespace only.", name);
-        checkNotNull(cardinality, "The cardinality cannot be null (use an empty string).");
-        Multiplicites.valider(cardinality, "cardinality");
+        checkNotNull(multiplicity, "The multiplicity cannot be null (use an empty string).");
+        Multiplicites.valider(multiplicity, "multiplicity");
         UmlField.verifierVisibilite(visibility, name);
 
         // Recopie défensive : la liste passée par l'appelant reste modifiable de son côté, celle
@@ -73,15 +73,15 @@ public record UmlMethod(
      *
      * @param name le nom affiché.
      * @param returnType le nom simple du type de retour.
-     * @param cardinality la multiplicité du retour, ou la chaîne vide.
+     * @param multiplicity la multiplicité du retour, ou la chaîne vide.
      * @param visibility le symbole UML de visibilité.
      * @param isStatic vrai pour une méthode statique.
      * @param parameters les paramètres, dans l'ordre de la signature.
      * @param derived vrai pour une méthode dérivée.
      */
-    public UmlMethod(String name, String returnType, String cardinality, String visibility,
+    public UmlMethod(String name, String returnType, String multiplicity, String visibility,
         boolean isStatic, ImmutableList<UmlParameter> parameters, boolean derived) {
-        this(name, returnType, cardinality, visibility, isStatic, parameters, derived, false);
+        this(name, returnType, multiplicity, visibility, isStatic, parameters, derived, false);
     }
 
     /**

@@ -86,7 +86,7 @@ class PlantUmlContrainteTest {
     @Test
     void contrainteDeLien_rejointLExtremiteCible() {
         UmlAssociation association = UmlAssociation.builder("commandes", "com.exemple.Commande")
-            .targetRole("achats").targetCardinality("0..*")
+            .targetRole("achats").targetMultiplicity("0..*")
             .constraints(List.of("subset")).build();
 
         String ligne = ligneDeLien(association);
@@ -100,7 +100,7 @@ class PlantUmlContrainteTest {
         // disparu : sur le dessin, rien ne la distingue d'un {subset} écrit par l'auteur, et rien
         // ne doit l'en distinguer. Elle s'écrit donc à la place où on l'a écrite.
         UmlAssociation association = UmlAssociation.builder("commandes", "com.exemple.Commande")
-            .targetCardinality("0..*")
+            .targetMultiplicity("0..*")
             .constraints(List.of("ordered", "subset")).build();
 
         assertTrue(ligneDeLien(association).contains("\"0..* {ordered} {subset}\""),

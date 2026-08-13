@@ -19,14 +19,14 @@ class UmlAssociationTest {
     // laisserait le dessin dire autre chose que ce que l'auteur a écrit, et rien ne le verrait.
     @ParameterizedTest
     @ValueSource(strings = {"", "1", "0", "*", "0..1", "1..*", "0..*", "2..7", "3..3", "12"})
-    void multipliciteBienFormee_estGardeeTelleQuelle(String cardinalite) {
+    void multipliciteBienFormee_estGardeeTelleQuelle(String multiplicite) {
         UmlAssociation association = UmlAssociation.builder("champ", "Cible")
-            .sourceCardinality(cardinalite)
-            .targetCardinality(cardinalite)
+            .sourceMultiplicity(multiplicite)
+            .targetMultiplicity(multiplicite)
             .build();
 
-        assertEquals(cardinalite, association.sourceCardinality());
-        assertEquals(cardinalite, association.targetCardinality());
+        assertEquals(multiplicite, association.sourceMultiplicity());
+        assertEquals(multiplicite, association.targetMultiplicity());
     }
 
     // La liste couvre les fautes usuelles : lettre isolée, intervalle tronqué, bornes inversées,
@@ -37,12 +37,12 @@ class UmlAssociationTest {
         "n", "0..x", "1..", "..*", "*..1", "0...1", "1..2..3", "-1", "1 ", " 1", "0..*extra",
         "0..*\nclass Intruse", "5..2", "1.2",
     })
-    void multipliciteMalFormeeOuIncoherente_estRefusee(String cardinalite) {
+    void multipliciteMalFormeeOuIncoherente_estRefusee(String multiplicite) {
         // « 5..2 » est le cas intéressant : irréprochable syntaxiquement, vide de sens. Une
         // vérification purement lexicale le laisserait passer, et le diagramme afficherait
         // sans broncher une multiplicité impossible.
         assertThrows(IllegalArgumentException.class,
-            () -> UmlAssociation.builder("champ", "Cible").targetCardinality(cardinalite).build());
+            () -> UmlAssociation.builder("champ", "Cible").targetMultiplicity(multiplicite).build());
     }
 
     // --- Textes libres : contrainte minimale ---

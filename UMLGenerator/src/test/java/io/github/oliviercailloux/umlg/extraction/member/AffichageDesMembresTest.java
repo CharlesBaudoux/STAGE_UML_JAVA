@@ -98,7 +98,7 @@ class AffichageDesMembresTest {
     // --- Les paramètres de trait, sous une notation qui ne trace aucun trait ---
 
     static class SourceImpossible {
-        @UMLAssociation(target = Cible.class, sourceCardinality = "3..1",
+        @UMLAssociation(target = Cible.class, sourceMultiplicity = "3..1",
             notation = UMLNotation.ATTRIBUTE)
         public Cible champ;
     }
@@ -123,7 +123,7 @@ class AffichageDesMembresTest {
         // ou non, et la première bascule vers ARROW la ferait surgir.
         var multiplicite = assertThrows(IllegalArgumentException.class,
             () -> MemberExtractor.extractFields(SourceImpossible.class, UMLVisibility.PUBLIC));
-        assertTrue(multiplicite.getMessage().contains("sourceCardinality"),
+        assertTrue(multiplicite.getMessage().contains("sourceMultiplicity"),
             multiplicite.getMessage());
 
         var role = assertThrows(IllegalArgumentException.class,

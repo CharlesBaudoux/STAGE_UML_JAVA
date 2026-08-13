@@ -52,7 +52,7 @@ public @interface UMLAssociation {
      * annotation dont c'est le nom.
      *
      * <p>ATTRIBUTE ne garde que ce qu'une ligne d'attribut sait porter : la cible, qui en donne le
-     * type, targetCardinality, qui en donne la multiplicité, et targetRole, qui devient le nom
+     * type, targetMultiplicity, qui en donne la multiplicité, et targetRole, qui devient le nom
      * même de la propriété — en notation attribut, c'est le rôle que l'on lit. Les paramètres
      * qui décorent un trait — type, direction, label, le rôle et la multiplicité côté source —
      * n'ont alors nulle part où s'écrire ; le processeur d'annotations le signale plutôt que de
@@ -80,14 +80,14 @@ public @interface UMLAssociation {
      *
      * @return la multiplicité côté source ; vide = rien d'affiché de ce côté.
      */
-    String sourceCardinality() default "";
+    String sourceMultiplicity() default "";
 
     /**
      * Multiplicité affichée du côté de la cible, écrite comme celle de la source.
      *
      * @return la multiplicité côté cible ; vide = rien d'affiché de ce côté.
      */
-    String targetCardinality() default "";
+    String targetMultiplicity() default "";
 
     /**
      * Rôle : le nom que joue l'extrémité de départ, écrit le long du trait.

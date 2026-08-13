@@ -79,7 +79,7 @@ public final class PlantUmlLayout {
 
     // Met en forme une ligne du nom d'une association posé au milieu du trait.
     //
-    // L'italique est commun aux deux apparences, et pour une raison de lecture : la cardinalité
+    // L'italique est commun aux deux apparences, et pour une raison de lecture : la multiplicité
     // se pose au même endroit que le nom du lien, PlantUML seul décidant où, et rien d'autre ne
     // permettrait au lecteur de savoir lequel des deux textes nomme le trait. La couleur, elle,
     // appartient au thème — sous UmlStyle.PLANTUML le nom reste noir, comme le reste.

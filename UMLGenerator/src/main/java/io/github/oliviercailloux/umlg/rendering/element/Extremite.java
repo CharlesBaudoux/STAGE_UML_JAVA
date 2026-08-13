@@ -37,7 +37,7 @@ final class Extremite {
         Morceaux morceaux = new Morceaux();
 
         morceaux.ajouter(association.sourceRole(), "%s");
-        morceaux.ajouter(association.sourceCardinality(), "%s");
+        morceaux.ajouter(association.sourceMultiplicity(), "%s");
 
         return morceaux.assembler();
     }
@@ -48,7 +48,7 @@ final class Extremite {
 
         // La barre oblique d'un lien dérivé précède le rôle, qui est le nom de la propriété.
         morceaux.ajouter(association.targetRole(), association.derived() ? "/%s" : "%s");
-        morceaux.ajouter(association.targetCardinality(), "%s");
+        morceaux.ajouter(association.targetMultiplicity(), "%s");
 
         // Les contraintes s'écrivent toutes de la même façon, et c'est voulu : « {subset} » écrit
         // par l'auteur ne se distingue pas d'un « {ordered} » sur le dessin, et n'a aucune raison

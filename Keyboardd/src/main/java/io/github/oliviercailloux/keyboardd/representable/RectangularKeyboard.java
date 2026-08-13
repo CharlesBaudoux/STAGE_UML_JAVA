@@ -47,7 +47,7 @@ public class RectangularKeyboard {
   @UMLAssociation(
       target = RectangularKey.class,
       targetRole = "physicalKeys",
-      targetCardinality = "0..*",
+      targetMultiplicity = "0..*",
       notation = UMLNotation.ATTRIBUTE)
   private final ImmutableSet<RectangularKey> keys;
 

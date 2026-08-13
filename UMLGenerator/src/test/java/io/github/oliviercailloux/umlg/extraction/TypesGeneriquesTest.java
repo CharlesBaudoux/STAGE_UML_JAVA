@@ -143,7 +143,7 @@ class TypesGeneriquesTest {
         UmlEntity entity = EntityExtractor.extract(AvecMultiplicites.class);
 
         assertEquals("String", champ(entity, "alias").type());
-        assertEquals("0..*", champ(entity, "alias").cardinality());
+        assertEquals("0..*", champ(entity, "alias").multiplicity());
     }
 
     @Test
@@ -220,7 +220,7 @@ class TypesGeneriquesTest {
             .filter(m -> m.name().equals("commandes")).findFirst().orElseThrow();
 
         assertEquals("Commande", commandes.returnType());
-        assertEquals("0..*", commandes.cardinality());
+        assertEquals("0..*", commandes.multiplicity());
     }
 
     @Test
@@ -234,7 +234,7 @@ class TypesGeneriquesTest {
 
     @UMLClass
     static class ClientDeduit {
-        @UMLAssociation(targetCardinality = "0..*", notation = UMLNotation.ATTRIBUTE)
+        @UMLAssociation(targetMultiplicity = "0..*", notation = UMLNotation.ATTRIBUTE)
         private List<Commande> commandes;
 
         @UMLAssociation(notation = UMLNotation.ATTRIBUTE)
@@ -246,7 +246,7 @@ class TypesGeneriquesTest {
         UmlEntity entity = EntityExtractor.extract(ClientDeduit.class);
 
         assertEquals("Commande", champ(entity, "commandes").type());
-        assertEquals("0..*", champ(entity, "commandes").cardinality());
+        assertEquals("0..*", champ(entity, "commandes").multiplicity());
     }
 
     @Test
@@ -257,7 +257,7 @@ class TypesGeneriquesTest {
 
     @UMLClass
     static class LienDeduitEnTrait {
-        @UMLAssociation(targetCardinality = "1..*")
+        @UMLAssociation(targetMultiplicity = "1..*")
         private List<Commande> commandes;
     }
 

@@ -121,7 +121,7 @@ public final class MemberExtractor {
 
             // Deux multiplicités sur la même propriété : l'une des deux serait fausse, et rien ne
             // dirait laquelle. Sur un attribut porteur de @UMLAssociation, c'est
-            // targetCardinality qui compte — @UMLMultiplicity n'a plus rien à qualifier.
+            // targetMultiplicity qui compte — @UMLMultiplicity n'a plus rien à qualifier.
             checkArgument(association == null || !field.isAnnotationPresent(UMLMultiplicity.class),
                 messageDeuxMultiplicites(emplacement(field)));
 
@@ -240,11 +240,11 @@ public final class MemberExtractor {
     // s'applique, et le processeur les lit.
 
     // Deux multiplicités sur la même propriété : l'une des deux serait fausse, et rien ne dirait
-    // laquelle. Sur un attribut porteur de @UMLAssociation, c'est targetCardinality qui compte —
+    // laquelle. Sur un attribut porteur de @UMLAssociation, c'est targetMultiplicity qui compte —
     // @UMLMultiplicity n'a plus rien à qualifier.
     public static String messageDeuxMultiplicites(String emplacement) {
         return emplacement + " carries both @UMLAssociation and @UMLMultiplicity: the "
-            + "multiplicity of this property is already given by targetCardinality. Keep only one "
+            + "multiplicity of this property is already given by targetMultiplicity. Keep only one "
             + "of the two.";
     }
 
@@ -364,7 +364,7 @@ public final class MemberExtractor {
     // La multiplicité déclarée par @UMLMultiplicity, ou rien.
     //
     // Sur un attribut porteur de @UMLAssociation, la question est déjà tranchée : c'est
-    // targetCardinality qui dit le nombre, et deux multiplicités sur la même propriété se
+    // targetMultiplicity qui dit le nombre, et deux multiplicités sur la même propriété se
     // contrediraient tôt ou tard. La bibliothèque saurait en choisir une, mais le faire en
     // silence reviendrait à décider à la place de l'auteur, dans un code qui se contredit.
     private static String multiplicite(AnnotatedElement membre) {
@@ -458,10 +458,10 @@ public final class MemberExtractor {
             //
             // LES TROIS PARAMÈTRES QUE CETTE NOTATION NE DESSINE PAS SONT VALIDÉS QUAND MÊME
             //
-            // sourceCardinality, sourceRole et label décorent un trait, et la notation ATTRIBUTE
+            // sourceMultiplicity, sourceRole et label décorent un trait, et la notation ATTRIBUTE
             // n'en trace aucun : ils ne sont pas recopiés dans la ligne engendrée, et l'ancienne
             // version ne les lisait donc pas du tout. Le processeur d'annotations, lui, les
-            // validait quelle que soit la notation — si bien que « sourceCardinality = "3..1" »
+            // validait quelle que soit la notation — si bien que « sourceMultiplicity = "3..1" »
             // arrêtait la compilation et passait la génération, sur le même code. C'est la
             // divergence 14(b), tranchée du côté dur : une multiplicité impossible reste
             // impossible, qu'elle finisse dessinée ou non, et la première bascule vers ARROW la
@@ -469,10 +469,10 @@ public final class MemberExtractor {
             // grammaire.
             UmlAssociation lien =
                 UmlAssociation.builder(field.getName(), cible.getName())
-                    .sourceCardinality(association.sourceCardinality())
+                    .sourceMultiplicity(association.sourceMultiplicity())
                     .sourceRole(association.sourceRole())
                     .targetRole(association.targetRole())
-                    .targetCardinality(association.targetCardinality())
+                    .targetMultiplicity(association.targetMultiplicity())
                     .label(association.label())
                     .constraints(ConstraintExtractor.de(field, emplacement(field)))
                     .build();
@@ -487,7 +487,7 @@ public final class MemberExtractor {
                 // aux types lus dans le code, pour que le type écrit ici ne diverge jamais du nom
                 // de la boîte voisine.
                 cible.getSimpleName(),
-                lien.targetCardinality(), contraintes, regles);
+                lien.targetMultiplicity(), contraintes, regles);
         } catch (IllegalArgumentException | NullPointerException e) {
             // Le modèle a détecté la faute — une multiplicité « 3..1 », par exemple — mais ignore
             // d'où elle vient : on rejoue son message en le préfixant de l'emplacement.
