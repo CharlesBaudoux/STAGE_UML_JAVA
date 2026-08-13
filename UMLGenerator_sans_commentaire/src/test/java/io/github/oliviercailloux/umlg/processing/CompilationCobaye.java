@@ -1,5 +1,6 @@
 package io.github.oliviercailloux.umlg.processing;
 
+import io.github.oliviercailloux.umlg.CompilationSansProcesseur;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -9,8 +10,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import javax.tools.Diagnostic;
 import javax.tools.DiagnosticCollector;
 import javax.tools.JavaCompiler;
@@ -19,6 +18,11 @@ import javax.tools.StandardJavaFileManager;
 import javax.tools.ToolProvider;
 
 final class CompilationCobaye {
+
+    static final String ENTETE = """
+        import io.github.oliviercailloux.umlg.annotation.*;
+        import java.util.*;
+        """;
 
     record Verdict(boolean reussie, List<String> erreurs, List<String> avertissements) {
 
@@ -38,6 +42,15 @@ final class CompilationCobaye {
     }
 
     private CompilationCobaye() {}
+
+    static Verdict compilerCorps(Path repertoire, String corps) throws IOException {
+        return compilerCorps(repertoire, corps, List.of());
+    }
+
+    static Verdict compilerCorps(Path repertoire, String corps, List<String> options)
+        throws IOException {
+        return compiler(repertoire, "Cobaye.java", ENTETE + corps, options);
+    }
 
     static Verdict compiler(Path repertoire, String nomFichier, String code) throws IOException {
         return compiler(repertoire, nomFichier, code, List.of());
@@ -102,9 +115,6 @@ final class CompilationCobaye {
     }
 
     private static String cheminDeCompilation() {
-        return Stream.of(System.getProperty("java.class.path"),
-                System.getProperty("jdk.module.path"))
-            .filter(chemin -> chemin != null && !chemin.isBlank())
-            .collect(Collectors.joining(File.pathSeparator));
+        return CompilationSansProcesseur.cheminDeCompilation();
     }
 }

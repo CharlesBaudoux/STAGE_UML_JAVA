@@ -20,6 +20,7 @@ class UmlModelTest {
         return new UmlEntity("E", "", "", UMLVisibility.NONE, List.of(), List.of());
     }
 
+
     @Test
     void projetVide_estRefuse() {
         IllegalArgumentException e =
@@ -44,6 +45,28 @@ class UmlModelTest {
     @Test
     void projetSansDiagrammeDeclare_prendLesReglagesParDefaut() {
         assertEquals(UmlDiagram.defaut(), UmlProject.given(Set.of(entiteMinimale())).diagram());
+    }
+
+
+    @Test
+    void deuxEntitesDeMemeNomQualifie_sontRefusees() {
+        UmlEntity bleue = UmlEntity.builder("com.banque.Compte", "Compte").color("#DDEEFF").build();
+        UmlEntity rouge = UmlEntity.builder("com.banque.Compte", "Compte").color("#FFDDDD").build();
+
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+            () -> UmlProject.given(new LinkedHashSet<>(List.of(bleue, rouge))));
+
+        assertTrue(e.getMessage().contains("com.banque.Compte"),
+            "Le message doit nommer le doublon, seule chose à corriger : " + e.getMessage());
+    }
+
+    @Test
+    void deuxEntitesDeNomsQualifiesDistincts_cohabitent() {
+        UmlEntity ici = UmlEntity.builder("com.banque.Compte", "Compte").build();
+        UmlEntity ailleurs = UmlEntity.builder("com.clients.Compte", "Compte").build();
+
+        assertEquals(2, UmlProject.given(new LinkedHashSet<>(List.of(ici, ailleurs)))
+            .entities().size());
     }
 
     @Test
@@ -79,6 +102,7 @@ class UmlModelTest {
             UmlProject.given(Set.of(entiteMinimale())));
     }
 
+
     @Test
     void entite_refuseChaqueArgumentNull() {
         assertThrows(NullPointerException.class,
@@ -93,6 +117,16 @@ class UmlModelTest {
             () -> new UmlEntity("E", "", "", UMLVisibility.NONE, null, List.of()));
         assertThrows(NullPointerException.class,
             () -> new UmlEntity("E", "", "", UMLVisibility.NONE, List.of(), null));
+    }
+
+    @Test
+    void entite_refuseUnNomVide() {
+        assertThrows(IllegalArgumentException.class,
+            () -> new UmlEntity("", "", "", UMLVisibility.NONE, List.of(), List.of()));
+        assertThrows(IllegalArgumentException.class,
+            () -> new UmlEntity("   ", "", "", UMLVisibility.NONE, List.of(), List.of()));
+        assertThrows(IllegalArgumentException.class,
+            () -> UmlEntity.builder("com.banque.Compte", "  ").build());
     }
 
     @Test
@@ -131,6 +165,7 @@ class UmlModelTest {
         assertNotEquals(a, b, "La stratégie fait partie de l'identité de l'entité.");
     }
 
+
     @Test
     void methode_copieSesTypesDeParametres() {
         List<String> parametres = new ArrayList<>(List.of("int", "String"));
@@ -160,6 +195,7 @@ class UmlModelTest {
             "Deux surcharges doivent rester distinctes, sinon un Set les fusionnerait.");
     }
 
+
     @Test
     void champsIdentiques_sontEgaux() {
         assertEquals(new UmlField("a", "int", "+", false), new UmlField("a", "int", "+", false));
@@ -168,5 +204,62 @@ class UmlModelTest {
     @Test
     void champStatiqueEtNonStatique_neSontPasEgaux() {
         assertNotEquals(new UmlField("a", "int", "+", true), new UmlField("a", "int", "+", false));
+    }
+
+
+    @Test
+    void champSansNom_estRefuse() {
+        assertThrows(NullPointerException.class, () -> new UmlField(null, "int", "+", false));
+        assertThrows(IllegalArgumentException.class, () -> new UmlField("  ", "int", "+", false));
+    }
+
+    @Test
+    void champSansType_estRefuse() {
+        assertThrows(NullPointerException.class, () -> new UmlField("a", null, "+", false));
+
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+            () -> new UmlField("a", "", "+", false));
+        assertTrue(e.getMessage().contains("a"),
+            "Le message doit nommer l'attribut fautif : " + e.getMessage());
+    }
+
+    @Test
+    void champDeVisibiliteInconnue_estRefuse() {
+        assertThrows(NullPointerException.class, () -> new UmlField("a", "int", null, false));
+
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+            () -> new UmlField("a", "int", "?", false));
+        assertTrue(e.getMessage().contains("?"), e.getMessage());
+    }
+
+    @Test
+    void champSansVisibiliteEcrite_estAccepte() {
+        assertEquals("", new UmlField("a", "int", "", false).visibility());
+    }
+
+
+    @Test
+    void methodeSansNom_estRefusee() {
+        assertThrows(NullPointerException.class,
+            () -> new UmlMethod(null, "void", "+", false, List.of()));
+        assertThrows(IllegalArgumentException.class,
+            () -> new UmlMethod(" ", "void", "+", false, List.of()));
+    }
+
+    @Test
+    void methodeDeVisibiliteInconnue_estRefusee() {
+        assertThrows(IllegalArgumentException.class,
+            () -> new UmlMethod("m", "void", "?", false, List.of()));
+    }
+
+    @Test
+    void methodeSansTypeDeRetourEcrit_estAcceptee() {
+        assertEquals("", new UmlMethod("m", "", "+", false, List.of()).returnType());
+    }
+
+    @Test
+    void methodeDontLeTypeDeRetourNEstQueDesEspaces_estRefusee() {
+        assertThrows(IllegalArgumentException.class,
+            () -> new UmlMethod("m", " ", "+", false, List.of()));
     }
 }

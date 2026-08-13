@@ -27,6 +27,7 @@ class DiagrammeDeReferenceTest {
             EntityExtractor.extract(ProjetDeReference.Statut.class, REGLES),
             EntityExtractor.extract(ProjetDeReference.Commande.class, REGLES),
             EntityExtractor.extract(ProjetDeReference.ServiceBancaire.class, REGLES),
+            EntityExtractor.extract(ProjetDeReference.Reglement.class, REGLES),
             EntityExtractor.extract(ProjetDeReference.ClientFacture.class, REGLES));
     }
 

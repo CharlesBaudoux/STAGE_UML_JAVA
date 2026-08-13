@@ -5,17 +5,11 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.oliviercailloux.umlg.rendering.PlantUmlAssert;
-import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-import javax.tools.JavaCompiler;
-import javax.tools.StandardJavaFileManager;
-import javax.tools.ToolProvider;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -69,7 +63,7 @@ class DuCodeCompileAuPumlTest {
 
         @UMLClass(strategy = UMLVisibility.PUBLIC)
         class Eleve extends Personne {
-            @UMLAssociation(targetCardinality = "0..*", targetRole = "cours")
+            @UMLAssociation(targetMultiplicity = "0..*", targetRole = "cours")
             public List<Cours> cours;
 
             @Override
@@ -80,7 +74,7 @@ class DuCodeCompileAuPumlTest {
         class Cours {
             public String intitule;
 
-            @UMLAssociation(targetCardinality = "1..*", targetRole = "inscrits")
+            @UMLAssociation(targetMultiplicity = "1..*", targetRole = "inscrits")
             public List<Eleve> inscrits;
         }
 
@@ -99,43 +93,15 @@ class DuCodeCompileAuPumlTest {
      * Écrit le cobaye, le compile pour de bon, et pose le fichier de règles là où le scan le
      * cherche : à la racine du répertoire analysé.
      *
-     * <p>Le même procédé que dans {@code UMLGeneratorIntegrationTest} et
-     * {@code ProjectScannerIntegrationTest}, où il est déjà écrit deux fois. Le recopier une
-     * troisième n'est pas satisfaisant, mais cette duplication-là ne peut pas mentir : si elle
-     * dérive, les tests échouent bruyamment au lieu de mesurer autre chose en silence.
-     *
      * @param tmp le répertoire du test
      * @return le répertoire des classes compilées, prêt à être analysé
      */
     private static Path projetCompile(Path tmp) throws IOException {
-        Path sources = tmp.resolve("src");
         Path classes = tmp.resolve("classes");
-        Path fichier = sources.resolve("com/ecole/Personne.java");
-        Files.createDirectories(fichier.getParent());
-        Files.writeString(fichier, COBAYE, StandardCharsets.UTF_8);
-        Files.createDirectories(classes);
-
-        JavaCompiler compilateur = ToolProvider.getSystemJavaCompiler();
-        try (StandardJavaFileManager gestionnaire =
-            compilateur.getStandardFileManager(null, null, StandardCharsets.UTF_8)) {
-
-            boolean ok = compilateur.getTask(null, gestionnaire, null,
-                List.of("-proc:none", "-classpath", cheminDeCompilation(),
-                    "-d", classes.toString()),
-                null, gestionnaire.getJavaFileObjects(fichier.toFile())).call();
-            if (!ok) {
-                throw new IllegalStateException("Le cobaye n'a pas compilé :\n" + COBAYE);
-            }
-        }
+        CompilationSansProcesseur.compiler(tmp.resolve("src"), classes,
+            "com/ecole/Personne.java", COBAYE);
         Files.writeString(classes.resolve("umlg.json"), REGLES, StandardCharsets.UTF_8);
         return classes;
-    }
-
-    private static String cheminDeCompilation() {
-        return Stream.of(System.getProperty("java.class.path"),
-                System.getProperty("jdk.module.path"))
-            .filter(chemin -> chemin != null && !chemin.isBlank())
-            .collect(Collectors.joining(File.pathSeparator));
     }
 
     /** Engendre le dossier de diagrammes du cobaye, et rend la source de la vue d'ensemble. */
@@ -156,6 +122,7 @@ class DuCodeCompileAuPumlTest {
         assertTrue(Files.exists(fichier), "Fichier attendu et absent : " + fichier);
         return Files.readString(fichier, StandardCharsets.UTF_8);
     }
+
 
     @Test
     void leDossier_porteLIntegraleSaVueEtLaSourceDeChaqueImage(@TempDir Path tmp)
@@ -185,6 +152,7 @@ class DuCodeCompileAuPumlTest {
         assertTrue(lire(engendrer(tmp).resolve("projet.puml")).contains("title École"));
     }
 
+
     @Test
     void deuxAttributsReciproques_neDonnentQuUnTraitDansLeFichierLivre(@TempDir Path tmp)
         throws IOException {
@@ -208,6 +176,7 @@ class DuCodeCompileAuPumlTest {
         assertTrue(projet.contains("abstract class \"Personne\""),
             "Le mot-clé de la boîte doit dire ce que la classe est :\n" + projet);
     }
+
 
     @Test
     void lesSourcesLivrees_sontAccepteesParPlantUml(@TempDir Path tmp) throws IOException {

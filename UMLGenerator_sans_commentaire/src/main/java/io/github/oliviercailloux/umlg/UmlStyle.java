@@ -19,8 +19,11 @@ package io.github.oliviercailloux.umlg;
  * <p>Deux réglages échappent au choix, parce qu'ils touchent au sens et non au goût :
  * - classAttributeIconSize 0 : les visibilités s'écrivent « + », « - », « # », « ~ », la
  * notation d'UML, plutôt qu'en pastilles colorées propres à PlantUML ;
- * - l'espacement, calculé sur la plus longue étiquette du diagramme (voir PlantUmlLayout),
- * sans quoi les étiquettes de lien se chevauchent.
+ * - l'espacement, calculé sur la plus longue des étiquettes posées sur un trait — les
+ * multiplicités et les rôles écrits à ses extrémités, et le nom du lien posé au milieu (voir
+ * PlantUmlLayout) —, sans quoi elles se chevauchent. Le nom des boîtes n'entre pas dans ce
+ * calcul : PlantUML dimensionne lui-même les boîtes sur leur contenu, alors que rien ne réserve
+ * de place à ce qui s'écrit entre elles.
  *
  * <p>Un troisième leur ressemble sans leur appartenir : le masquage des compartiments vides, que
  * les deux apparences écrivent pareillement, mais que la clé « showEmptyMembers » du fichier

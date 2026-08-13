@@ -2,13 +2,14 @@ package io.github.oliviercailloux.umlg.extraction.relation;
 
 import com.google.common.collect.ImmutableList;
 import io.github.oliviercailloux.umlg.annotation.UMLClass;
+import io.github.oliviercailloux.umlg.extraction.rules.Regles;
 import io.github.oliviercailloux.umlg.model.UmlInheritance;
 import java.util.Arrays;
 
 public final class InheritanceExtractor implements RelationExtractor {
 
     @Override
-    public ImmutableList<UmlInheritance> extraire(Class<?> clazz) {
+    public ImmutableList<UmlInheritance> extraire(Class<?> clazz, Regles regles) {
         ImmutableList.Builder<UmlInheritance> result = ImmutableList.builder();
 
         Class<?> parent = clazz.getSuperclass();

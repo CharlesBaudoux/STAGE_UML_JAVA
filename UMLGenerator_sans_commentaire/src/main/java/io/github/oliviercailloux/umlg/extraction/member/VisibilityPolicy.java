@@ -17,6 +17,10 @@ public final class VisibilityPolicy {
             return true;
         }
 
+        return parLaStrategie(modifiers, strategy);
+    }
+
+    public static boolean parLaStrategie(int modifiers, UMLVisibility strategy) {
         return switch (strategy) {
             case NONE -> false;
 

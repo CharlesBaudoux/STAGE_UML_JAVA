@@ -30,6 +30,7 @@ class ReglesDuProjetTest {
         return entity.fields().stream().map(UmlField::name).toList();
     }
 
+
     @UMLClass
     static class SansStrategie {
         public String nom;
@@ -115,6 +116,7 @@ class ReglesDuProjetTest {
         assertTrue(e.getMessage().contains("strategy"), e.getMessage());
         assertTrue(e.getMessage().contains("les règles du test"), e.getMessage());
     }
+
 
     @UMLClass(strategy = UMLVisibility.PRIVATE)
     static class Bavarde {
@@ -246,6 +248,7 @@ class ReglesDuProjetTest {
             """));
     }
 
+
     @Test
     void parDefaut_lesVisibilitesSontEcrites() {
         assertEquals("-", EntityExtractor.extract(Bavarde.class).fields().stream()
@@ -282,6 +285,7 @@ class ReglesDuProjetTest {
             """));
     }
 
+
     @UMLClass
     static class Rangee {}
 
@@ -316,6 +320,7 @@ class ReglesDuProjetTest {
 
         assertEquals("Écrit à la main", entity.group().name());
     }
+
 
     @Test
     void fichierComplet_estLuSansErreur() {

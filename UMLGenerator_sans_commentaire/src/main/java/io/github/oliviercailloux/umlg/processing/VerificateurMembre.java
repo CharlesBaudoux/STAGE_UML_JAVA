@@ -4,7 +4,7 @@ import io.github.oliviercailloux.umlg.annotation.UMLAssociation;
 import io.github.oliviercailloux.umlg.annotation.UMLClass;
 import io.github.oliviercailloux.umlg.annotation.UMLExclude;
 import io.github.oliviercailloux.umlg.annotation.UMLInclude;
-import io.github.oliviercailloux.umlg.extraction.member.VisibilityPolicy;
+import io.github.oliviercailloux.umlg.extraction.member.MemberExtractor;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
@@ -39,14 +39,11 @@ final class VerificateurMembre {
         }
 
         TypeElement porteuse = (TypeElement) membre.getEnclosingElement();
-        UMLClass classe = porteuse.getAnnotation(UMLClass.class);
-        if (classe == null) {
-            rapporteur.erreur(Membre.emplacement(membre) + ": the declaring class does not "
-                + "carry @UMLClass, so it is not part of the diagram and this annotation has no "
-                + "effect. Annotate " + porteuse.getQualifiedName() + ", or remove it.",
-                membre, presente);
+        if (!rapporteur.exigerBoite(porteuse, Membre.emplacement(membre),
+            "this annotation has no effect", membre, presente)) {
             return;
         }
+        UMLClass classe = porteuse.getAnnotation(UMLClass.class);
 
         if (inclusion != null && !verifierRenommage(membre, inclusion)) {
             return;
@@ -90,23 +87,22 @@ final class VerificateurMembre {
         if (!membre.getAnnotation(UMLInclude.class).asAttribute()) {
             return true;
         }
+        String emplacement = Membre.emplacement(membre);
+
         if (membre.getKind() != ElementKind.METHOD) {
-            rapporteur.erreur(Membre.emplacement(membre) + ": @UMLInclude(asAttribute = true) is "
-                + "for methods; a field is already an attribute. Remove the attribute.",
+            rapporteur.erreur(MemberExtractor.messageNotationAttributSurUnChamp(emplacement),
                 membre, inclusion);
             return false;
         }
         ExecutableElement methode = (ExecutableElement) membre;
         if (!methode.getParameters().isEmpty()) {
-            rapporteur.erreur(Membre.emplacement(membre) + " carries @UMLInclude(asAttribute = "
-                + "true) but takes parameters: an attribute has none. Remove the parameters, or "
-                + "the notation.", membre, inclusion);
+            rapporteur.erreur(MemberExtractor.messageNotationAttributAvecParametres(emplacement),
+                membre, inclusion);
             return false;
         }
         if (methode.getReturnType().getKind() == TypeKind.VOID) {
-            rapporteur.erreur(Membre.emplacement(membre) + " carries @UMLInclude(asAttribute = "
-                + "true) but returns nothing: an attribute is its type. Return something, or "
-                + "remove the notation.", membre, inclusion);
+            rapporteur.erreur(MemberExtractor.messageNotationAttributSansRetour(emplacement),
+                membre, inclusion);
             return false;
         }
         return true;
@@ -123,10 +119,8 @@ final class VerificateurMembre {
             return;
         }
 
-        boolean strategieConnue = strategie.connue(classe);
-        boolean visibleSansDerogation = strategieConnue
-            && VisibilityPolicy.estVisible(Membre.bits(membre), strategie.effective(classe),
-                false, false);
+        Strategie.Affichage sansDerogation =
+            strategie.membreAfficheSansDerogation(membre, classe);
 
         if (inclusion) {
             boolean renomme = !membre.getAnnotation(UMLInclude.class).name().isEmpty();
@@ -140,7 +134,8 @@ final class VerificateurMembre {
                 return;
             }
             if (association) {
-                if (!renomme) {
+                if (!renomme && strategie.reglesConnues()
+                    && !strategie.champMasqueParUneRegle(membre.getSimpleName().toString())) {
                     rapporteur.avertissement(Membre.emplacement(membre) + ": @UMLInclude has no "
                         + "effect, this field carries @UMLAssociation(notation = ATTRIBUTE) and "
                         + "is therefore already shown in the attribute compartment, whatever "
@@ -148,8 +143,8 @@ final class VerificateurMembre {
                 }
                 return;
             }
-            if (!renomme && strategieConnue && Membre.estAttribut(membre)
-                && visibleSansDerogation
+            if (!renomme && strategie.reglesConnues() && Membre.estAttribut(membre)
+                && sansDerogation == Strategie.Affichage.AFFICHE
                 && !strategie.champMasqueParUneRegle(membre.getSimpleName().toString())) {
                 rapporteur.avertissement(Membre.emplacement(membre) + ": @UMLInclude has no "
                     + "effect, the field is already shown by strategy = "
@@ -174,7 +169,7 @@ final class VerificateurMembre {
                 + "@UMLAssociation instead if that is what you meant.", membre, presente);
             return;
         }
-        if (strategieConnue && !visibleSansDerogation) {
+        if (sansDerogation == Strategie.Affichage.MASQUE) {
             rapporteur.avertissement(Membre.emplacement(membre) + ": @UMLExclude has no effect, "
                 + "strategy = " + strategie.effective(classe)
                 + " on the declaring class already hides "

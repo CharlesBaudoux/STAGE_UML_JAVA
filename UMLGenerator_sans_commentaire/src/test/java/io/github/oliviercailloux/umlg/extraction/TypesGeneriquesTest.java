@@ -50,6 +50,7 @@ class TypesGeneriquesTest {
         return EntityExtractor.extract(Bibliotheque.class);
     }
 
+
     @Test
     void unParametreDeType_estAffiche() {
         assertEquals("List<String>", champ(extraite(), "titres").type());
@@ -102,6 +103,7 @@ class TypesGeneriquesTest {
             .filter(f -> f.name().equals(nom)).findFirst().orElseThrow().type();
     }
 
+
     @UMLClass(strategy = UMLVisibility.PRIVATE)
     static class AvecMultiplicites {
         @UMLMultiplicity("0..*")
@@ -124,13 +126,52 @@ class TypesGeneriquesTest {
         UmlEntity entity = EntityExtractor.extract(AvecMultiplicites.class);
 
         assertEquals("String", champ(entity, "alias").type());
-        assertEquals("0..*", champ(entity, "alias").cardinality());
+        assertEquals("0..*", champ(entity, "alias").multiplicity());
     }
 
     @Test
     void optional_estUneEnveloppeCommeUneAutre() {
         assertEquals("int", champ(EntityExtractor.extract(AvecMultiplicites.class), "ucp")
             .type());
+    }
+
+    @UMLClass(strategy = UMLVisibility.PRIVATE)
+    static class AvecEnveloppes {
+        @UMLMultiplicity("1..*")
+        private String[] noms;
+
+        @UMLMultiplicity("0..*")
+        private List<? extends CharSequence> textes;
+
+        @UMLMultiplicity("0..*")
+        private List<? super Commande> receptacles;
+
+        @UMLMultiplicity("0..*")
+        private List<String[]> lots;
+
+        @UMLMultiplicity("1..*")
+        private Integer[] compteurs;
+    }
+
+    @Test
+    void unTableau_devantUneMultiplicite_perdSesCrochets() {
+        assertEquals("String", champ(EntityExtractor.extract(AvecEnveloppes.class), "noms").type());
+    }
+
+    @Test
+    void unJoker_devantUneMultiplicite_seReduitASaBorne() {
+        UmlEntity entity = EntityExtractor.extract(AvecEnveloppes.class);
+
+        assertEquals("CharSequence", champ(entity, "textes").type());
+        assertEquals("?", champ(entity, "receptacles").type());
+    }
+
+    @Test
+    void uneSeuleEnveloppe_estRetiree() {
+        UmlEntity entity = EntityExtractor.extract(AvecEnveloppes.class);
+
+        assertEquals("String[]", champ(entity, "lots").type());
+        assertEquals("Integer", champ(entity, "compteurs").type());
     }
 
     @Test
@@ -145,7 +186,7 @@ class TypesGeneriquesTest {
             .filter(m -> m.name().equals("commandes")).findFirst().orElseThrow();
 
         assertEquals("Commande", commandes.returnType());
-        assertEquals("0..*", commandes.cardinality());
+        assertEquals("0..*", commandes.multiplicity());
     }
 
     @Test
@@ -153,9 +194,10 @@ class TypesGeneriquesTest {
         assertEquals("List<String>", champ(extraite(), "titres").type());
     }
 
+
     @UMLClass
     static class ClientDeduit {
-        @UMLAssociation(targetCardinality = "0..*", notation = UMLNotation.ATTRIBUTE)
+        @UMLAssociation(targetMultiplicity = "0..*", notation = UMLNotation.ATTRIBUTE)
         private List<Commande> commandes;
 
         @UMLAssociation(notation = UMLNotation.ATTRIBUTE)
@@ -167,7 +209,7 @@ class TypesGeneriquesTest {
         UmlEntity entity = EntityExtractor.extract(ClientDeduit.class);
 
         assertEquals("Commande", champ(entity, "commandes").type());
-        assertEquals("0..*", champ(entity, "commandes").cardinality());
+        assertEquals("0..*", champ(entity, "commandes").multiplicity());
     }
 
     @Test
@@ -178,7 +220,7 @@ class TypesGeneriquesTest {
 
     @UMLClass
     static class LienDeduitEnTrait {
-        @UMLAssociation(targetCardinality = "1..*")
+        @UMLAssociation(targetMultiplicity = "1..*")
         private List<Commande> commandes;
     }
 

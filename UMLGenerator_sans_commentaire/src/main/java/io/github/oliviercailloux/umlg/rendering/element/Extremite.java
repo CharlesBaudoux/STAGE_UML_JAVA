@@ -6,38 +6,57 @@ import io.github.oliviercailloux.umlg.rendering.syntax.PlantUmlEscaper;
 
 final class Extremite {
 
+    record Etiquette(String ecrit, String affiche) {
+
+        boolean estVide() {
+            return ecrit.isEmpty();
+        }
+    }
+
     private Extremite() {}
 
-    static String source(UmlAssociation association) {
-        ImmutableList.Builder<String> parties = ImmutableList.builder();
+    static Etiquette source(UmlAssociation association) {
+        Morceaux morceaux = new Morceaux();
 
-        ajouter(parties, association.sourceRole(), "%s");
-        ajouter(parties, association.sourceCardinality(), "%s");
+        morceaux.ajouter(association.sourceRole(), "%s");
+        morceaux.ajouter(association.sourceMultiplicity(), "%s");
 
-        return assembler(parties.build());
+        return morceaux.assembler();
     }
 
-    static String cible(UmlAssociation association) {
-        ImmutableList.Builder<String> parties = ImmutableList.builder();
+    static Etiquette cible(UmlAssociation association) {
+        Morceaux morceaux = new Morceaux();
 
-        ajouter(parties, association.targetRole(), association.derived() ? "/%s" : "%s");
-        ajouter(parties, association.targetCardinality(), "%s");
+        morceaux.ajouter(association.targetRole(), association.derived() ? "/%s" : "%s");
+        morceaux.ajouter(association.targetMultiplicity(), "%s");
 
         for (String regle : association.constraints()) {
-            parties.add("{" + PlantUmlEscaper.label(regle) + "}");
+            morceaux.ajouterTelQuel(NotationContrainte.une(regle), "{" + regle + "}");
         }
-        return assembler(parties.build());
+        return morceaux.assembler();
     }
 
-    private static void ajouter(ImmutableList.Builder<String> parties, String texte,
-        String gabarit) {
-        if (texte.isEmpty()) {
-            return;
-        }
-        parties.add(gabarit.formatted(PlantUmlEscaper.label(texte)));
-    }
+    private static final class Morceaux {
 
-    private static String assembler(ImmutableList<String> parties) {
-        return String.join(" ", parties);
+        private final ImmutableList.Builder<String> ecrits = ImmutableList.builder();
+        private final ImmutableList.Builder<String> affiches = ImmutableList.builder();
+
+        void ajouter(String texte, String gabarit) {
+            if (texte.isEmpty()) {
+                return;
+            }
+            ajouterTelQuel(gabarit.formatted(PlantUmlEscaper.label(texte)),
+                gabarit.formatted(texte));
+        }
+
+        void ajouterTelQuel(String ecrit, String affiche) {
+            ecrits.add(ecrit);
+            affiches.add(affiche);
+        }
+
+        Etiquette assembler() {
+            return new Etiquette(String.join(" ", ecrits.build()),
+                String.join(" ", affiches.build()));
+        }
     }
 }

@@ -4,6 +4,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableList;
 import java.nio.file.Path;
+import java.util.Optional;
 
 /**
  * Ce que la génération a fait, dit en une fois.
@@ -22,29 +23,44 @@ import java.nio.file.Path;
  * autrement qu'en les comptant à la main. Une classe oubliée et une classe volontairement écartée
  * se ressemblent trait pour trait ; seul le compte permet de faire la différence.
  *
+ * <p>CE QU'IL DIT AUSSI, ET QU'IL FALLAIT AUTREFOIS ALLER CHERCHER
+ *
+ * <p>Les avertissements. Ils portent l'information la plus actionnable de l'outil — une vue vide,
+ * une règle restée lettre morte, des classes illisibles — et ils n'étaient nulle part dans le
+ * compte rendu : pour les capter, l'appelant devait encadrer son appel d'une pose et d'une dépose
+ * de canal, un état global par fil dont il pouvait oublier la seconde moitié. Ils sont ici, et
+ * {@code if (rapport.avertissements().isEmpty())} s'écrit enfin.
+ *
  * @param classesLues le nombre de classes portant {@code @UMLClass}, donc dessinées.
  * @param classesIgnorees les noms complets des classes rencontrées sans {@code @UMLClass}.
  * @param fichiers les images écrites, dans l'ordre où elles l'ont été.
- * @param fichierDesIgnorees le fichier qui énumère les classes ignorées, ou {@code null} quand il
- *     n'y avait rien à énumérer ou que la sortie n'a pas de dossier où le poser.
+ * @param fichierDesIgnorees le fichier qui énumère les classes ignorées, vide quand il n'y avait
+ *     rien à énumérer ou que la sortie n'a pas de dossier où le poser.
+ * @param avertissements ce que la génération a eu à signaler, dans l'ordre où elle l'a dit ; vide
+ *     quand elle n'a rien eu à dire.
  */
 public record RapportDeGeneration(int classesLues, ImmutableList<String> classesIgnorees,
-    ImmutableList<Path> fichiers, Path fichierDesIgnorees) {
+    ImmutableList<Path> fichiers, Optional<Path> fichierDesIgnorees,
+    ImmutableList<String> avertissements) {
 
     /**
      * Vérifie les invariants du compte rendu.
      *
-     * @throws NullPointerException si la liste des classes ignorées ou celle des fichiers est
-     *     nulle. {@code fichierDesIgnorees}, lui, peut être {@code null} : c'est une absence
-     *     légitime, pas un oubli.
+     * @throws NullPointerException si l'une des composantes est nulle. L'absence de fichier des
+     *     ignorées se dit avec un {@link Optional} vide, et non avec {@code null} : c'était le
+     *     seul {@code null} de toute la zone exportée, et rien dans la signature ne prévenait
+     *     l'appelant qu'il devait s'y attendre.
      */
     public RapportDeGeneration {
         checkNotNull(classesIgnorees);
         checkNotNull(fichiers);
+        checkNotNull(fichierDesIgnorees,
+            "The ignored-classes file cannot be null (use Optional.empty()).");
+        checkNotNull(avertissements, "The list of warnings cannot be null (use an empty list).");
     }
 
     /**
-     * Le même compte rendu, sans fichier de classes ignorées.
+     * Le même compte rendu, sans fichier de classes ignorées ni avertissement.
      *
      * @param classesLues le nombre de classes dessinées.
      * @param classesIgnorees les noms des classes rencontrées sans {@code @UMLClass}.
@@ -52,7 +68,7 @@ public record RapportDeGeneration(int classesLues, ImmutableList<String> classes
      */
     public RapportDeGeneration(int classesLues, ImmutableList<String> classesIgnorees,
         ImmutableList<Path> fichiers) {
-        this(classesLues, classesIgnorees, fichiers, null);
+        this(classesLues, classesIgnorees, fichiers, Optional.empty(), ImmutableList.of());
     }
 
     /**
@@ -78,9 +94,9 @@ public record RapportDeGeneration(int classesLues, ImmutableList<String> classes
             texte.append(" : ").append(String.join(", ", classesIgnorees));
         }
 
-        if (fichierDesIgnorees != null) {
+        if (fichierDesIgnorees.isPresent()) {
             texte.append('\n').append("  the full list of ignored classes is in ")
-                 .append(fichierDesIgnorees);
+                 .append(fichierDesIgnorees.get());
         }
         return texte.toString();
     }

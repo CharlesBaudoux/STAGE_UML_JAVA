@@ -1,5 +1,7 @@
 package io.github.oliviercailloux.umlg.processing;
 
+import io.github.oliviercailloux.umlg.extraction.relation.CibleDeduite;
+import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.ArrayType;
 import javax.lang.model.type.DeclaredType;
@@ -64,18 +66,37 @@ final class TypeAttribut {
     }
 
     TypeMirror elementSeul(TypeMirror type) {
-        if (type.getKind() != TypeKind.DECLARED || indetermine(type)) {
+        TypeMirror examine = type.getKind() == TypeKind.TYPEVAR ? types.erasure(type) : type;
+        if (examine.getKind() != TypeKind.DECLARED || indetermine(examine)) {
             return null;
         }
-        DeclaredType declare = (DeclaredType) type;
-        if (!estUnConteneur(type)) {
-            return types.erasure(type);
+        DeclaredType declare = (DeclaredType) examine;
+        if (!estUnConteneur(examine)) {
+            return types.erasure(examine);
         }
         if (declare.getTypeArguments().size() != 1) {
             return null;
         }
         TypeMirror argument = declare.getTypeArguments().get(0);
         return argument.getKind() == TypeKind.DECLARED ? types.erasure(argument) : null;
+    }
+
+    String plainteCibleIndeductible(String contexte, TypeMirror type) {
+        String nom = nomSimple(type);
+        return estIterable(type)
+            ? CibleDeduite.messageContenuIndeductible(contexte, nom)
+            : CibleDeduite.messageCibleIndeductible(contexte, nom);
+    }
+
+    private String nomSimple(TypeMirror type) {
+        TypeMirror brut = types.erasure(type);
+        Element element = types.asElement(brut);
+        return element == null ? brut.toString() : element.getSimpleName().toString();
+    }
+
+    private boolean estIterable(TypeMirror type) {
+        return type.getKind() == TypeKind.DECLARED && iterable != null
+            && types.isAssignable(types.erasure(type), iterable);
     }
 
     private boolean estUnConteneur(TypeMirror type) {

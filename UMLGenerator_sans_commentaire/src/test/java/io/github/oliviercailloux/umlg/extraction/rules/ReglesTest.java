@@ -27,6 +27,7 @@ class ReglesTest {
         return Regles.lues(json, "umlg.json");
     }
 
+
     @Test
     void nomSimple_estRemplace() {
         assertEquals("List", regles("""
@@ -82,6 +83,7 @@ class ReglesTest {
         assertTrue(regles("{}").vides());
         assertTrue(Regles.aucune().vides());
     }
+
 
     @Test
     void regleInconnue_estRefuseeEnRappelantLesConnues() {
@@ -184,6 +186,7 @@ class ReglesTest {
         assertTrue(e.getMessage().contains("ImmutableList"), e.getMessage());
     }
 
+
     @Test
     void omitReturnVoid_effaceLeTypeRendu() {
         assertEquals("", regles("""
@@ -238,6 +241,7 @@ class ReglesTest {
         assertTrue(e.getMessage().contains("omit[0]"), e.getMessage());
     }
 
+
     @Test
     void omitAbstract_estLu() {
         assertTrue(regles("""
@@ -285,6 +289,7 @@ class ReglesTest {
             """));
     }
 
+
     @Test
     void fichierAbsent_donneUnJeuVide(@TempDir Path tmp) throws IOException {
         assertTrue(Regles.duProjet(tmp).vides(),
@@ -306,6 +311,7 @@ class ReglesTest {
 
         assertThrows(IllegalArgumentException.class, () -> Regles.duProjet(tmp));
     }
+
 
     @UMLClass(strategy = UMLVisibility.PRIVATE)
     static class Clavier {
@@ -416,6 +422,7 @@ class ReglesTest {
         assertEquals("ImmutableList<String>", champs.get(0).type());
     }
 
+
     @Test
     void strategieEcrite_seDistingueDeLAbsenceDeCle() {
         assertTrue(regles("""
@@ -423,6 +430,7 @@ class ReglesTest {
             """).strategieDeclaree());
         assertFalse(regles("{}").strategieDeclaree());
     }
+
 
     @Test
     void ordreDeDeclaration_seDemande() {
@@ -458,6 +466,7 @@ class ReglesTest {
         assertTrue(refus.getMessage().contains("order"), refus.getMessage());
     }
 
+
     @Test
     void nomsDeParametres_seTaisent() {
         assertTrue(regles("""
@@ -465,6 +474,7 @@ class ReglesTest {
             """).omettreNomsDeParametres());
         assertFalse(regles("{}").omettreNomsDeParametres());
     }
+
 
     @Test
     void unMotif_viseLesDeuxSortesDeMembres() {
@@ -487,6 +497,7 @@ class ReglesTest {
         assertTrue(refus.getMessage().contains("hide[0]"), refus.getMessage());
     }
 
+
     @Test
     void motifQualifie_estRefuseEnRenvoyantVersUmlExclude() {
         var refus = assertThrows(IllegalArgumentException.class, () -> regles("""
@@ -503,6 +514,7 @@ class ReglesTest {
             { "hide": ["s*"] }
             """).membreMasque("string"));
     }
+
 
     @Test
     void unFichierQuiNestPasEnUtf8_estRefuseEnLeDisant(@TempDir Path tmp) throws IOException {
@@ -521,5 +533,174 @@ class ReglesTest {
         assertThrows(IllegalArgumentException.class, () -> regles("""
             { "hide": ["Representation.*"] }
             """));
+    }
+
+    @Test
+    void unBomEnTete_estNommeEtNonPrisPourUneNoteEgaree() {
+        var refus = assertThrows(IllegalArgumentException.class,
+            () -> regles((char) 0xFEFF + "{ \"strategy\": \"public\" }"));
+
+        assertTrue(refus.getMessage().contains("byte order mark"), refus.getMessage());
+        assertFalse(refus.getMessage().contains("\"_\""), refus.getMessage());
+    }
+
+
+    @Test
+    void motifFaitDEtoilesSeules_estRefuseCommeLEtoileSeule() {
+        var refus = assertThrows(IllegalArgumentException.class, () -> regles("""
+            { "hide": ["**"] }
+            """));
+
+        assertTrue(refus.getMessage().contains("would hide every member of every class"),
+            refus.getMessage());
+        assertTrue(refus.getMessage().contains("\"**\""), refus.getMessage());
+    }
+
+    @Test
+    void etoileSeule_resteRefusee() {
+        var refus = assertThrows(IllegalArgumentException.class, () -> regles("""
+            { "hide": ["*"] }
+            """));
+
+        assertTrue(refus.getMessage().contains("would hide every member of every class"),
+            refus.getMessage());
+    }
+
+    @Test
+    void motifQuiNePrendPasTout_resteAccepte() {
+        Regles regles = regles("""
+            { "hide": ["*e*"] }
+            """);
+
+        assertTrue(regles.membreMasque("nomme"));
+        assertFalse(regles.membreMasque("total"));
+    }
+
+
+    @Test
+    void motifAvecUneTabulation_estRefuse() {
+        var refus = assertThrows(IllegalArgumentException.class, () -> regles("""
+            { "hide": ["get\\tNom"] }
+            """));
+
+        assertTrue(refus.getMessage().contains("cannot contain a space"), refus.getMessage());
+    }
+
+    @Test
+    void motifAvecUneEspaceInsecable_estRefuse() {
+        var refus = assertThrows(IllegalArgumentException.class, () -> regles("""
+            { "hide": ["get\\u00a0Nom"] }
+            """));
+
+        assertTrue(refus.getMessage().contains("cannot contain a space"), refus.getMessage());
+    }
+
+    @Test
+    void typeAvecUneEspaceInsecable_estRefuse() {
+        var refus = assertThrows(IllegalArgumentException.class, () -> regles("""
+            { "types": { "Immutable\\u00a0List": "List" } }
+            """));
+
+        assertTrue(refus.getMessage().contains("cannot contain a space"), refus.getMessage());
+    }
+
+
+    @Test
+    void deuxFoisLeMemeMotif_sontRefuses() {
+        var refus = assertThrows(IllegalArgumentException.class, () -> regles("""
+            { "hide": ["log", "get*", "log"] }
+            """));
+
+        assertTrue(refus.getMessage().contains("already asked for"), refus.getMessage());
+        assertTrue(refus.getMessage().contains("hide[2]"), refus.getMessage());
+    }
+
+    @Test
+    void deuxMotifsDistincts_restentAcceptes() {
+        Regles regles = regles("""
+            { "hide": ["log", "get*"] }
+            """);
+
+        assertTrue(regles.membreMasque("log"));
+        assertTrue(regles.membreMasque("getNom"));
+    }
+
+
+    @Test
+    void noteDansTypes_nEstNiUneRegleNiUneFaute() {
+        Regles regles = regles("""
+            {
+              "types": {
+                "_note": "les types de Guava n'apprennent rien au lecteur",
+                "ImmutableList": "List"
+              }
+            }
+            """);
+
+        assertEquals("List", regles.nomAffiche(ImmutableList.class));
+        assertEquals(List.of(), regles.reglesSansEffet(),
+            "Une note n'est pas une règle, donc jamais une règle morte.");
+    }
+
+    @Test
+    void noteDansUneVue_nEstNiUneCleNiUneFaute() {
+        assertEquals(1, regles("""
+            {
+              "views": [
+                { "_": "pourquoi cette vue", "name": "Facturation", "retain": ["Facture"] }
+              ]
+            }
+            """).vues().size());
+    }
+
+
+    @Test
+    void strategieEnMajuscules_estRefuseeCommeLesAutresMots() {
+        var refus = assertThrows(IllegalArgumentException.class, () -> regles("""
+            { "strategy": "PUBLIC" }
+            """));
+
+        assertTrue(refus.getMessage().contains("unknown strategy"), refus.getMessage());
+        assertTrue(refus.getMessage().contains("lower case"), refus.getMessage());
+    }
+
+    @Test
+    void strategieEnMinuscules_resteLue() {
+        assertEquals(UMLVisibility.PROTECTED, regles("""
+            { "strategy": "protected" }
+            """).strategie());
+    }
+
+    @Test
+    void strategieProject_estRefuseeEnDisantPourquoi() {
+        var refus = assertThrows(IllegalArgumentException.class, () -> regles("""
+            { "strategy": "project" }
+            """));
+
+        assertTrue(refus.getMessage().contains("defer to this key"), refus.getMessage());
+    }
+
+
+    @Test
+    void unDefautEcrit_neFaitPasDesReglesVides() {
+        assertFalse(regles("""
+            { "showEmptyMembers": false }
+            """).vides());
+        assertFalse(regles("""
+            { "order": "alphabetical" }
+            """).vides());
+        assertFalse(regles("""
+            { "viewsByPackage": false }
+            """).vides());
+        assertFalse(regles("""
+            { "direction": "top-to-bottom" }
+            """).vides());
+    }
+
+    @Test
+    void desNotesSeules_laissentLesReglesVides() {
+        assertTrue(regles("""
+            { "_": "rien à demander pour l'instant", "_suite": "vraiment rien" }
+            """).vides());
     }
 }

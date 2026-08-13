@@ -26,6 +26,7 @@ class PlantUmlSyntaxStructureTest {
         return PlantUmlAssert.documentPour(entity);
     }
 
+
     @Test
     void separateur_presentUniquementSiChampsEtMethodes() {
         String source = rendu(entite(List.of(CHAMP), List.of(METHODE)));
@@ -60,6 +61,7 @@ class PlantUmlSyntaxStructureTest {
         PlantUmlAssert.assertCompile(source);
     }
 
+
     @Test
     void champ_estRenduTypePuisNom() {
         String source = rendu(entite(List.of(new UmlField("age", "int", "+", false)), List.of()));
@@ -90,6 +92,7 @@ class PlantUmlSyntaxStructureTest {
         assertTrue(source.contains("~ d : int"), source);
         PlantUmlAssert.assertCompile(source);
     }
+
 
     @Test
     void methodeSansParametre_renduAvecParenthesesVides() {
@@ -126,6 +129,7 @@ class PlantUmlSyntaxStructureTest {
         assertTrue(source.contains("- elements : String[]"), source);
         PlantUmlAssert.assertCompile(source);
     }
+
 
     @Test
     void stereotypeVide_nEstPasRendu() {
@@ -175,6 +179,7 @@ class PlantUmlSyntaxStructureTest {
         assertTrue(source.contains("class \"E\" as E <<Entity>> #FF0000 {"), source);
         PlantUmlAssert.assertCompile(source);
     }
+
 
     @Test
     void documentComplet_ouvreEtFermeLeDiagramme() {

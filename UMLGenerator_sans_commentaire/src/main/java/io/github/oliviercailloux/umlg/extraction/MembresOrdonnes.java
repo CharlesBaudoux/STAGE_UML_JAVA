@@ -1,12 +1,15 @@
 package io.github.oliviercailloux.umlg.extraction;
 
-import io.github.oliviercailloux.umlg.Avertissements;
 import com.google.common.collect.ImmutableList;
 import io.github.oliviercailloux.umlg.extraction.rules.Regles;
+import io.github.oliviercailloux.umlg.warning.Avertisseur;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.Set;
+import java.util.WeakHashMap;
 import java.util.stream.Collectors;
 
 public final class MembresOrdonnes {
@@ -14,11 +17,10 @@ public final class MembresOrdonnes {
     private static final Comparator<Method> PAR_SIGNATURE =
         Comparator.comparing(Method::getName).thenComparing(MembresOrdonnes::parametres);
 
-    private MembresOrdonnes() {}
+    private static final Set<Class<?>> ORDRE_PERDU_SIGNALE =
+        Collections.newSetFromMap(Collections.synchronizedMap(new WeakHashMap<>()));
 
-    public static ImmutableList<Field> champs(Class<?> clazz) {
-        return champs(clazz, Regles.aucune());
-    }
+    private MembresOrdonnes() {}
 
     public static ImmutableList<Field> champs(Class<?> clazz, Regles regles) {
         if (regles.ordreDeclaration()) {
@@ -33,10 +35,6 @@ public final class MembresOrdonnes {
         return Arrays.stream(clazz.getDeclaredFields())
             .sorted(Comparator.comparing(Field::getName))
             .collect(ImmutableList.toImmutableList());
-    }
-
-    public static ImmutableList<Method> methodes(Class<?> clazz) {
-        return methodes(clazz, Regles.aucune());
     }
 
     public static ImmutableList<Method> methodes(Class<?> clazz, Regles regles) {
@@ -61,7 +59,10 @@ public final class MembresOrdonnes {
     }
 
     private static void signalerOrdrePerdu(Class<?> clazz) {
-        Avertissements.dire("\"order\": \"declaration\" is asked for, but the class file of "
+        if (!ORDRE_PERDU_SIGNALE.add(clazz)) {
+            return;
+        }
+        Avertisseur.dire("\"order\": \"declaration\" is asked for, but the class file of "
             + clazz.getName() + " cannot be re-read; the members of this box fall back to "
             + "alphabetical order.");
     }

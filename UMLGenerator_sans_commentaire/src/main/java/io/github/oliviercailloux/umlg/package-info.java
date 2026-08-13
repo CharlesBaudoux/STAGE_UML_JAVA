@@ -35,9 +35,11 @@
  *   umlg.rendering    Du modèle à l'image. Sous-paquetages : element (les formes dessinées),
  *                     syntax (les règles du langage PlantUML).
  *   umlg.processing   La vérification à la compilation.
+ *   umlg.warning      Le mécanisme des avertissements — une classe, tenue hors de la surface
+ *                     publique parce que « dire » est le geste de l'extraction et du rendu.
  *
  * <p>Les trois premiers sont exportés, et ce sont exactement ceux que la façade met en jeu. Les
- * trois autres sont fermés : voir module-info.java, qui explique pourquoi l'unité
+ * quatre autres sont fermés : voir module-info.java, qui explique pourquoi l'unité
  * d'encapsulation est la bibliothèque entière et non le paquetage.
  *
  * <p>OÙ EST TRAITÉE CHAQUE ANNOTATION

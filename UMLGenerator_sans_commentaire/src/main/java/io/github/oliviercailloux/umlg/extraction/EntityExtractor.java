@@ -56,7 +56,7 @@ public final class EntityExtractor {
 
         ImmutableList<UmlField> fields = ImmutableList.<UmlField>builder()
             .addAll(MemberExtractor.extractFields(clazz, finalStrategy, regles))
-            .addAll(MemberExtractor.methodesEnAttributs(clazz, regles))
+            .addAll(MemberExtractor.methodesEnAttributs(clazz, finalStrategy, regles))
             .build();
         ImmutableList<UmlMethod> methods =
             MemberExtractor.extractMethods(clazz, finalStrategy, regles);
@@ -67,16 +67,16 @@ public final class EntityExtractor {
             .color(finalColor)
             .strategy(finalStrategy)
 
-            .literals(MemberExtractor.extractLiterals(clazz, finalStrategy))
+            .literals(MemberExtractor.extractLiterals(clazz, finalStrategy, regles))
             .fields(fields)
             .methods(methods)
-            .notes(NoteExtractor.extraire(clazz, fields, methods))
+            .notes(NoteExtractor.extraire(clazz, fields, methods, regles))
             .constraints(ConstraintExtractor.de(clazz, clazz.getName()))
-            .group(PackageExtractor.extraire(clazz, regles))
+            .group(PackageExtractor.extraire(clazz))
             .typeParameters(parametresDeType(clazz, regles));
 
         for (RelationExtractor extracteur : EXTRACTEURS) {
-            builder.relations(extracteur.extraire(clazz));
+            builder.relations(extracteur.extraire(clazz, regles));
         }
         return builder.build();
     }

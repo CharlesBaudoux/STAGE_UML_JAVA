@@ -32,6 +32,7 @@ class PlantUmlDiagrammeTest {
         return new UmlDiagram(titre, sens, masquer);
     }
 
+
     @Test
     void titreDeclare_estEcritEnTete() {
         String source = PlantUmlAssert.documentPour(
@@ -66,6 +67,7 @@ class PlantUmlDiagrammeTest {
             source);
     }
 
+
     @Test
     void sensGaucheADroite_estDemandeAPlantUml() {
         String source = PlantUmlAssert.documentPour(
@@ -81,6 +83,7 @@ class PlantUmlDiagrammeTest {
         assertFalse(source.contains(LIGNE_GAUCHE_DROITE), source);
         assertFalse(source.contains("top to bottom direction"), source);
     }
+
 
     @Test
     void parDefaut_lesCompartimentsVidesSontMasques() {
@@ -104,6 +107,7 @@ class PlantUmlDiagrammeTest {
             .documentPour(style, reglages("", UMLFlow.TOP_TO_BOTTOM, false), boiteVide())
             .contains(LIGNE_MASQUAGE));
     }
+
 
     @Test
     void lesReglagesDEnsemble_neTouchentAAucuneBoite() {

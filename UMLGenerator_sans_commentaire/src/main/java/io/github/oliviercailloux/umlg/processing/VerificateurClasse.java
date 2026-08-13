@@ -1,6 +1,7 @@
 package io.github.oliviercailloux.umlg.processing;
 
 import io.github.oliviercailloux.umlg.annotation.UMLClass;
+import io.github.oliviercailloux.umlg.extraction.ClassHeaderValidator;
 import io.github.oliviercailloux.umlg.rendering.syntax.ColorCodec;
 import java.util.HashMap;
 import java.util.Map;
@@ -25,21 +26,35 @@ final class VerificateurClasse {
         }
         String contexte = "@UMLClass on " + classe.getQualifiedName();
 
-        verifierNonBlanc(classe, annotation, "name", contexte,
-            "name() cannot be made of whitespace only.");
-        verifierNonBlanc(classe, annotation, "stereotype", contexte,
-            "stereotype() cannot be made of whitespace only.");
+        verifierNomEcrit(classe, annotation, contexte);
+        verifierStereotype(classe, annotation, contexte);
 
         verifierCouleur(classe, annotation, contexte);
         signalerStereotypeDejaEncadre(classe, annotation, contexte);
         signalerNomEnDouble(classe, annotation, contexte);
     }
 
-    private void verifierNonBlanc(Element porteur, AnnotationMirror annotation, String membre,
-        String contexte, String probleme) {
-        String valeur = rapporteur.texte(annotation, membre);
-        if (!valeur.isEmpty() && valeur.isBlank()) {
-            rapporteur.erreur(contexte + ": " + probleme, porteur, annotation,
+    private void verifierNomEcrit(Element porteur, AnnotationMirror annotation, String contexte) {
+        String valeur = rapporteur.texte(annotation, "name");
+        if (valeur.isEmpty()) {
+            return;
+        }
+        signaler(porteur, annotation, "name",
+            () -> ClassHeaderValidator.validateName(valeur, contexte));
+    }
+
+    private void verifierStereotype(Element porteur, AnnotationMirror annotation,
+        String contexte) {
+        signaler(porteur, annotation, "stereotype", () -> ClassHeaderValidator.validateStereotype(
+            rapporteur.texte(annotation, "stereotype"), contexte));
+    }
+
+    private void signaler(Element porteur, AnnotationMirror annotation, String membre,
+        Runnable controle) {
+        try {
+            controle.run();
+        } catch (IllegalArgumentException e) {
+            rapporteur.erreur(e.getMessage(), porteur, annotation,
                 rapporteur.valeurEcrite(annotation, membre));
         }
     }

@@ -3,11 +3,8 @@ package io.github.oliviercailloux.umlg.processing;
 import io.github.oliviercailloux.umlg.annotation.UMLAssociation;
 import io.github.oliviercailloux.umlg.annotation.UMLClass;
 import io.github.oliviercailloux.umlg.annotation.UMLDirection;
-import io.github.oliviercailloux.umlg.annotation.UMLExclude;
-import io.github.oliviercailloux.umlg.annotation.UMLInclude;
 import io.github.oliviercailloux.umlg.annotation.UMLNote;
 import io.github.oliviercailloux.umlg.annotation.UMLNotes;
-import io.github.oliviercailloux.umlg.extraction.member.VisibilityPolicy;
 import io.github.oliviercailloux.umlg.model.UmlNote;
 import java.util.List;
 import javax.lang.model.element.AnnotationMirror;
@@ -41,17 +38,18 @@ final class VerificateurNote {
         String contexte = "@UMLNote on " + emplacement;
 
         UMLClass classe = boite.getAnnotation(UMLClass.class);
-        if (classe == null) {
-            rapporteur.erreur(contexte + ": " + boite.getQualifiedName() + " does not carry "
-                + "@UMLClass, so it is not part of the diagram and the note would have nothing "
-                + "to hang on. Annotate it, or remove this note.", porteur, notes.get(0));
+        if (!rapporteur.exigerBoite(boite, contexte, "the note would have nothing to hang on",
+            porteur, notes.get(0))) {
             return;
         }
 
-        for (AnnotationMirror note : notes) {
-            verifierTexte(porteur, note, contexte);
+        for (int rang = 0; rang < notes.size(); rang++) {
+            AnnotationMirror note = notes.get(rang);
+            String contexteDeLaNote = Rapporteur.contexteDeLaRepetee("UMLNote", emplacement, rang,
+                notes.size());
+            verifierTexte(porteur, note, contexteDeLaNote);
             if (!surClasse) {
-                signalerDirectionImpossible(porteur, note, contexte);
+                signalerDirectionImpossible(porteur, note, contexteDeLaNote);
             }
         }
 
@@ -95,18 +93,7 @@ final class VerificateurNote {
             return;
         }
 
-        if (!strategie.connue(classe)) {
-            return;
-        }
-        if (Membre.vientDUnComposant(membre)) {
-            return;
-        }
-        boolean visible = VisibilityPolicy.estVisible(Membre.bits(membre),
-            strategie.effective(classe),
-            rapporteur.miroir(membre, UMLInclude.class) != null,
-            rapporteur.miroir(membre, UMLExclude.class) != null);
-
-        if (visible) {
+        if (strategie.membreAffiche(membre, classe) != Strategie.Affichage.MASQUE) {
             return;
         }
         rapporteur.avertissement(contexte + ": this member is not shown on the diagram "

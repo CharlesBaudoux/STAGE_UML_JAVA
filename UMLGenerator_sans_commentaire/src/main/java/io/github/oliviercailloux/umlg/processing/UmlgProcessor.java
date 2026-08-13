@@ -22,6 +22,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.lang.annotation.Annotation;
+import java.util.Map;
 import java.util.Set;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.ProcessingEnvironment;
@@ -71,20 +72,25 @@ public final class UmlgProcessor extends AbstractProcessor {
     public synchronized void init(ProcessingEnvironment environnement) {
         super.init(environnement);
 
-        String demande = environnement.getOptions().get(OPTION_AVERTISSEMENTS);
+        Map<String, String> options = environnement.getOptions();
+        String demande = options.get(OPTION_AVERTISSEMENTS);
         boolean avertir = !AVERTISSEMENTS_MUETS.equals(demande);
 
         rapporteur = new Rapporteur(environnement.getMessager(), environnement.getElementUtils(),
             avertir);
 
-        if (demande != null && !AVERTISSEMENTS_MUETS.equals(demande)) {
-            rapporteur.erreur("-A" + OPTION_AVERTISSEMENTS + "=" + demande + ": unknown value. "
-                + "The only one this processor understands is \"" + AVERTISSEMENTS_MUETS
-                + "\", which silences its warnings; remove the option to keep them.");
+        if (options.containsKey(OPTION_AVERTISSEMENTS)
+            && !AVERTISSEMENTS_MUETS.equals(demande)) {
+            String ecrit = demande == null
+                ? "-A" + OPTION_AVERTISSEMENTS + ": no value"
+                : "-A" + OPTION_AVERTISSEMENTS + "=" + demande + ": unknown value";
+            rapporteur.erreur(ecrit + ". The only one this processor understands is \""
+                + AVERTISSEMENTS_MUETS + "\", which silences its warnings; write -A"
+                + OPTION_AVERTISSEMENTS + "=" + AVERTISSEMENTS_MUETS
+                + ", or remove the option to keep them.");
         }
 
-        Strategie strategie = new Strategie(
-            lireRegles(environnement.getOptions().get(OPTION_REGLES)));
+        Strategie strategie = new Strategie(lireRegles(options.get(OPTION_REGLES)));
         Cible cible = new Cible(rapporteur, environnement.getTypeUtils());
         TypeAttribut typeAttribut = new TypeAttribut(environnement.getTypeUtils(),
             environnement.getElementUtils());
@@ -119,9 +125,13 @@ public final class UmlgProcessor extends AbstractProcessor {
         Path fichier = Paths.get(chemin);
 
         if (!Files.isRegularFile(fichier)) {
-            rapporteur.avertissementDeConfiguration("-A" + OPTION_REGLES + "=" + chemin + ": no such file. The "
-                + "checks that depend on the project strategy cannot conclude, and will stay "
-                + "silent.");
+            rapporteur.avertissementDeConfiguration("-A" + OPTION_REGLES + "=" + chemin
+                + ": no such file; looked for " + fichier.toAbsolutePath()
+                + (fichier.isAbsolute() ? ""
+                    : " (a relative path is resolved against the compiler's working directory, "
+                        + "not the project directory)")
+                + ". The checks that depend on the project strategy cannot conclude, and will "
+                + "stay silent.");
             return null;
         }
         try {
@@ -130,9 +140,9 @@ public final class UmlgProcessor extends AbstractProcessor {
             rapporteur.erreur(chemin + " : " + e.getMessage());
             return null;
         } catch (IOException e) {
-            rapporteur.avertissementDeConfiguration("-A" + OPTION_REGLES + "=" + chemin + ": cannot be read ("
-                + e.getMessage() + "). The checks that depend on the project strategy will stay "
-                + "silent.");
+            rapporteur.avertissementDeConfiguration("-A" + OPTION_REGLES + "=" + chemin
+                + ": cannot be read (" + e.getMessage() + "). The checks that depend on the "
+                + "project strategy will stay silent.");
             return null;
         }
     }
@@ -179,6 +189,7 @@ public final class UmlgProcessor extends AbstractProcessor {
         for (Element porteur : porteurs(tour, UMLConstraint.class, UMLConstraints.class)) {
             contraintes.verifier(porteur);
         }
+
 
         return false;
     }

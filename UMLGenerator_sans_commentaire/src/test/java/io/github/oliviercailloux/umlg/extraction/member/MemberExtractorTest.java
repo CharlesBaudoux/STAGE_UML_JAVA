@@ -34,6 +34,7 @@ class MemberExtractorTest {
         return methode.parameters().stream().map(UmlParameter::type).toList();
     }
 
+
     @UMLClass(strategy = UMLVisibility.PRIVATE)
     enum Statut {
         ACTIF, SUSPENDU;
@@ -96,6 +97,7 @@ class MemberExtractorTest {
                 + entity.methods());
     }
 
+
     @UMLClass(strategy = UMLVisibility.PUBLIC)
     interface Paiement {
         void payer(int montant);
@@ -134,6 +136,7 @@ class MemberExtractorTest {
         assertTrue(methode(entity, "methodePropre").isPresent());
         assertTrue(methode(entity, "methodeHeritee").isEmpty());
     }
+
 
     @UMLClass(strategy = UMLVisibility.PRIVATE)
     static class Surcharges {
@@ -196,6 +199,23 @@ class MemberExtractorTest {
     }
 
     @UMLClass(strategy = UMLVisibility.PUBLIC)
+    static class MethodeVariadique {
+        public void journaliser(String format, Object... arguments) {}
+
+        public void copier(int[] source) {}
+    }
+
+    @Test
+    void unParametreVariadique_secritAvecTroisPoints() {
+        UmlEntity entity = EntityExtractor.extract(MethodeVariadique.class);
+
+        assertEquals(List.of("String", "Object..."),
+            types(methode(entity, "journaliser").orElseThrow()));
+        assertEquals(List.of("int[]"), types(methode(entity, "copier").orElseThrow()));
+    }
+
+
+    @UMLClass(strategy = UMLVisibility.PUBLIC)
     static class ClasseAvecStatique {
         public static final String CONSTANTE = "x";
         public static void methodeStatique() {}
@@ -211,6 +231,7 @@ class MemberExtractorTest {
         UmlMethod methodeStatique = methode(entity, "methodeStatique").orElseThrow();
         assertTrue(methodeStatique.isStatic());
     }
+
 
     @Test
     void ordreDesMembres_estStableEntreDeuxExtractions() {

@@ -1,6 +1,7 @@
 package io.github.oliviercailloux.umlg.processing;
 
 import io.github.oliviercailloux.umlg.annotation.UMLClass;
+import io.github.oliviercailloux.umlg.extraction.relation.TargetResolver;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.Element;
@@ -20,11 +21,12 @@ final class Cible {
     }
 
     String resoudre(AnnotationMirror annotation, String membre, String contexte, Element porteur) {
-        return resoudre(annotation, membre, contexte, porteur, null);
+        return resoudre(annotation, membre, contexte, porteur, null,
+            contexte + ": " + membre + "() is not written, and it has no default.");
     }
 
     String resoudre(AnnotationMirror annotation, String membre, String contexte, Element porteur,
-        TypeMirror repli) {
+        TypeMirror repli, String plainteSansRepli) {
         AnnotationValue valeur = rapporteur.valeur(annotation, membre);
         AnnotationValue position = rapporteur.valeurEcrite(annotation, membre);
 
@@ -32,17 +34,14 @@ final class Cible {
 
         if (cible.getKind() == TypeKind.VOID) {
             if (repli == null) {
-                rapporteur.erreur(contexte + ": target() is not written, and the field's type "
-                    + "does not name a single class of the diagram. Write it explicitly.",
-                    porteur, annotation);
+                rapporteur.erreur(plainteSansRepli, porteur, annotation);
                 return null;
             }
             cible = repli;
         }
 
         if (cible.getKind().isPrimitive()) {
-            rapporteur.erreur(contexte + ": a relation cannot target the primitive type " + cible
-                + "; only a class of the diagram can be an endpoint.",
+            rapporteur.erreur(TargetResolver.messageCiblePrimitive(contexte, cible.toString()),
                 porteur, annotation, position);
             return null;
         }
@@ -56,9 +55,9 @@ final class Cible {
         TypeElement element = (TypeElement) types.asElement(cible);
 
         if (element.getAnnotation(UMLClass.class) == null) {
-            rapporteur.erreur(contexte + ": target " + element.getQualifiedName()
-                + " does not carry @UMLClass, so it is not part of the diagram. Annotate it, "
-                + "or point " + membre + "() at a class that is.", porteur, annotation, position);
+            rapporteur.erreur(TargetResolver.messageCibleHorsDiagramme(contexte,
+                element.getQualifiedName().toString(), membre + "()"),
+                porteur, annotation, position);
             return null;
         }
         return element.getQualifiedName().toString();

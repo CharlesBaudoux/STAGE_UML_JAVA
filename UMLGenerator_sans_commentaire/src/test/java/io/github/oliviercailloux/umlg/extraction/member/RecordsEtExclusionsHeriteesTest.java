@@ -30,6 +30,7 @@ class RecordsEtExclusionsHeriteesTest {
         assertEquals("String", champs.get(0).type());
     }
 
+
     record Renomme(@UMLInclude(name = "mnemonic") String keysymMnemonic) {}
 
     @Test
@@ -90,6 +91,7 @@ class RecordsEtExclusionsHeriteesTest {
         assertEquals("composant", champs.get(0).name());
     }
 
+
     interface Entree {
         @UMLExclude
         String asString();
@@ -128,6 +130,57 @@ class RecordsEtExclusionsHeriteesTest {
             methodes.toString());
         assertTrue(methodes.stream().anyMatch(m -> m.name().equals("metier")),
             methodes.toString());
+    }
+
+
+    interface Boite<T> {
+        @UMLExclude
+        void ranger(T objet);
+
+        @UMLExclude
+        T lire();
+    }
+
+    static class BoiteDeTexte implements Boite<String> {
+        @Override
+        public void ranger(String objet) {}
+
+        @Override
+        public String lire() {
+            return "";
+        }
+
+        public void metier() {}
+    }
+
+    @Test
+    void unExcludeSurUneInterfaceGenerique_vautPourLaRealisation() {
+        List<UmlMethod> methodes =
+            MemberExtractor.extractMethods(BoiteDeTexte.class, UMLVisibility.PUBLIC);
+
+        assertEquals(List.of("metier"), methodes.stream().map(UmlMethod::name).toList(),
+            methodes.toString());
+    }
+
+    interface Rangeuse {
+        @UMLExclude
+        void ranger(Object objet);
+    }
+
+    static class RangeuseStricte implements Rangeuse {
+        @Override
+        public void ranger(Object objet) {}
+
+        public void ranger(String texte, int rang) {}
+    }
+
+    @Test
+    void uneSurchargeDArite_differente_nEstPasTouchee() {
+        List<UmlMethod> methodes =
+            MemberExtractor.extractMethods(RangeuseStricte.class, UMLVisibility.PUBLIC);
+
+        assertEquals(1, methodes.size(), methodes.toString());
+        assertEquals(2, methodes.get(0).parameters().size(), methodes.toString());
     }
 
     static class Homonyme {

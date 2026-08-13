@@ -53,13 +53,14 @@ class PlantUmlLisibiliteTest {
         throw new AssertionError("Texte « " + contenu + " » absent du rendu :\n" + svg);
     }
 
+
     @Test
-    void nomDuLien_etCardinalite_neSeRessemblentPas() throws Exception {
+    void nomDuLien_etMultiplicite_neSeRessemblentPas() throws Exception {
         String svg = PlantUmlAssert.svg(paire(UmlAssociation.builder("champ", "Cible")
-            .targetCardinality("0..*").label("détient").build()));
+            .targetMultiplicity("0..*").label("détient").build()));
 
         assertNotEquals(apparence(svg, "0..*"), apparence(svg, "détient"),
-            "Le nom du lien et la cardinalité doivent se distinguer au premier coup d'œil.");
+            "Le nom du lien et la multiplicité doivent se distinguer au premier coup d'œil.");
     }
 
     @Test
@@ -84,13 +85,14 @@ class PlantUmlLisibiliteTest {
             () -> "Le texte doit s'afficher tel quel, « // » compris :\n" + svg);
     }
 
+
     @Test
     void etiquetteLongue_ecarteDavantageLesBoites() {
         String court = PlantUmlAssert.documentPour(paire(
-            UmlAssociation.builder("champ", "Cible").targetCardinality("1").build()));
+            UmlAssociation.builder("champ", "Cible").targetMultiplicity("1").build()));
         String long_ = PlantUmlAssert.documentPour(paire(
             UmlAssociation.builder("champ", "Cible")
-                .targetRole("comptesDuTitulaire").targetCardinality("1..*")
+                .targetRole("comptesDuTitulaire").targetMultiplicity("1..*")
                 .constraints(ImmutableList.of("ordered")).build()));
 
         assertTrue(nodesep(long_) > nodesep(court),

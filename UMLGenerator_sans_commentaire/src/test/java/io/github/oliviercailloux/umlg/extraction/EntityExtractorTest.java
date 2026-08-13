@@ -35,6 +35,7 @@ class EntityExtractorTest {
 
     static class ClasseNonAnnotee {}
 
+
     @Test
     void nomStereotypeEtCouleur_sontRepercutesSurLEntite() {
         UmlEntity entity = EntityExtractor.extract(ClasseSansMembres.class);
@@ -67,6 +68,7 @@ class EntityExtractorTest {
             "Le format hexadécimal à 3 chiffres doit être accepté.");
     }
 
+
     @UMLClass
     static class Cible {}
 
@@ -95,6 +97,7 @@ class EntityExtractorTest {
         assertTrue(relations.get(0) instanceof UmlAssociation, relations.toString());
         assertTrue(relations.get(1) instanceof UmlDependency, relations.toString());
     }
+
 
     @Test
     void extractionEchoueSiLaClasseNEstPasAnnotee() {

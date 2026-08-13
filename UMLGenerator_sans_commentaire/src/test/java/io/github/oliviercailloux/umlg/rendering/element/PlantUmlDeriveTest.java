@@ -62,7 +62,7 @@ class PlantUmlDeriveTest {
     @Test
     void lienDerive_marqueLeRoleCible() {
         UmlAssociation association = UmlAssociation.builder("commandes", "com.exemple.Commande")
-            .targetRole("encours").targetCardinality("0..*").derived(true).build();
+            .targetRole("encours").targetMultiplicity("0..*").derived(true).build();
 
         String source = source(association);
 
@@ -75,7 +75,7 @@ class PlantUmlDeriveTest {
     @Test
     void lienDeriveSansRole_neMarqueRien() {
         UmlAssociation association = UmlAssociation.builder("commandes", "com.exemple.Commande")
-            .targetCardinality("0..*").derived(true).build();
+            .targetMultiplicity("0..*").derived(true).build();
 
         String source = source(association);
         String lien = PlantUmlAssert.lignesDeLien(source).get(0);

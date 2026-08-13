@@ -11,11 +11,8 @@ import org.junit.jupiter.api.io.TempDir;
 
 class UmlgNotationAttributTest {
 
-    private static final String ENTETE = "import io.github.oliviercailloux.umlg.annotation.*;\n"
-        + "import java.util.*;\n";
-
     private static Verdict compiler(Path tmp, String code) throws IOException {
-        return CompilationCobaye.compiler(tmp, "Cobaye.java", ENTETE + code);
+        return CompilationCobaye.compilerCorps(tmp, code);
     }
 
     @Test
@@ -74,11 +71,24 @@ class UmlgNotationAttributTest {
         assertTrue(verdict.erreurContient("already an attribute"), verdict.rapport());
     }
 
+
     @Test
     void exclureUnComposant_nEstPasSansEffet(@TempDir Path tmp) throws IOException {
         Verdict verdict = compiler(tmp, """
             @UMLClass(strategy = UMLVisibility.NONE)
             record Point(@UMLExclude int x, int y) {}
+            """);
+
+        assertTrue(verdict.reussie(), verdict.rapport());
+        assertTrue(verdict.avertissements().isEmpty(), verdict.rapport());
+    }
+
+    @Test
+    void decorerUnComposant_neLeDitJamaisInvisible(@TempDir Path tmp) throws IOException {
+        Verdict verdict = compiler(tmp, """
+            @UMLClass(strategy = UMLVisibility.NONE)
+            @UMLConstraint(rule = "x >= 0")
+            record Point(@UMLDerived @UMLMultiplicity("1") @UMLNote(text = "abscisse") int x) {}
             """);
 
         assertTrue(verdict.reussie(), verdict.rapport());

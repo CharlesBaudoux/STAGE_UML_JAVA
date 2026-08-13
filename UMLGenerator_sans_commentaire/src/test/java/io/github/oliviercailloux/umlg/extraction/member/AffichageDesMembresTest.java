@@ -21,6 +21,7 @@ class AffichageDesMembresTest {
         return Regles.lues(json, "umlg.json");
     }
 
+
     static class Abrege {
         @UMLInclude(name = "xKeycodeByXKeyName")
         public int codeByName;
@@ -78,6 +79,41 @@ class AffichageDesMembresTest {
 
         assertTrue(refus.getMessage().contains("two names"), refus.getMessage());
     }
+
+
+    static class SourceImpossible {
+        @UMLAssociation(target = Cible.class, sourceMultiplicity = "3..1",
+            notation = UMLNotation.ATTRIBUTE)
+        public Cible champ;
+    }
+
+    static class SourceRoleBlanc {
+        @UMLAssociation(target = Cible.class, sourceRole = "   ",
+            notation = UMLNotation.ATTRIBUTE)
+        public Cible champ;
+    }
+
+    static class LabelBlanc {
+        @UMLAssociation(target = Cible.class, label = "   ", notation = UMLNotation.ATTRIBUTE)
+        public Cible champ;
+    }
+
+    @Test
+    void unParametreDeTraitFautif_estRefuseMemeEnNotationAttribut() {
+        var multiplicite = assertThrows(IllegalArgumentException.class,
+            () -> MemberExtractor.extractFields(SourceImpossible.class, UMLVisibility.PUBLIC));
+        assertTrue(multiplicite.getMessage().contains("sourceMultiplicity"),
+            multiplicite.getMessage());
+
+        var role = assertThrows(IllegalArgumentException.class,
+            () -> MemberExtractor.extractFields(SourceRoleBlanc.class, UMLVisibility.PUBLIC));
+        assertTrue(role.getMessage().contains("sourceRole"), role.getMessage());
+
+        var label = assertThrows(IllegalArgumentException.class,
+            () -> MemberExtractor.extractFields(LabelBlanc.class, UMLVisibility.PUBLIC));
+        assertTrue(label.getMessage().contains("label"), label.getMessage());
+    }
+
 
     static class Desordonnee {
         public int zebre;
@@ -137,6 +173,7 @@ class AffichageDesMembresTest {
         assertEquals("avant", methodes.get(2).name());
     }
 
+
     static class Bavarde {
         public void configurer(String cheminDuFichier, int nombreDeColonnes) {}
     }
@@ -152,6 +189,7 @@ class AffichageDesMembresTest {
             methodes.toString());
         assertEquals("String", methodes.get(0).parameters().get(0).type());
     }
+
 
     static class Parent {
         @UMLInclude

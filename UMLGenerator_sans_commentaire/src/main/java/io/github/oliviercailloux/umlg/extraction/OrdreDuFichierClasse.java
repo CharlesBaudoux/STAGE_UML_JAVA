@@ -5,19 +5,28 @@ import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Method;
+import java.util.Collections;
+import java.util.Map;
+import java.util.Optional;
+import java.util.WeakHashMap;
 
 final class OrdreDuFichierClasse {
+
+    private static final Map<Class<?>, Optional<Membres>> LECTURES =
+        Collections.synchronizedMap(new WeakHashMap<>());
 
     private OrdreDuFichierClasse() {}
 
     static ImmutableList<String> champs(Class<?> clazz) {
-        Membres membres = lire(clazz);
-        return membres == null ? null : membres.champs;
+        return membres(clazz).map(Membres::champs).orElse(null);
     }
 
     static ImmutableList<String> methodes(Class<?> clazz) {
-        Membres membres = lire(clazz);
-        return membres == null ? null : membres.methodes;
+        return membres(clazz).map(Membres::methodes).orElse(null);
+    }
+
+    private static Optional<Membres> membres(Class<?> clazz) {
+        return LECTURES.computeIfAbsent(clazz, c -> Optional.ofNullable(lire(c)));
     }
 
     static String cle(Method methode) {

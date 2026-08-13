@@ -23,6 +23,7 @@ class DependencyExtractorTest {
 
     static class HorsDiagramme {}
 
+
     @UMLClass
     @UMLDependency(target = ServiceBancaire.class, label = "facture via")
     static class Panier {}
@@ -78,6 +79,7 @@ class DependencyExtractorTest {
     void sansAnnotation_aucuneDependanceNEstDeduite() {
         assertTrue(EntityExtractor.extract(AucuneDependance.class).dependencies().isEmpty());
     }
+
 
     @UMLDependency(target = ServiceBancaire.class, label = "paie")
     @UMLDependency(target = ServiceBancaire.class, label = "paie")

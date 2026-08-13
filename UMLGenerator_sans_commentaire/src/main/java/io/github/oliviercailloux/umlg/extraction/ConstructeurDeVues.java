@@ -3,7 +3,6 @@ package io.github.oliviercailloux.umlg.extraction;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import io.github.oliviercailloux.umlg.Avertissements;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.github.oliviercailloux.umlg.annotation.UMLDirection;
@@ -17,6 +16,7 @@ import io.github.oliviercailloux.umlg.model.UmlEntity;
 import io.github.oliviercailloux.umlg.model.UmlLayout;
 import io.github.oliviercailloux.umlg.model.UmlRelation;
 import io.github.oliviercailloux.umlg.model.UmlView;
+import io.github.oliviercailloux.umlg.warning.Avertisseur;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -28,6 +28,8 @@ import java.util.stream.StreamSupport;
 public final class ConstructeurDeVues {
 
     public static final String VUE_INTEGRALE = "Projet";
+
+    static final String PAQUETAGE_PAR_DEFAUT = "(default)";
 
     private static final int BLOCS_ENCHAINABLES = 3;
 
@@ -42,18 +44,36 @@ public final class ConstructeurDeVues {
         if (entites.isEmpty()) {
             return ImmutableList.of();
         }
-        ImmutableList.Builder<UmlView> vues = ImmutableList.builder();
-
-        String titre = diagramme.aUnTitre() ? diagramme.title() : VUE_INTEGRALE;
-        vues.add(new UmlView(titre, ImmutableList.copyOf(entites), diagramme.direction()));
-
+        ImmutableList.Builder<UmlView> nommees = ImmutableList.builder();
         for (DefinitionDeVue definition : regles.vues()) {
-            vues.add(declaree(definition, entites));
+            nommees.add(declaree(definition, entites));
         }
         if (regles.vuesParPaquetage()) {
-            vues.addAll(parPaquetage(entites));
+            nommees.addAll(parPaquetage(entites));
         }
-        return vues.build();
+        ImmutableList<UmlView> vues = nommees.build();
+        verifierLesNomsDeFichier(vues);
+
+        String titre = diagramme.aUnTitre() ? diagramme.title() : VUE_INTEGRALE;
+        return ImmutableList.<UmlView>builder()
+            .add(new UmlView(titre, ImmutableList.copyOf(entites), diagramme.direction()))
+            .addAll(vues)
+            .build();
+    }
+
+    private static void verifierLesNomsDeFichier(ImmutableList<UmlView> vues) {
+        Map<String, String> parFichier = new LinkedHashMap<>();
+        for (UmlView vue : vues) {
+            String fichier = vue.nomDeFichier();
+            String premiere = parFichier.putIfAbsent(fichier, vue.name());
+            checkArgument(premiere == null,
+                "Views \"%s\" and \"%s\" both come down to the file name \"%s\", so the second "
+                    + "would overwrite the first. A file name is the view name without its "
+                    + "accents, with everything that is neither a letter nor a digit turned into "
+                    + "a dash, in lower case: give one of the two a name that differs by more "
+                    + "than punctuation or case.",
+                premiere, vue.name(), fichier);
+        }
     }
 
     private static UmlView declaree(DefinitionDeVue definition, ImmutableSet<UmlEntity> entites) {
@@ -87,7 +107,7 @@ public final class ConstructeurDeVues {
     private static String paquetageDe(UmlEntity entite) {
         String complet = entite.qualifiedName();
         int point = complet.lastIndexOf('.');
-        return point < 0 ? "(défaut)" : complet.substring(0, point);
+        return point < 0 ? PAQUETAGE_PAR_DEFAUT : complet.substring(0, point);
     }
 
     private static ImmutableList<UmlEntity> resoudre(Selecteur selecteur,
@@ -153,7 +173,7 @@ public final class ConstructeurDeVues {
         if (voulus.size() > centres.size()) {
             return false;
         }
-        Avertissements.dire("view \"" + vue + "\": \"around " + nom + "\" found no "
+        Avertisseur.dire("view \"" + vue + "\": \"around " + nom + "\" found no "
             + "neighbour, so the view shows the class alone. Neighbours come from declared "
             + "relations — @UMLAssociation, @UMLDependency, inheritance between annotated "
             + "classes — not from the types used by fields or methods. Declare a relation, or "
@@ -177,25 +197,16 @@ public final class ConstructeurDeVues {
         for (UmlEntity entite : retenues) {
             elaguees.add(elaguer(entite, presentes));
         }
-        return enchainer(elaguees, presentes);
+        return enchainer(elaguees);
     }
 
     private static UmlEntity elaguer(UmlEntity entite, ImmutableSet<String> presentes) {
-        ImmutableList<UmlRelation> tenues = entite.relations().stream()
+        return entite.avecRelations(entite.relations().stream()
             .filter(relation -> presentes.containsAll(extremites(relation)))
-            .collect(ImmutableList.toImmutableList());
-
-        if (tenues.size() == entite.relations().size()) {
-            return entite;
-        }
-        return new UmlEntity(entite.qualifiedName(), entite.name(), entite.kind(),
-            entite.stereotype(), entite.color(), entite.strategy(), entite.literals(),
-            entite.fields(), entite.methods(), tenues, entite.notes(), entite.constraints(),
-            entite.group(), entite.typeParameters());
+            .collect(ImmutableList.toImmutableList()));
     }
 
-    private static ImmutableList<UmlEntity> enchainer(List<UmlEntity> entites,
-        ImmutableSet<String> presentes) {
+    private static ImmutableList<UmlEntity> enchainer(List<UmlEntity> entites) {
         if (entites.size() < 2) {
             return ImmutableList.copyOf(entites);
         }
@@ -219,15 +230,10 @@ public final class ConstructeurDeVues {
     }
 
     private static UmlEntity avecOrdre(UmlEntity entite, String suivant) {
-        ImmutableList<UmlRelation> relations = ImmutableList.<UmlRelation>builder()
+        return entite.avecRelations(ImmutableList.<UmlRelation>builder()
             .addAll(entite.relations())
             .add(new UmlLayout(suivant, UMLDirection.NONE))
-            .build();
-
-        return new UmlEntity(entite.qualifiedName(), entite.name(), entite.kind(),
-            entite.stereotype(), entite.color(), entite.strategy(), entite.literals(),
-            entite.fields(), entite.methods(), relations, entite.notes(), entite.constraints(),
-            entite.group(), entite.typeParameters());
+            .build());
     }
 
     private static List<List<UmlEntity>> blocs(List<UmlEntity> entites) {

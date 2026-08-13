@@ -21,6 +21,7 @@ class AvertissementsDeGenerationTest {
         return Regles.lues(json, "umlg.json");
     }
 
+
     @UMLClass
     static class Muette {
         public int champ;
@@ -66,6 +67,7 @@ class AvertissementsDeGenerationTest {
         assertFalse(ProjectScanner.signalerBoitesVides(ImmutableList.of()));
     }
 
+
     private static UmlEntity entite(UmlMethod... methodes) {
         return UmlEntity.builder("com.exemple.Classe", "Classe")
             .methods(List.of(methodes)).build();
@@ -107,6 +109,7 @@ class AvertissementsDeGenerationTest {
             Regles.aucune()));
     }
 
+
     @Test
     void unVoisinageReduitAuCentre_estSignale() {
         UmlEntity seule = UmlEntity.builder("com.exemple.Seule", "Seule").build();
@@ -125,6 +128,7 @@ class AvertissementsDeGenerationTest {
         assertFalse(ConstructeurDeVues.signalerVoisinageVide(voulus, ImmutableList.of(centre),
             "Centre", "Autour de Centre"));
     }
+
 
     @Test
     void uneRegleTypeMalOrthographiee_estRelevee() {
@@ -166,6 +170,7 @@ class AvertissementsDeGenerationTest {
             """)));
         assertFalse(ProjectScanner.signalerReglesSansEffet(regles("{}")));
     }
+
 
     @Test
     void uneClasseIllisible_estSignalee() {

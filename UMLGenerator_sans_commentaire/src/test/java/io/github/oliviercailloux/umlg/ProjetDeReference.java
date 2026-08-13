@@ -1,6 +1,7 @@
 package io.github.oliviercailloux.umlg;
 
 import io.github.oliviercailloux.umlg.annotation.UMLAssociation;
+import io.github.oliviercailloux.umlg.annotation.UMLAssociationClass;
 import io.github.oliviercailloux.umlg.annotation.UMLClass;
 import io.github.oliviercailloux.umlg.annotation.UMLConstraint;
 import io.github.oliviercailloux.umlg.annotation.UMLDependency;
@@ -11,6 +12,7 @@ import io.github.oliviercailloux.umlg.annotation.UMLInclude;
 import io.github.oliviercailloux.umlg.annotation.UMLMultiplicity;
 import io.github.oliviercailloux.umlg.annotation.UMLNotation;
 import io.github.oliviercailloux.umlg.annotation.UMLNote;
+import io.github.oliviercailloux.umlg.annotation.UMLPackage;
 import io.github.oliviercailloux.umlg.annotation.UMLRelationType;
 import io.github.oliviercailloux.umlg.annotation.UMLVisibility;
 import java.util.List;
@@ -39,10 +41,20 @@ public final class ProjetDeReference {
     }
 
     @UMLClass
+    @UMLPackage(name = "Facturation", color = "#EEF3F7")
     public static class Commande {}
 
     @UMLClass
+    @UMLPackage(name = "Facturation")
     public static class ServiceBancaire {}
+
+    @UMLClass(strategy = UMLVisibility.PRIVATE)
+    @UMLPackage(name = "Facturation")
+    @UMLAssociationClass(source = Commande.class, target = ServiceBancaire.class)
+    public static class Reglement {
+
+        private double montant;
+    }
 
     @UMLClass(name = "Client", color = "LightBlue", stereotype = "Entity",
         strategy = UMLVisibility.PACKAGE)
@@ -72,7 +84,7 @@ public final class ProjetDeReference {
 
         @UMLAssociation(
             target = Commande.class,
-            targetCardinality = "0..*",
+            targetMultiplicity = "0..*",
             notation = UMLNotation.ATTRIBUTE)
         private List<Commande> archivees;
 
@@ -82,8 +94,8 @@ public final class ProjetDeReference {
             target = Commande.class,
             notation = UMLNotation.ARROW,
             type = UMLRelationType.COMPOSITION,
-            sourceCardinality = "1",
-            targetCardinality = "0..*",
+            sourceMultiplicity = "1",
+            targetMultiplicity = "0..*",
             sourceRole = "acheteur",
             targetRole = "achats",
             label = "passe",

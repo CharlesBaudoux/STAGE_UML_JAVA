@@ -28,8 +28,8 @@ class NotationAttributTest {
 
     @Test
     void unAccesseurEnNotationAttribut_paraitSansParentheses() {
-        List<UmlField> attributs =
-            MemberExtractor.methodesEnAttributs(Clavier.class, Regles.aucune());
+        List<UmlField> attributs = MemberExtractor.methodesEnAttributs(Clavier.class,
+            UMLVisibility.PUBLIC, Regles.aucune());
 
         assertEquals(1, attributs.size(), attributs.toString());
         assertEquals("xKeycodeByXKeyName", attributs.get(0).name());
@@ -58,8 +58,8 @@ class NotationAttributTest {
 
     @Test
     void unAccesseurStatique_gardeSonSoulignement() {
-        List<UmlField> attributs =
-            MemberExtractor.methodesEnAttributs(Fabrique.class, Regles.aucune());
+        List<UmlField> attributs = MemberExtractor.methodesEnAttributs(Fabrique.class,
+            UMLVisibility.PUBLIC, Regles.aucune());
 
         assertTrue(attributs.get(0).isStatic(), attributs.toString());
     }
@@ -74,7 +74,8 @@ class NotationAttributTest {
     @Test
     void uneMethodeAParametres_estRefuseeEnNommantLaMethode() {
         var refus = assertThrows(IllegalArgumentException.class,
-            () -> MemberExtractor.methodesEnAttributs(AvecParametre.class, Regles.aucune()));
+            () -> MemberExtractor.methodesEnAttributs(AvecParametre.class, UMLVisibility.PUBLIC,
+                Regles.aucune()));
 
         assertTrue(refus.getMessage().contains("takes parameters"), refus.getMessage());
         assertTrue(refus.getMessage().contains("canonical"), refus.getMessage());
@@ -88,7 +89,8 @@ class NotationAttributTest {
     @Test
     void uneMethodeSansRetour_estRefusee() {
         var refus = assertThrows(IllegalArgumentException.class,
-            () -> MemberExtractor.methodesEnAttributs(SansRetour.class, Regles.aucune()));
+            () -> MemberExtractor.methodesEnAttributs(SansRetour.class, UMLVisibility.PUBLIC,
+                Regles.aucune()));
 
         assertTrue(refus.getMessage().contains("returns nothing"), refus.getMessage());
     }
@@ -107,7 +109,8 @@ class NotationAttributTest {
             { "hide": ["*tat"] }
             """, "umlg.json");
 
-        assertTrue(MemberExtractor.methodesEnAttributs(Masquee.class, regles).isEmpty());
+        assertTrue(MemberExtractor.methodesEnAttributs(Masquee.class, UMLVisibility.PUBLIC, regles)
+            .isEmpty());
     }
 
     @Test

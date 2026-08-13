@@ -75,7 +75,7 @@ class PlantUmlContrainteTest {
     @Test
     void contrainteDeLien_rejointLExtremiteCible() {
         UmlAssociation association = UmlAssociation.builder("commandes", "com.exemple.Commande")
-            .targetRole("achats").targetCardinality("0..*")
+            .targetRole("achats").targetMultiplicity("0..*")
             .constraints(List.of("subset")).build();
 
         String ligne = ligneDeLien(association);
@@ -86,7 +86,7 @@ class PlantUmlContrainteTest {
     @Test
     void plusieursContraintes_seSuiventDansLOrdreEcrit() {
         UmlAssociation association = UmlAssociation.builder("commandes", "com.exemple.Commande")
-            .targetCardinality("0..*")
+            .targetMultiplicity("0..*")
             .constraints(List.of("ordered", "subset")).build();
 
         assertTrue(ligneDeLien(association).contains("\"0..* {ordered} {subset}\""),

@@ -58,47 +58,74 @@ public final class TypeAffiche {
         checkNotNull(type);
         checkNotNull(regles);
 
+        ParameterizedType conteneur = conteneurAUnElement(type);
+        if (conteneur != null) {
+            Type element = conteneur.getActualTypeArguments()[0];
+            if (element instanceof Class<?> classe) {
+                String primitif = PRIMITIFS.get(classe);
+                if (primitif != null && regles.nomAffiche(classe).equals(classe.getSimpleName())) {
+                    return primitif;
+                }
+            }
+            return de(sansJoker(element), regles);
+        }
+        Type composante = composanteDeTableau(type);
+        if (composante != null) {
+            return de(composante, regles);
+        }
+        return de(type, regles);
+    }
+
+    private static ParameterizedType conteneurAUnElement(Type type) {
         if (!(type instanceof ParameterizedType parametre)) {
-            return de(type, regles);
+            return null;
         }
-        Type[] arguments = parametre.getActualTypeArguments();
-        if (arguments.length != 1 || !estUnConteneur(parametre.getRawType())) {
-            return de(type, regles);
+        if (parametre.getActualTypeArguments().length != 1
+            || !estUnConteneur(parametre.getRawType())) {
+            return null;
         }
-        if (arguments[0] instanceof Class<?> classe) {
-            String primitif = PRIMITIFS.get(classe);
-            if (primitif != null && regles.nomAffiche(classe).equals(classe.getSimpleName())) {
-                return primitif;
+        return parametre;
+    }
+
+    private static Type composanteDeTableau(Type type) {
+        if (type instanceof GenericArrayType tableau) {
+            return tableau.getGenericComponentType();
+        }
+        if (type instanceof Class<?> classe && classe.isArray()) {
+            return classe.getComponentType();
+        }
+        return null;
+    }
+
+    private static Type sansJoker(Type type) {
+        if (type instanceof WildcardType joker) {
+            Type[] hautes = joker.getUpperBounds();
+            if (hautes.length == 1 && hautes[0] != Object.class) {
+                return hautes[0];
             }
         }
-        return de(arguments[0], regles);
+        return type;
     }
 
     public static String multipliciteDeduite(Type type) {
         checkNotNull(type);
 
-        if (!(type instanceof ParameterizedType parametre)) {
+        ParameterizedType conteneur = conteneurAUnElement(type);
+        if (conteneur == null) {
             return "";
         }
-        if (parametre.getActualTypeArguments().length != 1
-            || !estUnConteneur(parametre.getRawType())) {
-            return "";
-        }
-        Class<?> brut = (Class<?>) parametre.getRawType();
+        Class<?> brut = (Class<?>) conteneur.getRawType();
         return Optional.class.isAssignableFrom(brut) ? "0..1" : "0..*";
     }
 
     public static Class<?> elementSeul(Type type) {
         checkNotNull(type);
 
-        if (!(type instanceof ParameterizedType parametre)) {
+        ParameterizedType conteneur = conteneurAUnElement(type);
+        if (conteneur == null) {
             return null;
         }
-        Type[] arguments = parametre.getActualTypeArguments();
-        if (arguments.length != 1 || !estUnConteneur(parametre.getRawType())) {
-            return null;
-        }
-        return arguments[0] instanceof Class<?> classe ? classe : null;
+        return conteneur.getActualTypeArguments()[0] instanceof Class<?> classe ? classe : null;
     }
 
     private static boolean estUnConteneur(Type brut) {

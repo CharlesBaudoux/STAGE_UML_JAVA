@@ -1,5 +1,6 @@
 package io.github.oliviercailloux.umlg.model;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableList;
@@ -10,7 +11,7 @@ import com.google.common.collect.ImmutableList;
  * @param name le nom affiché.
  * @param type nom simple du type ({@code String}, et non {@code java.lang.String}) : la boîte
  *     doit rester lisible.
- * @param cardinality la multiplicité de la propriété, écrite entre crochets à la suite du nom :
+ * @param multiplicity la multiplicité de la propriété, écrite entre crochets à la suite du nom :
  *     {@code - Commande commandes [0..*]}. Vide = rien d'affiché, ce qui vaut « exactement un »
  *     en UML et couvre l'immense majorité des attributs. Elle n'est renseignée aujourd'hui que
  *     par une {@code @UMLAssociation} dessinée dans la boîte, seul cas où la bibliothèque
@@ -26,25 +27,51 @@ import com.google.common.collect.ImmutableList;
 public record UmlField(
     String name,
     String type,
-    String cardinality,
+    String multiplicity,
     String visibility,
     boolean isStatic,
     boolean derived,
     ImmutableList<String> constraints
 ) {
 
+    private static final ImmutableList<String> VISIBILITES =
+        ImmutableList.of("+", "-", "#", "~", "");
+
     /**
      * Vérifie les invariants de l'attribut.
      *
-     * @throws NullPointerException si la multiplicité est nulle ; son absence se dit avec la
-     *     chaîne vide.
-     * @throws IllegalArgumentException si la multiplicité n'est pas une multiplicité UML, ou si
-     *     une contrainte est mal formée.
+     * <p>Le nom, le type et la visibilité étaient les trois seules composantes de tout le modèle à
+     * n'être jamais contrôlées : {@code new UmlField(null, null, null, false)} passait, et le rendu
+     * écrivait {@code - null : null} dans la boîte, deux couches plus loin et sans un mot sur
+     * l'origine. Le voisin immédiat {@link UmlParameter} refusait déjà un type vide.
+     *
+     * @throws NullPointerException si le nom, le type, la multiplicité ou la visibilité est nul ;
+     *     l'absence de multiplicité se dit avec la chaîne vide, et celle de visibilité aussi.
+     * @throws IllegalArgumentException si le nom ou le type est vide, si la visibilité n'est pas un
+     *     symbole UML, si la multiplicité n'est pas une multiplicité UML, ou si une contrainte est
+     *     mal formée.
      */
     public UmlField {
-        checkNotNull(cardinality, "The cardinality cannot be null (use an empty string).");
-        Multiplicites.valider(cardinality, "cardinality");
+        verifierNom(name);
+        checkNotNull(type, "The field type cannot be null.");
+        checkArgument(!type.isBlank(), "The type of field \"%s\" cannot be empty.", name);
+        checkNotNull(multiplicity, "The multiplicity cannot be null (use an empty string).");
+        Multiplicites.valider(multiplicity, "multiplicity");
+        verifierVisibilite(visibility, name);
         constraints = Contraintes.validees(constraints);
+    }
+
+
+    static void verifierNom(String name) {
+        checkNotNull(name, "The member name cannot be null.");
+        checkArgument(!name.isBlank(), "The member name cannot be empty.");
+    }
+
+    static void verifierVisibilite(String visibility, String name) {
+        checkNotNull(visibility, "The visibility cannot be null (use an empty string).");
+        checkArgument(VISIBILITES.contains(visibility),
+            "The visibility of \"%s\" must be one of + - # ~, or empty to write none (got: \"%s\").",
+            name, visibility);
     }
 
     /**

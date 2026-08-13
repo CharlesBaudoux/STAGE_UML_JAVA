@@ -2,6 +2,7 @@ package io.github.oliviercailloux.umlg.extraction.relation;
 
 import java.lang.reflect.Field;
 
+
 final class Emplacement {
 
     private Emplacement() {}

@@ -74,8 +74,8 @@ public record UmlEntity(
      *
      * @throws NullPointerException si l'une des composantes est nulle ; l'absence d'un texte
      *     facultatif se dit avec la chaîne vide, jamais avec {@code null}.
-     * @throws IllegalArgumentException si le nom complet est vide, ou si une contrainte est mal
-     *     formée.
+     * @throws IllegalArgumentException si le nom complet ou le nom affiché est vide, ou si une
+     *     contrainte est mal formée.
      */
     public UmlEntity {
         checkNotNull(name, "The entity name cannot be null.");
@@ -85,6 +85,7 @@ public record UmlEntity(
         checkNotNull(color, "The color cannot be null (use an empty string).");
         checkNotNull(strategy, "The visibility strategy cannot be null.");
         checkArgument(!qualifiedName.isBlank(), "The entity qualified name cannot be empty.");
+        checkArgument(!name.isBlank(), "The entity name cannot be empty.");
 
         literals = ImmutableList.copyOf(
             checkNotNull(literals, "The list of literals cannot be null."));
@@ -124,6 +125,31 @@ public record UmlEntity(
                 checkNotNull(methods, "The list of methods cannot be null.")),
             ImmutableList.of(), ImmutableList.of(), ImmutableList.of(), UmlPackage.aucun(),
             "");
+    }
+
+    /**
+     * La même entité, avec d'autres liens.
+     *
+     * <p>C'est le seul remaniement qu'une entité subisse après sa construction, et il n'a qu'un
+     * client : le découpage en vues. Une vue élague les traits dont l'autre bout n'est pas
+     * dessiné, puis en ajoute d'invisibles pour poser l'ordre des boîtes — deux fois la même
+     * reconstruction, écrite deux fois, quatorze composantes à la main dont treize inchangées.
+     * Recopier treize composantes pour en changer une est l'occasion d'en oublier une, et rien
+     * n'aurait dit laquelle.
+     *
+     * @param relations les liens qui remplacent ceux de cette entité.
+     * @return une entité identique à celle-ci, à ses relations près ; celle-ci même si les liens
+     *     donnés sont ceux qu'elle porte déjà, une copie à l'identique n'apprenant rien à
+     *     personne.
+     * @throws NullPointerException si la liste est nulle.
+     */
+    public UmlEntity avecRelations(ImmutableList<UmlRelation> relations) {
+        checkNotNull(relations, "The list of relations cannot be null.");
+        if (relations.equals(this.relations)) {
+            return this;
+        }
+        return new UmlEntity(qualifiedName, name, kind, stereotype, color, strategy, literals,
+            fields, methods, relations, notes, constraints, group, typeParameters);
     }
 
     /**
@@ -224,7 +250,6 @@ public record UmlEntity(
         private ImmutableList<UmlNote> notes = ImmutableList.of();
         private ImmutableList<String> constraints = ImmutableList.of();
         private UmlPackage group = UmlPackage.aucun();
-        private boolean declared;
         private String typeParameters = "";
         private final ImmutableList.Builder<UmlRelation> relations = ImmutableList.builder();
 

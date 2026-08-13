@@ -69,6 +69,7 @@ class PlantUmlMultipliciteTest {
         assertTrue(texte.contains("names() : String [0..*]"), texte);
     }
 
+
     @UMLClass(strategy = UMLVisibility.PRIVATE)
     static class Decoree {
         @UMLDerived
@@ -84,6 +85,7 @@ class PlantUmlMultipliciteTest {
         assertTrue(source.contains("- /etiquettes : String [1..*] {sans doublon}"), source);
         PlantUmlAssert.assertCompile(source);
     }
+
 
     static class MultipliciteFautive {
         @UMLMultiplicity("3..1")
@@ -120,7 +122,7 @@ class PlantUmlMultipliciteTest {
 
     static class DeuxMultiplicites {
         @UMLMultiplicity("0..*")
-        @UMLAssociation(target = Cible.class, targetCardinality = "1..*")
+        @UMLAssociation(target = Cible.class, targetMultiplicity = "1..*")
         private List<Cible> cibles;
     }
 
@@ -129,6 +131,6 @@ class PlantUmlMultipliciteTest {
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
             () -> MemberExtractor.extractFields(DeuxMultiplicites.class, UMLVisibility.PRIVATE));
 
-        assertTrue(e.getMessage().contains("targetCardinality"), e.getMessage());
+        assertTrue(e.getMessage().contains("targetMultiplicity"), e.getMessage());
     }
 }

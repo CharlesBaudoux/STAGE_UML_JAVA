@@ -94,6 +94,7 @@ class VisibilityPolicyTest {
         return entity.methods().stream().filter(m -> m.name().equals(name)).findFirst();
     }
 
+
     @Test
     void aucuneStrategie_produitUneCoquilleVide() {
         UmlEntity entity = EntityExtractor.extract(StrategieAbsente.class);
@@ -103,6 +104,7 @@ class VisibilityPolicyTest {
         assertTrue(entity.methods().isEmpty(),
             "Sans strategy, aucune méthode ne doit être extraite.");
     }
+
 
     @Test
     void strategiePublic_neGardeQueLesMembresPublics() {
@@ -119,6 +121,7 @@ class VisibilityPolicyTest {
         assertTrue(method(entity, "methodePrivee").isEmpty());
     }
 
+
     @Test
     void strategieProtected_gardePublicEtProtected() {
         UmlEntity entity = EntityExtractor.extract(StrategieProtected.class);
@@ -129,6 +132,7 @@ class VisibilityPolicyTest {
             "PROTECTED ne doit pas inclure le package-private.");
         assertTrue(field(entity, "champPrive").isEmpty());
     }
+
 
     @Test
     void strategiePackage_gardePublicEtPackagePrivateMaisPasProtected() {
@@ -141,6 +145,7 @@ class VisibilityPolicyTest {
         assertTrue(field(entity, "champPrive").isEmpty());
     }
 
+
     @Test
     void strategiePrivate_gardeTousLesChamps() {
         UmlEntity entity = EntityExtractor.extract(StrategiePrivate.class);
@@ -151,6 +156,7 @@ class VisibilityPolicyTest {
         assertTrue(field(entity, "champPrive").isPresent());
     }
 
+
     @Test
     void umlInclude_forcePrivateChampMalgreStrategiePublic() {
         UmlEntity entity = EntityExtractor.extract(DerogationInclude.class);
@@ -160,6 +166,7 @@ class VisibilityPolicyTest {
         assertTrue(field(entity, "secretIgnorable").isEmpty(),
             "Sans @UMLInclude, un champ private doit rester masqué sous strategy PUBLIC.");
     }
+
 
     @Test
     void umlExclude_masqueUnChampAutoriseParLaStrategie() {

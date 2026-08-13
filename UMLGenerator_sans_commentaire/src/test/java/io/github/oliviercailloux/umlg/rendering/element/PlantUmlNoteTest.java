@@ -135,6 +135,7 @@ class PlantUmlNoteTest {
         PlantUmlAssert.assertCompile(source);
     }
 
+
     @Test
     void texteMultiligne_resteSurUneSeuleLigne() {
         String source = source(UmlNote.surClasse("Premiere\nSeconde", UMLDirection.RIGHT));

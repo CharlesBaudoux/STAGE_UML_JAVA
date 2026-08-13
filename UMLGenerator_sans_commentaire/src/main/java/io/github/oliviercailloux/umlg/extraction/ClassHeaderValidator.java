@@ -3,24 +3,35 @@ package io.github.oliviercailloux.umlg.extraction;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import io.github.oliviercailloux.umlg.rendering.syntax.ColorCodec;
+import io.github.oliviercailloux.umlg.rendering.syntax.PlantUmlEscaper;
 
-final class ClassHeaderValidator {
+public final class ClassHeaderValidator {
 
     private ClassHeaderValidator() {}
 
     static void validateName(String name, Class<?> clazz) {
-        checkArgument(!name.isBlank(),
-            "@UMLClass on %s: name() cannot be empty or made of whitespace only.",
-            clazz.getName());
+        validateName(name, "@UMLClass on " + clazz.getName());
+    }
+
+    public static void validateName(String name, String contexte) {
+        checkArgument(!PlantUmlEscaper.label(name).isBlank(),
+            "%s: name() must show something: it cannot be empty, nor made of invisible characters "
+                + "or whitespace only.",
+            contexte);
     }
 
     static void validateStereotype(String stereotype, Class<?> clazz) {
+        validateStereotype(stereotype, "@UMLClass on " + clazz.getName());
+    }
+
+    public static void validateStereotype(String stereotype, String contexte) {
         if (stereotype.isEmpty()) {
             return;
         }
-        checkArgument(!stereotype.isBlank(),
-            "@UMLClass on %s: stereotype() cannot be made of whitespace only.",
-            clazz.getName());
+        checkArgument(!PlantUmlEscaper.stereotype(stereotype).isBlank(),
+            "%s: stereotype() must show something: it cannot be made of invisible characters or "
+                + "whitespace only.",
+            contexte);
     }
 
     static void validateColor(String color, Class<?> clazz) {

@@ -4,11 +4,11 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.github.oliviercailloux.umlg.Avertissements;
 import io.github.oliviercailloux.umlg.annotation.UMLRelationType;
 import io.github.oliviercailloux.umlg.model.UmlAssociation;
 import io.github.oliviercailloux.umlg.model.UmlEntity;
 import io.github.oliviercailloux.umlg.model.UmlRelation;
+import io.github.oliviercailloux.umlg.warning.Avertisseur;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -58,14 +58,8 @@ public final class AssociationsReciproques {
                 String clefPartenaire = clef(enFace.qualifiedName(), partenaire);
 
                 if (!fusionnable(association, partenaire)) {
-                    Avertissements.dire(entite.qualifiedName() + "." + association.fieldName()
-                        + " and " + enFace.qualifiedName() + "." + partenaire.fieldName()
-                        + " declare the same association from both sides, and both carry more "
-                        + "than a role and a multiplicity (a type, a label, a constraint or a "
-                        + "slash). UML would draw one line with two "
-                        + "ends; two are drawn, because merging them would silently drop what "
-                        + "the second one says. Keep the decorations on one side only to get a "
-                        + "single line.");
+                    Avertisseur.dire(
+                        pourquoiPasFusionnee(entite, association, enFace, partenaire));
                     fusionnees.put(clef, association);
                     fusionnees.put(clefPartenaire, partenaire);
                     continue;
@@ -113,17 +107,48 @@ public final class AssociationsReciproques {
     }
 
     private static boolean fusionnable(UmlAssociation gardee, UmlAssociation partenaire) {
-        return partenaire.type() == UMLRelationType.ASSOCIATION
-            && partenaire.label().isEmpty()
-            && partenaire.constraints().isEmpty()
-            && !partenaire.derived()
-            && gardee.sourceRole().isEmpty()
-            && gardee.sourceCardinality().isEmpty();
+        return !partenaireDecore(partenaire) && !cotesourceDejaEcrit(gardee);
+    }
+
+    private static boolean partenaireDecore(UmlAssociation partenaire) {
+        return partenaire.type() != UMLRelationType.ASSOCIATION
+            || !partenaire.label().isEmpty()
+            || !partenaire.constraints().isEmpty()
+            || partenaire.derived();
+    }
+
+    private static boolean cotesourceDejaEcrit(UmlAssociation gardee) {
+        return !gardee.sourceRole().isEmpty() || !gardee.sourceMultiplicity().isEmpty();
+    }
+
+    private static String pourquoiPasFusionnee(UmlEntity entite, UmlAssociation association,
+        UmlEntity enFace, UmlAssociation partenaire) {
+
+        String ici = entite.qualifiedName() + "." + association.fieldName();
+        String laBas = enFace.qualifiedName() + "." + partenaire.fieldName();
+
+        StringBuilder message = new StringBuilder(ici + " and " + laBas
+            + " declare the same association from both sides. UML would draw one line with two "
+            + "ends; two are drawn, because merging them would silently drop what the second one "
+            + "says.");
+
+        if (partenaireDecore(partenaire)) {
+            message.append(" ").append(laBas).append(" carries more than a role and a "
+                + "multiplicity (a type, a label, a constraint or a slash), and the end of a line "
+                + "cannot hold any of those. Keep the decorations on one side only.");
+        }
+        if (cotesourceDejaEcrit(association)) {
+            message.append(" ").append(ici).append(" already names its own source end "
+                + "(sourceRole or sourceMultiplicity), which is exactly where ").append(laBas)
+                .append(" would have been written. Drop that source end, and let the class "
+                    + "opposite say what it is called.");
+        }
+        return message.toString();
     }
 
     private static UmlAssociation fusionner(UmlAssociation gardee, UmlAssociation partenaire) {
         return new UmlAssociation(gardee.fieldName(), gardee.targetQualifiedName(), gardee.type(),
-            partenaire.targetCardinality(), gardee.targetCardinality(),
+            partenaire.targetMultiplicity(), gardee.targetMultiplicity(),
             partenaire.targetRole(), gardee.targetRole(),
             gardee.label(), gardee.direction(), gardee.derived(), gardee.constraints());
     }

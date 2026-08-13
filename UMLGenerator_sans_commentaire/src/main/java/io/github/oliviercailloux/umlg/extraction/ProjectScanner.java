@@ -3,7 +3,6 @@ package io.github.oliviercailloux.umlg.extraction;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import io.github.oliviercailloux.umlg.Avertissements;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.github.oliviercailloux.umlg.annotation.UMLClass;
@@ -14,8 +13,10 @@ import io.github.oliviercailloux.umlg.model.UmlEntity;
 import io.github.oliviercailloux.umlg.model.UmlParameter;
 import io.github.oliviercailloux.umlg.model.UmlProject;
 import io.github.oliviercailloux.umlg.model.UmlView;
+import io.github.oliviercailloux.umlg.warning.Avertisseur;
 import java.io.File;
 import java.io.IOException;
+import java.lang.annotation.AnnotationFormatError;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Files;
@@ -47,6 +48,7 @@ public class ProjectScanner {
         Recolte recolte = parcourir(rootPath, classpath, regles);
 
         signalerClassesIllisibles(recolte.illisibles());
+        signalerBoitesPerdues(recolte.perdues());
         refuserUnProjetSansAnnotation(rootPath, recolte);
 
         signalerBoitesVides(recolte.boitesVides());
@@ -66,7 +68,8 @@ public class ProjectScanner {
     }
 
     private record Recolte(ImmutableSet<UmlEntity> entites, ImmutableList<String> ignorees,
-        ImmutableList<String> boitesVides, ImmutableList<String> illisibles) {}
+        ImmutableList<String> boitesVides, ImmutableList<String> illisibles,
+        ImmutableList<String> perdues) {}
 
     private static Recolte parcourir(Path rootPath, ImmutableList<Path> classpath, Regles regles)
         throws IOException {
@@ -77,6 +80,8 @@ public class ProjectScanner {
         List<String> boitesVides = new ArrayList<>();
 
         List<String> illisibles = new ArrayList<>();
+
+        List<String> perdues = new ArrayList<>();
 
         try (URLClassLoader classLoader = chargeurPour(rootPath, classpath)) {
 
@@ -90,20 +95,28 @@ public class ProjectScanner {
                              return;
                          }
 
+                         Class<?> clazz;
                          try {
-                             Class<?> clazz = classLoader.loadClass(className);
+                             clazz = classLoader.loadClass(className);
+                         } catch (ClassNotFoundException | LinkageError e) {
+                             illisibles.add(className + " (" + e + ")");
+                             return;
+                         }
 
+                         try {
                              if (clazz.isAnnotationPresent(UMLClass.class)) {
                                  UmlEntity entite = EntityExtractor.extract(clazz, regles);
+                                 boolean vide = boiteVideFauteDeStrategie(clazz, entite, regles);
                                  projectBuilder.add(entite);
-                                 if (boiteVideFauteDeStrategie(clazz, entite, regles)) {
+                                 if (vide) {
                                      boitesVides.add(clazz.getSimpleName());
                                  }
                              } else if (!clazz.isSynthetic() && !clazz.isAnonymousClass()) {
                                  ignorees.add(clazz.getSimpleName());
                              }
-                         } catch (ClassNotFoundException | LinkageError e) {
-                             illisibles.add(className + " (" + e + ")");
+                         } catch (LinkageError | TypeNotPresentException
+                             | AnnotationFormatError e) {
+                             perdues.add(className + " (" + e + ")");
                          }
                      });
             }
@@ -115,7 +128,8 @@ public class ProjectScanner {
                 .collect(ImmutableSet.toImmutableSet()),
             ImmutableList.sortedCopyOf(ignorees),
             ImmutableList.sortedCopyOf(boitesVides),
-            ImmutableList.sortedCopyOf(illisibles));
+            ImmutableList.sortedCopyOf(illisibles),
+            ImmutableList.sortedCopyOf(perdues));
     }
 
     private static URLClassLoader chargeurPour(Path rootPath, ImmutableList<Path> classpath)
@@ -161,10 +175,25 @@ public class ProjectScanner {
         String liste = illisibles.size() <= SEUIL_ENUMERATION
             ? " : " + String.join(", ", illisibles)
             : "";
-        Avertissements.dire(illisibles.size() + " class(es) could not be loaded and "
+        Avertisseur.dire(illisibles.size() + " class(es) could not be loaded and "
             + "were skipped" + liste + ". A dependency is missing from the analysed classpath, or "
             + "the compilation is partial. Whether they carried @UMLClass cannot be known — the "
             + "annotation is only readable on a loaded class — so the diagram may be incomplete.");
+        return true;
+    }
+
+    static boolean signalerBoitesPerdues(ImmutableList<String> perdues) {
+        if (perdues.isEmpty()) {
+            return false;
+        }
+        String liste = perdues.size() <= SEUIL_ENUMERATION
+            ? " : " + String.join(", ", perdues)
+            : "";
+        Avertisseur.dire(perdues.size() + " class(es) loaded but could not be read, and were "
+            + "skipped" + liste + ". The class itself was found; what is missing from the analysed "
+            + "classpath is a type it names — in a member signature, in a supertype, or in an "
+            + "annotation. Add that dependency to the analysed classpath, or the diagram will "
+            + "lack these boxes.");
         return true;
     }
 
@@ -189,7 +218,7 @@ public class ProjectScanner {
         }
         String liste = noms.size() <= 12 ? " (" + String.join(", ", noms) + ")" : "";
 
-        Avertissements.dire(noms.size() + " box(es) have no member" + liste
+        Avertisseur.dire(noms.size() + " box(es) have no member" + liste
             + ": no strategy is declared, and the default draws none. Write "
             + "\"strategy\": \"public\" in umlg.json, declare one with @UMLClass(strategy = ...), "
             + "or pick members one by one with @UMLInclude.");
@@ -209,7 +238,7 @@ public class ProjectScanner {
         if (parametres.isEmpty() || parametres.stream().anyMatch(UmlParameter::nomme)) {
             return false;
         }
-        Avertissements.dire("no method parameter carries its name: the classes were "
+        Avertisseur.dire("no method parameter carries its name: the classes were "
             + "compiled without the -parameters option, so signatures show types only — "
             + "\"entries(String)\" instead of \"entries(xKeyName : String)\". Add "
             + "<maven.compiler.parameters>true</maven.compiler.parameters> to the pom (or "
@@ -223,7 +252,7 @@ public class ProjectScanner {
         if (mortes.isEmpty()) {
             return false;
         }
-        Avertissements.dire(mortes.size() + " rule(s) of " + Regles.NOM_DU_FICHIER
+        Avertisseur.dire(mortes.size() + " rule(s) of " + Regles.NOM_DU_FICHIER
             + " matched nothing in this project: \"" + String.join("\", \"", mortes)
             + "\". A renamed class or a typo leaves a dead rule behind; fix the name, or remove "
             + "the entry.");

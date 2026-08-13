@@ -13,7 +13,7 @@ import javax.lang.model.type.TypeMirror;
 final class VerificateurAssociation {
 
     private static final ImmutableList<String> PARAMETRES_DE_TRAIT = ImmutableList.of(
-        "type", "sourceCardinality", "sourceRole", "label", "direction");
+        "type", "sourceMultiplicity", "sourceRole", "label", "direction");
 
     private final Rapporteur rapporteur;
     private final Cible cible;
@@ -34,25 +34,23 @@ final class VerificateurAssociation {
         String contexte = "@UMLAssociation on " + porteuse.getQualifiedName() + "."
             + champ.getSimpleName();
 
-        if (porteuse.getAnnotation(UMLClass.class) == null) {
-            rapporteur.erreur(contexte + ": the carrying class does not carry @UMLClass, so it is "
-                + "not part of the diagram and this association would be drawn from nowhere. "
-                + "Annotate " + porteuse.getQualifiedName() + ", or remove this annotation.",
-                champ, annotation);
+        if (!rapporteur.exigerBoite(porteuse, contexte,
+            "this association would be drawn from nowhere", champ, annotation)) {
             return;
         }
 
         String nomCible = cible.resoudre(annotation, "target", contexte, champ,
-            typeAttribut.elementSeul(champ.asType()));
+            typeAttribut.elementSeul(champ.asType()),
+            typeAttribut.plainteCibleIndeductible(contexte, champ.asType()));
         if (nomCible == null) {
             return;
         }
 
-        if (!verifierValeurs(champ, annotation, contexte, nomCible)) {
-            return;
-        }
         if (!Notation.trait(rapporteur, annotation)) {
             signalerParametresSansPlace(champ, annotation, contexte);
+        }
+        if (!verifierValeurs(champ, annotation, contexte, nomCible)) {
+            return;
         }
         signalerIncoherences(champ, annotation, contexte);
     }
@@ -78,8 +76,8 @@ final class VerificateurAssociation {
         String nomCible) {
         try {
             UmlAssociation.builder(champ.getSimpleName().toString(), nomCible)
-                .sourceCardinality(rapporteur.texte(annotation, "sourceCardinality"))
-                .targetCardinality(rapporteur.texte(annotation, "targetCardinality"))
+                .sourceMultiplicity(rapporteur.texte(annotation, "sourceMultiplicity"))
+                .targetMultiplicity(rapporteur.texte(annotation, "targetMultiplicity"))
                 .sourceRole(rapporteur.texte(annotation, "sourceRole"))
                 .targetRole(rapporteur.texte(annotation, "targetRole"))
                 .label(rapporteur.texte(annotation, "label"))
@@ -114,15 +112,15 @@ final class VerificateurAssociation {
 
     private void signalerMultiplicite(Element champ, AnnotationMirror annotation, String contexte,
         TypeMirror type) {
-        String multiplicite = rapporteur.texte(annotation, "targetCardinality");
+        String multiplicite = rapporteur.texte(annotation, "targetMultiplicity");
         boolean multivalue = typeAttribut.multivalue(type);
-        AnnotationValue position = rapporteur.valeurEcrite(annotation, "targetCardinality");
+        AnnotationValue position = rapporteur.valeurEcrite(annotation, "targetMultiplicity");
 
         if (multivalue && multiplicite.isEmpty()) {
             String porteur = Notation.trait(rapporteur, annotation) ? "link" : "attribute";
 
             rapporteur.avertissement(contexte + ": the field's type (" + type + ") holds several "
-                + "objects, but targetCardinality is not set, so the " + porteur + " will carry "
+                + "objects, but targetMultiplicity is not set, so the " + porteur + " will carry "
                 + "no multiplicity at all. Only you know whether it is \"0..*\" or \"1..*\".",
                 champ, annotation, position);
             return;
@@ -131,13 +129,13 @@ final class VerificateurAssociation {
             return;
         }
         if (multivalue && !permetPlusieurs(multiplicite)) {
-            rapporteur.avertissement(contexte + ": targetCardinality = \"" + multiplicite
+            rapporteur.avertissement(contexte + ": targetMultiplicity = \"" + multiplicite
                 + "\" allows at most one object, but the field's type (" + type + ") holds "
                 + "several.", champ, annotation, position);
             return;
         }
         if (!multivalue && permetPlusieurs(multiplicite) && !typeAttribut.indetermine(type)) {
-            rapporteur.avertissement(contexte + ": targetCardinality = \"" + multiplicite
+            rapporteur.avertissement(contexte + ": targetMultiplicity = \"" + multiplicite
                 + "\" allows several objects, but the field's type (" + type + ") holds a single "
                 + "one.", champ, annotation, position);
         }

@@ -11,10 +11,8 @@ import org.junit.jupiter.api.io.TempDir;
 
 class UmlgRenommageTest {
 
-    private static final String ENTETE = "import io.github.oliviercailloux.umlg.annotation.*;\n";
-
     private static Verdict compiler(Path tmp, String code) throws IOException {
-        return CompilationCobaye.compiler(tmp, "Cobaye.java", ENTETE + code);
+        return CompilationCobaye.compilerCorps(tmp, code);
     }
 
     @Test
@@ -83,7 +81,7 @@ class UmlgRenommageTest {
         Path regles = tmp.resolve("umlg.json");
         java.nio.file.Files.writeString(regles, "{ \"strategy\": \"public\" }\n");
 
-        Verdict verdict = CompilationCobaye.compiler(tmp, "Cobaye.java", ENTETE + """
+        Verdict verdict = CompilationCobaye.compilerCorps(tmp, """
             @UMLClass
             class Client {
                 @UMLInclude(name = "identite")

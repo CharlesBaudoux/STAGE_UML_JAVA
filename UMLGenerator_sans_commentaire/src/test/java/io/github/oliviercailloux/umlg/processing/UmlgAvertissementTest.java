@@ -1,5 +1,6 @@
 package io.github.oliviercailloux.umlg.processing;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.oliviercailloux.umlg.processing.CompilationCobaye.Verdict;
@@ -11,14 +12,8 @@ import org.junit.jupiter.api.io.TempDir;
 
 class UmlgAvertissementTest {
 
-    private static final String ENTETE = """
-        import io.github.oliviercailloux.umlg.annotation.*;
-        import java.util.List;
-        import java.util.Map;
-        """;
-
     private static Verdict compiler(Path tmp, String corps) throws IOException {
-        return CompilationCobaye.compiler(tmp, "Cobaye.java", ENTETE + corps);
+        return CompilationCobaye.compilerCorps(tmp, corps);
     }
 
     private static void assertAvertit(Verdict verdict, String fragment) {
@@ -27,8 +22,9 @@ class UmlgAvertissementTest {
         assertTrue(verdict.avertissementContient(fragment), verdict.rapport());
     }
 
+
     @Test
-    void includeSurUnAttributDejaVisible_avertit(@TempDir Path tmp) throws IOException {
+    void includeSurUnAttributDejaVisible_seTaitSansLesRegles(@TempDir Path tmp) throws IOException {
         Verdict verdict = compiler(tmp, """
             @UMLClass(strategy = UMLVisibility.PUBLIC)
             class Client {
@@ -37,8 +33,8 @@ class UmlgAvertissementTest {
             }
             """);
 
-        assertAvertit(verdict, "@UMLInclude has no effect");
-        assertAvertit(verdict, "strategy = PUBLIC");
+        assertTrue(verdict.reussie(), verdict.rapport());
+        assertTrue(verdict.avertissements().isEmpty(), verdict.rapport());
     }
 
     @Test
@@ -83,6 +79,7 @@ class UmlgAvertissementTest {
         assertTrue(verdict.avertissements().isEmpty(), verdict.rapport());
     }
 
+
     @Test
     void excludeSurUneAssociation_avertitQueLeLienDisparait(@TempDir Path tmp) throws IOException {
         Verdict verdict = compiler(tmp, """
@@ -118,6 +115,7 @@ class UmlgAvertissementTest {
         assertAvertit(verdict, "never inside one");
     }
 
+
     @Test
     void parametresDeTraitSousLaNotationAttribute_avertissent(@TempDir Path tmp)
         throws IOException {
@@ -127,7 +125,7 @@ class UmlgAvertissementTest {
 
             @UMLClass
             class Client {
-                @UMLAssociation(target = Commande.class, targetCardinality = "0..*",
+                @UMLAssociation(target = Commande.class, targetMultiplicity = "0..*",
                     notation = UMLNotation.ATTRIBUTE, type = UMLRelationType.COMPOSITION,
                     label = "passe")
                 private List<Commande> commandes;
@@ -139,6 +137,29 @@ class UmlgAvertissementTest {
     }
 
     @Test
+    void parametreDeTraitFautifSousLaNotationAttribute_estRefuseEtSignale(@TempDir Path tmp)
+        throws IOException {
+        Verdict verdict = compiler(tmp, """
+            @UMLClass
+            class Commande {}
+
+            @UMLClass
+            class Client {
+                @UMLAssociation(target = Commande.class, notation = UMLNotation.ATTRIBUTE,
+                    sourceMultiplicity = "3..1")
+                private Commande commande;
+            }
+            """);
+
+        assertFalse(verdict.reussie(), verdict.rapport());
+        assertTrue(verdict.erreurContient("the lower bound exceeds the upper bound"),
+            verdict.rapport());
+        assertTrue(verdict.avertissementContient("decorate a path between two boxes"),
+            "L'inutilité du paramètre doit être dite en même temps que sa faute : "
+                + verdict.rapport());
+    }
+
+    @Test
     void notationAttributeSansParametreDeTrait_neDitRien(@TempDir Path tmp) throws IOException {
         Verdict verdict = compiler(tmp, """
             @UMLClass
@@ -146,7 +167,7 @@ class UmlgAvertissementTest {
 
             @UMLClass
             class Client {
-                @UMLAssociation(target = Commande.class, targetCardinality = "0..*",
+                @UMLAssociation(target = Commande.class, targetMultiplicity = "0..*",
                     notation = UMLNotation.ATTRIBUTE)
                 private List<Commande> commandes;
             }
@@ -174,7 +195,7 @@ class UmlgAvertissementTest {
     }
 
     @Test
-    void includeSurUneAssociationDansLaBoite_avertitQueLaLigneYEstDeja(@TempDir Path tmp)
+    void includeSurUneAssociationDansLaBoite_seTaitSansLesRegles(@TempDir Path tmp)
         throws IOException {
         Verdict verdict = compiler(tmp, """
             @UMLClass
@@ -188,7 +209,8 @@ class UmlgAvertissementTest {
             }
             """);
 
-        assertAvertit(verdict, "already shown in the attribute compartment");
+        assertTrue(verdict.reussie(), verdict.rapport());
+        assertTrue(verdict.avertissements().isEmpty(), verdict.rapport());
     }
 
     @Test
@@ -218,7 +240,7 @@ class UmlgAvertissementTest {
             @UMLClass
             @UMLDependency(target = Commande.class, label = "facture")
             class Client {
-                @UMLAssociation(target = Commande.class, targetCardinality = "0..*",
+                @UMLAssociation(target = Commande.class, targetMultiplicity = "0..*",
                     notation = UMLNotation.ATTRIBUTE)
                 private List<Commande> commandes;
             }
@@ -226,6 +248,7 @@ class UmlgAvertissementTest {
 
         assertTrue(verdict.avertissements().isEmpty(), verdict.rapport());
     }
+
 
     @Test
     void multipliciteSurUnMembreMasque_avertit(@TempDir Path tmp) throws IOException {
@@ -269,6 +292,7 @@ class UmlgAvertissementTest {
         assertTrue(verdict.avertissements().isEmpty(), verdict.rapport());
     }
 
+
     @Test
     void stereotypeDejaEncadre_avertit(@TempDir Path tmp) throws IOException {
         Verdict verdict = compiler(tmp, """
@@ -289,6 +313,7 @@ class UmlgAvertissementTest {
         assertTrue(verdict.avertissements().isEmpty(), verdict.rapport());
     }
 
+
     @Test
     void deuxClassesDeMemeNomAffiche_avertit(@TempDir Path tmp) throws IOException {
         Verdict verdict = compiler(tmp, """
@@ -302,6 +327,7 @@ class UmlgAvertissementTest {
         assertAvertit(verdict, "the reader cannot tell apart");
     }
 
+
     @Test
     void dependanceDoublantUneAssociation_avertit(@TempDir Path tmp) throws IOException {
         Verdict verdict = compiler(tmp, """
@@ -311,7 +337,7 @@ class UmlgAvertissementTest {
             @UMLClass
             @UMLDependency(target = Commande.class, label = "facture")
             class Client {
-                @UMLAssociation(target = Commande.class, targetCardinality = "0..*")
+                @UMLAssociation(target = Commande.class, targetMultiplicity = "0..*")
                 private List<Commande> commandes;
             }
             """);
@@ -331,13 +357,14 @@ class UmlgAvertissementTest {
             @UMLClass
             @UMLDependency(target = Journal.class, label = "trace")
             class Client {
-                @UMLAssociation(target = Commande.class, targetCardinality = "0..*")
+                @UMLAssociation(target = Commande.class, targetMultiplicity = "0..*")
                 private List<Commande> commandes;
             }
             """);
 
         assertTrue(verdict.avertissements().isEmpty(), verdict.rapport());
     }
+
 
     @Test
     void collectionSansMultiplicite_avertit(@TempDir Path tmp) throws IOException {
@@ -352,7 +379,7 @@ class UmlgAvertissementTest {
             }
             """);
 
-        assertAvertit(verdict, "targetCardinality is not set");
+        assertAvertit(verdict, "targetMultiplicity is not set");
     }
 
     @Test
@@ -363,7 +390,7 @@ class UmlgAvertissementTest {
 
             @UMLClass
             class Client {
-                @UMLAssociation(target = Commande.class, targetCardinality = "0..1")
+                @UMLAssociation(target = Commande.class, targetMultiplicity = "0..1")
                 private List<Commande> commandes;
             }
             """);
@@ -379,7 +406,7 @@ class UmlgAvertissementTest {
 
             @UMLClass
             class Client {
-                @UMLAssociation(target = Commande.class, targetCardinality = "1..*")
+                @UMLAssociation(target = Commande.class, targetMultiplicity = "1..*")
                 private Commande commande;
             }
             """);
@@ -395,7 +422,7 @@ class UmlgAvertissementTest {
 
             @UMLClass
             class Client {
-                @UMLAssociation(target = Commande.class, targetCardinality = "1")
+                @UMLAssociation(target = Commande.class, targetMultiplicity = "1")
                 private Commande[] commandes;
             }
             """);
@@ -411,16 +438,17 @@ class UmlgAvertissementTest {
 
             @UMLClass
             class Client {
-                @UMLAssociation(target = Commande.class, targetCardinality = "0..*")
+                @UMLAssociation(target = Commande.class, targetMultiplicity = "0..*")
                 private List<Commande> commandes;
 
-                @UMLAssociation(target = Commande.class, targetCardinality = "0..1")
+                @UMLAssociation(target = Commande.class, targetMultiplicity = "0..1")
                 private Commande derniere;
             }
             """);
 
         assertTrue(verdict.avertissements().isEmpty(), verdict.rapport());
     }
+
 
     @Test
     void cibleAbsenteDuTypeDeLAttribut_avertit(@TempDir Path tmp) throws IOException {
@@ -433,7 +461,7 @@ class UmlgAvertissementTest {
 
             @UMLClass
             class Client {
-                @UMLAssociation(target = Commande.class, targetCardinality = "0..1")
+                @UMLAssociation(target = Commande.class, targetMultiplicity = "0..1")
                 private Facture facture;
             }
             """);
@@ -449,10 +477,10 @@ class UmlgAvertissementTest {
 
             @UMLClass
             class Client {
-                @UMLAssociation(target = Commande.class, targetCardinality = "0..*")
+                @UMLAssociation(target = Commande.class, targetMultiplicity = "0..*")
                 private Map<String, List<Commande>> parReference;
 
-                @UMLAssociation(target = Commande.class, targetCardinality = "0..*")
+                @UMLAssociation(target = Commande.class, targetMultiplicity = "0..*")
                 private List<? extends Commande> variantes;
             }
             """);
@@ -468,7 +496,7 @@ class UmlgAvertissementTest {
 
             @UMLClass
             class Client {
-                @UMLAssociation(target = Commande.class, targetCardinality = "0..*")
+                @UMLAssociation(target = Commande.class, targetMultiplicity = "0..*")
                 private List commandes;
             }
             """);
@@ -477,6 +505,7 @@ class UmlgAvertissementTest {
             .noneMatch(message -> message.contains("does not appear anywhere")), verdict.rapport());
     }
 
+
     @Test
     void deriveSurUnMembreNonAffiche_avertit(@TempDir Path tmp) throws IOException {
         Verdict verdict = compiler(tmp, """
@@ -484,6 +513,20 @@ class UmlgAvertissementTest {
             class Personne {
                 @UMLDerived
                 private int age;
+            }
+            """);
+
+        assertAvertit(verdict, "@UMLDerived has no visible effect");
+    }
+
+    @Test
+    void deriveSurUnMembreExclu_avertit(@TempDir Path tmp) throws IOException {
+        Verdict verdict = compiler(tmp, """
+            @UMLClass(strategy = UMLVisibility.PUBLIC)
+            class Personne {
+                @UMLDerived
+                @UMLExclude
+                public int age;
             }
             """);
 
@@ -529,7 +572,7 @@ class UmlgAvertissementTest {
             @UMLClass
             class Client {
                 @UMLDerived
-                @UMLAssociation(target = Commande.class, targetCardinality = "0..*")
+                @UMLAssociation(target = Commande.class, targetMultiplicity = "0..*")
                 private List<Commande> commandes;
             }
             """);
@@ -546,7 +589,7 @@ class UmlgAvertissementTest {
             @UMLClass
             class Client {
                 @UMLDerived
-                @UMLAssociation(target = Commande.class, targetCardinality = "0..*",
+                @UMLAssociation(target = Commande.class, targetMultiplicity = "0..*",
                     targetRole = "encours")
                 private List<Commande> commandes;
             }
@@ -554,6 +597,7 @@ class UmlgAvertissementTest {
 
         assertTrue(verdict.avertissements().isEmpty(), verdict.rapport());
     }
+
 
     @Test
     void noteSurUnMembreNonAffiche_avertit(@TempDir Path tmp) throws IOException {
@@ -577,7 +621,7 @@ class UmlgAvertissementTest {
             @UMLClass(strategy = UMLVisibility.PRIVATE)
             class Client {
                 @UMLNote(text = "Perdue")
-                @UMLAssociation(target = Commande.class, targetCardinality = "0..1")
+                @UMLAssociation(target = Commande.class, targetMultiplicity = "0..1")
                 private Commande commande;
             }
             """);
@@ -630,6 +674,7 @@ class UmlgAvertissementTest {
         assertTrue(verdict.avertissements().isEmpty(), verdict.rapport());
     }
 
+
     @Test
     void regleDejaEntreAccolades_avertit(@TempDir Path tmp) throws IOException {
         Verdict verdict = compiler(tmp, """
@@ -663,7 +708,7 @@ class UmlgAvertissementTest {
             @UMLClass
             class Client {
                 @UMLConstraint(rule = "subset")
-                @UMLAssociation(target = Commande.class, targetCardinality = "0..*",
+                @UMLAssociation(target = Commande.class, targetMultiplicity = "0..*",
                     targetRole = "achats")
                 private List<Commande> commandes;
             }
@@ -686,6 +731,7 @@ class UmlgAvertissementTest {
         assertTrue(verdict.avertissements().isEmpty(), verdict.rapport());
     }
 
+
     @Test
     void optionNone_faitTaireLesAvertissements(@TempDir Path tmp) throws IOException {
         String corps = """
@@ -694,9 +740,9 @@ class UmlgAvertissementTest {
             """;
 
         Verdict bavard = compiler(tmp, corps);
-        assertTrue(!bavard.avertissements().isEmpty(), "Le témoin doit bien avertir.");
+        assertFalse(bavard.avertissements().isEmpty(), "Le témoin doit bien avertir.");
 
-        Verdict muet = CompilationCobaye.compiler(tmp, "Cobaye.java", ENTETE + corps,
+        Verdict muet = CompilationCobaye.compilerCorps(tmp, corps,
             List.of("-Aumlg.warnings=none"));
 
         assertTrue(muet.reussie(), muet.rapport());
@@ -705,12 +751,35 @@ class UmlgAvertissementTest {
 
     @Test
     void optionNone_neFaitPasTaireLesErreurs(@TempDir Path tmp) throws IOException {
-        Verdict verdict = CompilationCobaye.compiler(tmp, "Cobaye.java", ENTETE + """
+        Verdict verdict = CompilationCobaye.compilerCorps(tmp, """
             @UMLClass(color = "PasUneCouleur")
             class Client {}
             """, List.of("-Aumlg.warnings=none"));
 
-        assertTrue(!verdict.reussie(), verdict.rapport());
+        assertFalse(verdict.reussie(), verdict.rapport());
         assertTrue(verdict.erreurContient("Color unknown to PlantUML"), verdict.rapport());
+    }
+
+    @Test
+    void optionAvecUneValeurInconnue_estRefusee(@TempDir Path tmp) throws IOException {
+        Verdict verdict = CompilationCobaye.compilerCorps(tmp, """
+            @UMLClass
+            class Client {}
+            """, List.of("-Aumlg.warnings=off"));
+
+        assertFalse(verdict.reussie(), verdict.rapport());
+        assertTrue(verdict.erreurContient("unknown value"), verdict.rapport());
+    }
+
+    @Test
+    void optionSansValeur_estRefusee(@TempDir Path tmp) throws IOException {
+        Verdict verdict = CompilationCobaye.compilerCorps(tmp, """
+            @UMLClass(stereotype = "<<Service>>")
+            class Paiement {}
+            """, List.of("-Aumlg.warnings"));
+
+        assertFalse(verdict.reussie(), verdict.rapport());
+        assertTrue(verdict.erreurContient("no value"), verdict.rapport());
+        assertTrue(verdict.erreurContient("-Aumlg.warnings=none"), verdict.rapport());
     }
 }

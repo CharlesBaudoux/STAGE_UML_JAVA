@@ -1,7 +1,7 @@
 package io.github.oliviercailloux.umlg.processing;
 
 import io.github.oliviercailloux.umlg.annotation.UMLAssociationClass;
-import io.github.oliviercailloux.umlg.annotation.UMLClass;
+import io.github.oliviercailloux.umlg.extraction.relation.AssociationClassExtractor;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.TypeElement;
 
@@ -22,10 +22,8 @@ final class VerificateurClasseDAssociation {
         }
         String contexte = "@UMLAssociationClass on " + classe.getQualifiedName();
 
-        if (classe.getAnnotation(UMLClass.class) == null) {
-            rapporteur.erreur(contexte + ": the declaring class does not carry @UMLClass, so it "
-                + "is not part of the diagram and the dashed line would reach an empty place. "
-                + "Annotate it, or remove this annotation.", classe, annotation);
+        if (!rapporteur.exigerBoite(classe, contexte,
+            "the dashed line would reach an empty place", classe, annotation)) {
             return;
         }
 
@@ -33,20 +31,16 @@ final class VerificateurClasseDAssociation {
         verifierExtremite(classe, annotation, contexte, "target");
     }
 
-    private String verifierExtremite(TypeElement classe, AnnotationMirror annotation,
+    private void verifierExtremite(TypeElement classe, AnnotationMirror annotation,
         String contexte, String membre) {
-        String nom = cible.resoudre(annotation, membre, contexte, classe);
-        if (nom == null) {
-            return null;
-        }
+        String ecrit = cible.lire(annotation, membre);
 
-        if (nom.contentEquals(classe.getQualifiedName())) {
-            rapporteur.erreur(contexte + ": " + membre + " is the association class itself; the "
-                + "link would be attached to the very box that qualifies it. Point it at the two "
-                + "classes the link joins.", classe, annotation,
-                rapporteur.valeurEcrite(annotation, membre));
-            return null;
+        if (ecrit != null && ecrit.contentEquals(classe.getQualifiedName())) {
+            rapporteur.erreur(
+                AssociationClassExtractor.messageExtremiteReflexive(contexte, membre + "()"),
+                classe, annotation, rapporteur.valeurEcrite(annotation, membre));
+            return;
         }
-        return nom;
+        cible.resoudre(annotation, membre, contexte, classe);
     }
 }

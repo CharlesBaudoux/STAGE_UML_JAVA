@@ -1,11 +1,12 @@
 package io.github.oliviercailloux.umlg.rendering.element;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import io.github.oliviercailloux.umlg.model.UmlEntity;
 import io.github.oliviercailloux.umlg.model.UmlField;
 import io.github.oliviercailloux.umlg.model.UmlMethod;
 import io.github.oliviercailloux.umlg.rendering.syntax.ColorCodec;
 import io.github.oliviercailloux.umlg.rendering.syntax.PlantUmlEscaper;
-import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -13,21 +14,23 @@ public final class ClassBoxRenderer {
 
     private ClassBoxRenderer() {}
 
-    public static String boite(UmlEntity entity, String alias) {
-        return boite(entity, alias, "");
-    }
-
     public static String boite(UmlEntity entity, String alias, String lien) {
         StringBuilder boite = new StringBuilder();
 
+        String nomEcrit = PlantUmlEscaper.debutDeLigne(entity.name() + entity.typeParameters());
+        checkArgument(!nomEcrit.isBlank(),
+            "The name of %s draws nothing: it is made of invisible characters only.",
+            entity.qualifiedName());
+
         boite.append(entity.kind().motCle())
              .append(" \"")
-             .append(PlantUmlEscaper.label(entity.name() + entity.typeParameters()))
+             .append(nomEcrit)
              .append("\" as ").append(alias);
 
-        if (entity.stereotype() != null && !entity.stereotype().isBlank()) {
-            boite.append(" <<").append(PlantUmlEscaper.stereotype(entity.stereotype()))
-                 .append(">>");
+        String stereotype =
+            entity.stereotype() == null ? "" : PlantUmlEscaper.stereotype(entity.stereotype());
+        if (!stereotype.isBlank()) {
+            boite.append(" <<").append(stereotype).append(">>");
         }
 
         if (!lien.isEmpty()) {
@@ -51,43 +54,41 @@ public final class ClassBoxRenderer {
         return visibilite.isEmpty() ? "" : PlantUmlEscaper.label(visibilite) + " ";
     }
 
-    private static String contraintes(List<String> regles) {
-        StringBuilder sortie = new StringBuilder();
-        for (String regle : regles) {
-            sortie.append(" {").append(PlantUmlEscaper.label(regle)).append("}");
+    private static String derive(boolean derived, String nom, boolean ouvreLaLigne) {
+        if (derived) {
+            return "/" + PlantUmlEscaper.label(nom);
         }
-        return sortie.toString();
-    }
-
-    private static String derive(boolean derived, String nom) {
-        return (derived ? "/" : "") + PlantUmlEscaper.label(nom);
+        return ouvreLaLigne ? PlantUmlEscaper.debutDeLigne(nom) : PlantUmlEscaper.label(nom);
     }
 
     private static String literaux(UmlEntity entity) {
         StringBuilder compartiment = new StringBuilder();
         for (String literal : entity.literals()) {
-            compartiment.append("  ").append(PlantUmlEscaper.label(literal)).append("\n");
+            compartiment.append("  ").append(PlantUmlEscaper.debutDeLigne(literal)).append("\n");
         }
         return compartiment.toString();
     }
 
-    private static String multiplicite(String cardinality) {
-        return cardinality.isEmpty() ? "" : " [" + cardinality + "]";
+    private static String multiplicite(String multiplicity) {
+        return multiplicity.isEmpty() ? "" : " [" + multiplicity + "]";
     }
 
     private static String attributs(UmlEntity entity) {
         StringBuilder compartiment = new StringBuilder();
         for (UmlField field : entity.fields()) {
-            compartiment.append("  ").append(prefixe(field.visibility()));
+            String visibilite = prefixe(field.visibility());
+            compartiment.append("  ").append(visibilite);
 
             if (field.isStatic()) {
                 compartiment.append("{static} ");
             }
 
-            compartiment.append(derive(field.derived(), field.name()))
-                        .append(" : ").append(PlantUmlEscaper.label(field.type()))
-                        .append(multiplicite(field.cardinality()))
-                        .append(contraintes(field.constraints())).append("\n");
+            compartiment
+                .append(derive(field.derived(), field.name(),
+                    visibilite.isEmpty() && !field.isStatic()))
+                .append(" : ").append(PlantUmlEscaper.label(field.type()))
+                .append(multiplicite(field.multiplicity()))
+                .append(NotationContrainte.aLaSuite(field.constraints())).append("\n");
         }
         return compartiment.toString();
     }
@@ -95,7 +96,8 @@ public final class ClassBoxRenderer {
     private static String methodes(UmlEntity entity) {
         StringBuilder compartiment = new StringBuilder();
         for (UmlMethod method : entity.methods()) {
-            compartiment.append("  ").append(prefixe(method.visibility()));
+            String visibilite = prefixe(method.visibility());
+            compartiment.append("  ").append(visibilite);
 
             if (method.isStatic()) {
                 compartiment.append("{static} ");
@@ -104,10 +106,12 @@ public final class ClassBoxRenderer {
                 compartiment.append("{abstract} ");
             }
 
-            compartiment.append(derive(method.derived(), method.name()))
-                        .append("(").append(parametres(method)).append(")")
-                        .append(retour(method))
-                        .append("\n");
+            compartiment
+                .append(derive(method.derived(), method.name(),
+                    visibilite.isEmpty() && !method.isStatic() && !method.isAbstract()))
+                .append("(").append(parametres(method)).append(")")
+                .append(retour(method))
+                .append("\n");
         }
         return compartiment.toString();
     }
@@ -117,7 +121,7 @@ public final class ClassBoxRenderer {
             return "";
         }
         return " : " + PlantUmlEscaper.label(method.returnType())
-            + multiplicite(method.cardinality());
+            + multiplicite(method.multiplicity());
     }
 
     private static String parametres(UmlMethod method) {

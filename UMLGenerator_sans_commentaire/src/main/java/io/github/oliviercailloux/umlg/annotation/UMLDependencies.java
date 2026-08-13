@@ -1,5 +1,6 @@
 package io.github.oliviercailloux.umlg.annotation;
 
+import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -12,6 +13,7 @@ import java.lang.annotation.Target;
  * &#64;UMLDependency sur une classe, le compilateur les emballe ici. Côté extraction, on ne la lit
  * pas non plus directement — getAnnotationsByType(UMLDependency.class) déballe le conteneur.
  */
+@Documented
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
 public @interface UMLDependencies {

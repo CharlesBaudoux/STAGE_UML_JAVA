@@ -4,6 +4,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.github.oliviercailloux.umlg.annotation.UMLNote;
 import io.github.oliviercailloux.umlg.extraction.member.MemberExtractor;
+import io.github.oliviercailloux.umlg.extraction.rules.Regles;
 import io.github.oliviercailloux.umlg.model.UmlField;
 import io.github.oliviercailloux.umlg.model.UmlMethod;
 import io.github.oliviercailloux.umlg.model.UmlNote;
@@ -17,6 +18,11 @@ final class NoteExtractor {
 
     static ImmutableList<UmlNote> extraire(Class<?> clazz, List<UmlField> fields,
         List<UmlMethod> methods) {
+        return extraire(clazz, fields, methods, Regles.aucune());
+    }
+
+    static ImmutableList<UmlNote> extraire(Class<?> clazz, List<UmlField> fields,
+        List<UmlMethod> methods, Regles regles) {
 
         ImmutableList.Builder<UmlNote> result = ImmutableList.builder();
 
@@ -29,7 +35,7 @@ final class NoteExtractor {
         ImmutableSet<String> methodesVisibles =
             methods.stream().map(UmlMethod::name).collect(ImmutableSet.toImmutableSet());
 
-        for (Field field : MembresOrdonnes.champs(clazz)) {
+        for (Field field : MembresOrdonnes.champs(clazz, regles)) {
             String affiche = MemberExtractor.nomAffiche(field);
 
             if (field.isSynthetic() || !champsVisibles.contains(affiche)) {
@@ -41,10 +47,11 @@ final class NoteExtractor {
             }
         }
 
-        for (Method method : MembresOrdonnes.methodes(clazz)) {
+        for (Method method : MembresOrdonnes.methodes(clazz, regles)) {
             String affiche = MemberExtractor.nomAffiche(method);
 
-            if (method.isSynthetic() || !methodesVisibles.contains(affiche)) {
+            if (method.isSynthetic()
+                || !(methodesVisibles.contains(affiche) || champsVisibles.contains(affiche))) {
                 continue;
             }
             for (UMLNote annotation : method.getAnnotationsByType(UMLNote.class)) {

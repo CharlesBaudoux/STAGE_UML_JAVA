@@ -2,6 +2,7 @@ package io.github.oliviercailloux.umlg.extraction;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -57,6 +58,7 @@ class ConstructeurDeVuesTest {
         return toutes.stream().filter(v -> v.name().equals(nom)).findFirst().orElseThrow();
     }
 
+
     @Test
     void sansAucuneRegle_seuleLIntegraleEstProduite() {
         ImmutableList<UmlView> toutes = vues("{}");
@@ -83,6 +85,7 @@ class ConstructeurDeVuesTest {
         assertEquals("Mon architecture", toutes.get(0).name());
         assertEquals(UMLFlow.LEFT_TO_RIGHT, toutes.get(0).direction());
     }
+
 
     @Test
     void vueDeclaree_neRetientQueCeQuElleNomme() {
@@ -161,6 +164,7 @@ class ConstructeurDeVuesTest {
                 """));
     }
 
+
     @Test
     void voisinage_prendLaClasseEtCeQuiLaTouche() {
         assertEquals(List.of("Facture", "Client", "Adresse"),
@@ -177,6 +181,7 @@ class ConstructeurDeVuesTest {
                 """), "Autour d'Adresse")));
     }
 
+
     @Test
     void viewsByPackage_donneUneVueParPaquetage() {
         ImmutableList<UmlView> toutes = vues("""
@@ -187,6 +192,7 @@ class ConstructeurDeVuesTest {
         assertEquals(List.of("Journal"), noms(vue(toutes, AUTRE)));
         assertEquals(3, vue(toutes, PAQ).entities().size());
     }
+
 
     @Test
     void unLienVersUneBoiteAbsente_estRetire() {
@@ -208,9 +214,24 @@ class ConstructeurDeVuesTest {
     }
 
     @Test
+    void uneBoiteDontAucunLienNeSort_nEstPasRecopiee() {
+        ImmutableSet<UmlEntity> projet = projet();
+        UmlEntity adresse = projet.stream().filter(e -> e.name().equals("Adresse"))
+            .findFirst().orElseThrow();
+
+        UmlView tout = ConstructeurDeVues.construire(projet, UmlDiagram.defaut(),
+            Regles.lues("""
+                { "views": [ { "name": "Tout", "retain": [{ "package": "%s" }] } ] }
+                """.formatted(PAQ), "test")).get(1);
+
+        assertSame(adresse, tout.entities().get(2));
+    }
+
+    @Test
     void lIntegrale_neRetireAucunLien() {
         assertEquals(1, vues("{}").get(0).entities().iterator().next().associations().size());
     }
+
 
     @Test
     void deuxBoitesQueRienNeRelie_sontEnchainees() {
@@ -300,6 +321,76 @@ class ConstructeurDeVuesTest {
             """), "Ordre");
 
         assertTrue(ordonnee.entities().get(1).layouts().isEmpty());
+    }
+
+
+    @Test
+    void deuxVuesQuiSeRamenentAuMemeFichier_sontRefusees() {
+        IllegalArgumentException refus =
+            assertThrows(IllegalArgumentException.class, () -> vues("""
+                {
+                  "views": [
+                    { "name": "Modèle", "retain": ["Facture"] },
+                    { "name": "Modele", "retain": ["Client"] }
+                  ]
+                }
+                """));
+
+        assertTrue(refus.getMessage().contains("\"Modèle\""), refus.getMessage());
+        assertTrue(refus.getMessage().contains("\"Modele\""), refus.getMessage());
+        assertTrue(refus.getMessage().contains("\"modele\""), refus.getMessage());
+    }
+
+    @Test
+    void deuxVuesQuiNeDifferentQueParLaPonctuation_sontRefusees() {
+        assertThrows(IllegalArgumentException.class, () -> vues("""
+            {
+              "views": [
+                { "name": "Le mapping", "retain": ["Facture"] },
+                { "name": "Le-Mapping", "retain": ["Client"] }
+              ]
+            }
+            """));
+    }
+
+    @Test
+    void uneVueDeclareeEtUneVueDePaquetage_neSeMarchentPasDessusEnSilence() {
+        assertThrows(IllegalArgumentException.class, () -> vues("""
+            {
+              "viewsByPackage": true,
+              "views": [ { "name": "com, autre", "retain": ["Journal"] } ]
+            }
+            """));
+    }
+
+    @Test
+    void desVuesDeNomsBienDistincts_sontToutesProduites() {
+        assertEquals(3, vues("""
+            {
+              "views": [
+                { "name": "Modèle", "retain": ["Facture"] },
+                { "name": "Journal", "retain": ["Journal"] }
+              ]
+            }
+            """).size());
+    }
+
+    @Test
+    void uneVueQuiPorteLeNomDeLIntegrale_resteAcceptee() {
+        assertEquals(2, vues("""
+            { "views": [ { "name": "Projet", "retain": ["Facture"] } ] }
+            """).size());
+    }
+
+
+    @Test
+    void leNomDuPaquetageParDefaut_estEnAnglais() {
+        ImmutableList<UmlView> toutes = ConstructeurDeVues.construire(
+            ImmutableSet.of(UmlEntity.builder("SansPaquetage", "SansPaquetage").build()),
+            UmlDiagram.defaut(), Regles.lues("{ \"viewsByPackage\": true }", "test"));
+
+        assertEquals(ConstructeurDeVues.PAQUETAGE_PAR_DEFAUT, toutes.get(1).name());
+        assertEquals("default", toutes.get(1).nomDeFichier());
     }
 
     @Test

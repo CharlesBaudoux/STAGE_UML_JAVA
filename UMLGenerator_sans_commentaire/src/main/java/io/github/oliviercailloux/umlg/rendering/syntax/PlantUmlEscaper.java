@@ -11,6 +11,8 @@ public final class PlantUmlEscaper {
 
     private static final String MARQUEURS_DOUBLES = "*/~-_[";
 
+    private static final String MARQUEURS_DE_LIGNE = "#*=|";
+
     private PlantUmlEscaper() {}
 
     private static boolean ouvreUnBalisage(String texte, int i) {
@@ -50,6 +52,16 @@ public final class PlantUmlEscaper {
             }
         }
         return sortie.toString();
+    }
+
+    public static String debutDeLigne(String texte) {
+        checkNotNull(texte);
+
+        String echappe = label(texte);
+        if (echappe.isEmpty() || MARQUEURS_DE_LIGNE.indexOf(echappe.charAt(0)) < 0) {
+            return echappe;
+        }
+        return neutraliserPremierCaractere(echappe);
     }
 
     public static String noteBloc(String texte) {

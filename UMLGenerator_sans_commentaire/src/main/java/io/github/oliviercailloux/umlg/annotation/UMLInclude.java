@@ -1,5 +1,6 @@
 package io.github.oliviercailloux.umlg.annotation;
 
+import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -18,6 +19,7 @@ import java.lang.annotation.Target;
  * — mais elle n'est là que pour le code déjà compilé sans le processeur : rien de ce que
  * l'extraction rencontre ne doit rester sans réponse.
  */
+@Documented
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.FIELD, ElementType.METHOD})
 public @interface UMLInclude {

@@ -16,6 +16,26 @@ Trois morceaux :
 
 ## Installation
 
+### Graphviz
+
+**La mise en page d'un diagramme de classes est faite par Graphviz : `dot` doit être installé.**
+Ce n'est pas une dépendance Maven, elle ne s'installe donc pas toute seule.
+
+```sh
+apt install graphviz        # ou : brew install graphviz
+dot -V                      # doit répondre une version
+```
+
+À défaut, la variable d'environnement `GRAPHVIZ_DOT` peut désigner l'exécutable.
+
+La génération refuse de travailler sans lui, et le dit — sans cette garde, PlantUML écrirait une
+image portant « Cannot find Graphviz » que rien ne distingue d'un dessin réussi. **La construction
+de la bibliothèque elle-même l'exige aussi** : une vingtaine de tests rendent réellement un SVG, et
+sur une machine sans `dot` ils échouent sur des assertions de contenu obscures plutôt que sur un
+message de configuration.
+
+### La bibliothèque et le plugin
+
 La bibliothèque n'est pas publiée sur un dépôt central : il faut l'installer localement, une
 fois, ainsi que le plugin.
 
@@ -92,8 +112,14 @@ cd ../umlg-maven-plugin   && mvn install
             la stratégie retenue et se tait sur tout ce qui en dépend — un @UMLInclude sans
             effet, un @UMLDerived sur un membre que la stratégie n'affiche pas. Il préfère se
             taire que deviner ; encore faut-il lui donner de quoi savoir.
+
+            Le chemin est écrit absolu, par ${project.basedir} : javac résout un chemin relatif
+            contre son propre répertoire de travail, qui n'est pas nécessairement celui du
+            projet — dans une construction multi-modules il ne l'est pas. Un chemin relatif
+            « marche » alors ici et pas là, et le processeur se contente d'avertir qu'il n'a
+            rien trouvé.
           -->
-          <arg>-Aumlg.rules=src/main/resources/umlg.json</arg>
+          <arg>-Aumlg.rules=${project.basedir}/src/main/resources/umlg.json</arg>
         </compilerArgs>
       </configuration>
     </plugin>

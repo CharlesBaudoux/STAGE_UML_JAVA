@@ -1,6 +1,7 @@
 package io.github.oliviercailloux.umlg.rendering.syntax;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -47,6 +48,7 @@ class AliasRegistryTest {
 
     @UMLClass(name = "Service De Paiement")
     static class NomAvecEspaces {}
+
 
     @Test
     void nomEnIdeogrammes_produitUnAliasUtilisable() {
@@ -97,6 +99,7 @@ class AliasRegistryTest {
         PlantUmlAssert.assertCompile(source);
     }
 
+
     @Test
     void deuxNomsDifferentsSeReduisantAuMemeAlias_reste2ClassesDistinctes() {
         String source = PlantUmlAssert.documentPour(
@@ -137,7 +140,7 @@ class AliasRegistryTest {
     private static void assertAliasNonVide(String source) {
         List<String> alias = PlantUmlAssert.aliasDeclares(source);
         assertEquals(1, alias.size(), "Une seule classe attendue dans :\n" + source);
-        assertTrue(!alias.get(0).isBlank(),
+        assertFalse(alias.get(0).isBlank(),
             "Un alias vide casse la déclaration PlantUML :\n" + source);
     }
 }

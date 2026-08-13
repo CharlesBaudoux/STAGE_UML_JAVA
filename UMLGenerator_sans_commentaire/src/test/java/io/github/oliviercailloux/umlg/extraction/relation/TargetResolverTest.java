@@ -26,6 +26,7 @@ class TargetResolverTest {
         return associations.get(0);
     }
 
+
     @UMLClass
     static class ChampSimple {
         @UMLAssociation(target = Commande.class)
@@ -49,6 +50,7 @@ class TargetResolverTest {
         assertEquals(Commande.class.getName(),
             seuleAssociation(ChampCibleIndependanteDuType.class).targetQualifiedName());
     }
+
 
     static class ChampHorsDiagramme {
         @UMLAssociation(target = HorsDiagramme.class)

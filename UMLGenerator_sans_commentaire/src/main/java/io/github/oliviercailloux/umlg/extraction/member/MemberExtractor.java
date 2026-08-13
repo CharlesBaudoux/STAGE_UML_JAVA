@@ -20,8 +20,11 @@ import io.github.oliviercailloux.umlg.model.UmlAssociation;
 import io.github.oliviercailloux.umlg.model.UmlField;
 import io.github.oliviercailloux.umlg.model.UmlMethod;
 import io.github.oliviercailloux.umlg.model.UmlParameter;
+import io.github.oliviercailloux.umlg.warning.Avertisseur;
+import java.lang.reflect.AccessibleObject;
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Field;
+import java.lang.reflect.Member;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Parameter;
@@ -30,6 +33,7 @@ import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 public final class MemberExtractor {
@@ -37,6 +41,11 @@ public final class MemberExtractor {
     private MemberExtractor() {}
 
     public static ImmutableList<String> extractLiterals(Class<?> clazz, UMLVisibility strategy) {
+        return extractLiterals(clazz, strategy, Regles.aucune());
+    }
+
+    public static ImmutableList<String> extractLiterals(Class<?> clazz, UMLVisibility strategy,
+        Regles regles) {
         ImmutableList.Builder<String> result = ImmutableList.builder();
 
         Object[] constantes = clazz.getEnumConstants();
@@ -51,13 +60,7 @@ public final class MemberExtractor {
             } catch (NoSuchFieldException e) {
                 throw new IllegalStateException(e);
             }
-            boolean visible = VisibilityPolicy.estVisible(field.getModifiers(), strategy,
-                field.isAnnotationPresent(UMLInclude.class),
-                field.isAnnotationPresent(UMLExclude.class));
-
-            if (visible) {
-                result.add(field.getName());
-            }
+            retenu(field, strategy, regles).ifPresent(result::add);
         }
         return result.build();
     }
@@ -83,40 +86,87 @@ public final class MemberExtractor {
             UMLAssociation association = field.getAnnotation(UMLAssociation.class);
 
             checkArgument(association == null || !field.isAnnotationPresent(UMLMultiplicity.class),
-                "%s carries both @UMLAssociation and @UMLMultiplicity: the multiplicity of this "
-                    + "property is already given by targetCardinality. Keep only one of the two.",
-                emplacement(field));
+                messageDeuxMultiplicites(emplacement(field)));
+
+            signalerNotationAttributSurUnChamp(field);
 
             if (association != null && association.notation() != UMLNotation.ATTRIBUTE) {
                 continue;
             }
 
-            if (regles.membreMasque(field.getName())
-                && !field.isAnnotationPresent(UMLInclude.class)) {
-                continue;
-            }
-
-            if (!estVisible(field, association, strategy)) {
+            Optional<String> nom = retenu(field, strategy, regles);
+            if (nom.isEmpty()) {
                 continue;
             }
             result.add(association == null
-                ? champ(field, regles)
-                : champAssocie(field, association, regles));
+                ? champ(field, nom.get(), regles)
+                : champAssocie(field, nom.get(), association, regles));
         }
         return result.build();
     }
 
-    private static boolean estVisible(Field field, UMLAssociation association,
-        UMLVisibility strategy) {
-        if (association != null) {
-            return !field.isAnnotationPresent(UMLExclude.class);
-        }
-        if (estComposantDeRecord(field)) {
-            return !field.isAnnotationPresent(UMLExclude.class);
-        }
-        return VisibilityPolicy.estVisible(field.getModifiers(), strategy,
+    private static Optional<String> retenu(Field field, UMLVisibility strategy, Regles regles) {
+        boolean privilegie = field.isAnnotationPresent(UMLAssociation.class)
+            || estComposantDeRecord(field);
+
+        if (!entre(field.getName(), field.getModifiers(),
             field.isAnnotationPresent(UMLInclude.class),
-            field.isAnnotationPresent(UMLExclude.class));
+            field.isAnnotationPresent(UMLExclude.class), privilegie, strategy, regles)) {
+            return Optional.empty();
+        }
+        return Optional.of(nomAffiche(field));
+    }
+
+    private static Optional<String> retenu(Class<?> clazz, Method method, UMLVisibility strategy,
+        Regles regles) {
+        boolean exclu = method.isAnnotationPresent(UMLExclude.class)
+            || excluParHeritage(clazz, method);
+
+        if (!entre(method.getName(), method.getModifiers(),
+            method.isAnnotationPresent(UMLInclude.class), exclu, false, strategy, regles)) {
+            return Optional.empty();
+        }
+        return Optional.of(nomAffiche(method));
+    }
+
+    private static boolean entre(String nom, int modifiers, boolean inclus, boolean exclu,
+        boolean privilegie, UMLVisibility strategy, Regles regles) {
+        if (exclu) {
+            return false;
+        }
+        if (inclus || privilegie) {
+            return true;
+        }
+        return !regles.membreMasque(nom) && VisibilityPolicy.parLaStrategie(modifiers, strategy);
+    }
+
+    private static void signalerNotationAttributSurUnChamp(Field field) {
+        UMLInclude inclusion = field.getAnnotation(UMLInclude.class);
+        if (inclusion != null && inclusion.asAttribute()) {
+            Avertisseur.dire(messageNotationAttributSurUnChamp(emplacement(field)));
+        }
+    }
+
+
+    public static String messageDeuxMultiplicites(String emplacement) {
+        return emplacement + " carries both @UMLAssociation and @UMLMultiplicity: the "
+            + "multiplicity of this property is already given by targetMultiplicity. Keep only one "
+            + "of the two.";
+    }
+
+    public static String messageNotationAttributSurUnChamp(String emplacement) {
+        return emplacement + ": @UMLInclude(asAttribute = true) is for methods; a field is "
+            + "already an attribute. Remove the attribute.";
+    }
+
+    public static String messageNotationAttributAvecParametres(String emplacement) {
+        return emplacement + " carries @UMLInclude(asAttribute = true) but takes parameters: an "
+            + "attribute has none. Remove the parameters, or the notation.";
+    }
+
+    public static String messageNotationAttributSansRetour(String emplacement) {
+        return emplacement + " carries @UMLInclude(asAttribute = true) but returns nothing: an "
+            + "attribute is its type. Return something, or remove the notation.";
     }
 
     private static boolean estComposantDeRecord(Field field) {
@@ -145,19 +195,30 @@ public final class MemberExtractor {
         return false;
     }
 
-    private static UmlField champ(Field field, Regles regles) {
+    private static <M extends AccessibleObject & Member> UmlField attribut(M membre, String nom,
+        String type, String multiplicite, ImmutableList<String> contraintes, Regles regles) {
+        return new UmlField(
+            nom,
+            type,
+            multiplicite,
+            symbole(membre.getModifiers(), regles),
+            Modifier.isStatic(membre.getModifiers()),
+            membre.isAnnotationPresent(UMLDerived.class),
+            contraintes);
+    }
+
+    private static String typeDeLaPropriete(Type type, String multiplicite, Regles regles) {
+        return multiplicite.isEmpty()
+            ? TypeAffiche.de(type, regles)
+            : TypeAffiche.deLElement(type, regles);
+    }
+
+    private static UmlField champ(Field field, String nom, Regles regles) {
         try {
             String multiplicite = multiplicite(field, field.getGenericType(), regles);
-            return new UmlField(
-                nomAffiche(field),
-                multiplicite.isEmpty()
-                    ? TypeAffiche.de(field.getGenericType(), regles)
-                    : TypeAffiche.deLElement(field.getGenericType(), regles),
-                multiplicite,
-                symbole(field.getModifiers(), regles),
-                Modifier.isStatic(field.getModifiers()),
-                field.isAnnotationPresent(UMLDerived.class),
-                ConstraintExtractor.de(field, emplacement(field)));
+            return attribut(field, nom,
+                typeDeLaPropriete(field.getGenericType(), multiplicite, regles),
+                multiplicite, ConstraintExtractor.de(field, emplacement(field)), regles);
         } catch (IllegalArgumentException | NullPointerException e) {
             throw new IllegalArgumentException(
                 "@UMLMultiplicity sur " + emplacement(field) + " : " + e.getMessage(), e);
@@ -209,7 +270,7 @@ public final class MemberExtractor {
         return inclusion.name();
     }
 
-    private static UmlField champAssocie(Field field, UMLAssociation association,
+    private static UmlField champAssocie(Field field, String nom, UMLAssociation association,
         Regles regles) {
         String contexte = "@UMLAssociation sur " + emplacement(field);
         Class<?> cible = CibleDeduite.de(field, association, contexte);
@@ -218,21 +279,19 @@ public final class MemberExtractor {
         try {
             UmlAssociation lien =
                 UmlAssociation.builder(field.getName(), cible.getName())
+                    .sourceMultiplicity(association.sourceMultiplicity())
+                    .sourceRole(association.sourceRole())
                     .targetRole(association.targetRole())
-                    .targetCardinality(association.targetCardinality())
+                    .targetMultiplicity(association.targetMultiplicity())
+                    .label(association.label())
                     .constraints(ConstraintExtractor.de(field, emplacement(field)))
                     .build();
 
             ImmutableList<String> contraintes = lien.constraints();
 
-            return new UmlField(
-                nomAffiche(field),
+            return attribut(field, nom,
                 cible.getSimpleName(),
-                lien.targetCardinality(),
-                symbole(field.getModifiers(), regles),
-                Modifier.isStatic(field.getModifiers()),
-                field.isAnnotationPresent(UMLDerived.class),
-                contraintes);
+                lien.targetMultiplicity(), contraintes, regles);
         } catch (IllegalArgumentException | NullPointerException e) {
             throw new IllegalArgumentException(contexte + " : " + e.getMessage(), e);
         }
@@ -242,9 +301,7 @@ public final class MemberExtractor {
         if (regles.nomAfficheRetour(method.getReturnType()).isEmpty()) {
             return "";
         }
-        return multiplicite.isEmpty()
-            ? TypeAffiche.de(method.getGenericReturnType(), regles)
-            : TypeAffiche.deLElement(method.getGenericReturnType(), regles);
+        return typeDeLaPropriete(method.getGenericReturnType(), multiplicite, regles);
     }
 
     private static String symbole(int modifiers, Regles regles) {
@@ -255,17 +312,28 @@ public final class MemberExtractor {
         return field.getDeclaringClass().getName() + "." + field.getName();
     }
 
+    private static String emplacement(Method method) {
+        return method.getDeclaringClass().getName() + "." + method.getName();
+    }
+
     private static ImmutableList<UmlParameter> parametres(Method method, Regles regles) {
         ImmutableList.Builder<UmlParameter> parametres = ImmutableList.builder();
 
         for (Parameter parametre : method.getParameters()) {
-            String type = TypeAffiche.de(parametre.getParameterizedType(), regles);
+            String type = typeDuParametre(parametre, regles);
 
             parametres.add(parametre.isNamePresent() && !regles.omettreNomsDeParametres()
                 ? new UmlParameter(parametre.getName(), type)
                 : UmlParameter.anonyme(type));
         }
         return parametres.build();
+    }
+
+    private static String typeDuParametre(Parameter parametre, Regles regles) {
+        String type = TypeAffiche.de(parametre.getParameterizedType(), regles);
+        return parametre.isVarArgs() && type.endsWith("[]")
+            ? type.substring(0, type.length() - "[]".length()) + "..."
+            : type;
     }
 
     public static ImmutableList<UmlMethod> extractMethods(Class<?> clazz, UMLVisibility strategy) {
@@ -292,41 +360,33 @@ public final class MemberExtractor {
                 continue;
             }
 
-            boolean hasInclude = inclusion != null;
-            boolean hasExclude = method.isAnnotationPresent(UMLExclude.class)
-                || excluParHeritage(clazz, method);
-
-            if (regles.membreMasque(method.getName()) && !hasInclude) {
+            Optional<String> nom = retenu(clazz, method, strategy, regles);
+            if (nom.isEmpty()) {
                 continue;
             }
 
-            if (VisibilityPolicy.estVisible(method.getModifiers(), strategy, hasInclude,
-                hasExclude)) {
-
-                try {
-                    String multiplicite =
-                        multiplicite(method, method.getGenericReturnType(), regles);
-                    result.add(new UmlMethod(
-                        nomAffiche(method),
-                        retour(method, multiplicite, regles),
-                        multiplicite,
-                        symbole(method.getModifiers(), regles),
-                        Modifier.isStatic(method.getModifiers()),
-                        parametres(method, regles),
-                        method.isAnnotationPresent(UMLDerived.class),
-                        Modifier.isAbstract(method.getModifiers()) && !regles.omettreAbstrait()
-                    ));
-                } catch (IllegalArgumentException | NullPointerException e) {
-                    throw new IllegalArgumentException("@UMLMultiplicity sur "
-                        + method.getDeclaringClass().getName() + "." + method.getName() + " : "
-                        + e.getMessage(), e);
-                }
+            try {
+                String multiplicite = multiplicite(method, method.getGenericReturnType(), regles);
+                result.add(new UmlMethod(
+                    nom.get(),
+                    retour(method, multiplicite, regles),
+                    multiplicite,
+                    symbole(method.getModifiers(), regles),
+                    Modifier.isStatic(method.getModifiers()),
+                    parametres(method, regles),
+                    method.isAnnotationPresent(UMLDerived.class),
+                    Modifier.isAbstract(method.getModifiers()) && !regles.omettreAbstrait()
+                ));
+            } catch (IllegalArgumentException | NullPointerException e) {
+                throw new IllegalArgumentException(
+                    "@UMLMultiplicity sur " + emplacement(method) + " : " + e.getMessage(), e);
             }
         }
         return result.build();
     }
 
-    public static ImmutableList<UmlField> methodesEnAttributs(Class<?> clazz, Regles regles) {
+    public static ImmutableList<UmlField> methodesEnAttributs(Class<?> clazz,
+        UMLVisibility strategy, Regles regles) {
         ImmutableList.Builder<UmlField> result = ImmutableList.builder();
 
         for (Method method : MembresOrdonnes.methodes(clazz, regles)) {
@@ -337,30 +397,22 @@ public final class MemberExtractor {
             if (estAccesseurPropage(clazz, method)) {
                 continue;
             }
-            if (method.isAnnotationPresent(UMLExclude.class) || excluParHeritage(clazz, method)) {
+            Optional<String> nom = retenu(clazz, method, strategy, regles);
+            if (nom.isEmpty()) {
                 continue;
             }
-            String emplacement = clazz.getName() + "." + method.getName();
+            String emplacement = emplacement(method);
             checkArgument(method.getParameterCount() == 0,
-                "%s carries @UMLInclude(asAttribute = true) but takes parameters: an attribute "
-                    + "has none. Remove the parameters, or the notation.", emplacement);
+                messageNotationAttributAvecParametres(emplacement));
             checkArgument(method.getReturnType() != void.class,
-                "%s carries @UMLInclude(asAttribute = true) but returns nothing: an attribute "
-                    + "is its type. Return something, or remove the notation.", emplacement);
+                messageNotationAttributSansRetour(emplacement));
 
             try {
                 String multiplicite =
                     multiplicite(method, method.getGenericReturnType(), regles);
-                result.add(new UmlField(
-                    nomAffiche(method),
-                    multiplicite.isEmpty()
-                        ? TypeAffiche.de(method.getGenericReturnType(), regles)
-                        : TypeAffiche.deLElement(method.getGenericReturnType(), regles),
-                    multiplicite,
-                    symbole(method.getModifiers(), regles),
-                    Modifier.isStatic(method.getModifiers()),
-                    method.isAnnotationPresent(UMLDerived.class),
-                    ConstraintExtractor.de(method, emplacement)));
+                result.add(attribut(method, nom.get(),
+                    typeDeLaPropriete(method.getGenericReturnType(), multiplicite, regles),
+                    multiplicite, ConstraintExtractor.de(method, emplacement), regles));
             } catch (IllegalArgumentException | NullPointerException e) {
                 throw new IllegalArgumentException(
                     "@UMLMultiplicity sur " + emplacement + " : " + e.getMessage(), e);
@@ -374,15 +426,29 @@ public final class MemberExtractor {
             return false;
         }
         for (Class<?> surtype : surtypes(clazz)) {
-            try {
-                if (surtype.getDeclaredMethod(method.getName(), method.getParameterTypes())
-                    .isAnnotationPresent(UMLExclude.class)) {
+            for (Method declaree : surtype.getDeclaredMethods()) {
+                if (redefinit(method, declaree)
+                    && declaree.isAnnotationPresent(UMLExclude.class)) {
                     return true;
                 }
-            } catch (NoSuchMethodException e) {
             }
         }
         return false;
+    }
+
+    private static boolean redefinit(Method candidate, Method declaree) {
+        if (!declaree.getName().equals(candidate.getName())
+            || declaree.getParameterCount() != candidate.getParameterCount()) {
+            return false;
+        }
+        Class<?>[] attendus = declaree.getParameterTypes();
+        Class<?>[] ecrits = candidate.getParameterTypes();
+        for (int i = 0; i < attendus.length; i++) {
+            if (!attendus[i].isAssignableFrom(ecrits[i])) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static Set<Class<?>> surtypes(Class<?> clazz) {

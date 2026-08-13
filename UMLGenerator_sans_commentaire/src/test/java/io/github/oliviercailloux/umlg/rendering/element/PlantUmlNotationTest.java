@@ -25,15 +25,16 @@ class PlantUmlNotationTest {
     @UMLClass
     static class Commande {}
 
+
     @UMLClass(name = "Defaut")
     static class Defaut {
-        @UMLAssociation(target = Commande.class, targetCardinality = "0..*")
+        @UMLAssociation(target = Commande.class, targetMultiplicity = "0..*")
         private List<Commande> commandes;
     }
 
     @UMLClass(name = "DansLaBoite")
     static class DansLaBoite {
-        @UMLAssociation(target = Commande.class, targetCardinality = "0..*",
+        @UMLAssociation(target = Commande.class, targetMultiplicity = "0..*",
             notation = UMLNotation.ATTRIBUTE)
         private List<Commande> commandes;
     }
@@ -46,6 +47,7 @@ class PlantUmlNotationTest {
         return PlantUmlAssert.documentPour(entites);
     }
 
+
     @Test
     void sansNotation_leLienResteUnTrait() {
         String source = document(Defaut.class, Commande.class);
@@ -55,6 +57,7 @@ class PlantUmlNotationTest {
             "L'attribut a quitté la boîte au profit du trait :\n" + source);
         PlantUmlAssert.assertCompile(source);
     }
+
 
     @Test
     void notationAttribute_ecritLaLigneDansLaBoite() {
@@ -99,12 +102,13 @@ class PlantUmlNotationTest {
         assertFalse(source.contains("[]"), source);
     }
 
+
     @UMLClass
     static class Decoree {
         @UMLConstraint(rule = "ordered")
         @UMLConstraint(rule = "non vide")
         @UMLDerived
-        @UMLAssociation(target = Commande.class, targetCardinality = "1..*",
+        @UMLAssociation(target = Commande.class, targetMultiplicity = "1..*",
             notation = UMLNotation.ATTRIBUTE)
         protected List<Commande> achats;
     }
@@ -118,11 +122,12 @@ class PlantUmlNotationTest {
         PlantUmlAssert.assertCompile(source);
     }
 
+
     @UMLClass(name = "Clavier")
     static class Clavier {
         @UMLNote(text = "Doublons autorises")
         @UMLAssociation(target = Commande.class, targetRole = "physicalKeys",
-            targetCardinality = "0..*", notation = UMLNotation.ATTRIBUTE)
+            targetMultiplicity = "0..*", notation = UMLNotation.ATTRIBUTE)
         private List<Commande> keys;
     }
 
@@ -145,9 +150,10 @@ class PlantUmlNotationTest {
         PlantUmlAssert.assertCompile(source);
     }
 
+
     @UMLClass(strategy = UMLVisibility.NONE)
     static class StrategieMuette {
-        @UMLAssociation(target = Commande.class, targetCardinality = "0..*",
+        @UMLAssociation(target = Commande.class, targetMultiplicity = "0..*",
             notation = UMLNotation.ATTRIBUTE)
         private List<Commande> commandes;
     }
@@ -162,7 +168,7 @@ class PlantUmlNotationTest {
     @UMLClass(strategy = UMLVisibility.PRIVATE)
     static class Retiree {
         @UMLExclude
-        @UMLAssociation(target = Commande.class, targetCardinality = "0..*",
+        @UMLAssociation(target = Commande.class, targetMultiplicity = "0..*",
             notation = UMLNotation.ATTRIBUTE)
         private List<Commande> commandes;
     }
@@ -174,6 +180,7 @@ class PlantUmlNotationTest {
         assertFalse(source.contains("commandes"), source);
         assertEquals(List.of(), PlantUmlAssert.lignesDeLien(source), source);
     }
+
 
     static class HorsDiagramme {}
 
@@ -191,7 +198,7 @@ class PlantUmlNotationTest {
     }
 
     static class MultipliciteFautive {
-        @UMLAssociation(target = Commande.class, targetCardinality = "3..1",
+        @UMLAssociation(target = Commande.class, targetMultiplicity = "3..1",
             notation = UMLNotation.ATTRIBUTE)
         private List<Commande> commandes;
     }
@@ -205,13 +212,14 @@ class PlantUmlNotationTest {
             "Le message doit désigner l'attribut fautif : " + e.getMessage());
     }
 
+
     @UMLClass
     static class Melangee {
-        @UMLAssociation(target = Commande.class, targetCardinality = "0..*",
+        @UMLAssociation(target = Commande.class, targetMultiplicity = "0..*",
             notation = UMLNotation.ATTRIBUTE)
         private List<Commande> archivees;
 
-        @UMLAssociation(target = Commande.class, targetCardinality = "1", targetRole = "courante")
+        @UMLAssociation(target = Commande.class, targetMultiplicity = "1", targetRole = "courante")
         private Commande courante;
     }
 

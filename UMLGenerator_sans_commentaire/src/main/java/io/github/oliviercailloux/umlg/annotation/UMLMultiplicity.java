@@ -1,5 +1,6 @@
 package io.github.oliviercailloux.umlg.annotation;
 
+import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -30,6 +31,7 @@ import java.lang.annotation.Target;
  * <p>FIELD : la multiplicité de l'attribut. METHOD : celle de la valeur rendue — « names(): String
  * [0..*] » se lit « rend zéro, une ou plusieurs chaînes ».
  */
+@Documented
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.FIELD, ElementType.METHOD})
 public @interface UMLMultiplicity {

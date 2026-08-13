@@ -1,5 +1,6 @@
 package io.github.oliviercailloux.umlg.annotation;
 
+import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -10,6 +11,7 @@ import java.lang.annotation.Target;
  *
  * <p>L'utilisateur ne l'écrit jamais. Voir UMLDependencies et UMLNotes, qui jouent le même rôle.
  */
+@Documented
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.TYPE, ElementType.FIELD})
 public @interface UMLConstraints {

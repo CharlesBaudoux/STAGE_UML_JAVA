@@ -30,10 +30,11 @@ class PlantUmlStyleTest {
         return new UmlEntity[] {
             UmlEntity.builder("com.exemple.Client", "Client")
                 .associations(ImmutableList.of(UmlAssociation.builder("champ", "com.exemple.Cible")
-                    .targetCardinality("0..*").label("détient").build()))
+                    .targetMultiplicity("0..*").label("détient").build()))
                 .build(),
             UmlEntity.builder("com.exemple.Cible", "Cible").build()};
     }
+
 
     @Test
     void parDefaut_aucuneCouleurNestImposee() {
@@ -75,6 +76,7 @@ class PlantUmlStyleTest {
         PlantUmlAssert.assertCompile(PlantUmlAssert.documentPour(style, paire()));
     }
 
+
     @Test
     void parDefaut_leRenduEstCeluiDePlantUml() throws Exception {
         String svg = PlantUmlAssert.svg(boite());
@@ -94,6 +96,7 @@ class PlantUmlStyleTest {
             () -> "La pastille doit être masquée sous ce thème :\n" + svg);
     }
 
+
     @Test
     void nomDeLien_estColoreParLeThemeSeulement() {
         assertFalse(PlantUmlAssert.documentPour(paire()).contains("<color:"),
@@ -107,6 +110,7 @@ class PlantUmlStyleTest {
     void nomDeLien_resteEnItaliqueDansLesDeuxCas(UmlStyle style) {
         assertTrue(PlantUmlAssert.documentPour(style, paire()).contains("<i>détient</i>"));
     }
+
 
     @Test
     void lesDeuxApparences_disentExactementLaMemeChose() {

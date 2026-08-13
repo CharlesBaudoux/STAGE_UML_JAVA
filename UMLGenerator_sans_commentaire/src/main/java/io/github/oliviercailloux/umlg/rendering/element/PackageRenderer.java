@@ -1,11 +1,11 @@
 package io.github.oliviercailloux.umlg.rendering.element;
 
-import io.github.oliviercailloux.umlg.Avertissements;
 import com.google.common.collect.ImmutableList;
 import io.github.oliviercailloux.umlg.model.UmlEntity;
 import io.github.oliviercailloux.umlg.model.UmlPackage;
 import io.github.oliviercailloux.umlg.rendering.syntax.ColorCodec;
 import io.github.oliviercailloux.umlg.rendering.syntax.PlantUmlEscaper;
+import io.github.oliviercailloux.umlg.warning.Avertisseur;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -56,7 +56,7 @@ public final class PackageRenderer {
 
     public static String ouverture(UmlPackage groupe) {
         StringBuilder ligne = new StringBuilder("package \"")
-            .append(PlantUmlEscaper.label(groupe.name())).append('"');
+            .append(PlantUmlEscaper.debutDeLigne(groupe.name())).append('"');
 
         if (!groupe.color().isEmpty()) {
             ligne.append(' ').append(ColorCodec.code(groupe.color(), groupe.name()));
@@ -66,7 +66,7 @@ public final class PackageRenderer {
 
     private static void signalerCouleurEnDouble(UmlEntity entite, UmlPackage declare,
         UmlPackage retenu, String premiere) {
-        Avertissements.dire("@UMLPackage on " + entite.qualifiedName() + ": group \""
+        Avertisseur.dire("@UMLPackage on " + entite.qualifiedName() + ": group \""
             + declare.name() + "\" already has the color \"" + retenu.color() + "\""
             + (premiere == null ? "" : ", set by " + premiere)
             + "; a rectangle has only one, so \"" + declare.color() + "\" will not be drawn.");

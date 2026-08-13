@@ -2,9 +2,9 @@ package io.github.oliviercailloux.umlg.processing;
 
 import com.google.common.collect.ImmutableSet;
 import io.github.oliviercailloux.umlg.annotation.UMLAssociation;
-import io.github.oliviercailloux.umlg.annotation.UMLClass;
 import io.github.oliviercailloux.umlg.annotation.UMLDependencies;
 import io.github.oliviercailloux.umlg.annotation.UMLDependency;
+import io.github.oliviercailloux.umlg.extraction.relation.DependencyExtractor;
 import io.github.oliviercailloux.umlg.model.UmlDependency;
 import java.util.HashSet;
 import java.util.List;
@@ -30,28 +30,31 @@ final class VerificateurDependance {
         if (dependances.isEmpty()) {
             return;
         }
-        String contexte = "@UMLDependency on " + classe.getQualifiedName();
+        String emplacement = classe.getQualifiedName().toString();
+        String contexte = "@UMLDependency on " + emplacement;
 
-        if (classe.getAnnotation(UMLClass.class) == null) {
-            rapporteur.erreur(contexte + ": the declaring class does not carry @UMLClass, so it "
-                + "is not part of the diagram and this dependency would be drawn from nowhere. "
-                + "Annotate it, or remove this annotation.", classe, dependances.get(0));
+        if (!rapporteur.exigerBoite(classe, contexte,
+            "this dependency would be drawn from nowhere", classe, dependances.get(0))) {
             return;
         }
 
         Set<UmlDependency> deja = new HashSet<>();
         ImmutableSet<String> parAssociation = ciblesDesAssociations(classe);
 
-        for (AnnotationMirror annotation : dependances) {
-            String nomCible = cible.resoudre(annotation, "target", contexte, classe);
+        for (int rang = 0; rang < dependances.size(); rang++) {
+            AnnotationMirror annotation = dependances.get(rang);
+            String contexteDeLaDependance = Rapporteur.contexteDeLaRepetee("UMLDependency",
+                emplacement, rang, dependances.size());
+            String nomCible =
+                cible.resoudre(annotation, "target", contexteDeLaDependance, classe);
             if (nomCible == null) {
                 continue;
             }
 
             if (nomCible.contentEquals(classe.getQualifiedName())) {
-                rapporteur.erreur(contexte + ": a class cannot depend on itself; the relation "
-                    + "would teach the diagram's reader nothing.", classe, annotation,
-                    rapporteur.valeurEcrite(annotation, "target"));
+                rapporteur.erreur(
+                    DependencyExtractor.messageDependanceReflexive(contexteDeLaDependance),
+                    classe, annotation, rapporteur.valeurEcrite(annotation, "target"));
                 continue;
             }
 
@@ -59,21 +62,22 @@ final class VerificateurDependance {
             try {
                 dependance = new UmlDependency(nomCible, rapporteur.texte(annotation, "label"));
             } catch (IllegalArgumentException e) {
-                rapporteur.erreur(contexte + " : " + e.getMessage(), classe, annotation);
+                rapporteur.erreur(contexteDeLaDependance + " : " + e.getMessage(), classe,
+                    annotation);
                 continue;
             }
 
             if (!deja.add(dependance)) {
-                rapporteur.erreur(contexte + ": the dependency towards " + nomCible + " is "
-                    + "declared twice with the same label; the two lines would overlap with "
-                    + "nothing to show it.", classe, annotation);
+                rapporteur.erreur(DependencyExtractor.messageDependanceEnDouble(
+                    contexteDeLaDependance, nomCible), classe, annotation);
                 continue;
             }
 
             if (parAssociation.contains(nomCible)) {
-                rapporteur.avertissement(contexte + ": an @UMLAssociation of this class already "
-                    + "links it to " + nomCible + ". A dependency says strictly less than an "
-                    + "association, so the second line would only clutter the diagram.",
+                rapporteur.avertissement(contexteDeLaDependance + ": an @UMLAssociation of this "
+                    + "class already links it to " + nomCible + ". A dependency says strictly "
+                    + "less than an association, so the second line would only clutter the "
+                    + "diagram.",
                     classe, annotation, rapporteur.valeurEcrite(annotation, "target"));
             }
         }

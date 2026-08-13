@@ -2,10 +2,8 @@ package io.github.oliviercailloux.umlg.processing;
 
 import io.github.oliviercailloux.umlg.annotation.UMLAssociation;
 import io.github.oliviercailloux.umlg.annotation.UMLClass;
-import io.github.oliviercailloux.umlg.annotation.UMLExclude;
-import io.github.oliviercailloux.umlg.annotation.UMLInclude;
 import io.github.oliviercailloux.umlg.annotation.UMLMultiplicity;
-import io.github.oliviercailloux.umlg.extraction.member.VisibilityPolicy;
+import io.github.oliviercailloux.umlg.extraction.member.MemberExtractor;
 import io.github.oliviercailloux.umlg.model.Multiplicites;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
@@ -27,24 +25,20 @@ final class VerificateurMultiplicite {
             return;
         }
         TypeElement porteuse = (TypeElement) membre.getEnclosingElement();
-        UMLClass classe = porteuse.getAnnotation(UMLClass.class);
-
-        if (classe == null) {
-            rapporteur.erreur(Membre.emplacement(membre) + ": the declaring class does not carry "
-                + "@UMLClass, so it is not part of the diagram and this annotation has no "
-                + "effect. Annotate " + porteuse.getQualifiedName() + ", or remove it.",
-                membre, annotation);
+        if (!rapporteur.exigerBoite(porteuse, Membre.emplacement(membre),
+            "this annotation has no effect", membre, annotation)) {
             return;
         }
+        UMLClass classe = porteuse.getAnnotation(UMLClass.class);
 
         if (!verifierValeur(membre, annotation)) {
             return;
         }
 
         if (rapporteur.miroir(membre, UMLAssociation.class) != null) {
-            rapporteur.erreur(Membre.emplacement(membre) + " carries both @UMLAssociation and "
-                + "@UMLMultiplicity: the multiplicity of this property is already given by "
-                + "targetCardinality. Keep only one of the two.", membre, annotation);
+            rapporteur.erreur(
+                MemberExtractor.messageDeuxMultiplicites(Membre.emplacement(membre)),
+                membre, annotation);
             return;
         }
         signalerMembreInvisible(membre, classe, annotation);
@@ -61,7 +55,7 @@ final class VerificateurMultiplicite {
         }
 
         try {
-            Multiplicites.valider(valeur, "cardinality");
+            Multiplicites.valider(valeur, "multiplicity");
             return true;
         } catch (IllegalArgumentException e) {
             rapporteur.erreur(Membre.emplacement(membre) + " : " + e.getMessage(), membre,
@@ -72,18 +66,7 @@ final class VerificateurMultiplicite {
 
     private void signalerMembreInvisible(Element membre, UMLClass classe,
         AnnotationMirror annotation) {
-        if (!strategie.connue(classe)) {
-            return;
-        }
-        if (Membre.vientDUnComposant(membre)) {
-            return;
-        }
-        boolean visible = VisibilityPolicy.estVisible(Membre.bits(membre),
-            strategie.effective(classe),
-            rapporteur.miroir(membre, UMLInclude.class) != null,
-            rapporteur.miroir(membre, UMLExclude.class) != null);
-
-        if (visible) {
+        if (strategie.membreAffiche(membre, classe) != Strategie.Affichage.MASQUE) {
             return;
         }
         rapporteur.avertissement(Membre.emplacement(membre) + ": @UMLMultiplicity has no visible "

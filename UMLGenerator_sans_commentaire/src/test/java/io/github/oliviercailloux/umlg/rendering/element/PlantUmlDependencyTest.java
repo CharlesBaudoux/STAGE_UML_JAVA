@@ -43,6 +43,7 @@ class PlantUmlDependencyTest {
         return lignes.get(0);
     }
 
+
     @Test
     void dependance_estUnTraitPointilleFleche() {
         assertEquals("Source ..> Cible",
@@ -83,6 +84,7 @@ class PlantUmlDependencyTest {
         PlantUmlAssert.assertCompile(rendu);
     }
 
+
     static List<UmlDependency> dependancesVariees() {
         return List.of(
             UmlDependency.toTarget("Cible"),
@@ -100,6 +102,7 @@ class PlantUmlDependencyTest {
         assertEquals(2, PlantUmlAssert.aliasDeclares(source).size(),
             () -> "Le lien a fait apparaître ou disparaître une boîte :\n" + source);
     }
+
 
     static List<String> labelsHostiles() {
         return List.of(
@@ -134,6 +137,7 @@ class PlantUmlDependencyTest {
             () -> "Le label n'est pas rendu fidèlement. Texte dessiné :\n" + rendu);
     }
 
+
     @Test
     void cibleAbsenteDuDiagramme_estUneErreurFranche() {
         UmlEntity solitaire = UmlEntity.builder("Source", "Source")
@@ -160,10 +164,11 @@ class PlantUmlDependencyTest {
         PlantUmlAssert.assertCompile(rendu);
     }
 
+
     @UMLClass
     @UMLDependency(target = ServiceBancaire.class, label = "facture via")
     static class Panier {
-        @UMLAssociation(target = ServiceBancaire.class, targetCardinality = "0..1")
+        @UMLAssociation(target = ServiceBancaire.class, targetMultiplicity = "0..1")
         private ServiceBancaire dernierPaiement;
     }
 

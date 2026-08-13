@@ -1,5 +1,6 @@
 package io.github.oliviercailloux.umlg.model;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableList;
@@ -13,7 +14,7 @@ import java.util.List;
  *     admise, et veut dire « ne rien écrire après les parenthèses » : UML tient le type de retour
  *     pour facultatif, et beaucoup de diagrammes tenus à la main taisent le {@code void}, qui
  *     n'apprend rien. C'est une règle du projet qui en décide ; par défaut le type est écrit.
- * @param cardinality combien d'objets la méthode rend, écrit entre crochets après le type de
+ * @param multiplicity combien d'objets la méthode rend, écrit entre crochets après le type de
  *     retour : {@code names(): String [0..*]}. Vide = rien d'affiché, ce qui vaut « exactement
  *     un ». Renseignée par {@code @UMLMultiplicity}.
  * @param visibility le symbole UML de visibilité, comme pour {@link UmlField}.
@@ -29,7 +30,7 @@ import java.util.List;
 public record UmlMethod(
     String name,
     String returnType,
-    String cardinality,
+    String multiplicity,
     String visibility,
     boolean isStatic,
     ImmutableList<UmlParameter> parameters,
@@ -39,14 +40,26 @@ public record UmlMethod(
     /**
      * Vérifie les invariants de la méthode.
      *
-     * @throws NullPointerException si le type de retour, la multiplicité ou la liste des
-     *     paramètres est nulle ; l'absence des deux premiers se dit avec la chaîne vide.
-     * @throws IllegalArgumentException si la multiplicité n'est pas une multiplicité UML.
+     * <p>Comme pour {@link UmlField}, le nom et la visibilité n'étaient pas contrôlés : une méthode
+     * sans nom traversait le modèle et ne se voyait qu'à la lecture du dessin. Le type de retour,
+     * lui, admet bien la chaîne vide — c'est ce qu'écrit la règle « omit return void » —, mais pas
+     * un blanc, qui serait un oubli déguisé.
+     *
+     * @throws NullPointerException si le nom, le type de retour, la multiplicité, la visibilité ou
+     *     la liste des paramètres est nulle ; l'absence de type de retour, de multiplicité et de
+     *     visibilité se dit avec la chaîne vide.
+     * @throws IllegalArgumentException si le nom est vide, si le type de retour n'est fait que
+     *     d'espaces, si la visibilité n'est pas un symbole UML, ou si la multiplicité n'est pas une
+     *     multiplicité UML.
      */
     public UmlMethod {
+        UmlField.verifierNom(name);
         checkNotNull(returnType, "The return type cannot be null (use an empty string).");
-        checkNotNull(cardinality, "The cardinality cannot be null (use an empty string).");
-        Multiplicites.valider(cardinality, "cardinality");
+        checkArgument(returnType.isEmpty() || !returnType.isBlank(),
+            "The return type of \"%s\" cannot be made of whitespace only.", name);
+        checkNotNull(multiplicity, "The multiplicity cannot be null (use an empty string).");
+        Multiplicites.valider(multiplicity, "multiplicity");
+        UmlField.verifierVisibilite(visibility, name);
 
         parameters = ImmutableList.copyOf(
             checkNotNull(parameters, "The list of parameters cannot be null."));
@@ -58,15 +71,15 @@ public record UmlMethod(
      *
      * @param name le nom affiché.
      * @param returnType le nom simple du type de retour.
-     * @param cardinality la multiplicité du retour, ou la chaîne vide.
+     * @param multiplicity la multiplicité du retour, ou la chaîne vide.
      * @param visibility le symbole UML de visibilité.
      * @param isStatic vrai pour une méthode statique.
      * @param parameters les paramètres, dans l'ordre de la signature.
      * @param derived vrai pour une méthode dérivée.
      */
-    public UmlMethod(String name, String returnType, String cardinality, String visibility,
+    public UmlMethod(String name, String returnType, String multiplicity, String visibility,
         boolean isStatic, ImmutableList<UmlParameter> parameters, boolean derived) {
-        this(name, returnType, cardinality, visibility, isStatic, parameters, derived, false);
+        this(name, returnType, multiplicity, visibility, isStatic, parameters, derived, false);
     }
 
     /**

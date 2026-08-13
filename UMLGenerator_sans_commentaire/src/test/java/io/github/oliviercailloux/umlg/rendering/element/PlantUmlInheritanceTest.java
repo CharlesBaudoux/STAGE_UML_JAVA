@@ -25,6 +25,7 @@ class PlantUmlInheritanceTest {
             .build();
     }
 
+
     @Test
     void generalisation_donneUnTraitPlein() {
         UmlEntity parent = boite("pkg.Vehicule", "Vehicule", UmlEntityKind.CLASS);
@@ -75,6 +76,7 @@ class PlantUmlInheritanceTest {
             PlantUmlAssert.lignesDeLien(PlantUmlAssert.documentPour(roulant, vehicule, bus)));
     }
 
+
     @ParameterizedTest
     @CsvSource({
         "CLASS,           class",
@@ -111,6 +113,7 @@ class PlantUmlInheritanceTest {
 
         PlantUmlAssert.assertCompile(PlantUmlAssert.documentPour(roulant, vehicule, bus));
     }
+
 
     @Test
     void cibleNonDeclaree_estSignaleeCommeUnHeritage() {

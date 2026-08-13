@@ -11,14 +11,10 @@ import org.junit.jupiter.api.io.TempDir;
 
 class UmlgProcessorTest {
 
-    private static final String ENTETE = """
-        import io.github.oliviercailloux.umlg.annotation.*;
-        import java.util.List;
-        """;
-
     private static Verdict compiler(Path tmp, String corps) throws IOException {
-        return CompilationCobaye.compiler(tmp, "Cobaye.java", ENTETE + corps);
+        return CompilationCobaye.compilerCorps(tmp, corps);
     }
+
 
     @Test
     void codeCorrect_compileSansErreur(@TempDir Path tmp) throws IOException {
@@ -32,8 +28,8 @@ class UmlgProcessorTest {
             @UMLClass(strategy = UMLVisibility.PUBLIC)
             @UMLDependency(target = ServiceBancaire.class, label = "facture via")
             class Client {
-                @UMLAssociation(target = Commande.class, targetCardinality = "0..*",
-                    sourceCardinality = "1", targetRole = "achats")
+                @UMLAssociation(target = Commande.class, targetMultiplicity = "0..*",
+                    sourceMultiplicity = "1", targetRole = "achats")
                 private List<Commande> commandes;
 
                 @UMLInclude
@@ -44,6 +40,7 @@ class UmlgProcessorTest {
         assertTrue(verdict.reussie(), verdict.rapport());
         assertTrue(verdict.avertissements().isEmpty(), verdict.rapport());
     }
+
 
     @Test
     void multipliciteIllisible_arreteLaCompilation(@TempDir Path tmp) throws IOException {
@@ -69,13 +66,13 @@ class UmlgProcessorTest {
             @UMLClass
             class Client {
                 @UMLMultiplicity("0..*")
-                @UMLAssociation(target = Commande.class, targetCardinality = "1..*")
+                @UMLAssociation(target = Commande.class, targetMultiplicity = "1..*")
                 private List<Commande> commandes;
             }
             """);
 
         assertFalse(verdict.reussie(), verdict.rapport());
-        assertTrue(verdict.erreurContient("already given by targetCardinality"), verdict.rapport());
+        assertTrue(verdict.erreurContient("already given by targetMultiplicity"), verdict.rapport());
     }
 
     @Test
@@ -91,6 +88,7 @@ class UmlgProcessorTest {
         assertFalse(verdict.reussie(), verdict.rapport());
         assertTrue(verdict.erreurContient("does not carry @UMLClass"), verdict.rapport());
     }
+
 
     @Test
     void cibleSansUmlClass_arreteLaCompilation(@TempDir Path tmp) throws IOException {
@@ -123,6 +121,7 @@ class UmlgProcessorTest {
         assertTrue(verdict.erreurContient("primitive type"), verdict.rapport());
     }
 
+
     @Test
     void multipliciteInversee_arreteLaCompilation(@TempDir Path tmp) throws IOException {
         Verdict verdict = compiler(tmp, """
@@ -131,7 +130,7 @@ class UmlgProcessorTest {
 
             @UMLClass
             class Client {
-                @UMLAssociation(target = Commande.class, targetCardinality = "3..1")
+                @UMLAssociation(target = Commande.class, targetMultiplicity = "3..1")
                 private Commande commande;
             }
             """);
@@ -149,15 +148,16 @@ class UmlgProcessorTest {
 
             @UMLClass
             class Client {
-                @UMLAssociation(target = Commande.class, sourceCardinality = "beaucoup")
+                @UMLAssociation(target = Commande.class, sourceMultiplicity = "beaucoup")
                 private Commande commande;
             }
             """);
 
         assertFalse(verdict.reussie(), verdict.rapport());
         assertTrue(verdict.erreurContient("valid UML multiplicity"), verdict.rapport());
-        assertTrue(verdict.erreurContient("sourceCardinality"), verdict.rapport());
+        assertTrue(verdict.erreurContient("sourceMultiplicity"), verdict.rapport());
     }
+
 
     @Test
     void couleurInconnueDePlantUml_arreteLaCompilation(@TempDir Path tmp) throws IOException {
@@ -182,6 +182,7 @@ class UmlgProcessorTest {
 
         assertTrue(verdict.reussie(), verdict.rapport());
     }
+
 
     @Test
     void dependanceVersSoiMeme_arreteLaCompilation(@TempDir Path tmp) throws IOException {
@@ -229,6 +230,7 @@ class UmlgProcessorTest {
         assertTrue(verdict.reussie(), verdict.rapport());
     }
 
+
     @Test
     void includeEtExcludeEnsemble_arretentLaCompilation(@TempDir Path tmp) throws IOException {
         Verdict verdict = compiler(tmp, """
@@ -243,6 +245,7 @@ class UmlgProcessorTest {
         assertFalse(verdict.reussie(), verdict.rapport());
         assertTrue(verdict.erreurContient("contradictory"), verdict.rapport());
     }
+
 
     @Test
     void associationSurUneClasseSansUmlClass_arreteLaCompilation(@TempDir Path tmp)
@@ -361,6 +364,7 @@ class UmlgProcessorTest {
         assertTrue(verdict.erreurContient("drawn from nowhere"), verdict.rapport());
     }
 
+
     @Test
     void nomFaitDEspaces_arreteLaCompilation(@TempDir Path tmp) throws IOException {
         Verdict verdict = compiler(tmp, """
@@ -389,17 +393,82 @@ class UmlgProcessorTest {
         assertTrue(verdict.erreurContient("whitespace only"), verdict.rapport());
     }
 
+
     @Test
-    void associationSansCible_estRefuseeParJavacSeul(@TempDir Path tmp) throws IOException {
+    void associationSansCible_versUnTypeHorsDiagramme_arreteLaCompilation(@TempDir Path tmp)
+        throws IOException {
         Verdict verdict = compiler(tmp, """
             @UMLClass
             class Client {
-                @UMLAssociation(targetCardinality = "1")
+                @UMLAssociation(targetMultiplicity = "1")
                 private String nom;
             }
             """);
 
         assertFalse(verdict.reussie(), verdict.rapport());
-        assertTrue(verdict.erreurContient("target"), verdict.rapport());
+        assertTrue(verdict.erreurContient("target java.lang.String does not carry @UMLClass"),
+            verdict.rapport());
+        assertTrue(verdict.erreurContient("point target() at a class that is"), verdict.rapport());
+    }
+
+    @Test
+    void associationSurUnChampDeTypeVariable_compile(@TempDir Path tmp) throws IOException {
+        Verdict verdict = compiler(tmp, """
+            @UMLClass
+            class Commande {}
+
+            @UMLClass
+            class Boite<T extends Commande> {
+                @UMLAssociation(targetMultiplicity = "1")
+                private T contenu;
+            }
+            """);
+
+        assertTrue(verdict.reussie(), verdict.rapport());
+        assertTrue(verdict.avertissements().isEmpty(), verdict.rapport());
+    }
+
+    @Test
+    void collectionBruteSansCible_nommeLeTypeFautif(@TempDir Path tmp) throws IOException {
+        Verdict verdict = compiler(tmp, """
+            @UMLClass
+            class Client {
+                @UMLAssociation(targetMultiplicity = "0..*")
+                private List commandes;
+            }
+            """);
+
+        assertFalse(verdict.reussie(), verdict.rapport());
+        assertTrue(verdict.erreurContient("the field's type (List) does not say what it contains"),
+            verdict.rapport());
+    }
+
+    @Test
+    void champPrimitifSansCible_nommeLeTypeFautif(@TempDir Path tmp) throws IOException {
+        Verdict verdict = compiler(tmp, """
+            @UMLClass
+            class Client {
+                @UMLAssociation(targetMultiplicity = "1")
+                private int compteur;
+            }
+            """);
+
+        assertFalse(verdict.reussie(), verdict.rapport());
+        assertTrue(
+            verdict.erreurContient("the field's type (int) does not name a class of the diagram"),
+            verdict.rapport());
+    }
+
+    @Test
+    void contrainteVide_reprendLeMessageDuModele(@TempDir Path tmp) throws IOException {
+        Verdict verdict = compiler(tmp, """
+            @UMLClass
+            @UMLConstraint(rule = " ")
+            class Compte {}
+            """);
+
+        assertFalse(verdict.reussie(), verdict.rapport());
+        assertTrue(verdict.erreurContient(
+            "A constraint cannot be empty or made of whitespace only."), verdict.rapport());
     }
 }

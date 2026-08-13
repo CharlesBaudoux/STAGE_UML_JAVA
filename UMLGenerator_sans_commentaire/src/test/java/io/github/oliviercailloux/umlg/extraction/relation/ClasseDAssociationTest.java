@@ -56,6 +56,7 @@ class ClasseDAssociationTest {
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
             () -> new AssociationClassExtractor().extraire(SoiMeme.class));
 
-        assertTrue(e.getMessage().contains("cannot be one of the two ends"), e.getMessage());
+        assertTrue(e.getMessage().contains("source() is the association class itself"),
+            e.getMessage());
     }
 }

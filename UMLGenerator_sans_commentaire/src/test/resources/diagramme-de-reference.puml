@@ -18,12 +18,6 @@ enum "Statut" as Statut {
   SUSPENDU
 }
 
-class "Commande" as Commande {
-}
-
-class "ServiceBancaire" as ServiceBancaire {
-}
-
 class "Client" as Client <<Entity>> #LightBlue {
   ~ /age : int
   - archivees : Commande [0..*]
@@ -39,7 +33,21 @@ class "Client" as Client <<Entity>> #LightBlue {
   + valider() : void
 }
 
+package "Facturation" #EEF3F7 {
+class "Commande" as Commande {
+}
+
+class "ServiceBancaire" as ServiceBancaire {
+}
+
+class "Reglement" as Reglement {
+  - montant : double
+}
+
+}
+
 Identifiable <|.. Personne
+(Commande, ServiceBancaire) .. Reglement
 Client "acheteur 1" *-down- "achats 0..* {ordered} {non vide}" Commande : <i>passe</i>
 Client ..> ServiceBancaire : <i>facture via</i>
 Personne <|-- Client

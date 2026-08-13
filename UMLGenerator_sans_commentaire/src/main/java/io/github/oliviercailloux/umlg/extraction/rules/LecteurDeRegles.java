@@ -15,6 +15,7 @@ import io.github.oliviercailloux.umlg.annotation.UMLFlow;
 import io.github.oliviercailloux.umlg.annotation.UMLVisibility;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -32,6 +33,8 @@ final class LecteurDeRegles {
     private static final String ORDER = "order";
     private static final String MULTIPLICITY = "multiplicity";
     private static final String DIRECTION = "direction";
+
+    private static final char BOM = (char) 0xFEFF;
 
     private static final String NAME = "name";
     private static final String RETAIN = "retain";
@@ -79,39 +82,29 @@ final class LecteurDeRegles {
         Lieu racine = new Lieu(origine, "");
         JsonNode objet = arbre(contenu, racine);
 
-        ImmutableMap<String, String> alias = ImmutableMap.of();
-        ImmutableList<Motif> membresMasques = ImmutableList.of();
-        ImmutableList<DefinitionDeVue> vues = ImmutableList.of();
-        Set<Omission> omissions = EnumSet.noneOf(Omission.class);
-        boolean vuesParPaquetage = false;
-        String titre = "";
-        UMLFlow direction = UMLFlow.TOP_TO_BOTTOM;
-        boolean montrerMembresVides = false;
-        boolean ordreDeclaration = false;
-        boolean multiplicitesDeduites = false;
-        UMLVisibility strategie = null;
+        Regles.Constructeur regles = Regles.constructeur();
 
         for (Map.Entry<String, JsonNode> champ : objet.properties()) {
             String cle = champ.getKey();
             JsonNode valeur = champ.getValue();
             Lieu lieu = racine.dans(cle);
 
-            if (cle.startsWith("_")) {
+            if (estUneNote(cle)) {
                 continue;
             }
 
             switch (cle) {
-                case TYPES -> alias = lireTypes(valeur, lieu);
-                case HIDE -> membresMasques = lireHide(valeur, lieu);
-                case OMIT -> omissions = lireOmit(valeur, lieu);
-                case STRATEGY -> strategie = lireStrategy(valeur, lieu);
-                case VIEWS -> vues = lireViews(valeur, lieu);
-                case VIEWS_BY_PACKAGE -> vuesParPaquetage = booleen(valeur, lieu);
-                case TITLE -> titre = lireTitle(valeur, lieu);
-                case SHOW_EMPTY_MEMBERS -> montrerMembresVides = booleen(valeur, lieu);
-                case ORDER -> ordreDeclaration = lireOrder(valeur, lieu);
-                case MULTIPLICITY -> multiplicitesDeduites = lireMultiplicity(valeur, lieu);
-                case DIRECTION -> direction = lireFlux(valeur, lieu);
+                case TYPES -> regles.types(lireTypes(valeur, lieu));
+                case HIDE -> regles.motifsMasques(lireHide(valeur, lieu));
+                case OMIT -> omissions(regles, lireOmit(valeur, lieu));
+                case STRATEGY -> regles.strategie(lireStrategy(valeur, lieu));
+                case VIEWS -> regles.vues(lireViews(valeur, lieu));
+                case VIEWS_BY_PACKAGE -> regles.vuesParPaquetage(booleen(valeur, lieu));
+                case TITLE -> regles.titre(lireTitle(valeur, lieu));
+                case SHOW_EMPTY_MEMBERS -> regles.montrerMembresVides(booleen(valeur, lieu));
+                case ORDER -> regles.ordreDeclaration(lireOrder(valeur, lieu));
+                case MULTIPLICITY -> regles.multiplicitesDeduites(lireMultiplicity(valeur, lieu));
+                case DIRECTION -> regles.direction(lireFlux(valeur, lieu));
                 default -> throw new IllegalArgumentException(racine + ": unknown rule \"" + cle
                     + "\". Known rules: " + STRATEGY + ", " + TYPES + ", " + HIDE + ", " + OMIT
                     + ", " + TITLE + ", " + DIRECTION + ", " + ORDER + ", " + MULTIPLICITY + ", "
@@ -119,18 +112,27 @@ final class LecteurDeRegles {
                     + " name starts with \"_\" is ignored, and that is where a note goes.");
             }
         }
-        return new Regles(alias, omissions.contains(Omission.RETOUR_VOID),
-            strategie == null ? UMLVisibility.NONE : strategie, strategie != null,
-            membresMasques, vues, vuesParPaquetage, titre, direction,
-            !montrerMembresVides, omissions.contains(Omission.VISIBILITE),
-            omissions.contains(Omission.NOMS_DE_PARAMETRES), ordreDeclaration,
-            multiplicitesDeduites, omissions.contains(Omission.ABSTRAIT));
+        return regles.construire();
+    }
+
+    private static boolean estUneNote(String cle) {
+        return cle.startsWith("_");
+    }
+
+    private static void omissions(Regles.Constructeur regles, Set<Omission> demandees) {
+        regles.omettreVisibilite(demandees.contains(Omission.VISIBILITE))
+            .omettreNomsDeParametres(demandees.contains(Omission.NOMS_DE_PARAMETRES))
+            .omettreRetourVoid(demandees.contains(Omission.RETOUR_VOID))
+            .omettreAbstrait(demandees.contains(Omission.ABSTRAIT));
     }
 
     private static JsonNode arbre(String contenu, Lieu racine) {
         if (contenu.isBlank()) {
             return ANALYSEUR.createObjectNode();
         }
+        checkArgument(contenu.charAt(0) != BOM,
+            "%s: the file starts with a UTF-8 byte order mark, which JSON does not allow. The mark "
+                + "is invisible in an editor; re-save the file as UTF-8 without BOM.", racine);
 
         JsonNode lu;
         try {
@@ -209,7 +211,7 @@ final class LecteurDeRegles {
             String cle = champ.getKey();
             Lieu ou = lieu.dans(cle);
 
-            if (cle.startsWith("_")) {
+            if (estUneNote(cle)) {
                 continue;
             }
 
@@ -281,7 +283,7 @@ final class LecteurDeRegles {
         String nom = texte(valeur, lieu);
         checkArgument(!nom.isBlank(),
             "%s: a %s selector cannot be empty or made of whitespace only.", lieu, sorte);
-        checkArgument(!nom.contains(" "),
+        checkArgument(!contientUneEspace(nom),
             "%s: \"%s\" contains a space, so it is not a name. Write one selector per entry of "
                 + "the array.", lieu, nom);
 
@@ -301,13 +303,15 @@ final class LecteurDeRegles {
     private static UMLVisibility lireStrategy(JsonNode valeur, Lieu lieu) {
         String ecrit = texte(valeur, lieu);
 
-        UMLVisibility lue;
-        try {
-            lue = UMLVisibility.valueOf(ecrit.toUpperCase(Locale.ROOT));
-        } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException(lieu + ": unknown strategy \"" + ecrit
-                + "\". Known strategies: none, public, protected, package, private.", e);
+        UMLVisibility lue = null;
+        for (UMLVisibility candidate : UMLVisibility.values()) {
+            if (candidate.name().toLowerCase(Locale.ROOT).equals(ecrit)) {
+                lue = candidate;
+            }
         }
+        checkArgument(lue != null, "%s: unknown strategy \"%s\". Known strategies: none, public, "
+            + "protected, package, private — in lower case, like every other word of the file.",
+            lieu, ecrit);
         checkArgument(lue != UMLVisibility.PROJECT,
             "%s: \"project\" is what a class writes to defer to this key; the project itself "
                 + "must name a real strategy.", lieu);
@@ -321,13 +325,15 @@ final class LecteurDeRegles {
             lieu, sorte(valeur));
 
         ImmutableList.Builder<Motif> motifs = ImmutableList.builder();
+        Set<String> deja = new LinkedHashSet<>();
+
         for (int rang = 0; rang < valeur.size(); rang++) {
             Lieu ou = lieu.indice(rang);
             String motif = texte(valeur.get(rang), ou);
 
             checkArgument(!motif.isBlank(),
                 "%s: a name pattern cannot be empty or made of whitespace only.", ou);
-            checkArgument(!motif.contains(" "),
+            checkArgument(!contientUneEspace(motif),
                 "%s: a name pattern cannot contain a space (read \"%s\"). Write one pattern per "
                     + "entry of the array, or did you mean \"" + OMIT + "\"?",
                 ou, motif);
@@ -336,9 +342,11 @@ final class LecteurDeRegles {
                     + "by name. Put @UMLExclude on that member instead, or write a pattern that "
                     + "describes a family of names.",
                 ou, motif);
-            checkArgument(!motif.equals("*"),
-                "%s: the pattern \"*\" would hide every member of every class.", ou);
+            checkArgument(!motif.chars().allMatch(caractere -> caractere == '*'),
+                "%s: the pattern \"%s\" would hide every member of every class.", ou, motif);
+            checkArgument(!deja.contains(motif), "%s: \"%s\" is already asked for.", ou, motif);
 
+            deja.add(motif);
             motifs.add(Motif.de(motif));
         }
         return motifs.build();
@@ -379,6 +387,10 @@ final class LecteurDeRegles {
         ImmutableMap.Builder<String, String> alias = ImmutableMap.builder();
         for (Map.Entry<String, JsonNode> champ : valeur.properties()) {
             String source = champ.getKey();
+
+            if (estUneNote(source)) {
+                continue;
+            }
             Lieu ou = lieu.dans(source);
             String affiche = texte(champ.getValue(), ou);
 
@@ -387,13 +399,18 @@ final class LecteurDeRegles {
             checkArgument(!affiche.isBlank(),
                 "%s: the displayed type cannot be empty. To hide a type, there is nothing to "
                     + "write: leave the entry out.", ou);
-            checkArgument(!source.contains(" ") && !affiche.contains(" "),
+            checkArgument(!contientUneEspace(source) && !contientUneEspace(affiche),
                 "%s: a type name cannot contain a space (read \"%s\" -> \"%s\").",
                 ou, source, affiche);
 
             alias.put(source, affiche);
         }
         return alias.build();
+    }
+
+    private static boolean contientUneEspace(String texte) {
+        return texte.chars()
+            .anyMatch(c -> Character.isWhitespace(c) || Character.isSpaceChar(c));
     }
 
     private static boolean booleen(JsonNode valeur, Lieu lieu) {

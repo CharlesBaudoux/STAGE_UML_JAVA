@@ -11,11 +11,11 @@ import org.junit.jupiter.api.io.TempDir;
 
 class UmlgGroupesEtClassesDAssociationTest {
 
-    private static final String ENTETE = "import io.github.oliviercailloux.umlg.annotation.*;\n";
 
     private static Verdict compiler(Path tmp, String corps) throws IOException {
-        return CompilationCobaye.compiler(tmp, "Cobaye.java", ENTETE + corps);
+        return CompilationCobaye.compilerCorps(tmp, corps);
     }
+
 
     @Test
     void codeCorrect_compileSansRienSignaler(@TempDir Path tmp) throws IOException {
@@ -39,6 +39,7 @@ class UmlgGroupesEtClassesDAssociationTest {
         assertTrue(verdict.reussie(), verdict.rapport());
         assertTrue(verdict.avertissements().isEmpty(), verdict.rapport());
     }
+
 
     @Test
     void groupeSurClasseNonAnnotee_arreteLaCompilation(@TempDir Path tmp) throws IOException {
@@ -91,6 +92,7 @@ class UmlgGroupesEtClassesDAssociationTest {
         assertTrue(verdict.avertissementContient("already coloured"), verdict.rapport());
     }
 
+
     @Test
     void extremiteHorsDiagramme_arreteLaCompilation(@TempDir Path tmp) throws IOException {
         Verdict verdict = compiler(tmp, """
@@ -121,7 +123,10 @@ class UmlgGroupesEtClassesDAssociationTest {
             """);
 
         assertFalse(verdict.reussie(), verdict.rapport());
-        assertTrue(verdict.erreurContient("is the association class itself"), verdict.rapport());
+        assertTrue(verdict.erreurContient("source() is the association class itself"),
+            verdict.rapport());
+        assertTrue(verdict.erreurContient("Point source() at one of the two classes"),
+            verdict.rapport());
     }
 
     @Test

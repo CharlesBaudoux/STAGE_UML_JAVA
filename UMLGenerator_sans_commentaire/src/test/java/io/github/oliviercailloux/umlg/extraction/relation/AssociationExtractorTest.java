@@ -34,6 +34,7 @@ class AssociationExtractorTest {
         return associations.get(0);
     }
 
+
     @UMLClass(strategy = UMLVisibility.PRIVATE)
     static class ChampPromu {
         @UMLAssociation(target = Commande.class)
@@ -89,13 +90,14 @@ class AssociationExtractorTest {
         assertTrue(EntityExtractor.extract(SansAssociation.class).associations().isEmpty());
     }
 
+
     @UMLClass
     static class ExempleDeLaSpecification {
         @UMLAssociation(
             target = Ligne.class,
             type = UMLRelationType.COMPOSITION,
-            sourceCardinality = "1",
-            targetCardinality = "0..*",
+            sourceMultiplicity = "1",
+            targetMultiplicity = "0..*",
             targetRole = "achats",
             label = "passe",
             sourceRole = "client",
@@ -110,8 +112,8 @@ class AssociationExtractorTest {
         assertEquals("lignes", association.fieldName());
         assertEquals(Ligne.class.getName(), association.targetQualifiedName());
         assertEquals(UMLRelationType.COMPOSITION, association.type());
-        assertEquals("1", association.sourceCardinality());
-        assertEquals("0..*", association.targetCardinality());
+        assertEquals("1", association.sourceMultiplicity());
+        assertEquals("0..*", association.targetMultiplicity());
         assertEquals("client", association.sourceRole());
         assertEquals("achats", association.targetRole());
         assertEquals("passe", association.label());
@@ -130,26 +132,27 @@ class AssociationExtractorTest {
 
         assertEquals(UMLRelationType.ASSOCIATION, association.type());
         assertEquals(UMLDirection.NONE, association.direction());
-        assertEquals("", association.sourceCardinality());
-        assertEquals("", association.targetCardinality());
+        assertEquals("", association.sourceMultiplicity());
+        assertEquals("", association.targetMultiplicity());
         assertEquals("", association.sourceRole());
         assertEquals("", association.targetRole());
         assertEquals("", association.label());
         assertTrue(association.constraints().isEmpty());
     }
 
-    static class ChampCardinaliteInvalide {
-        @UMLAssociation(target = Commande.class, targetCardinality = "beaucoup")
+
+    static class ChampMultipliciteInvalide {
+        @UMLAssociation(target = Commande.class, targetMultiplicity = "beaucoup")
         private Commande commande;
     }
 
     @Test
     void multipliciteInvalide_estRefuseeEnNommantSonEmplacement() {
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
-            () -> new AssociationExtractor().extraire(ChampCardinaliteInvalide.class));
+            () -> new AssociationExtractor().extraire(ChampMultipliciteInvalide.class));
 
         assertTrue(e.getMessage().contains("commande")
-                && e.getMessage().contains("targetCardinality"),
+                && e.getMessage().contains("targetMultiplicity"),
             () -> "Message trop pauvre pour situer la faute : " + e.getMessage());
     }
 

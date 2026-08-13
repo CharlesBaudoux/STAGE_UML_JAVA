@@ -11,7 +11,7 @@ public final class NoteRenderer {
     public static String note(UmlNote note, String alias) {
         if (!note.surMembre()) {
             return "note " + placement(note.direction()) + " of " + alias + " : "
-                + PlantUmlEscaper.label(note.text()) + "\n";
+                + PlantUmlEscaper.debutDeLigne(note.text()) + "\n";
         }
 
         return "note " + placementSurMembre(note.direction()) + " of " + alias + "::"
@@ -21,8 +21,8 @@ public final class NoteRenderer {
     }
 
     public static String contrainte(String regle, String alias) {
-        return "note " + placement(UMLDirection.NONE) + " of " + alias + " : {"
-            + PlantUmlEscaper.label(regle) + "}\n";
+        return "note " + placement(UMLDirection.NONE) + " of " + alias + " : "
+            + NotationContrainte.une(regle) + "\n";
     }
 
     private static String placement(UMLDirection direction) {

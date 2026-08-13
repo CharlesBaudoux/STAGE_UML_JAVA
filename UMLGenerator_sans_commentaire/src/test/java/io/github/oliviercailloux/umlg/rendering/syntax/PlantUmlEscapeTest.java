@@ -50,6 +50,7 @@ class PlantUmlEscapeTest {
             "avec nul \u0000 et bip \u0007");
     }
 
+
     @ParameterizedTest
     @MethodSource("nomsHostiles")
     void nomHostile_produitUnDocumentValideDUneSeuleClasse(String nom) {
@@ -84,6 +85,7 @@ class PlantUmlEscapeTest {
         assertEquals(2, declaration.chars().filter(c -> c == '"').count(),
             "Le nom a introduit un guillemet dans la déclaration : " + declaration);
     }
+
 
     @ParameterizedTest
     @ValueSource(strings = {
@@ -139,6 +141,7 @@ class PlantUmlEscapeTest {
         assertFalse(source.contains("\\n\\n"), source);
     }
 
+
     @Test
     void stereotypeAvecChevrons_neTronquePasLaSuite() throws Exception {
         UmlEntity e = stereotypee("A>>B");
@@ -167,6 +170,7 @@ class PlantUmlEscapeTest {
         assertEquals("a\\\\b", PlantUmlEscaper.label("a\\b"));
     }
 
+
     @Test
     void membreHostile_neCassePasLeCompartiment() {
         UmlEntity e = new UmlEntity("E", "", "", UMLVisibility.PUBLIC,
@@ -179,6 +183,7 @@ class PlantUmlEscapeTest {
         assertEquals(1, PlantUmlAssert.nomsDeclares(source).size(), source);
         assertFalse(source.contains("<img"), source);
     }
+
 
     @Test
     void couleurNommee_estAcceptee() {
@@ -207,6 +212,7 @@ class PlantUmlEscapeTest {
             new UmlEntity("E", "", "#ABC", UMLVisibility.PUBLIC, List.of(), List.of())));
     }
 
+
     @Test
     void encodeur_nUtiliseQueDesEntitesNumeriques() {
         assertEquals("&#60;&#62;&#38;&#34;", PlantUmlEscaper.label("<>&\""));
@@ -226,6 +232,7 @@ class PlantUmlEscapeTest {
         assertEquals("ab", PlantUmlEscaper.stereotype("a\u0007b"));
     }
 
+
     @Test
     void unNomPorteurDunLien_neProduitAucunHref() throws Exception {
         String svg = PlantUmlAssert.svg(nommee("Compte [[http://ailleurs.example]]"));
@@ -236,13 +243,36 @@ class PlantUmlEscapeTest {
     }
 
     @Test
-    void encodeur_neCassSeQueLaPaire_etLaisseLeCaractereIsole() {
+    void encodeur_neCasseQueLaPaire_etLaisseLeCaractereIsole() {
         assertEquals("nom_de_champ", PlantUmlEscaper.label("nom_de_champ"));
         assertEquals("a * b", PlantUmlEscaper.label("a * b"));
         assertEquals("et/ou", PlantUmlEscaper.label("et/ou"));
 
         assertEquals("&#95;_souligne&#95;_", PlantUmlEscaper.label("__souligne__"));
         assertEquals("&#91;[lien]]", PlantUmlEscaper.label("[[lien]]"));
+    }
+
+
+    @Test
+    void stereotypeVideApresEchappement_nEcritPasDeChevronsVides() {
+        String source = PlantUmlAssert.documentPour(stereotypee("\1\2"));
+
+        assertFalse(source.contains("<<>>"), source);
+        PlantUmlAssert.assertCompile(source);
+    }
+
+    @Test
+    void nomVideApresEchappement_seVoitDansLaSourceEngendree() {
+        assertEquals("", PlantUmlEscaper.label("\1\2"));
+        assertEquals("", PlantUmlEscaper.stereotype("\1\2"));
+    }
+
+    @Test
+    void nomVideApresEchappement_estRefuseParLeRendu() {
+        var refus = assertThrows(IllegalArgumentException.class,
+            () -> PlantUmlAssert.documentPour(nommee("\1\2")));
+
+        assertTrue(refus.getMessage().contains("invisible characters only"), refus.getMessage());
     }
 
     @Test

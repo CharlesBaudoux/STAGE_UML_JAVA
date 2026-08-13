@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 
 class ClassHeaderValidatorTest {
 
+
     @Test
     void couleurInvalide_estRejetee() {
         assertThrows(IllegalArgumentException.class,
@@ -18,6 +19,7 @@ class ClassHeaderValidatorTest {
     void couleurNommee_estAcceptee() {
         assertDoesNotThrow(() -> ClassHeaderValidator.validateColor("LightBlue", getClass()));
     }
+
 
     @Test
     void nomAvecCaracteresSpeciaux_estAccepte() {
@@ -45,5 +47,25 @@ class ClassHeaderValidatorTest {
     void stereotypeBlanc_estRejete() {
         assertThrows(IllegalArgumentException.class,
             () -> ClassHeaderValidator.validateStereotype("   ", getClass()));
+    }
+
+
+    @Test
+    void nomFaitDeCaracteresInvisibles_estRejete() {
+        assertThrows(IllegalArgumentException.class,
+            () -> ClassHeaderValidator.validateName("\1\2", getClass()),
+            "Ce nom se réduit à la chaîne vide dans le fichier engendré.");
+    }
+
+    @Test
+    void stereotypeFaitDeCaracteresInvisibles_estRejete() {
+        assertThrows(IllegalArgumentException.class,
+            () -> ClassHeaderValidator.validateStereotype("\1\2", getClass()));
+    }
+
+    @Test
+    void nomOrdinaireAvecUnCaractereDeControle_resteAccepte() {
+        assertDoesNotThrow(() -> ClassHeaderValidator.validateName("Compte\1", getClass()));
+        assertDoesNotThrow(() -> ClassHeaderValidator.validateStereotype("entity\1", getClass()));
     }
 }

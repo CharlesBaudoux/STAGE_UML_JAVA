@@ -18,10 +18,7 @@ public final class Regles {
 
     public static final String NOM_DU_FICHIER = "umlg.json";
 
-    private static final Regles AUCUNE = new Regles(ImmutableMap.of(), false,
-        UMLVisibility.NONE, false, ImmutableList.of(),
-        ImmutableList.of(), false, "",
-        UMLFlow.TOP_TO_BOTTOM, true, false, false, false, false, false);
+    private static final Regles AUCUNE = constructeur().construire();
 
     private final ImmutableMap<String, String> alias;
 
@@ -55,28 +52,131 @@ public final class Regles {
 
     private final Set<String> aliasUtilises = ConcurrentHashMap.newKeySet();
 
-    Regles(ImmutableMap<String, String> alias, boolean omettreRetourVoid,
-        UMLVisibility strategie, boolean strategieDeclaree,
-        ImmutableList<Motif> membresMasques, ImmutableList<DefinitionDeVue> vues,
-        boolean vuesParPaquetage, String titre, UMLFlow direction,
-        boolean masquerMembresVides, boolean omettreVisibilite,
-        boolean omettreNomsDeParametres, boolean ordreDeclaration,
-        boolean multiplicitesDeduites, boolean omettreAbstrait) {
-        this.alias = checkNotNull(alias);
-        this.omettreRetourVoid = omettreRetourVoid;
-        this.strategie = checkNotNull(strategie);
-        this.strategieDeclaree = strategieDeclaree;
-        this.membresMasques = checkNotNull(membresMasques);
-        this.vues = checkNotNull(vues);
-        this.vuesParPaquetage = vuesParPaquetage;
-        this.titre = checkNotNull(titre);
-        this.direction = checkNotNull(direction);
-        this.masquerMembresVides = masquerMembresVides;
-        this.omettreVisibilite = omettreVisibilite;
-        this.omettreNomsDeParametres = omettreNomsDeParametres;
-        this.ordreDeclaration = ordreDeclaration;
-        this.multiplicitesDeduites = multiplicitesDeduites;
-        this.omettreAbstrait = omettreAbstrait;
+    private final boolean auMoinsUneRegle;
+
+    private Regles(Constructeur pose) {
+        this.alias = pose.alias;
+        this.omettreRetourVoid = pose.omettreRetourVoid;
+        this.strategie = pose.strategie;
+        this.strategieDeclaree = pose.strategieDeclaree;
+        this.membresMasques = pose.membresMasques;
+        this.vues = pose.vues;
+        this.vuesParPaquetage = pose.vuesParPaquetage;
+        this.titre = pose.titre;
+        this.direction = pose.direction;
+        this.masquerMembresVides = pose.masquerMembresVides;
+        this.omettreVisibilite = pose.omettreVisibilite;
+        this.omettreNomsDeParametres = pose.omettreNomsDeParametres;
+        this.ordreDeclaration = pose.ordreDeclaration;
+        this.multiplicitesDeduites = pose.multiplicitesDeduites;
+        this.omettreAbstrait = pose.omettreAbstrait;
+        this.auMoinsUneRegle = pose.auMoinsUneRegle;
+    }
+
+    static Constructeur constructeur() {
+        return new Constructeur();
+    }
+
+    static final class Constructeur {
+
+        private ImmutableMap<String, String> alias = ImmutableMap.of();
+        private boolean omettreRetourVoid;
+        private UMLVisibility strategie = UMLVisibility.NONE;
+        private boolean strategieDeclaree;
+        private ImmutableList<Motif> membresMasques = ImmutableList.of();
+        private ImmutableList<DefinitionDeVue> vues = ImmutableList.of();
+        private boolean vuesParPaquetage;
+        private String titre = "";
+        private UMLFlow direction = UMLFlow.TOP_TO_BOTTOM;
+        private boolean masquerMembresVides = true;
+        private boolean omettreVisibilite;
+        private boolean omettreNomsDeParametres;
+        private boolean ordreDeclaration;
+        private boolean multiplicitesDeduites;
+        private boolean omettreAbstrait;
+        private boolean auMoinsUneRegle;
+
+        private Constructeur() {}
+
+        private Constructeur ecrite() {
+            auMoinsUneRegle = true;
+            return this;
+        }
+
+        Constructeur types(ImmutableMap<String, String> alias) {
+            this.alias = checkNotNull(alias);
+            return ecrite();
+        }
+
+        Constructeur motifsMasques(ImmutableList<Motif> membresMasques) {
+            this.membresMasques = checkNotNull(membresMasques);
+            return ecrite();
+        }
+
+        Constructeur strategie(UMLVisibility strategie) {
+            this.strategie = checkNotNull(strategie);
+            this.strategieDeclaree = true;
+            return ecrite();
+        }
+
+        Constructeur vues(ImmutableList<DefinitionDeVue> vues) {
+            this.vues = checkNotNull(vues);
+            return ecrite();
+        }
+
+        Constructeur vuesParPaquetage(boolean vuesParPaquetage) {
+            this.vuesParPaquetage = vuesParPaquetage;
+            return ecrite();
+        }
+
+        Constructeur titre(String titre) {
+            this.titre = checkNotNull(titre);
+            return ecrite();
+        }
+
+        Constructeur direction(UMLFlow direction) {
+            this.direction = checkNotNull(direction);
+            return ecrite();
+        }
+
+        Constructeur montrerMembresVides(boolean montrer) {
+            this.masquerMembresVides = !montrer;
+            return ecrite();
+        }
+
+        Constructeur omettreVisibilite(boolean omettreVisibilite) {
+            this.omettreVisibilite = omettreVisibilite;
+            return ecrite();
+        }
+
+        Constructeur omettreNomsDeParametres(boolean omettreNomsDeParametres) {
+            this.omettreNomsDeParametres = omettreNomsDeParametres;
+            return ecrite();
+        }
+
+        Constructeur omettreRetourVoid(boolean omettreRetourVoid) {
+            this.omettreRetourVoid = omettreRetourVoid;
+            return ecrite();
+        }
+
+        Constructeur omettreAbstrait(boolean omettreAbstrait) {
+            this.omettreAbstrait = omettreAbstrait;
+            return ecrite();
+        }
+
+        Constructeur ordreDeclaration(boolean ordreDeclaration) {
+            this.ordreDeclaration = ordreDeclaration;
+            return ecrite();
+        }
+
+        Constructeur multiplicitesDeduites(boolean multiplicitesDeduites) {
+            this.multiplicitesDeduites = multiplicitesDeduites;
+            return ecrite();
+        }
+
+        Regles construire() {
+            return new Regles(this);
+        }
     }
 
     public boolean omettreVisibilite() {
@@ -216,12 +316,6 @@ public final class Regles {
     }
 
     public boolean vides() {
-        return alias.isEmpty() && !omettreRetourVoid && strategie == UMLVisibility.NONE
-            && !strategieDeclaree
-            && membresMasques.isEmpty()
-            && vues.isEmpty() && !vuesParPaquetage && titre.isEmpty()
-            && direction == UMLFlow.TOP_TO_BOTTOM && masquerMembresVides && !omettreVisibilite
-            && !omettreNomsDeParametres && !ordreDeclaration && !multiplicitesDeduites
-            && !omettreAbstrait;
+        return !auMoinsUneRegle;
     }
 }

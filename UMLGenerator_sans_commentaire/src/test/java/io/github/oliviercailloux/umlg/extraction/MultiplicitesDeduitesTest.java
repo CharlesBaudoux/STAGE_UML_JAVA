@@ -45,30 +45,30 @@ class MultiplicitesDeduitesTest {
     @Test
     void unSet_secritElementEtEtoile() {
         assertEquals("String", champ("aliases").type());
-        assertEquals("0..*", champ("aliases").cardinality());
+        assertEquals("0..*", champ("aliases").multiplicity());
     }
 
     @Test
     void unOptional_secritElementDeballeEtZeroOuUn() {
         assertEquals("int", champ("ucp").type());
-        assertEquals("0..1", champ("ucp").cardinality());
+        assertEquals("0..1", champ("ucp").multiplicity());
     }
 
     @Test
     void uneMap_resteEcriteEnEntier() {
         assertEquals("Map<String, Integer>", champ("table").type());
-        assertEquals("", champ("table").cardinality());
+        assertEquals("", champ("table").multiplicity());
     }
 
     @Test
     void unTypeSimple_neRecoitRien() {
         assertEquals("String", champ("nom").type());
-        assertEquals("", champ("nom").cardinality());
+        assertEquals("", champ("nom").multiplicity());
     }
 
     @Test
     void uneMultipliciteDeclaree_lEmporteSurLaDeduction() {
-        assertEquals("1..*", champ("obligatoires").cardinality());
+        assertEquals("1..*", champ("obligatoires").multiplicity());
         assertEquals("String", champ("obligatoires").type());
     }
 
@@ -80,7 +80,7 @@ class MultiplicitesDeduitesTest {
             champs.stream().filter(f -> f.name().equals("aliases")).findFirst().orElseThrow();
 
         assertEquals("Set<String>", aliases.type());
-        assertEquals("", aliases.cardinality());
+        assertEquals("", aliases.multiplicity());
     }
 
     @Test
@@ -91,8 +91,9 @@ class MultiplicitesDeduitesTest {
             methodes.stream().filter(m -> m.name().equals("names")).findFirst().orElseThrow();
 
         assertEquals("String", names.returnType());
-        assertEquals("0..*", names.cardinality());
+        assertEquals("0..*", names.multiplicity());
     }
+
 
     @Test
     void uneAutreFormeQueBrackets_estRefuseeEnNommantLaCle() {

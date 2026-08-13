@@ -6,8 +6,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.google.common.collect.ImmutableList;
 import io.github.oliviercailloux.umlg.annotation.UMLClass;
 import io.github.oliviercailloux.umlg.annotation.UMLExclude;
+import io.github.oliviercailloux.umlg.annotation.UMLInclude;
 import io.github.oliviercailloux.umlg.annotation.UMLVisibility;
 import io.github.oliviercailloux.umlg.extraction.EntityExtractor;
+import io.github.oliviercailloux.umlg.extraction.rules.Regles;
 import io.github.oliviercailloux.umlg.model.UmlEntity;
 import io.github.oliviercailloux.umlg.model.UmlField;
 import org.junit.jupiter.api.Test;
@@ -100,6 +102,28 @@ class EnumLiteralTest {
     void litteralAvecCorps_estReconnu() {
         assertEquals(ImmutableList.of("PLUS", "MOINS"),
             EntityExtractor.extract(Operateur.class).literals());
+    }
+
+    @UMLClass(strategy = UMLVisibility.PUBLIC)
+    enum DeviseNommee {
+        @UMLInclude(name = "Euro")
+        EURO,
+
+        DOLLAR
+    }
+
+    @Test
+    void unLitteralRenomme_paraitSousLeNomDuDiagramme() {
+        assertEquals(ImmutableList.of("Euro", "DOLLAR"),
+            EntityExtractor.extract(DeviseNommee.class).literals());
+    }
+
+    @Test
+    void unMotifDuFichierDeRegles_atteintUnLitteral() {
+        Regles regles = Regles.lues("{ \"hide\": [\"DOL*\"] }", "umlg.json");
+
+        assertEquals(ImmutableList.of("Euro"),
+            EntityExtractor.extract(DeviseNommee.class, regles).literals());
     }
 
     @UMLClass(strategy = UMLVisibility.PUBLIC)

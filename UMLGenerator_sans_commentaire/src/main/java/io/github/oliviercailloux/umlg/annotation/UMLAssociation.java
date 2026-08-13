@@ -1,5 +1,6 @@
 package io.github.oliviercailloux.umlg.annotation;
 
+import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -17,6 +18,7 @@ import java.lang.annotation.Target;
  *
  * <p>FIELD : l'annotation se pose sur un attribut ; c'est lui qui porte le type de la cible.
  */
+@Documented
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.FIELD)
 public @interface UMLAssociation {
@@ -50,11 +52,16 @@ public @interface UMLAssociation {
      * annotation dont c'est le nom.
      *
      * <p>ATTRIBUTE ne garde que ce qu'une ligne d'attribut sait porter : la cible, qui en donne le
-     * type, targetCardinality, qui en donne la multiplicité, et targetRole, qui devient le nom
+     * type, targetMultiplicity, qui en donne la multiplicité, et targetRole, qui devient le nom
      * même de la propriété — en notation attribut, c'est le rôle que l'on lit. Les paramètres
      * qui décorent un trait — type, direction, label, le rôle et la multiplicité côté source —
      * n'ont alors nulle part où s'écrire ; le processeur d'annotations le signale plutôt que de
      * les laisser disparaître en silence.
+     *
+     * <p>Inutile ne veut pas dire dispensé de sens : ces mêmes paramètres restent validés sous
+     * les deux notations, à la compilation comme à la génération. Une multiplicité « 3..1 » est
+     * impossible qu'elle finisse dessinée ou non, et la première bascule vers ARROW la ferait
+     * surgir.
      *
      * @return la notation retenue.
      */
@@ -73,14 +80,14 @@ public @interface UMLAssociation {
      *
      * @return la multiplicité côté source ; vide = rien d'affiché de ce côté.
      */
-    String sourceCardinality() default "";
+    String sourceMultiplicity() default "";
 
     /**
      * Multiplicité affichée du côté de la cible, écrite comme celle de la source.
      *
      * @return la multiplicité côté cible ; vide = rien d'affiché de ce côté.
      */
-    String targetCardinality() default "";
+    String targetMultiplicity() default "";
 
     /**
      * Rôle : le nom que joue l'extrémité de départ, écrit le long du trait.

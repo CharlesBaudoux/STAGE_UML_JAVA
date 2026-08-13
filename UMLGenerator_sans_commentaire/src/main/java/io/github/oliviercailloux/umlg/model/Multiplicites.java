@@ -45,26 +45,49 @@ public final class Multiplicites {
      *     basse dépasse sa borne haute.
      */
     public static void valider(String multiplicite, String parametre) {
+        String probleme = probleme(multiplicite, parametre);
+        checkArgument(probleme == null, probleme);
+    }
+
+    /**
+     * Cette chaîne est-elle une multiplicité UML ?
+     *
+     * <p>La question que la classe promettait de savoir répondre, et qu'elle n'offrait pourtant
+     * qu'en levant : un appelant qui voulait simplement savoir devait entourer son appel d'un
+     * {@code try}, et se servir d'une exception comme d'une réponse. Ce que la bibliothèque
+     * accepte est une question qu'on a le droit de lui poser sans en être puni.
+     *
+     * @param multiplicite la chaîne à examiner. Vide, elle est licite : c'est l'absence de
+     *     multiplicité.
+     * @return vrai si {@link #valider} l'accepterait.
+     */
+    public static boolean estValide(String multiplicite) {
+        return probleme(multiplicite, "multiplicity") == null;
+    }
+
+    private static String probleme(String multiplicite, String parametre) {
         if (multiplicite.isEmpty()) {
-            return;
+            return null;
         }
 
         Matcher m = CARDINALITE.matcher(multiplicite);
-        checkArgument(m.matches(),
-            "%s = \"%s\" is not a valid UML multiplicity (expected: an integer, \"*\", "
-                + "or a range such as \"0..1\" or \"1..*\").",
-            parametre, multiplicite);
+        if (!m.matches()) {
+            return parametre + " = \"" + multiplicite + "\" is not a valid UML multiplicity "
+                + "(expected: an integer, \"*\", or a range such as \"0..1\" or \"1..*\").";
+        }
 
         String borneHaute = m.group(3);
 
         if (borneHaute == null || borneHaute.equals("*")) {
-            return;
+            return null;
         }
         long min = Long.parseLong(m.group(1));
         long max = Long.parseLong(borneHaute);
 
-        checkArgument(min <= max,
-            "%s = \"%s\": the lower bound exceeds the upper bound.",
-            parametre, multiplicite);
+        if (min > max) {
+            return parametre + " = \"" + multiplicite
+                + "\": the lower bound exceeds the upper bound.";
+        }
+        return null;
     }
 }

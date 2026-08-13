@@ -1,25 +1,26 @@
 package io.github.oliviercailloux.umlg.extraction;
 
+import static io.github.oliviercailloux.umlg.CompilationSansProcesseur.compiler;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.github.oliviercailloux.umlg.Avertissements;
 import io.github.oliviercailloux.umlg.annotation.UMLFlow;
 import io.github.oliviercailloux.umlg.model.UmlDiagram;
 import io.github.oliviercailloux.umlg.model.UmlEntity;
 import io.github.oliviercailloux.umlg.model.UmlMethod;
 import io.github.oliviercailloux.umlg.model.UmlParameter;
 import io.github.oliviercailloux.umlg.model.UmlProject;
-import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import javax.tools.JavaCompiler;
 import javax.tools.StandardJavaFileManager;
 import javax.tools.ToolProvider;
@@ -28,39 +29,6 @@ import org.junit.jupiter.api.io.TempDir;
 
 class ProjectScannerIntegrationTest {
 
-    private static void compiler(Path racineSources, Path sortie, String cheminRelatif, String code)
-        throws IOException {
-        Path fichier = racineSources.resolve(cheminRelatif);
-        Files.createDirectories(fichier.getParent());
-        Files.writeString(fichier, code, StandardCharsets.UTF_8);
-
-        JavaCompiler compilateur = ToolProvider.getSystemJavaCompiler();
-        if (compilateur == null) {
-            throw new IllegalStateException("Ces tests exigent un JDK (javac absent).");
-        }
-        Files.createDirectories(sortie);
-
-        try (StandardJavaFileManager gestionnaire =
-            compilateur.getStandardFileManager(null, null, StandardCharsets.UTF_8)) {
-
-            boolean ok = compilateur.getTask(null, gestionnaire, null,
-                List.of("-proc:none", "-classpath", cheminDeCompilation(), "-d",
-                    sortie.toString()),
-                null,
-                gestionnaire.getJavaFileObjects(fichier.toFile())).call();
-
-            if (!ok) {
-                throw new IllegalStateException("Le cobaye n'a pas compilé :\n" + code);
-            }
-        }
-    }
-
-    private static String cheminDeCompilation() {
-        return Stream.of(System.getProperty("java.class.path"),
-                System.getProperty("jdk.module.path"))
-            .filter(chemin -> chemin != null && !chemin.isBlank())
-            .collect(Collectors.joining(File.pathSeparator));
-    }
 
     private static Set<String> noms(UmlProject projet) {
         return projet.entities().stream().map(UmlEntity::name).collect(Collectors.toSet());
@@ -211,6 +179,133 @@ class ProjectScannerIntegrationTest {
         assertThrows(IllegalArgumentException.class, () -> ProjectScanner.scan(sortie).projet());
     }
 
+
+    private static Path dependanceRetiree(Path tmp, String declarationDuChamp) throws IOException {
+        Path sortie = tmp.resolve("classes");
+        compiler(tmp.resolve("src"), sortie, "com/exemple/Porteuse.java", """
+            package com.exemple;
+
+            import io.github.oliviercailloux.umlg.annotation.UMLClass;
+            import io.github.oliviercailloux.umlg.annotation.UMLVisibility;
+
+            class Absente {}
+
+            @UMLClass(strategy = UMLVisibility.PUBLIC)
+            public class Porteuse {
+                public CHAMP
+            }
+            """.replace("CHAMP", declarationDuChamp));
+        compiler(tmp.resolve("src"), sortie, "com/exemple/Saine.java", """
+            package com.exemple;
+
+            import io.github.oliviercailloux.umlg.annotation.UMLClass;
+
+            @UMLClass
+            public class Saine {}
+            """);
+        Files.delete(sortie.resolve("com/exemple/Absente.class"));
+        return sortie;
+    }
+
+    private static List<String> avertissementsDuScan(Path sortie) throws IOException {
+        List<String> dits = new ArrayList<>();
+        try (Avertissements.Canal canal = Avertissements.versLeCanal(dits::add)) {
+            ProjectScanner.scan(sortie);
+        }
+        return dits;
+    }
+
+    private static String avertissementSur(List<String> dits, String classe) {
+        List<String> retenus = dits.stream().filter(m -> m.contains(classe)).toList();
+        assertEquals(1, retenus.size(), "Un seul avertissement doit nommer " + classe + " : "
+            + dits);
+        return retenus.get(0);
+    }
+
+    @Test
+    void typeAbsentDansUneSignatureGenerique_neFaitPasEchouerLeScan(@TempDir Path tmp)
+        throws Exception {
+        Path sortie = dependanceRetiree(tmp, "java.util.List<Absente> liste;");
+
+        UmlProject projet = ProjectScanner.scan(sortie).projet();
+
+        assertEquals(Set.of("Saine"), noms(projet),
+            "Le scan doit livrer les boîtes qu'il a su lire, et se passer de l'autre.");
+    }
+
+    @Test
+    void typeAbsentDansUneSignatureNue_neFaitPasEchouerLeScan(@TempDir Path tmp) throws Exception {
+        Path sortie = dependanceRetiree(tmp, "Absente champ;");
+
+        UmlProject projet = ProjectScanner.scan(sortie).projet();
+
+        assertEquals(Set.of("Saine"), noms(projet));
+    }
+
+    @Test
+    void uneClasseChargeeMaisIllisible_estSignaleeSansPretendreQuElleNAPasCharge(@TempDir Path tmp)
+        throws Exception {
+        Path sortie = dependanceRetiree(tmp, "java.util.List<Absente> liste;");
+
+        String dit = avertissementSur(avertissementsDuScan(sortie), "com.exemple.Porteuse");
+
+        assertTrue(dit.contains("loaded but could not be read"), dit);
+        assertTrue(dit.contains("a type it names"), dit);
+        assertFalse(dit.contains("only readable on a loaded class"),
+            "La classe s'est chargée : ce reproche-là ne la concerne pas — " + dit);
+    }
+
+    @Test
+    void uneClasseQuiNeChargePas_gardeLeMessageDesClassesIllisibles(@TempDir Path tmp)
+        throws Exception {
+        Path sortie = tmp.resolve("classes");
+        compiler(tmp.resolve("src"), sortie, "com/exemple/Saine.java", """
+            package com.exemple;
+
+            import io.github.oliviercailloux.umlg.annotation.UMLClass;
+
+            @UMLClass
+            public class Saine {}
+            """);
+        Files.write(sortie.resolve("com/exemple/Corrompue.class"),
+            new byte[] {(byte) 0xCA, (byte) 0xFE, (byte) 0xBA, (byte) 0xBE, 0, 0, 0, 0, 1, 2, 3});
+
+        String dit = avertissementSur(avertissementsDuScan(sortie), "com.exemple.Corrompue");
+
+        assertTrue(dit.contains("could not be loaded"), dit);
+        assertTrue(dit.contains("only readable on a loaded class"), dit);
+    }
+
+    @Test
+    void toutesLesBoitesPerdues_neDonnentPasUnDiagrammeVideEnSilence(@TempDir Path tmp)
+        throws Exception {
+        Path sortie = tmp.resolve("classes");
+        compiler(tmp.resolve("src"), sortie, "com/exemple/Porteuse.java", """
+            package com.exemple;
+
+            import io.github.oliviercailloux.umlg.annotation.UMLClass;
+            import io.github.oliviercailloux.umlg.annotation.UMLVisibility;
+
+            class Absente {}
+
+            @UMLClass(strategy = UMLVisibility.PUBLIC)
+            public class Porteuse {
+                public java.util.List<Absente> liste;
+            }
+            """);
+        Files.delete(sortie.resolve("com/exemple/Absente.class"));
+
+        List<String> dits = new ArrayList<>();
+        try (Avertissements.Canal canal = Avertissements.versLeCanal(dits::add)) {
+            IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+                () -> ProjectScanner.scan(sortie).projet());
+            assertTrue(e.getMessage().contains("No class carries @UMLClass"), e.getMessage());
+        }
+
+        assertTrue(avertissementSur(dits, "com.exemple.Porteuse")
+            .contains("loaded but could not be read"), dits.toString());
+    }
+
     @Test
     void scanRepete_donneLeMemeResultat(@TempDir Path tmp) throws Exception {
         Path sortie = tmp.resolve("classes");
@@ -253,6 +348,7 @@ class ProjectScannerIntegrationTest {
 
         assertTrue(e.getMessage().contains("rouge-vif"), e.getMessage());
     }
+
 
     @Test
     void fichierDeRegles_estAppliqueAuProjetScanne(@TempDir Path tmp) throws Exception {
@@ -302,6 +398,7 @@ class ProjectScannerIntegrationTest {
 
         assertEquals("ImmutableList<String>", clavier.fields().get(0).type());
     }
+
 
     @Test
     void projetCompileSansParameters_neMontreQueLesTypes(@TempDir Path tmp) throws Exception {
@@ -413,6 +510,7 @@ class ProjectScannerIntegrationTest {
         assertEquals(List.of("Alpha", "Milieu", "Zebre"), lus,
             "Les boîtes doivent être rendues dans un ordre stable, ici l'alphabétique.");
     }
+
 
     private static final String UNE_BOITE = """
         package com.exemple;

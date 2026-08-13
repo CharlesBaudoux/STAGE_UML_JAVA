@@ -1,6 +1,7 @@
 package io.github.oliviercailloux.umlg.processing;
 
 import com.google.common.collect.ImmutableList;
+import io.github.oliviercailloux.umlg.annotation.UMLClass;
 import java.lang.annotation.Annotation;
 import java.util.List;
 import java.util.Map;
@@ -9,6 +10,7 @@ import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.Elements;
 import javax.tools.Diagnostic;
 
@@ -28,15 +30,8 @@ final class Rapporteur {
         messager.printMessage(Diagnostic.Kind.ERROR, message);
     }
 
-    void avertissement(String message) {
-        if (!avertir) {
-            return;
-        }
-        messager.printMessage(Diagnostic.Kind.WARNING, message);
-    }
-
     void avertissementDeConfiguration(String message) {
-        messager.printMessage(Diagnostic.Kind.WARNING, message);
+        messager.printMessage(Diagnostic.Kind.MANDATORY_WARNING, message);
     }
 
     void erreur(String message, Element element, AnnotationMirror annotation,
@@ -61,6 +56,17 @@ final class Rapporteur {
             return;
         }
         messager.printMessage(Diagnostic.Kind.WARNING, message, element, annotation);
+    }
+
+    boolean exigerBoite(TypeElement boite, String contexte, String consequence, Element porteur,
+        AnnotationMirror annotation) {
+        if (boite.getAnnotation(UMLClass.class) != null) {
+            return true;
+        }
+        erreur(contexte + ": " + boite.getQualifiedName() + " does not carry @UMLClass, so it is "
+            + "not part of the diagram and " + consequence + ". Annotate it, or remove this "
+            + "annotation.", porteur, annotation);
+        return false;
     }
 
     private void signaler(Diagnostic.Kind gravite, String message, Element element,
@@ -98,6 +104,24 @@ final class Rapporteur {
             }
         }
         return resultat.build();
+    }
+
+    static String contexteDeLaRepetee(String nomAnnotation, String emplacement, int rang,
+        int total) {
+        String annotation = total == 1
+            ? "@" + nomAnnotation
+            : "the " + ordinal(rang + 1) + " @" + nomAnnotation;
+        return annotation + " on " + emplacement;
+    }
+
+    private static String ordinal(int rang) {
+        String suffixe = switch (rang % 100 >= 11 && rang % 100 <= 13 ? 0 : rang % 10) {
+            case 1 -> "st";
+            case 2 -> "nd";
+            case 3 -> "rd";
+            default -> "th";
+        };
+        return rang + suffixe;
     }
 
     AnnotationValue valeur(AnnotationMirror annotation, String membre) {

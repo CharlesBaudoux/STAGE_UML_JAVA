@@ -57,7 +57,8 @@ final class PlantUmlSyntaxBuilder {
         StringBuilder tete = new StringBuilder();
 
         if (diagramme.aUnTitre()) {
-            tete.append("title ").append(PlantUmlEscaper.label(diagramme.title())).append('\n');
+            tete.append("title ").append(PlantUmlEscaper.debutDeLigne(diagramme.title()))
+                .append('\n');
         }
         if (diagramme.direction() == UMLFlow.LEFT_TO_RIGHT) {
             tete.append("left to right direction\n");

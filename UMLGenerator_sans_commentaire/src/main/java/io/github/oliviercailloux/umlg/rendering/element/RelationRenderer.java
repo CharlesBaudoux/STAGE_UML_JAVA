@@ -41,11 +41,30 @@ public final class RelationRenderer {
                 registre.aliasCible(classe.sourceQualifiedName(), designation(source, relation)));
         };
 
-        if (!relation.label().isEmpty()) {
-            trait +=
-                " : " + PlantUmlLayout.nomDeLien(style, PlantUmlEscaper.label(relation.label()));
+        String nom = nomDeLien(relation.label());
+        if (!nom.isEmpty()) {
+            trait += " : " + nom;
+            mesurer(relation.label());
         }
         return trait + "\n";
+    }
+
+    private String nomDeLien(String label) {
+        String[] lignes = label.split("\r\n|\r|\n", -1);
+
+        StringBuilder sortie = new StringBuilder();
+        boolean quelqueChose = false;
+        for (int i = 0; i < lignes.length; i++) {
+            if (i > 0) {
+                sortie.append("\\n");
+            }
+            String echappee = PlantUmlEscaper.label(lignes[i]);
+            if (!echappee.isEmpty()) {
+                sortie.append(PlantUmlLayout.nomDeLien(style, echappee));
+                quelqueChose = true;
+            }
+        }
+        return quelqueChose ? sortie.toString() : "";
     }
 
     public int largeurEtiquetteMax() {
@@ -102,13 +121,19 @@ public final class RelationRenderer {
         return ligne.append(' ').append(aliasCible).toString();
     }
 
-    private void ajouterExtremite(StringBuilder ligne, String extremite) {
-        if (extremite.isEmpty()) {
+    private void ajouterExtremite(StringBuilder ligne, Extremite.Etiquette extremite) {
+        if (extremite.estVide()) {
             return;
         }
-        ligne.append(" \"").append(extremite).append('"');
-        largeurEtiquetteMax =
-            Math.max(largeurEtiquetteMax, PlantUmlLayout.largeurEstimee(extremite));
+        ligne.append(" \"").append(extremite.ecrit()).append('"');
+        mesurer(extremite.affiche());
+    }
+
+    private void mesurer(String texteAffiche) {
+        for (String ligne : texteAffiche.split("\r\n|\r|\n", -1)) {
+            largeurEtiquetteMax =
+                Math.max(largeurEtiquetteMax, PlantUmlLayout.largeurEstimee(ligne));
+        }
     }
 
     private static String connecteur(UmlAssociation association) {

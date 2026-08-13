@@ -1,7 +1,8 @@
 package io.github.oliviercailloux.umlg.rendering;
 
-import io.github.oliviercailloux.umlg.Avertissements;
+import io.github.oliviercailloux.umlg.warning.Avertisseur;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -37,7 +38,7 @@ final class Proportions {
             || Math.max(largeur, hauteur) < TAILLE_SIGNIFICATIVE) {
             return false;
         }
-        Avertissements.dire("view \"" + vue + "\" is " + largeur + "×" + hauteur
+        Avertisseur.dire("view \"" + vue + "\" is " + largeur + "×" + hauteur
             + " pixels, a ratio of " + Math.round(rapport) + ":1. Such a diagram is hard to read"
             + " once printed. Try another reading direction for this view, split it into smaller"
             + " ones, or show fewer members.");
@@ -67,8 +68,12 @@ final class Proportions {
     }
 
     private static String entete(Path fichier, int octets) throws IOException {
-        byte[] tout = Files.readAllBytes(fichier);
-        return new String(tout, 0, Math.min(octets, tout.length), StandardCharsets.UTF_8);
+        byte[] debut = new byte[octets];
+        int lus;
+        try (InputStream flux = Files.newInputStream(fichier)) {
+            lus = flux.readNBytes(debut, 0, octets);
+        }
+        return new String(debut, 0, lus, StandardCharsets.UTF_8);
     }
 
     private static int entier(byte[] octets, int debut) {

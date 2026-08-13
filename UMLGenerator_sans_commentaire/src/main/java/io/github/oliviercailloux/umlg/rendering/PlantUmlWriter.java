@@ -61,12 +61,20 @@ public class PlantUmlWriter {
         ImmutableList.Builder<Path> ecrits = ImmutableList.builder();
         boolean integrale = true;
 
+        Map<Path, String> ecritPar = new LinkedHashMap<>();
+
         Map<String, String> detailleePar = detailleePar(project, extension);
 
         for (UmlView vue : project.views()) {
             Path fichier = integrale
                 ? racine.resolve(NOM_DE_L_INTEGRALE + extension)
                 : desVues.resolve(vue.nomDeFichier() + extension);
+
+            String occupante = ecritPar.putIfAbsent(fichier, vue.name());
+            checkArgument(occupante == null,
+                "Views \"%s\" and \"%s\" both come down to the file %s: the second one would "
+                    + "overwrite the first, and nothing on the drawing would say so. Rename one "
+                    + "of them.", occupante, vue.name(), fichier);
 
             write(vue, project.diagram(), fichier.toString(), style,
                 navigation(vue, detailleePar, integrale, extension));
@@ -177,6 +185,8 @@ public class PlantUmlWriter {
         checkNotNull(project);
         checkNotNull(outputFileName);
         checkNotNull(style);
+        checkArgument(supporte(outputFileName),
+            "The output file name must end in .png or .svg (got: %s)", outputFileName);
 
         ecrire(new PlantUmlSyntaxBuilder(style, project.diagram()), project.entities(),
             outputFileName);
@@ -191,23 +201,22 @@ public class PlantUmlWriter {
 
         FileFormat format = formatPour(outputFileName);
 
+        SourceStringReader reader = new SourceStringReader(codePlantUml);
+
+        verifierAcceptation(reader, codePlantUml);
+        verifierMoteurDeDessin();
+
+        int point = outputFileName.lastIndexOf('.');
+        Files.writeString(Path.of(outputFileName.substring(0, point) + EXTENSION_PUML),
+            codePlantUml);
+
         try (OutputStream os = new FileOutputStream(outputFileName)) {
-            SourceStringReader reader = new SourceStringReader(codePlantUml);
-
-            verifierAcceptation(reader, codePlantUml);
-            verifierMoteurDeDessin();
-
-            int point = outputFileName.lastIndexOf('.');
-            Files.writeString(Path.of(outputFileName.substring(0, point) + EXTENSION_PUML),
-                codePlantUml);
-
             GraphvizUtils.setLocalImageLimit(COTE_MAXIMAL_PNG);
             try {
                 reader.outputImage(os, new FileFormatOption(format));
             } finally {
                 GraphvizUtils.removeLocalLimitSize();
             }
-
         }
     }
 

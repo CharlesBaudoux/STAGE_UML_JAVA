@@ -16,6 +16,7 @@ class InheritanceExtractorTest {
         return EntityExtractor.extract(clazz).inheritances();
     }
 
+
     @UMLClass
     static class Vehicule {}
 
@@ -28,6 +29,7 @@ class InheritanceExtractorTest {
             ImmutableList.of(UmlInheritance.generalization(Vehicule.class.getName())),
             heritagesDe(Voiture.class));
     }
+
 
     @UMLClass
     interface Roulant {}
@@ -69,6 +71,7 @@ class InheritanceExtractorTest {
             heritagesDe(Bus.class));
     }
 
+
     @UMLClass
     interface Motorise extends Roulant {}
 
@@ -78,6 +81,7 @@ class InheritanceExtractorTest {
             ImmutableList.of(UmlInheritance.generalization(Roulant.class.getName())),
             heritagesDe(Motorise.class));
     }
+
 
     @UMLClass
     sealed interface Signal permits Impulsion, Continu, NonScelle, Mixte {}
@@ -130,6 +134,7 @@ class InheritanceExtractorTest {
             heritagesDe(Mixte.class));
     }
 
+
     static class OutilInterne {}
 
     interface ContratInterne {}
@@ -171,6 +176,7 @@ class InheritanceExtractorTest {
             ImmutableList.of(UmlInheritance.realization(Roulant.class.getName())),
             heritagesDe(Trajet.class));
     }
+
 
     @UMLClass
     static class Berline extends Voiture {}

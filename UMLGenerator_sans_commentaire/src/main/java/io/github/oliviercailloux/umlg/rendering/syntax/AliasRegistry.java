@@ -4,6 +4,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
+import io.github.oliviercailloux.umlg.warning.Avertisseur;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -13,6 +14,7 @@ public final class AliasRegistry {
 
     private final Set<String> aliasUtilises = new HashSet<>();
     private final Map<String, String> aliasParNomQualifie = new HashMap<>();
+    private final Map<String, String> nomsAffichesParNom = new HashMap<>();
 
     public String enregistrer(String nomQualifie, String nomAffiche) {
         checkNotNull(nomQualifie);
@@ -23,7 +25,7 @@ public final class AliasRegistry {
 
         String homonyme = nomsAffichesParNom.put(nomAffiche, nomQualifie);
         if (homonyme != null) {
-            io.github.oliviercailloux.umlg.Avertissements.dire("\"" + nomAffiche + "\" is the "
+            Avertisseur.dire("\"" + nomAffiche + "\" is the "
                 + "name of two boxes of the same diagram (" + homonyme + " and " + nomQualifie
                 + "). They are distinct classes, but nothing on the drawing tells them apart, "
                 + "nor which one a link reaches. Rename one with @UMLClass(name = ...), or split "
@@ -34,8 +36,6 @@ public final class AliasRegistry {
         aliasParNomQualifie.put(nomQualifie, alias);
         return alias;
     }
-
-    private final Map<String, String> nomsAffichesParNom = new HashMap<>();
 
     public String aliasSource(String nomQualifie) {
         String alias = aliasParNomQualifie.get(checkNotNull(nomQualifie));

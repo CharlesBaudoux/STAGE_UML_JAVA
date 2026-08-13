@@ -24,15 +24,23 @@ public final class CibleDeduite {
         }
         Class<?> declare = field.getType();
         checkArgument(!declare.isPrimitive() && !declare.isArray(),
-            "%s: target() is not written, and the field's type (%s) does not name a class of the "
-                + "diagram. Write target explicitly.",
-            contexte, declare.getSimpleName());
+            messageCibleIndeductible(contexte, declare.getSimpleName()));
 
         checkArgument(!Iterable.class.isAssignableFrom(declare),
-            "%s: target() is not written, and the field's type (%s) does not say what it "
-                + "contains. Write target explicitly, or give the collection a type parameter.",
-            contexte, declare.getSimpleName());
+            messageContenuIndeductible(contexte, declare.getSimpleName()));
 
         return declare;
+    }
+
+
+    public static String messageCibleIndeductible(String contexte, String type) {
+        return contexte + ": target() is not written, and the field's type (" + type + ") does "
+            + "not name a class of the diagram. Write target explicitly.";
+    }
+
+    public static String messageContenuIndeductible(String contexte, String type) {
+        return contexte + ": target() is not written, and the field's type (" + type + ") does "
+            + "not say what it contains. Write target explicitly, or give the collection a type "
+            + "parameter.";
     }
 }

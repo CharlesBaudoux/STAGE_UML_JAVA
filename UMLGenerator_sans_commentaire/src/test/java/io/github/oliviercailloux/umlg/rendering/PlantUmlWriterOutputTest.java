@@ -15,6 +15,7 @@ import io.github.oliviercailloux.umlg.model.UmlAssociation;
 import io.github.oliviercailloux.umlg.model.UmlDiagram;
 import io.github.oliviercailloux.umlg.model.UmlEntity;
 import io.github.oliviercailloux.umlg.model.UmlProject;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -149,13 +150,34 @@ class PlantUmlWriterOutputTest {
     }
 
     @Test
-    void extensionInconnue_bascculeEnPng(@TempDir Path tmp) throws Exception {
+    void extensionInconnue_estRefusee(@TempDir Path tmp) {
+        IllegalArgumentException refus = assertThrows(IllegalArgumentException.class,
+            () -> PlantUmlWriter.write(projetCobaye(), tmp.resolve("diagramme.txt").toString()));
+
+        assertTrue(refus.getMessage().contains(".png"), refus.getMessage());
+        assertTrue(refus.getMessage().contains(".svg"), refus.getMessage());
+        assertTrue(refus.getMessage().contains("diagramme.txt"),
+            "Le message doit nommer le fichier fautif : " + refus.getMessage());
+    }
+
+    @Test
+    void nomSansExtension_estRefuseSansExceptionObscure(@TempDir Path tmp) {
+        assertThrows(IllegalArgumentException.class,
+            () -> PlantUmlWriter.write(projetCobaye(), tmp.resolve("diagramme").toString()));
+    }
+
+    @Test
+    void ecritureRefusee_neLaisseRienDerriereElle(@TempDir Path tmp) throws Exception {
         Path sortie = tmp.resolve("diagramme.txt");
 
-        PlantUmlWriter.write(projetCobaye(), sortie.toString());
+        assertThrows(IllegalArgumentException.class,
+            () -> PlantUmlWriter.write(projetCobaye(), sortie.toString()));
 
-        byte[] entete = Arrays.copyOf(Files.readAllBytes(sortie), ENTETE_PNG.length);
-        assertArrayEquals(ENTETE_PNG, entete);
+        assertFalse(Files.exists(sortie), "Aucun fichier ne doit rester : " + sortie);
+        assertFalse(Files.exists(tmp.resolve("diagramme.puml")), "Ni la source PlantUML.");
+        try (var contenu = Files.list(tmp)) {
+            assertEquals(List.of(), contenu.toList(), "Le dossier doit être resté vide.");
+        }
     }
 
     @Test
@@ -174,7 +196,7 @@ class PlantUmlWriterOutputTest {
     void dossierParentInexistant_echoue(@TempDir Path tmp) {
         Path sortie = tmp.resolve("sous/dossier/absent/diagramme.svg");
 
-        assertThrows(Exception.class,
+        assertThrows(IOException.class,
             () -> PlantUmlWriter.write(projetCobaye(), sortie.toString()));
     }
 

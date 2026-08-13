@@ -4,9 +4,7 @@ import io.github.oliviercailloux.umlg.annotation.UMLAssociation;
 import io.github.oliviercailloux.umlg.annotation.UMLClass;
 import io.github.oliviercailloux.umlg.annotation.UMLConstraint;
 import io.github.oliviercailloux.umlg.annotation.UMLConstraints;
-import io.github.oliviercailloux.umlg.annotation.UMLExclude;
-import io.github.oliviercailloux.umlg.annotation.UMLInclude;
-import io.github.oliviercailloux.umlg.extraction.member.VisibilityPolicy;
+import io.github.oliviercailloux.umlg.model.Contraintes;
 import java.util.List;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
@@ -32,20 +30,19 @@ final class VerificateurContrainte {
         TypeElement boite = surClasse
             ? (TypeElement) porteur
             : (TypeElement) porteur.getEnclosingElement();
-        String contexte = "@UMLConstraint on "
-            + (surClasse ? boite.getQualifiedName().toString() : Membre.emplacement(porteur));
+        String emplacement =
+            surClasse ? boite.getQualifiedName().toString() : Membre.emplacement(porteur);
+        String contexte = "@UMLConstraint on " + emplacement;
 
         UMLClass classe = boite.getAnnotation(UMLClass.class);
-        if (classe == null) {
-            rapporteur.erreur(contexte + ": " + boite.getQualifiedName() + " does not carry "
-                + "@UMLClass, so it is not part of the diagram and this constraint would be "
-                + "written nowhere. Annotate it, or remove this constraint.",
-                porteur, contraintes.get(0));
+        if (!rapporteur.exigerBoite(boite, contexte, "this constraint would be written nowhere",
+            porteur, contraintes.get(0))) {
             return;
         }
 
-        for (AnnotationMirror contrainte : contraintes) {
-            verifierRegle(porteur, contrainte, contexte);
+        for (int rang = 0; rang < contraintes.size(); rang++) {
+            verifierRegle(porteur, contraintes.get(rang), Rapporteur.contexteDeLaRepetee(
+                "UMLConstraint", emplacement, rang, contraintes.size()));
         }
 
         if (!surClasse) {
@@ -56,8 +53,10 @@ final class VerificateurContrainte {
     private void verifierRegle(Element porteur, AnnotationMirror contrainte, String contexte) {
         String regle = rapporteur.texte(contrainte, "rule");
 
-        if (regle.isBlank()) {
-            rapporteur.erreur(contexte + ": rule() cannot be empty or made of whitespace only.",
+        try {
+            Contraintes.valider(regle);
+        } catch (IllegalArgumentException e) {
+            rapporteur.erreur(contexte + " : " + e.getMessage(),
                 porteur, contrainte, rapporteur.valeurEcrite(contrainte, "rule"));
             return;
         }
@@ -76,19 +75,7 @@ final class VerificateurContrainte {
         if (rapporteur.miroir(attribut, UMLAssociation.class) != null) {
             return;
         }
-
-        if (!strategie.connue(classe)) {
-            return;
-        }
-        if (Membre.vientDUnComposant(attribut)) {
-            return;
-        }
-        boolean visible = VisibilityPolicy.estVisible(Membre.bits(attribut),
-            strategie.effective(classe),
-            rapporteur.miroir(attribut, UMLInclude.class) != null,
-            rapporteur.miroir(attribut, UMLExclude.class) != null);
-
-        if (visible) {
+        if (strategie.membreAffiche(attribut, classe) != Strategie.Affichage.MASQUE) {
             return;
         }
         rapporteur.avertissement(contexte + ": this field is not shown on the diagram "
