@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 
 // Les deux composantes que le compte rendu a gagnées, et l'absence qu'il ne dit plus par un null.
 //
-// RapportDeGenerationTest, à côté, porte sur ce que resume() affiche. Ce fichier-ci porte sur la
+// RapportDeGenerationTest, à côté, porte sur ce que summary() affiche. Ce fichier-ci porte sur la
 // forme du record : ce qu'il refuse, et ce qu'une absence légitime a le droit de valoir.
 class RapportDeGenerationInvariantsTest {
 
@@ -46,7 +46,7 @@ class RapportDeGenerationInvariantsTest {
 
     @Test
     void sansFichierDesIgnorees_leResumeNEnParlePas() {
-        String resume = new RapportDeGeneration(3, ImmutableList.of(), UN_FICHIER).resume();
+        String resume = new RapportDeGeneration(3, ImmutableList.of(), UN_FICHIER).summary();
 
         assertFalse(resume.contains("full list"), resume);
     }
@@ -59,7 +59,7 @@ class RapportDeGenerationInvariantsTest {
         Path liste = Path.of("diagrammes", UMLGenerator.FICHIER_DES_CLASSES_IGNOREES);
 
         String resume = new RapportDeGeneration(3, ImmutableList.of("Oubliee"), UN_FICHIER,
-            Optional.of(liste), ImmutableList.of()).resume();
+            Optional.of(liste), ImmutableList.of()).summary();
 
         assertTrue(resume.contains(liste.toString()), resume);
     }

@@ -25,7 +25,7 @@ class RapportDeGenerationTest {
 
     @Test
     void leCompteRendu_ditCombienDeFichiersEtOu() {
-        String resume = rapport(21, 0, 12).resume();
+        String resume = rapport(21, 0, 12).summary();
 
         assertTrue(resume.contains("12 diagram(s) written"), resume);
         assertTrue(resume.contains("diagrammes"), "Le dossier doit être nommé : " + resume);
@@ -37,7 +37,7 @@ class RapportDeGenerationTest {
         // seul segment n'a pas de parent, et le compte rendu écrivait « written to null » — le
         // tout premier message que voyait un utilisateur n'ayant rien configuré.
         String resume = new RapportDeGeneration(5, ImmutableList.of(),
-            ImmutableList.of(Path.of("diagramme_architecture.svg"))).resume();
+            ImmutableList.of(Path.of("diagramme_architecture.svg"))).summary();
 
         assertFalse(resume.contains("null"), resume);
         assertTrue(resume.contains("diagramme_architecture.svg"), resume);
@@ -49,7 +49,7 @@ class RapportDeGenerationTest {
         // docs » pour « docs/archi.svg ». Il taisait donc le nom que l'utilisateur venait de
         // donner, et ne disait pas où regarder.
         String resume = new RapportDeGeneration(5, ImmutableList.of(),
-            ImmutableList.of(Path.of("docs", "archi.svg"))).resume();
+            ImmutableList.of(Path.of("docs", "archi.svg"))).summary();
 
         assertTrue(resume.contains(Path.of("docs", "archi.svg").toString()), resume);
     }
@@ -59,7 +59,7 @@ class RapportDeGenerationTest {
         // La variante qui donnait « written to . » — le pire des cas, puisque le message
         // désignait le répertoire courant tout entier.
         String resume = new RapportDeGeneration(5, ImmutableList.of(),
-            ImmutableList.of(Path.of("./diagramme.svg"))).resume();
+            ImmutableList.of(Path.of("./diagramme.svg"))).summary();
 
         assertTrue(resume.contains("diagramme.svg"), resume);
     }
@@ -67,7 +67,7 @@ class RapportDeGenerationTest {
     @Test
     void plusieursFichiers_sontResumesParLeurDossier() {
         // L'autre moitié de la règle : vingt vues ne se listent pas, leur dossier suffit.
-        String resume = rapport(21, 0, 12).resume();
+        String resume = rapport(21, 0, 12).summary();
 
         assertTrue(resume.contains("diagrammes"), resume);
         assertFalse(resume.contains("v0.svg"), "Les vues ne doivent pas être listées : " + resume);
@@ -77,7 +77,7 @@ class RapportDeGenerationTest {
     void leCompteRendu_ditCeQuiAEteIgnore() {
         // L'information que personne n'avait : une classe sans @UMLClass est hors du diagramme,
         // et rien ne distinguait celle qu'on a écartée de celle qu'on a oubliée.
-        String resume = rapport(21, 23, 12).resume();
+        String resume = rapport(21, 23, 12).summary();
 
         assertTrue(resume.contains("21 class(es) drawn"), resume);
         assertTrue(resume.contains("23 ignored"), resume);
@@ -85,7 +85,7 @@ class RapportDeGenerationTest {
 
     @Test
     void peuDeClassesIgnorees_sontNommees() {
-        String resume = rapport(5, 2, 1).resume();
+        String resume = rapport(5, 2, 1).summary();
 
         assertTrue(resume.contains("Ignoree0"), resume);
         assertTrue(resume.contains("Ignoree1"), resume);
@@ -95,7 +95,7 @@ class RapportDeGenerationTest {
     void beaucoupDeClassesIgnorees_sontComptéesSansEtreNommees() {
         // Au-delà d'une douzaine, la liste noierait le reste ; le nombre suffit à savoir qu'il
         // faut aller voir.
-        String resume = rapport(5, 40, 1).resume();
+        String resume = rapport(5, 40, 1).summary();
 
         assertTrue(resume.contains("40 ignored"), resume);
         assertFalse(resume.contains("Ignoree0"), resume);
@@ -103,7 +103,7 @@ class RapportDeGenerationTest {
 
     @Test
     void aucuneClasseIgnoree_neLaisseAucuneListe() {
-        String resume = rapport(5, 0, 1).resume();
+        String resume = rapport(5, 0, 1).summary();
 
         assertTrue(resume.contains("0 ignored"), resume);
         assertFalse(resume.contains(" : "), resume);

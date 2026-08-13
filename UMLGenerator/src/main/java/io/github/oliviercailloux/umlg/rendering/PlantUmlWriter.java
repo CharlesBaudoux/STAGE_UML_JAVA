@@ -120,7 +120,7 @@ public class PlantUmlWriter {
         for (UmlView vue : project.views()) {
             Path fichier = integrale
                 ? racine.resolve(NOM_DE_L_INTEGRALE + extension)
-                : desVues.resolve(vue.nomDeFichier() + extension);
+                : desVues.resolve(vue.fileName() + extension);
 
             String occupante = ecritPar.putIfAbsent(fichier, vue.name());
             checkArgument(occupante == null,
@@ -222,7 +222,7 @@ public class PlantUmlWriter {
                 continue;
             }
             for (UmlEntity entite : vue.entities()) {
-                vers.putIfAbsent(entite.qualifiedName(), vue.nomDeFichier() + extension);
+                vers.putIfAbsent(entite.qualifiedName(), vue.fileName() + extension);
             }
         }
         return vers;
@@ -234,7 +234,7 @@ public class PlantUmlWriter {
     // laisserait croire qu'il y a autre chose à voir.
     private static Map<String, String> navigation(UmlView vue, Map<String, String> detailleePar,
         boolean integrale, String extension) {
-        String propre = vue.nomDeFichier() + extension;
+        String propre = vue.fileName() + extension;
         Map<String, String> pourCetteVue = new LinkedHashMap<>();
 
         for (UmlEntity entite : vue.entities()) {
@@ -296,7 +296,7 @@ public class PlantUmlWriter {
         // rien configuré, et c'est lui qui produisait des rubans sans que personne ne le dise.
         // Le message nomme le diagramme comme le nommerait la vue intégrale.
         Proportions.verifier(Path.of(outputFileName),
-            project.diagram().aUnTitre() ? project.diagram().title() : outputFileName);
+            project.diagram().hasTitle() ? project.diagram().title() : outputFileName);
     }
 
     // Le tronc commun : des boîtes, un fichier.

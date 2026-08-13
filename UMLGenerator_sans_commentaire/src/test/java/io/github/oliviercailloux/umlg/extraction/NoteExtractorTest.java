@@ -30,7 +30,7 @@ class NoteExtractorTest {
         UmlEntity entity = EntityExtractor.extract(Commande.class);
 
         assertEquals(List.of("Coeur du domaine", "Ne pas exposer hors du module"), textes(entity));
-        assertTrue(entity.notes().stream().noneMatch(UmlNote::surMembre));
+        assertTrue(entity.notes().stream().noneMatch(UmlNote::isOnMember));
     }
 
     @Test
@@ -62,7 +62,7 @@ class NoteExtractorTest {
             .filter(n -> n.text().equals("Jamais negatif")).findFirst().orElseThrow();
 
         assertEquals("solde", note.anchor());
-        assertTrue(note.surMembre());
+        assertTrue(note.isOnMember());
     }
 
     @Test

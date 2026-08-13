@@ -56,7 +56,7 @@ public record UmlField(
         checkNotNull(type, "The field type cannot be null.");
         checkArgument(!type.isBlank(), "The type of field \"%s\" cannot be empty.", name);
         checkNotNull(multiplicity, "The multiplicity cannot be null (use an empty string).");
-        Multiplicites.valider(multiplicity, "multiplicity");
+        Multiplicites.validate(multiplicity, "multiplicity");
         verifierVisibilite(visibility, name);
         constraints = Contraintes.validees(constraints);
     }

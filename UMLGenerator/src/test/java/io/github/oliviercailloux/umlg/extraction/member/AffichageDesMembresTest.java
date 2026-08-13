@@ -214,7 +214,7 @@ class AffichageDesMembresTest {
 
         // Le type reste — c'est lui qui porte l'information — mais le nom disparaît, comme dans
         // un diagramme tenu à la main : « configurer(String, int) ».
-        assertTrue(methodes.get(0).parameters().stream().noneMatch(p -> p.nomme()),
+        assertTrue(methodes.get(0).parameters().stream().noneMatch(p -> p.isNamed()),
             methodes.toString());
         assertEquals("String", methodes.get(0).parameters().get(0).type());
     }

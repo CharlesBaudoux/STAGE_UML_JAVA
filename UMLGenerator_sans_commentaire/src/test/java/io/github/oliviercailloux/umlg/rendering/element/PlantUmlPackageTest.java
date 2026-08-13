@@ -19,7 +19,7 @@ class PlantUmlPackageTest {
     }
 
     private static UmlEntity boite(String nom) {
-        return boite(nom, UmlPackage.aucun());
+        return boite(nom, UmlPackage.none());
     }
 
     private static List<String> lignes(String source) {

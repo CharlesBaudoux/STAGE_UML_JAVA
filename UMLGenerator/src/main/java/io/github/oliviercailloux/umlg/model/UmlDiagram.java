@@ -11,7 +11,7 @@ import io.github.oliviercailloux.umlg.annotation.UMLFlow;
  *
  * <p>C'est le seul objet du modèle qui n'appartienne à aucune boîte. Il vient des lignes
  * {@code title}, {@code direction} et {@code show empty members} du fichier de règles, et le
- * projet en porte toujours un — celui qu'on a déclaré, ou le {@linkplain #defaut() défaut} quand
+ * projet en porte toujours un — celui qu'on a déclaré, ou le {@linkplain #defaults() défaut} quand
  * personne n'a rien dit.
  *
  * <p>Ces trois réglages étaient autrefois portés par une annotation, {@code @UMLDiagram}, posée
@@ -28,7 +28,7 @@ import io.github.oliviercailloux.umlg.annotation.UMLFlow;
  */
 public record UmlDiagram(String title, UMLFlow direction, boolean hideEmptyMembers) {
 
-    // L'instance partagée que rend defaut(), documentée là-bas.
+    // L'instance partagée que rend defaults(), documentée là-bas.
     private static final UmlDiagram DEFAUT = new UmlDiagram("", UMLFlow.TOP_TO_BOTTOM, true);
 
     /**
@@ -59,7 +59,7 @@ public record UmlDiagram(String title, UMLFlow direction, boolean hideEmptyMembe
      *
      * @return les réglages par défaut, partagés.
      */
-    public static UmlDiagram defaut() {
+    public static UmlDiagram defaults() {
         return DEFAUT;
     }
 
@@ -69,7 +69,7 @@ public record UmlDiagram(String title, UMLFlow direction, boolean hideEmptyMembe
      * @return vrai quand un titre a été déclaré. Lu par le rendu, qui n'écrit la ligne
      *     {@code title} que dans ce cas : une ligne vide occuperait tout de même de la hauteur.
      */
-    public boolean aUnTitre() {
+    public boolean hasTitle() {
         return !title.isEmpty();
     }
 }

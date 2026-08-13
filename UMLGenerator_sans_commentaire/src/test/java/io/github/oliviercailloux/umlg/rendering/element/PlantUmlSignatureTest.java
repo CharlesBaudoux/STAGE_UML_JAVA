@@ -64,7 +64,7 @@ class PlantUmlSignatureTest {
     void parametreSansNom_neMontreQueSonType() {
         UmlEntity entite = UmlEntity.builder("com.exemple.Compte", "Compte")
             .methods(List.of(new UmlMethod("retirer", "void", "", "+", false,
-                ImmutableList.of(UmlParameter.anonyme("double"), new UmlParameter("motif",
+                ImmutableList.of(UmlParameter.unnamed("double"), new UmlParameter("motif",
                     "String")),
                 false)))
             .build();

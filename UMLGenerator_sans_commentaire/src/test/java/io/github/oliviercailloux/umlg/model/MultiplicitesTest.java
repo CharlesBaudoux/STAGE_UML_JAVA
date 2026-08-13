@@ -14,7 +14,7 @@ class MultiplicitesTest {
     @ParameterizedTest
     @ValueSource(strings = {"", "*", "0", "1", "42", "0..1", "1..*", "0..*", "3..3", "999999999"})
     void lesFormesLicites_sontAcceptees(String multiplicite) {
-        assertDoesNotThrow(() -> Multiplicites.valider(multiplicite, "value"));
+        assertDoesNotThrow(() -> Multiplicites.validate(multiplicite, "value"));
     }
 
     @ParameterizedTest
@@ -22,26 +22,26 @@ class MultiplicitesTest {
         "1..", "..1", "1234567890"})
     void lesFormesFautives_sontRefusees(String multiplicite) {
         assertThrows(IllegalArgumentException.class,
-            () -> Multiplicites.valider(multiplicite, "value"));
+            () -> Multiplicites.validate(multiplicite, "value"));
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"", "*", "0", "1", "42", "0..1", "1..*", "0..*", "3..3", "999999999"})
     void lesFormesLicites_sontReconnues(String multiplicite) {
-        assertTrue(Multiplicites.estValide(multiplicite));
+        assertTrue(Multiplicites.isValid(multiplicite));
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"n", "1..n", "-1", "1.2", "1...2", "0..1..2", " ", "1 .. 2", "**",
         "1..", "..1", "1234567890", "3..1"})
     void lesFormesFautives_sontReconnues(String multiplicite) {
-        assertFalse(Multiplicites.estValide(multiplicite));
+        assertFalse(Multiplicites.isValid(multiplicite));
     }
 
     @Test
     void uneBorneBasseSuperieureALaHaute_estRefusee() {
         var refus = assertThrows(IllegalArgumentException.class,
-            () -> Multiplicites.valider("3..1", "targetMultiplicity"));
+            () -> Multiplicites.validate("3..1", "targetMultiplicity"));
 
         assertTrue(refus.getMessage().contains("the lower bound exceeds the upper bound"),
             refus.getMessage());
@@ -50,7 +50,7 @@ class MultiplicitesTest {
     @Test
     void leMessage_nommeLeParametreDeLAppelant() {
         var refus = assertThrows(IllegalArgumentException.class,
-            () -> Multiplicites.valider("beaucoup", "sourceMultiplicity"));
+            () -> Multiplicites.validate("beaucoup", "sourceMultiplicity"));
 
         assertTrue(refus.getMessage().startsWith("sourceMultiplicity = \"beaucoup\""),
             refus.getMessage());

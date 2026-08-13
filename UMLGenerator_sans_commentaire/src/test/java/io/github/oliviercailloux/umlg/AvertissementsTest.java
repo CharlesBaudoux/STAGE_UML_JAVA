@@ -18,7 +18,7 @@ class AvertissementsTest {
     void unCanalPose_recoitLesAvertissementsDuFil() {
         List<String> recus = new ArrayList<>();
 
-        try (Avertissements.Canal canal = Avertissements.versLeCanal(recus::add)) {
+        try (Avertissements.Canal canal = Avertissements.redirectTo(recus::add)) {
             Avertisseur.dire("la vue est illisible");
         }
 
@@ -29,7 +29,7 @@ class AvertissementsTest {
     void unCanalFerme_neRecoitPlusRien() {
         List<String> recus = new ArrayList<>();
 
-        try (Avertissements.Canal canal = Avertissements.versLeCanal(recus::add)) {
+        try (Avertissements.Canal canal = Avertissements.redirectTo(recus::add)) {
             Avertisseur.dire("pendant");
         }
         String surLaSortieDErreur = enCaptantLaSortieDErreur(() -> Avertisseur.dire("après"));
@@ -44,8 +44,8 @@ class AvertissementsTest {
         List<String> dehors = new ArrayList<>();
         List<String> dedans = new ArrayList<>();
 
-        try (Avertissements.Canal externe = Avertissements.versLeCanal(dehors::add)) {
-            try (Avertissements.Canal interne = Avertissements.versLeCanal(dedans::add)) {
+        try (Avertissements.Canal externe = Avertissements.redirectTo(dehors::add)) {
+            try (Avertissements.Canal interne = Avertissements.redirectTo(dedans::add)) {
                 Avertisseur.dire("dedans");
             }
             Avertisseur.dire("dehors");
@@ -60,7 +60,7 @@ class AvertissementsTest {
         List<String> relais = new ArrayList<>();
         List<String> lus = new ArrayList<>();
 
-        try (Avertissements.Canal externe = Avertissements.versLeCanal(relais::add)) {
+        try (Avertissements.Canal externe = Avertissements.redirectTo(relais::add)) {
             try (Avertissements.Canal ajout = Avertisseur.enPlusDuCanalCourant(lus::add)) {
                 Avertisseur.dire("les deux");
             }
@@ -93,7 +93,7 @@ class AvertissementsTest {
 
     @Test
     void unCanalNull_estRefuse() {
-        assertThrows(NullPointerException.class, () -> Avertissements.versLeCanal(null));
+        assertThrows(NullPointerException.class, () -> Avertissements.redirectTo(null));
     }
 
     @Test

@@ -41,7 +41,7 @@ import java.util.List;
  * @param notes les bulles de commentaire, celles de la classe comme celles de ses membres : une
  *     note n'est pas un morceau de la boîte, mais un objet posé à côté qui la désigne.
  * @param constraints les règles formelles portées par la classe entière, sans leurs accolades.
- * @param group le rectangle nommé dans lequel la boîte se range, ou {@link UmlPackage#aucun()} si
+ * @param group le rectangle nommé dans lequel la boîte se range, ou {@link UmlPackage#none()} si
  *     elle se dessine au premier niveau. Vient de {@code @UMLPackage}, et ne dit rien du modèle :
  *     deux diagrammes qui ne différeraient que par leurs groupes disent la même chose.
  * @param typeParameters les paramètres de type de la classe, chevrons compris — {@code <T>},
@@ -98,7 +98,7 @@ public record UmlEntity(
         notes = ImmutableList.copyOf(
             checkNotNull(notes, "The list of notes cannot be null."));
         constraints = Contraintes.validees(constraints);
-        checkNotNull(group, "The group cannot be null (use UmlPackage.aucun()).");
+        checkNotNull(group, "The group cannot be null (use UmlPackage.none()).");
         checkNotNull(typeParameters, "The type parameters cannot be null (use \"\").");
     }
 
@@ -123,7 +123,7 @@ public record UmlEntity(
                 checkNotNull(fields, "The list of fields cannot be null.")),
             ImmutableList.copyOf(
                 checkNotNull(methods, "The list of methods cannot be null.")),
-            ImmutableList.of(), ImmutableList.of(), ImmutableList.of(), UmlPackage.aucun(),
+            ImmutableList.of(), ImmutableList.of(), ImmutableList.of(), UmlPackage.none(),
             "");
     }
 
@@ -143,7 +143,7 @@ public record UmlEntity(
      *     personne.
      * @throws NullPointerException si la liste est nulle.
      */
-    public UmlEntity avecRelations(ImmutableList<UmlRelation> relations) {
+    public UmlEntity withRelations(ImmutableList<UmlRelation> relations) {
         checkNotNull(relations, "The list of relations cannot be null.");
         if (relations.equals(this.relations)) {
             return this;
@@ -249,7 +249,7 @@ public record UmlEntity(
         private ImmutableList<UmlMethod> methods = ImmutableList.of();
         private ImmutableList<UmlNote> notes = ImmutableList.of();
         private ImmutableList<String> constraints = ImmutableList.of();
-        private UmlPackage group = UmlPackage.aucun();
+        private UmlPackage group = UmlPackage.none();
         private String typeParameters = "";
         private final ImmutableList.Builder<UmlRelation> relations = ImmutableList.builder();
 

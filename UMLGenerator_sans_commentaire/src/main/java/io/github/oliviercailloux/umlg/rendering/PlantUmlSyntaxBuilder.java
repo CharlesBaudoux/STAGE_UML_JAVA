@@ -32,7 +32,7 @@ final class PlantUmlSyntaxBuilder {
     private Map<String, String> navigation = Map.of();
 
     PlantUmlSyntaxBuilder(UmlStyle style) {
-        this(style, UmlDiagram.defaut());
+        this(style, UmlDiagram.defaults());
     }
 
     PlantUmlSyntaxBuilder(UmlStyle style, UmlDiagram diagramme) {
@@ -56,7 +56,7 @@ final class PlantUmlSyntaxBuilder {
     private String enTete() {
         StringBuilder tete = new StringBuilder();
 
-        if (diagramme.aUnTitre()) {
+        if (diagramme.hasTitle()) {
             tete.append("title ").append(PlantUmlEscaper.debutDeLigne(diagramme.title()))
                 .append('\n');
         }
@@ -88,7 +88,7 @@ final class PlantUmlSyntaxBuilder {
         for (Map.Entry<UmlPackage, ImmutableList<UmlEntity>> groupe
             : PackageRenderer.groupes(entities)) {
 
-            boolean groupee = groupe.getKey().estGroupee();
+            boolean groupee = groupe.getKey().isGrouped();
             if (groupee) {
                 builder.append(PackageRenderer.ouverture(groupe.getKey()));
             }

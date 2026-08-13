@@ -44,7 +44,7 @@ public enum UmlEntityKind {
      *
      * @return le mot par lequel commence la déclaration de la boîte dans le fichier PlantUML.
      */
-    public String motCle() {
+    public String keyword() {
         return motCle;
     }
 }

@@ -34,7 +34,7 @@ import net.sourceforge.plantuml.core.Diagram;
 // public.
 public final class PlantUmlAssert {
 
-    // Les mots par lesquels peut commencer la déclaration d'une boîte, c'est-à-dire les motCle()
+    // Les mots par lesquels peut commencer la déclaration d'une boîte, c'est-à-dire les keyword()
     // d'UmlEntityKind. « abstract class » vient avant « class » : l'alternance d'une expression
     // régulière retient la première branche qui réussit, et l'ordre inverse ne reconnaîtrait
     // jamais la forme longue.
@@ -106,7 +106,7 @@ public final class PlantUmlAssert {
 
     // La même chose sous une apparence donnée, pour les seuls tests qui parlent d'apparence.
     public static String documentPour(UmlStyle style, UmlEntity... entities) {
-        return documentPour(style, UmlDiagram.defaut(), entities);
+        return documentPour(style, UmlDiagram.defaults(), entities);
     }
 
     // La même chose avec des réglages d'ensemble déclarés, pour les seuls tests qui parlent du

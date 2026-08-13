@@ -92,7 +92,7 @@ public final class UMLGenerator {
      *
      * @return les noms acceptés, par ordre alphabétique.
      */
-    public static ImmutableSortedSet<String> couleursConnues() {
+    public static ImmutableSortedSet<String> knownColors() {
         return ColorCodec.nomsConnus();
     }
 
@@ -223,7 +223,7 @@ public final class UMLGenerator {
             if (args.length >= 3) {
                 builder.outputFormat(args[2]);
             }
-            System.out.println(builder.build().generate().resume());
+            System.out.println(builder.build().generate().summary());
         } catch (IllegalArgumentException | IllegalStateException e) {
             System.err.println("Error: " + e.getMessage());
             System.exit(1);

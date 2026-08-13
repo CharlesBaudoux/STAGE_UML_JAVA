@@ -58,7 +58,7 @@ public record UmlMethod(
         checkArgument(returnType.isEmpty() || !returnType.isBlank(),
             "The return type of \"%s\" cannot be made of whitespace only.", name);
         checkNotNull(multiplicity, "The multiplicity cannot be null (use an empty string).");
-        Multiplicites.valider(multiplicity, "multiplicity");
+        Multiplicites.validate(multiplicity, "multiplicity");
         UmlField.verifierVisibilite(visibility, name);
 
         parameters = ImmutableList.copyOf(
@@ -102,7 +102,7 @@ public record UmlMethod(
         List<String> parameterTypes) {
         this(name, returnType, "", visibility, isStatic,
             checkNotNull(parameterTypes, "The list of parameter types cannot be null.").stream()
-                .map(UmlParameter::anonyme)
+                .map(UmlParameter::unnamed)
                 .collect(ImmutableList.toImmutableList()),
             false, false);
     }

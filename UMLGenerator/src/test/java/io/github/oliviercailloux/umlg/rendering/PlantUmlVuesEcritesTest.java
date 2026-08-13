@@ -35,7 +35,7 @@ class PlantUmlVuesEcritesTest {
     private static UmlProject projet() {
         ImmutableList<UmlEntity> toutes = ImmutableList.of(boite("Facture"), boite("Client"));
 
-        return UmlProject.given(Set.copyOf(toutes), UmlDiagram.defaut(), List.of(
+        return UmlProject.given(Set.copyOf(toutes), UmlDiagram.defaults(), List.of(
             new UmlView("Projet", toutes, UMLFlow.TOP_TO_BOTTOM),
             new UmlView("Facturation", ImmutableList.of(boite("Facture")), UMLFlow.TOP_TO_BOTTOM),
             new UmlView("Clients", ImmutableList.of(boite("Client")), UMLFlow.LEFT_TO_RIGHT)));
@@ -126,7 +126,7 @@ class PlantUmlVuesEcritesTest {
         // Son titre est déclaré et peut changer ; son chemin, lui, ne doit pas — c'est le
         // diagramme qu'on ouvre en premier, et celui vers lequel une documentation pointe.
         ImmutableList<UmlEntity> toutes = ImmutableList.of(boite("Facture"));
-        UmlProject projet = UmlProject.given(Set.copyOf(toutes), UmlDiagram.defaut(),
+        UmlProject projet = UmlProject.given(Set.copyOf(toutes), UmlDiagram.defaults(),
             List.of(new UmlView("Architecture du module Facturation", toutes,
                 UMLFlow.TOP_TO_BOTTOM)));
         Path dossier = dossier(tmp);
@@ -197,7 +197,7 @@ class PlantUmlVuesEcritesTest {
             .stereotype("entity").color("#EEEEEE").build();
         ImmutableList<UmlEntity> toutes = ImmutableList.of(boite("Facture"), ornee);
 
-        UmlProject projet = UmlProject.given(Set.copyOf(toutes), UmlDiagram.defaut(), List.of(
+        UmlProject projet = UmlProject.given(Set.copyOf(toutes), UmlDiagram.defaults(), List.of(
             new UmlView("Projet", toutes, UMLFlow.TOP_TO_BOTTOM),
             new UmlView("Le vivant", ImmutableList.of(ornee), UMLFlow.TOP_TO_BOTTOM)));
 
@@ -225,7 +225,7 @@ class PlantUmlVuesEcritesTest {
         // sont réunies ; celui-ci est la ceinture, et il vaut pour tout appelant qui construit un
         // UmlProject sans passer par là.
         ImmutableList<UmlEntity> toutes = ImmutableList.of(boite("Facture"), boite("Client"));
-        UmlProject projet = UmlProject.given(Set.copyOf(toutes), UmlDiagram.defaut(), List.of(
+        UmlProject projet = UmlProject.given(Set.copyOf(toutes), UmlDiagram.defaults(), List.of(
             new UmlView("Projet", toutes, UMLFlow.TOP_TO_BOTTOM),
             new UmlView("Modèle", ImmutableList.of(boite("Facture")), UMLFlow.TOP_TO_BOTTOM),
             new UmlView("Modele", ImmutableList.of(boite("Client")), UMLFlow.TOP_TO_BOTTOM)));

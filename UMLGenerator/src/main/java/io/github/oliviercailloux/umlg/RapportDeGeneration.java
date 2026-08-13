@@ -79,7 +79,7 @@ public record RapportDeGeneration(int classesLues, ImmutableList<String> classes
      *
      * @return le texte à afficher, sans saut de ligne final.
      */
-    public String resume() {
+    public String summary() {
         StringBuilder texte = new StringBuilder();
         texte.append(fichiers.size()).append(" diagram(s) written");
         if (!fichiers.isEmpty()) {

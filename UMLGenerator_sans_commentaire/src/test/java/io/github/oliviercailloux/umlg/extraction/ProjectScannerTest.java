@@ -101,7 +101,7 @@ class ProjectScannerTest {
 
     private static String ditPar(Runnable signalement) {
         List<String> dits = new ArrayList<>();
-        try (Avertissements.Canal canal = Avertissements.versLeCanal(dits::add)) {
+        try (Avertissements.Canal canal = Avertissements.redirectTo(dits::add)) {
             signalement.run();
         }
         assertEquals(1, dits.size(), dits.toString());
@@ -111,7 +111,7 @@ class ProjectScannerTest {
     @Test
     void aucuneBoitePerdue_neDitRien() {
         List<String> dits = new ArrayList<>();
-        try (Avertissements.Canal canal = Avertissements.versLeCanal(dits::add)) {
+        try (Avertissements.Canal canal = Avertissements.redirectTo(dits::add)) {
             assertFalse(ProjectScanner.signalerBoitesPerdues(ImmutableList.of()));
         }
 

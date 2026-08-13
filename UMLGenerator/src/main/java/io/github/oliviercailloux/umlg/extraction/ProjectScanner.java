@@ -410,7 +410,7 @@ public class ProjectScanner {
             .flatMap(methode -> methode.parameters().stream())
             .toList();
 
-        if (parametres.isEmpty() || parametres.stream().anyMatch(UmlParameter::nomme)) {
+        if (parametres.isEmpty() || parametres.stream().anyMatch(UmlParameter::isNamed)) {
             return false;
         }
         Avertisseur.dire("no method parameter carries its name: the classes were "

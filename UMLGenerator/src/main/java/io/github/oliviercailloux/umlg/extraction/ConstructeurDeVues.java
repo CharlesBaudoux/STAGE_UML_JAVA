@@ -96,7 +96,7 @@ public final class ConstructeurDeVues {
 
         // L'intégrale d'abord : elle porte le titre et le sens de lecture du fichier de règles,
         // faute de quoi ces réglages n'auraient plus où s'appliquer.
-        String titre = diagramme.aUnTitre() ? diagramme.title() : VUE_INTEGRALE;
+        String titre = diagramme.hasTitle() ? diagramme.title() : VUE_INTEGRALE;
         return ImmutableList.<UmlView>builder()
             .add(new UmlView(titre, ImmutableList.copyOf(entites), diagramme.direction()))
             .addAll(vues)
@@ -108,7 +108,7 @@ public final class ConstructeurDeVues {
     // POURQUOI ICI
     //
     // Le lecteur du fichier de règles refuse déjà deux vues de nom identique. Mais l'identité qui
-    // compte en aval n'est pas le nom : c'est UmlView.nomDeFichier(), qui détache puis retire les
+    // compte en aval n'est pas le nom : c'est UmlView.fileName(), qui détache puis retire les
     // accents, remplace par un tiret tout ce qui n'est ni lettre ni chiffre, et passe en
     // minuscules. La réduction fait converger des noms parfaitement distincts — « Modèle » et
     // « Modele », « Le mapping » et « Le-Mapping », « Mapping » et « Mapping ! ». Le lecteur ne
@@ -134,7 +134,7 @@ public final class ConstructeurDeVues {
     private static void verifierLesNomsDeFichier(ImmutableList<UmlView> vues) {
         Map<String, String> parFichier = new LinkedHashMap<>();
         for (UmlView vue : vues) {
-            String fichier = vue.nomDeFichier();
+            String fichier = vue.fileName();
             String premiere = parFichier.putIfAbsent(fichier, vue.name());
             checkArgument(premiere == null,
                 "Views \"%s\" and \"%s\" both come down to the file name \"%s\", so the second "
@@ -312,7 +312,7 @@ public final class ConstructeurDeVues {
 
     // La même entité, privée des relations dont l'autre bout n'est pas dessiné.
     private static UmlEntity elaguer(UmlEntity entite, ImmutableSet<String> presentes) {
-        return entite.avecRelations(entite.relations().stream()
+        return entite.withRelations(entite.relations().stream()
             .filter(relation -> presentes.containsAll(extremites(relation)))
             .collect(ImmutableList.toImmutableList()));
     }
@@ -371,7 +371,7 @@ public final class ConstructeurDeVues {
 
     // La même entité, plus un lien invisible vers la boîte donnée.
     private static UmlEntity avecOrdre(UmlEntity entite, String suivant) {
-        return entite.avecRelations(ImmutableList.<UmlRelation>builder()
+        return entite.withRelations(ImmutableList.<UmlRelation>builder()
             .addAll(entite.relations())
             .add(new UmlLayout(suivant, UMLDirection.NONE))
             .build());

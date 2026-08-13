@@ -32,7 +32,7 @@ public final class PackageRenderer {
     //
     // La clé est le groupe retenu — nom et couleur —, et non le nom seul : l'appelant n'a plus
     // ensuite qu'à écrire ce qu'on lui donne. Les entités sans groupe sont rassemblées sous
-    // UmlPackage.aucun(), première clé de la table quand il y en a : elles se dessinent au
+    // UmlPackage.none(), première clé de la table quand il y en a : elles se dessinent au
     // premier niveau, et les voir en tête de la source engendrée est plus lisible.
     //
     // LA COULEUR QUAND ELLE EST DÉCLARÉE DEUX FOIS
@@ -60,10 +60,10 @@ public final class PackageRenderer {
             if (retenu == null) {
                 retenus.put(cle, groupe);
                 membres.put(cle, ImmutableList.builder());
-                if (groupe.estGroupee() && !groupe.color().isEmpty()) {
+                if (groupe.isGrouped() && !groupe.color().isEmpty()) {
                     premiereCouleur.put(cle, entite.qualifiedName());
                 }
-            } else if (groupe.estGroupee() && !groupe.color().isEmpty()
+            } else if (groupe.isGrouped() && !groupe.color().isEmpty()
                 && !groupe.color().equals(retenu.color())) {
 
                 if (retenu.color().isEmpty()) {

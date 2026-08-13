@@ -33,7 +33,7 @@ public final class Contraintes {
      * @param regle la contrainte à vérifier, telle que l'utilisateur l'a écrite.
      * @throws IllegalArgumentException si elle est vide ou faite d'espaces.
      */
-    public static void valider(String regle) {
+    public static void validate(String regle) {
         checkArgument(!checkNotNull(regle, "A constraint cannot be null.").isBlank(),
             "A constraint cannot be empty or made of whitespace only.");
     }
@@ -49,7 +49,7 @@ public final class Contraintes {
             checkNotNull(regles, "The list of constraints cannot be null."));
 
         for (String regle : figees) {
-            valider(regle);
+            validate(regle);
         }
         return figees;
     }

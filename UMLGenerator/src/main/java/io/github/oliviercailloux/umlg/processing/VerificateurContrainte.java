@@ -60,7 +60,7 @@ final class VerificateurContrainte {
         // pas réécrite ici, et le message affiché par javac est mot pour mot celui que la
         // génération aurait produit. Les deux avaient déjà divergé.
         try {
-            Contraintes.valider(regle);
+            Contraintes.validate(regle);
         } catch (IllegalArgumentException e) {
             rapporteur.erreur(contexte + " : " + e.getMessage(),
                 porteur, contrainte, rapporteur.valeurEcrite(contrainte, "rule"));

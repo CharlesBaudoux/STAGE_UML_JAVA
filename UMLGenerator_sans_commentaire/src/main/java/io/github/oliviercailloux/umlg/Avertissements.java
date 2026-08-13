@@ -77,7 +77,7 @@ public final class Avertissements {
      * @return de quoi rendre au fil le canal qui était en place avant celui-ci ; à fermer dans un
      *     {@code try}-avec-ressources.
      */
-    public static Canal versLeCanal(Consumer<String> canal) {
+    public static Canal redirectTo(Consumer<String> canal) {
         return Avertisseur.versLeCanal(canal);
     }
 }

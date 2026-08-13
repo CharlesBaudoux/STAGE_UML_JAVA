@@ -75,8 +75,8 @@ public record UmlAssociation(
         checkArgument(!fieldName.isBlank(), "The name of the carrying field cannot be empty.");
         checkArgument(!targetQualifiedName.isBlank(), "The target qualified name cannot be empty.");
 
-        Multiplicites.valider(sourceMultiplicity, "sourceMultiplicity");
-        Multiplicites.valider(targetMultiplicity, "targetMultiplicity");
+        Multiplicites.validate(sourceMultiplicity, "sourceMultiplicity");
+        Multiplicites.validate(targetMultiplicity, "targetMultiplicity");
 
         validateTexteLibre(sourceRole, "sourceRole");
         validateTexteLibre(targetRole, "targetRole");

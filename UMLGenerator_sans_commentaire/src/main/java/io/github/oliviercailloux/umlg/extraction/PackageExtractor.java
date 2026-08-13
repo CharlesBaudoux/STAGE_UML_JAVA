@@ -12,7 +12,7 @@ public final class PackageExtractor {
     static UmlPackage extraire(Class<?> clazz) {
         UMLPackage annotation = clazz.getAnnotation(UMLPackage.class);
         if (annotation == null) {
-            return UmlPackage.aucun();
+            return UmlPackage.none();
         }
         String contexte = "@UMLPackage on " + clazz.getName();
 

@@ -55,7 +55,7 @@ final class VerificateurMultiplicite {
         }
 
         try {
-            Multiplicites.valider(valeur, "multiplicity");
+            Multiplicites.validate(valeur, "multiplicity");
             return true;
         } catch (IllegalArgumentException e) {
             rapporteur.erreur(Membre.emplacement(membre) + " : " + e.getMessage(), membre,

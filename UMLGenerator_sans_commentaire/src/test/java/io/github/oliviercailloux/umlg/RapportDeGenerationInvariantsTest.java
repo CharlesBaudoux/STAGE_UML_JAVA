@@ -38,7 +38,7 @@ class RapportDeGenerationInvariantsTest {
 
     @Test
     void sansFichierDesIgnorees_leResumeNEnParlePas() {
-        String resume = new RapportDeGeneration(3, ImmutableList.of(), UN_FICHIER).resume();
+        String resume = new RapportDeGeneration(3, ImmutableList.of(), UN_FICHIER).summary();
 
         assertFalse(resume.contains("full list"), resume);
     }
@@ -48,7 +48,7 @@ class RapportDeGenerationInvariantsTest {
         Path liste = Path.of("diagrammes", UMLGenerator.FICHIER_DES_CLASSES_IGNOREES);
 
         String resume = new RapportDeGeneration(3, ImmutableList.of("Oubliee"), UN_FICHIER,
-            Optional.of(liste), ImmutableList.of()).resume();
+            Optional.of(liste), ImmutableList.of()).summary();
 
         assertTrue(resume.contains(liste.toString()), resume);
     }

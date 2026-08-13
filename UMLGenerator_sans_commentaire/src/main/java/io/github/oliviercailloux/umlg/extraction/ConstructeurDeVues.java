@@ -54,7 +54,7 @@ public final class ConstructeurDeVues {
         ImmutableList<UmlView> vues = nommees.build();
         verifierLesNomsDeFichier(vues);
 
-        String titre = diagramme.aUnTitre() ? diagramme.title() : VUE_INTEGRALE;
+        String titre = diagramme.hasTitle() ? diagramme.title() : VUE_INTEGRALE;
         return ImmutableList.<UmlView>builder()
             .add(new UmlView(titre, ImmutableList.copyOf(entites), diagramme.direction()))
             .addAll(vues)
@@ -64,7 +64,7 @@ public final class ConstructeurDeVues {
     private static void verifierLesNomsDeFichier(ImmutableList<UmlView> vues) {
         Map<String, String> parFichier = new LinkedHashMap<>();
         for (UmlView vue : vues) {
-            String fichier = vue.nomDeFichier();
+            String fichier = vue.fileName();
             String premiere = parFichier.putIfAbsent(fichier, vue.name());
             checkArgument(premiere == null,
                 "Views \"%s\" and \"%s\" both come down to the file name \"%s\", so the second "
@@ -201,7 +201,7 @@ public final class ConstructeurDeVues {
     }
 
     private static UmlEntity elaguer(UmlEntity entite, ImmutableSet<String> presentes) {
-        return entite.avecRelations(entite.relations().stream()
+        return entite.withRelations(entite.relations().stream()
             .filter(relation -> presentes.containsAll(extremites(relation)))
             .collect(ImmutableList.toImmutableList()));
     }
@@ -230,7 +230,7 @@ public final class ConstructeurDeVues {
     }
 
     private static UmlEntity avecOrdre(UmlEntity entite, String suivant) {
-        return entite.avecRelations(ImmutableList.<UmlRelation>builder()
+        return entite.withRelations(ImmutableList.<UmlRelation>builder()
             .addAll(entite.relations())
             .add(new UmlLayout(suivant, UMLDirection.NONE))
             .build());

@@ -30,12 +30,12 @@ class UmlDiagramTest {
 
     @Test
     void titreVide_estAccepte() {
-        assertFalse(new UmlDiagram("", UMLFlow.TOP_TO_BOTTOM, true).aUnTitre());
+        assertFalse(new UmlDiagram("", UMLFlow.TOP_TO_BOTTOM, true).hasTitle());
     }
 
     @Test
     void titreDeclare_estSignale() {
-        assertTrue(new UmlDiagram("Facturation", UMLFlow.TOP_TO_BOTTOM, true).aUnTitre());
+        assertTrue(new UmlDiagram("Facturation", UMLFlow.TOP_TO_BOTTOM, true).hasTitle());
     }
 
     @Test
@@ -47,12 +47,12 @@ class UmlDiagramTest {
 
     @Test
     void reglagesParDefaut_masquentLesMembresVides() {
-        assertTrue(UmlDiagram.defaut().hideEmptyMembers());
+        assertTrue(UmlDiagram.defaults().hideEmptyMembers());
     }
 
     @Test
     void reglagesParDefaut_nOntNiTitreNiSensImpose() {
-        assertFalse(UmlDiagram.defaut().aUnTitre());
-        assertEquals(UMLFlow.TOP_TO_BOTTOM, UmlDiagram.defaut().direction());
+        assertFalse(UmlDiagram.defaults().hasTitle());
+        assertEquals(UMLFlow.TOP_TO_BOTTOM, UmlDiagram.defaults().direction());
     }
 }

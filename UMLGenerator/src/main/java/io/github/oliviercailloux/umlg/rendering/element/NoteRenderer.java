@@ -29,7 +29,7 @@ public final class NoteRenderer {
     private NoteRenderer() {}
 
     public static String note(UmlNote note, String alias) {
-        if (!note.surMembre()) {
+        if (!note.isOnMember()) {
             // Le texte occupe à lui seul la ligne dessinée : c'est donc debutDeLigne et non
             // label, sans quoi une note valant « * voir le contrat » perdrait son astérisque, lue
             // comme une puce de liste, et « # Attention » se dessinerait « 1. Attention ».

@@ -196,7 +196,7 @@ class UMLGeneratorIntegrationTest {
         assertTrue(Files.readString(liste, StandardCharsets.UTF_8).contains("Oubliee"));
 
         // Et le compte rendu nomme le fichier demandé, non le dossier qui le contient.
-        assertTrue(rapport.resume().contains("archi.svg"), rapport.resume());
+        assertTrue(rapport.summary().contains("archi.svg"), rapport.summary());
     }
 
     @Test
@@ -230,7 +230,7 @@ class UMLGeneratorIntegrationTest {
     void lesCouleursConnues_sontExposeesParLaFacade() {
         // Le catalogue était enfermé dans un paquetage non exporté : l'utilisateur dont la
         // couleur était refusée ne pouvait pas demander lesquelles existent.
-        var couleurs = UMLGenerator.couleursConnues();
+        var couleurs = UMLGenerator.knownColors();
 
         assertTrue(couleurs.contains("LightBlue"), "Le catalogue de PlantUML doit être exposé.");
         assertTrue(couleurs.contains("red"));

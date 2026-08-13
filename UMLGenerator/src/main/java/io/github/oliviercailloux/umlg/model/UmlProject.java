@@ -20,7 +20,7 @@ import java.util.Set;
  *     {@link UmlEntity#qualifiedName()}.
  * @param diagram les réglages d'ensemble, venus du fichier de règles — titre, sens de lecture,
  *     sort des compartiments vides. Jamais nul : un projet qui n'a rien déclaré porte
- *     {@link UmlDiagram#defaut()}, ce qui évite à tout le rendu d'avoir à distinguer « aucun
+ *     {@link UmlDiagram#defaults()}, ce qui évite à tout le rendu d'avoir à distinguer « aucun
  *     réglage » de « les réglages ordinaires ».
  * @param views les diagrammes partiels à produire en plus de la vue intégrale ; vide si le projet
  *     n'en déclare aucun.
@@ -38,7 +38,7 @@ public record UmlProject(ImmutableSet<UmlEntity> entities, UmlDiagram diagram,
      * @return le projet.
      */
     public static UmlProject given(Set<UmlEntity> entities) {
-        return given(entities, UmlDiagram.defaut());
+        return given(entities, UmlDiagram.defaults());
     }
 
     /**
@@ -73,7 +73,7 @@ public record UmlProject(ImmutableSet<UmlEntity> entities, UmlDiagram diagram,
      * Vérifie les invariants du projet.
      *
      * @throws NullPointerException si l'une des composantes est nulle ; l'absence de vue se dit
-     *     avec une liste vide, et l'absence de réglages avec {@link UmlDiagram#defaut()}.
+     *     avec une liste vide, et l'absence de réglages avec {@link UmlDiagram#defaults()}.
      * @throws IllegalArgumentException si le projet ne contient aucune entité, ou si deux entités
      *     portent le même nom qualifié. Un projet vide signale presque toujours une erreur de
      *     l'utilisateur — mauvais paquetage scanné, {@code @UMLClass} oubliée — et échouer ici
@@ -81,7 +81,7 @@ public record UmlProject(ImmutableSet<UmlEntity> entities, UmlDiagram diagram,
      */
     public UmlProject {
         checkNotNull(entities, "The set of entities cannot be null.");
-        checkNotNull(diagram, "The diagram settings cannot be null; use UmlDiagram.defaut().");
+        checkNotNull(diagram, "The diagram settings cannot be null; use UmlDiagram.defaults().");
         checkNotNull(views, "The list of views cannot be null (use an empty list).");
         // Un projet vide signale presque toujours une erreur de l'utilisateur (mauvais
         // paquetage scanné, @UMLClass oubliée) ; échouer ici donne un message plus clair qu'un

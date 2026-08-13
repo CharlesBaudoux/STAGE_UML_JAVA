@@ -50,7 +50,7 @@ public record UmlNote(
      * @param direction où poser la bulle.
      * @return la note, sans ancre.
      */
-    public static UmlNote surClasse(String text, UMLDirection direction) {
+    public static UmlNote onClass(String text, UMLDirection direction) {
         return new UmlNote(text, direction, "");
     }
 
@@ -59,7 +59,7 @@ public record UmlNote(
      *
      * @return vrai si la note vise un membre précis, faux si elle vise la classe entière.
      */
-    public boolean surMembre() {
+    public boolean isOnMember() {
         return !anchor.isEmpty();
     }
 }

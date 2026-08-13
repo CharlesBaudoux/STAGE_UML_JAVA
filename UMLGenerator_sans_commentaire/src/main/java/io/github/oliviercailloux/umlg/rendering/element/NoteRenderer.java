@@ -9,7 +9,7 @@ public final class NoteRenderer {
     private NoteRenderer() {}
 
     public static String note(UmlNote note, String alias) {
-        if (!note.surMembre()) {
+        if (!note.isOnMember()) {
             return "note " + placement(note.direction()) + " of " + alias + " : "
                 + PlantUmlEscaper.debutDeLigne(note.text()) + "\n";
         }

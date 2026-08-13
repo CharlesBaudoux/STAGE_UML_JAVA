@@ -101,7 +101,7 @@ class PlantUmlDiagrammeTest {
     @ParameterizedTest
     @EnumSource(UmlStyle.class)
     void leMasquage_neDependPasDeLApparence(UmlStyle style) {
-        assertTrue(PlantUmlAssert.documentPour(style, UmlDiagram.defaut(), boiteVide())
+        assertTrue(PlantUmlAssert.documentPour(style, UmlDiagram.defaults(), boiteVide())
             .contains(LIGNE_MASQUAGE));
         assertFalse(PlantUmlAssert
             .documentPour(style, reglages("", UMLFlow.TOP_TO_BOTTOM, false), boiteVide())

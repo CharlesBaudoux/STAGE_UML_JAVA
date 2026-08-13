@@ -52,7 +52,7 @@ public record UmlParameter(
      * @param type le nom simple du type.
      * @return un paramètre sans nom, qui ne montrera que son type.
      */
-    public static UmlParameter anonyme(String type) {
+    public static UmlParameter unnamed(String type) {
         return new UmlParameter("", type);
     }
 
@@ -61,7 +61,7 @@ public record UmlParameter(
      *
      * @return vrai si le nom a survécu à la compilation, et sera donc écrit dans la signature.
      */
-    public boolean nomme() {
+    public boolean isNamed() {
         return !name.isEmpty();
     }
 }

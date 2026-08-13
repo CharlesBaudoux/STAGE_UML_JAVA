@@ -160,7 +160,7 @@ class HierarchieDesDecisionsTest {
 
     private static ImmutableList<String> avertissementsDe(Runnable action) {
         ImmutableList.Builder<String> dits = ImmutableList.builder();
-        try (Avertissements.Canal canal = Avertissements.versLeCanal(dits::add)) {
+        try (Avertissements.Canal canal = Avertissements.redirectTo(dits::add)) {
             action.run();
         }
         return dits.build();

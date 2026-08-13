@@ -167,7 +167,7 @@ Placée sur une classe, interface ou énumération, elle indique que l'entité d
 
 \begin{itemize}
     \item \texttt{name} (String) : surcharge le nom affiché.
-    \item \texttt{color} (String) : couleur de fond --- code hexadécimal (\texttt{"\#DDEEFF"}, \texttt{"\#ABC"}, \texttt{"\#FF000080"} avec transparence) ou nom PlantUML (\texttt{"LightBlue"}), vérifié contre le catalogue du moteur qu'énumère \texttt{UMLGenerator.couleursConnues()}.
+    \item \texttt{color} (String) : couleur de fond --- code hexadécimal (\texttt{"\#DDEEFF"}, \texttt{"\#ABC"}, \texttt{"\#FF000080"} avec transparence) ou nom PlantUML (\texttt{"LightBlue"}), vérifié contre le catalogue du moteur qu'énumère \texttt{UMLGenerator.knownColors()}.
     \item \texttt{stereotype} (String) : étiquette métier (ex. \texttt{"Service"}). Les guillemets \texttt{<<~>>} sont posés par le générateur.
     \item \texttt{strategy} (Enum) : le seuil de visibilité. \textbf{\texttt{PROJECT}}, le défaut, s'en remet à la clé \texttt{strategy} du fichier \texttt{umlg.json}, ou à \texttt{NONE} si le projet n'en déclare aucune ; \textbf{\texttt{NONE}} donne une coquille vide, sauf les membres explicitement \texttt{@UMLInclude} ; \textbf{\texttt{PUBLIC}}, \textbf{\texttt{PROTECTED}}, \textbf{\texttt{PACKAGE}} et \textbf{\texttt{PRIVATE}} retiennent respectivement les membres \texttt{public} ; \texttt{public} et \texttt{protected} ; \texttt{public} et sans modificateur ; tous.
 \end{itemize}

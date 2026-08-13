@@ -68,7 +68,7 @@ class PlantUmlDebutDeLigneTest {
     @ValueSource(strings = {"# Attention", "* voir le contrat", "= titre", "|a|b|"})
     void noteSurClasse_gardeSonPremierCaractere(String texte) throws Exception {
         UmlEntity avecNote = UmlEntity.builder("com.exemple.Facture", "Facture")
-            .notes(ImmutableList.of(UmlNote.surClasse(texte, UMLDirection.RIGHT))).build();
+            .notes(ImmutableList.of(UmlNote.onClass(texte, UMLDirection.RIGHT))).build();
 
         String rendu = PlantUmlAssert.texteRendu(avecNote);
 

@@ -20,7 +20,7 @@ class RapportDeGenerationTest {
 
     @Test
     void leCompteRendu_ditCombienDeFichiersEtOu() {
-        String resume = rapport(21, 0, 12).resume();
+        String resume = rapport(21, 0, 12).summary();
 
         assertTrue(resume.contains("12 diagram(s) written"), resume);
         assertTrue(resume.contains("diagrammes"), "Le dossier doit être nommé : " + resume);
@@ -29,7 +29,7 @@ class RapportDeGenerationTest {
     @Test
     void unFichierSansDossier_estNommeLuiMeme() {
         String resume = new RapportDeGeneration(5, ImmutableList.of(),
-            ImmutableList.of(Path.of("diagramme_architecture.svg"))).resume();
+            ImmutableList.of(Path.of("diagramme_architecture.svg"))).summary();
 
         assertFalse(resume.contains("null"), resume);
         assertTrue(resume.contains("diagramme_architecture.svg"), resume);
@@ -38,7 +38,7 @@ class RapportDeGenerationTest {
     @Test
     void unSeulFichierDansUnDossier_estNommeLuiAussi() {
         String resume = new RapportDeGeneration(5, ImmutableList.of(),
-            ImmutableList.of(Path.of("docs", "archi.svg"))).resume();
+            ImmutableList.of(Path.of("docs", "archi.svg"))).summary();
 
         assertTrue(resume.contains(Path.of("docs", "archi.svg").toString()), resume);
     }
@@ -46,14 +46,14 @@ class RapportDeGenerationTest {
     @Test
     void unSeulFichierPrefixeDePointSlash_estNommeLuiAussi() {
         String resume = new RapportDeGeneration(5, ImmutableList.of(),
-            ImmutableList.of(Path.of("./diagramme.svg"))).resume();
+            ImmutableList.of(Path.of("./diagramme.svg"))).summary();
 
         assertTrue(resume.contains("diagramme.svg"), resume);
     }
 
     @Test
     void plusieursFichiers_sontResumesParLeurDossier() {
-        String resume = rapport(21, 0, 12).resume();
+        String resume = rapport(21, 0, 12).summary();
 
         assertTrue(resume.contains("diagrammes"), resume);
         assertFalse(resume.contains("v0.svg"), "Les vues ne doivent pas être listées : " + resume);
@@ -61,7 +61,7 @@ class RapportDeGenerationTest {
 
     @Test
     void leCompteRendu_ditCeQuiAEteIgnore() {
-        String resume = rapport(21, 23, 12).resume();
+        String resume = rapport(21, 23, 12).summary();
 
         assertTrue(resume.contains("21 class(es) drawn"), resume);
         assertTrue(resume.contains("23 ignored"), resume);
@@ -69,7 +69,7 @@ class RapportDeGenerationTest {
 
     @Test
     void peuDeClassesIgnorees_sontNommees() {
-        String resume = rapport(5, 2, 1).resume();
+        String resume = rapport(5, 2, 1).summary();
 
         assertTrue(resume.contains("Ignoree0"), resume);
         assertTrue(resume.contains("Ignoree1"), resume);
@@ -77,7 +77,7 @@ class RapportDeGenerationTest {
 
     @Test
     void beaucoupDeClassesIgnorees_sontComptéesSansEtreNommees() {
-        String resume = rapport(5, 40, 1).resume();
+        String resume = rapport(5, 40, 1).summary();
 
         assertTrue(resume.contains("40 ignored"), resume);
         assertFalse(resume.contains("Ignoree0"), resume);
@@ -85,7 +85,7 @@ class RapportDeGenerationTest {
 
     @Test
     void aucuneClasseIgnoree_neLaisseAucuneListe() {
-        String resume = rapport(5, 0, 1).resume();
+        String resume = rapport(5, 0, 1).summary();
 
         assertTrue(resume.contains("0 ignored"), resume);
         assertFalse(resume.contains(" : "), resume);

@@ -35,12 +35,12 @@ class UmlDiagramTest {
 
     @Test
     void titreVide_estAccepte() {
-        assertFalse(new UmlDiagram("", UMLFlow.TOP_TO_BOTTOM, true).aUnTitre());
+        assertFalse(new UmlDiagram("", UMLFlow.TOP_TO_BOTTOM, true).hasTitle());
     }
 
     @Test
     void titreDeclare_estSignale() {
-        assertTrue(new UmlDiagram("Facturation", UMLFlow.TOP_TO_BOTTOM, true).aUnTitre());
+        assertTrue(new UmlDiagram("Facturation", UMLFlow.TOP_TO_BOTTOM, true).hasTitle());
     }
 
     @Test
@@ -55,12 +55,12 @@ class UmlDiagramTest {
         // Le défaut décide du cas nominal, celui d'un projet qui ne règle rien : la stratégie par
         // défaut de @UMLClass ne montrant aucun membre, ne pas masquer dessinerait des
         // rectangles vides sous chaque nom.
-        assertTrue(UmlDiagram.defaut().hideEmptyMembers());
+        assertTrue(UmlDiagram.defaults().hideEmptyMembers());
     }
 
     @Test
     void reglagesParDefaut_nOntNiTitreNiSensImpose() {
-        assertFalse(UmlDiagram.defaut().aUnTitre());
-        assertEquals(UMLFlow.TOP_TO_BOTTOM, UmlDiagram.defaut().direction());
+        assertFalse(UmlDiagram.defaults().hasTitle());
+        assertEquals(UMLFlow.TOP_TO_BOTTOM, UmlDiagram.defaults().direction());
     }
 }

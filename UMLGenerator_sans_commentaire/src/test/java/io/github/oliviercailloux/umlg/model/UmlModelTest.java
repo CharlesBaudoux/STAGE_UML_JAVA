@@ -33,7 +33,7 @@ class UmlModelTest {
     void projetNull_estRefuse() {
         assertThrows(NullPointerException.class, () -> UmlProject.given(null));
         assertThrows(NullPointerException.class,
-            () -> new UmlProject(null, UmlDiagram.defaut(), ImmutableList.of()));
+            () -> new UmlProject(null, UmlDiagram.defaults(), ImmutableList.of()));
     }
 
     @Test
@@ -44,7 +44,7 @@ class UmlModelTest {
 
     @Test
     void projetSansDiagrammeDeclare_prendLesReglagesParDefaut() {
-        assertEquals(UmlDiagram.defaut(), UmlProject.given(Set.of(entiteMinimale())).diagram());
+        assertEquals(UmlDiagram.defaults(), UmlProject.given(Set.of(entiteMinimale())).diagram());
     }
 
 
@@ -173,7 +173,7 @@ class UmlModelTest {
         UmlMethod methode = new UmlMethod("calculer", "void", "+", false, parametres);
         parametres.clear();
 
-        assertEquals(List.of(UmlParameter.anonyme("int"), UmlParameter.anonyme("String")),
+        assertEquals(List.of(UmlParameter.unnamed("int"), UmlParameter.unnamed("String")),
             methode.parameters(),
             "La signature ne doit pas suivre la liste passée au constructeur.");
     }
@@ -183,7 +183,7 @@ class UmlModelTest {
         UmlMethod methode = new UmlMethod("calculer", "void", "+", false, List.of("int"));
 
         assertThrows(UnsupportedOperationException.class,
-            () -> methode.parameters().add(UmlParameter.anonyme("long")));
+            () -> methode.parameters().add(UmlParameter.unnamed("long")));
     }
 
     @Test

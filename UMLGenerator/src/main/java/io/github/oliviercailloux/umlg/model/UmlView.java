@@ -60,7 +60,7 @@ public record UmlView(String name, ImmutableList<UmlEntity> entities, UMLFlow di
      * @return un nom en minuscules, jamais vide : un nom fait uniquement de ponctuation retombe
      *     sur {@code vue}.
      */
-    public String nomDeFichier() {
+    public String fileName() {
         // Les accents sont d'abord détachés de leur lettre (NFD : « é » devient « e » suivi d'un
         // accent aigu), puis les accents seuls sont retirés. Un nom de fichier accentué survit
         // bien à un système moderne, moins bien à une archive, à un partage réseau ou à une URL.

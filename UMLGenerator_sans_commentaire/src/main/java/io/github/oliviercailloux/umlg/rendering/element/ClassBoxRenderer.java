@@ -22,7 +22,7 @@ public final class ClassBoxRenderer {
             "The name of %s draws nothing: it is made of invisible characters only.",
             entity.qualifiedName());
 
-        boite.append(entity.kind().motCle())
+        boite.append(entity.kind().keyword())
              .append(" \"")
              .append(nomEcrit)
              .append("\" as ").append(alias);
@@ -126,7 +126,7 @@ public final class ClassBoxRenderer {
 
     private static String parametres(UmlMethod method) {
         return method.parameters().stream()
-                     .map(parametre -> parametre.nomme()
+                     .map(parametre -> parametre.isNamed()
                          ? PlantUmlEscaper.label(parametre.name()) + " : "
                              + PlantUmlEscaper.label(parametre.type())
                          : PlantUmlEscaper.label(parametre.type()))

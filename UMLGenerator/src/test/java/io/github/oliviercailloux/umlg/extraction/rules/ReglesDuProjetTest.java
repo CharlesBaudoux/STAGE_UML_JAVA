@@ -354,7 +354,7 @@ class ReglesDuProjetTest {
             { "strategy": "public" }
             """));
 
-        assertFalse(entity.group().estGroupee(), entity.group().toString());
+        assertFalse(entity.group().isGrouped(), entity.group().toString());
     }
 
     @Test

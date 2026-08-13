@@ -245,7 +245,7 @@ class ProjectScannerIntegrationTest {
     // capterait les avertissements du test suivant, qui tourne sur le même fil.
     private static List<String> avertissementsDuScan(Path sortie) throws IOException {
         List<String> dits = new ArrayList<>();
-        try (Avertissements.Canal canal = Avertissements.versLeCanal(dits::add)) {
+        try (Avertissements.Canal canal = Avertissements.redirectTo(dits::add)) {
             ProjectScanner.scan(sortie);
         }
         return dits;
@@ -351,7 +351,7 @@ class ProjectScannerIntegrationTest {
         Files.delete(sortie.resolve("com/exemple/Absente.class"));
 
         List<String> dits = new ArrayList<>();
-        try (Avertissements.Canal canal = Avertissements.versLeCanal(dits::add)) {
+        try (Avertissements.Canal canal = Avertissements.redirectTo(dits::add)) {
             IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
                 () -> ProjectScanner.scan(sortie).projet());
             assertTrue(e.getMessage().contains("No class carries @UMLClass"), e.getMessage());
@@ -486,7 +486,7 @@ class ProjectScannerIntegrationTest {
 
         assertEquals(List.of("String", "int"),
             reporter.parameters().stream().map(UmlParameter::type).toList());
-        assertTrue(reporter.parameters().stream().noneMatch(UmlParameter::nomme),
+        assertTrue(reporter.parameters().stream().noneMatch(UmlParameter::isNamed),
             "Aucun « arg0 » ne doit atteindre le dessin : " + reporter.parameters());
     }
 
@@ -495,7 +495,7 @@ class ProjectScannerIntegrationTest {
         Path sortie = tmp.resolve("classes");
         compiler(tmp.resolve("src"), sortie, "com/exemple/Facture.java", UNE_BOITE);
 
-        assertEquals(UmlDiagram.defaut(), ProjectScanner.scan(sortie).projet().diagram());
+        assertEquals(UmlDiagram.defaults(), ProjectScanner.scan(sortie).projet().diagram());
     }
 
     @Test

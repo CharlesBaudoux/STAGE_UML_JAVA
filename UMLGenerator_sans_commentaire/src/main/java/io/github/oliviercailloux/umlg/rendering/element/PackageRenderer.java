@@ -30,10 +30,10 @@ public final class PackageRenderer {
             if (retenu == null) {
                 retenus.put(cle, groupe);
                 membres.put(cle, ImmutableList.builder());
-                if (groupe.estGroupee() && !groupe.color().isEmpty()) {
+                if (groupe.isGrouped() && !groupe.color().isEmpty()) {
                     premiereCouleur.put(cle, entite.qualifiedName());
                 }
-            } else if (groupe.estGroupee() && !groupe.color().isEmpty()
+            } else if (groupe.isGrouped() && !groupe.color().isEmpty()
                 && !groupe.color().equals(retenu.color())) {
 
                 if (retenu.color().isEmpty()) {

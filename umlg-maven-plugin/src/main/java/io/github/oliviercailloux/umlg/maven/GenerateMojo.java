@@ -105,7 +105,7 @@ public class GenerateMojo extends AbstractMojo {
         // que la construction était en train de faire quand il est né. Sa fermeture rend au fil
         // son canal d'origine — Maven réutilise ses fils d'un module à l'autre, et un canal
         // laissé en place écrirait les avertissements du module suivant dans le log de celui-ci.
-        try (Avertissements.Canal canal = Avertissements.versLeCanal(getLog()::warn)) {
+        try (Avertissements.Canal canal = Avertissements.redirectTo(getLog()::warn)) {
             // La construction du builder est dans le try, et ce n'est pas un détail de style :
             // hors de lui, une faute de configuration — « -Dumlg.format=pdf » — s'échappait en
             // IllegalArgumentException nue, et Maven la présentait en PluginExecutionException,
@@ -131,7 +131,7 @@ public class GenerateMojo extends AbstractMojo {
             RapportDeGeneration rapport = builder.build().generate();
             // La bibliothèque rend son compte rendu sans l'écrire nulle part : c'est ici qu'il
             // trouve son canal, celui où l'utilisateur d'un build le cherche.
-            for (String ligne : rapport.resume().split("\n")) {
+            for (String ligne : rapport.summary().split("\n")) {
                 getLog().info(ligne);
             }
         } catch (RuntimeException e) {

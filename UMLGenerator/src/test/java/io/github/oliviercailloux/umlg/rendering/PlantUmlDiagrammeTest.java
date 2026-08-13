@@ -124,7 +124,7 @@ class PlantUmlDiagrammeTest {
         // Le point de la refonte : ce réglage a quitté le bloc commun aux deux apparences, mais
         // il ne leur appartenait pas pour autant. Les deux styles doivent le suivre à
         // l'identique — c'est le fichier de règles qui décide, jamais UmlStyle.
-        assertTrue(PlantUmlAssert.documentPour(style, UmlDiagram.defaut(), boiteVide())
+        assertTrue(PlantUmlAssert.documentPour(style, UmlDiagram.defaults(), boiteVide())
             .contains(LIGNE_MASQUAGE));
         assertFalse(PlantUmlAssert
             .documentPour(style, reglages("", UMLFlow.TOP_TO_BOTTOM, false), boiteVide())

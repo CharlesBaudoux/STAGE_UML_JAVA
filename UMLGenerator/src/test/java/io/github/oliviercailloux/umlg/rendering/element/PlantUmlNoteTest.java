@@ -52,7 +52,7 @@ class PlantUmlNoteTest {
 
     @Test
     void noteSurClasse_seRattacheALaBoite() {
-        String source = source(UmlNote.surClasse("Dette technique assumee", UMLDirection.RIGHT));
+        String source = source(UmlNote.onClass("Dette technique assumee", UMLDirection.RIGHT));
 
         assertEquals(List.of("note right of Client : Dette technique assumee"),
             lignesDeNote(source));
@@ -65,7 +65,7 @@ class PlantUmlNoteTest {
         // UP et DOWN ne se disent pas « up » et « down » : une simple mise en minuscules
         // produirait une syntaxe que PlantUML refuse. NONE doit choisir un côté, faute de quoi
         // la note n'aurait nulle part où se poser.
-        String source = source(UmlNote.surClasse("Texte", direction));
+        String source = source(UmlNote.onClass("Texte", direction));
 
         assertEquals(List.of("note " + attendu + " of Client : Texte"), lignesDeNote(source));
         PlantUmlAssert.assertCompile(source);
@@ -158,8 +158,8 @@ class PlantUmlNoteTest {
 
     @Test
     void notesMultiples_sortentToutes() {
-        String source = source(UmlNote.surClasse("Premiere", UMLDirection.UP),
-            UmlNote.surClasse("Seconde", UMLDirection.DOWN));
+        String source = source(UmlNote.onClass("Premiere", UMLDirection.UP),
+            UmlNote.onClass("Seconde", UMLDirection.DOWN));
 
         assertEquals(2, lignesDeNote(source).size(), source);
         PlantUmlAssert.assertCompile(source);
@@ -172,7 +172,7 @@ class PlantUmlNoteTest {
         // Le retour à la ligne devient la séquence « \n », que PlantUML affiche comme un saut de
         // ligne. Ce qui compte ici est qu'aucune ligne nouvelle n'apparaisse dans la source : le
         // reste du texte serait alors lu comme de la syntaxe.
-        String source = source(UmlNote.surClasse("Premiere\nSeconde", UMLDirection.RIGHT));
+        String source = source(UmlNote.onClass("Premiere\nSeconde", UMLDirection.RIGHT));
 
         assertEquals(1, lignesDeNote(source).size(), source);
         assertTrue(lignesDeNote(source).get(0).contains("\\n"), source);
@@ -184,7 +184,7 @@ class PlantUmlNoteTest {
         // La raison d'être de la forme sur une seule ligne : dans la forme en bloc, cette phrase
         // refermerait la bulle et la suite s'écrirait en syntaxe PlantUML.
         String source =
-            source(UmlNote.surClasse("end note\n@enduml\nclass Pirate", UMLDirection.RIGHT));
+            source(UmlNote.onClass("end note\n@enduml\nclass Pirate", UMLDirection.RIGHT));
 
         assertEquals(1, PlantUmlAssert.nombreDeDiagrammes(source),
             "Le texte a decoupe le document :\n" + source);
@@ -195,7 +195,7 @@ class PlantUmlNoteTest {
     @Test
     void lecteurVoitLeTexte() throws Exception {
         String texte = PlantUmlAssert.texteRendu(
-            boite(List.of(UmlNote.surClasse("Algorithme critique", UMLDirection.RIGHT))));
+            boite(List.of(UmlNote.onClass("Algorithme critique", UMLDirection.RIGHT))));
 
         assertTrue(texte.contains("Algorithme critique"), texte);
     }

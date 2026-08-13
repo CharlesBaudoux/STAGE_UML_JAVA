@@ -544,7 +544,7 @@ public final class MemberExtractor {
             // diagrammes tenus à la main — le nom est tu même quand la compilation l'a gardé.
             parametres.add(parametre.isNamePresent() && !regles.omettreNomsDeParametres()
                 ? new UmlParameter(parametre.getName(), type)
-                : UmlParameter.anonyme(type));
+                : UmlParameter.unnamed(type));
         }
         return parametres.build();
     }

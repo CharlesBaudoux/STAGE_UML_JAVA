@@ -24,7 +24,7 @@ module io.github.oliviercailloux.umlg {
     //
     // « transitive », et c'est obligatoire : les trois paquetages exportés rendent des types
     // Guava dans leurs signatures publiques — RapportDeGeneration.classesIgnorees() une
-    // ImmutableList, UmlProject une ImmutableSet, UMLGenerator.couleursConnues() une
+    // ImmutableList, UmlProject une ImmutableSet, UMLGenerator.knownColors() une
     // ImmutableSortedSet. Sans le mot-clé, un module client lit ces méthodes sans pouvoir lire
     // leur type de retour, et échoue à la compilation sur « List.size() is defined in an
     // inaccessible class ». Exporter un type, c'est s'engager à ce qu'il soit utilisable.

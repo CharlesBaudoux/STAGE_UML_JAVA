@@ -18,7 +18,7 @@ public final class ColorCodec {
                     + couleur + "\". Expected: a hexadecimal code (\"#FF0000\", \"#ABC\", "
                     + "\"#FF000080\" with transparency) or a PlantUML color name (\"red\", "
                     + "\"LightBlue\") — the full catalogue is given by "
-                    + "UMLGenerator.couleursConnues().", e);
+                    + "UMLGenerator.knownColors().", e);
         }
         return code;
     }

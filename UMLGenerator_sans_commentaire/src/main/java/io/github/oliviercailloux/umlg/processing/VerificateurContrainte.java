@@ -54,7 +54,7 @@ final class VerificateurContrainte {
         String regle = rapporteur.texte(contrainte, "rule");
 
         try {
-            Contraintes.valider(regle);
+            Contraintes.validate(regle);
         } catch (IllegalArgumentException e) {
             rapporteur.erreur(contexte + " : " + e.getMessage(),
                 porteur, contrainte, rapporteur.valeurEcrite(contrainte, "rule"));

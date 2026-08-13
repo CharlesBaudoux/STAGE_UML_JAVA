@@ -24,7 +24,7 @@ import java.util.regex.Pattern;
  * type là où l'utilisateur avait écrit une multiplicité.
  *
  * <p>La grammaire est donc nommée, et la porte est franche. Elle est du même coup lisible par
- * l'utilisateur, comme {@code UMLGenerator.couleursConnues()} l'est pour les couleurs : ce que la
+ * l'utilisateur, comme {@code UMLGenerator.knownColors()} l'est pour les couleurs : ce que la
  * bibliothèque accepte est une question qu'on a le droit de lui poser.
  */
 public final class Multiplicites {
@@ -44,7 +44,7 @@ public final class Multiplicites {
      * @throws IllegalArgumentException si la chaîne n'est pas une multiplicité, ou si sa borne
      *     basse dépasse sa borne haute.
      */
-    public static void valider(String multiplicite, String parametre) {
+    public static void validate(String multiplicite, String parametre) {
         String probleme = probleme(multiplicite, parametre);
         checkArgument(probleme == null, probleme);
     }
@@ -59,9 +59,9 @@ public final class Multiplicites {
      *
      * @param multiplicite la chaîne à examiner. Vide, elle est licite : c'est l'absence de
      *     multiplicité.
-     * @return vrai si {@link #valider} l'accepterait.
+     * @return vrai si {@link #validate} l'accepterait.
      */
-    public static boolean estValide(String multiplicite) {
+    public static boolean isValid(String multiplicite) {
         return probleme(multiplicite, "multiplicity") == null;
     }
 

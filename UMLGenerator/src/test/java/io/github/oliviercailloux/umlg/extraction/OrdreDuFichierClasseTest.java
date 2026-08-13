@@ -142,7 +142,7 @@ class OrdreDuFichierClasseTest {
         Regles regles = Regles.lues("{ \"order\": \"declaration\" }", "umlg.json");
         List<String> dits = new ArrayList<>();
 
-        try (Avertissements.Canal canal = Avertissements.versLeCanal(dits::add)) {
+        try (Avertissements.Canal canal = Avertissements.redirectTo(dits::add)) {
             MembresOrdonnes.champs(lambda.getClass(), regles);
             MembresOrdonnes.methodes(lambda.getClass(), regles);
             MembresOrdonnes.champs(lambda.getClass(), regles);

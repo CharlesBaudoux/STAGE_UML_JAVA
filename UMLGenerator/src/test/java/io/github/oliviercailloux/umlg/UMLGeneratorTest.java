@@ -303,7 +303,7 @@ class UMLGeneratorTest {
         List<String> dits = new ArrayList<>();
 
         RuntimeException e;
-        try (Avertissements.Canal canal = Avertissements.versLeCanal(dits::add)) {
+        try (Avertissements.Canal canal = Avertissements.redirectTo(dits::add)) {
             e = assertThrows(RuntimeException.class, () -> UMLGenerator.builder()
                 .sourceDirectory(classes.toString())
                 .outputFile(tmp.resolve("archi.svg").toString())

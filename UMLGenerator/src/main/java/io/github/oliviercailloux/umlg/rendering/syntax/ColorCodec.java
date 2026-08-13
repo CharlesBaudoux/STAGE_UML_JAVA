@@ -42,7 +42,7 @@ public final class ColorCodec {
                     + couleur + "\". Expected: a hexadecimal code (\"#FF0000\", \"#ABC\", "
                     + "\"#FF000080\" with transparency) or a PlantUML color name (\"red\", "
                     + "\"LightBlue\") — the full catalogue is given by "
-                    + "UMLGenerator.couleursConnues().", e);
+                    + "UMLGenerator.knownColors().", e);
         }
         return code;
     }
@@ -51,7 +51,7 @@ public final class ColorCodec {
     //
     // Ce catalogue était enfermé ici, dans un paquetage que le module n'exporte pas : un
     // utilisateur dont la couleur était refusée n'avait aucun moyen de demander lesquelles
-    // existent. La façade l'expose (UMLGenerator.couleursConnues) ; cette méthode est la seule
+    // existent. La façade l'expose (UMLGenerator.knownColors) ; cette méthode est la seule
     // à savoir le lire, puisqu'elle seule connaît le moteur de dessin.
     public static ImmutableSortedSet<String> nomsConnus() {
         return ImmutableSortedSet.copyOf(String.CASE_INSENSITIVE_ORDER,

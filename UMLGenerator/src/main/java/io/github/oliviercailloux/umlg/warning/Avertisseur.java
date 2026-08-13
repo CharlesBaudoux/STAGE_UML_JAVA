@@ -53,7 +53,7 @@ public final class Avertisseur {
     }
 
     // Envoie les avertissements de ce fil ailleurs que sur la sortie d'erreur. C'est ce
-    // qu'Avertissements.versLeCanal offre à l'appelant.
+    // qu'Avertissements.redirectTo offre à l'appelant.
     public static Avertissements.Canal versLeCanal(Consumer<String> canal) {
         checkNotNull(canal, "The channel cannot be null.");
         return poser(canal);

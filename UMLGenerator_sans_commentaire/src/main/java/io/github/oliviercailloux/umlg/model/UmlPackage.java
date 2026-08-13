@@ -47,7 +47,7 @@ public record UmlPackage(String name, String color) {
      *
      * @return le groupe vide, partagé par toutes les entités non rangées.
      */
-    public static UmlPackage aucun() {
+    public static UmlPackage none() {
         return AUCUN;
     }
 
@@ -56,7 +56,7 @@ public record UmlPackage(String name, String color) {
      *
      * @return vrai si un rectangle entoure les boîtes de ce groupe.
      */
-    public boolean estGroupee() {
+    public boolean isGrouped() {
         return !name.isEmpty();
     }
 }

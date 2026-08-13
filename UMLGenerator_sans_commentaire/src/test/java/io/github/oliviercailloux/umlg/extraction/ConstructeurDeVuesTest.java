@@ -42,7 +42,7 @@ class ConstructeurDeVuesTest {
     }
 
     private static ImmutableList<UmlView> vues(String json) {
-        return ConstructeurDeVues.construire(projet(), UmlDiagram.defaut(),
+        return ConstructeurDeVues.construire(projet(), UmlDiagram.defaults(),
             Regles.lues(json, "les règles du test"));
     }
 
@@ -219,7 +219,7 @@ class ConstructeurDeVuesTest {
         UmlEntity adresse = projet.stream().filter(e -> e.name().equals("Adresse"))
             .findFirst().orElseThrow();
 
-        UmlView tout = ConstructeurDeVues.construire(projet, UmlDiagram.defaut(),
+        UmlView tout = ConstructeurDeVues.construire(projet, UmlDiagram.defaults(),
             Regles.lues("""
                 { "views": [ { "name": "Tout", "retain": [{ "package": "%s" }] } ] }
                 """.formatted(PAQ), "test")).get(1);
@@ -280,7 +280,7 @@ class ConstructeurDeVuesTest {
 
     @Test
     void desSoeurs_neSontPasEmpileesLesUnesSousLesAutres() {
-        UmlView vue = ConstructeurDeVues.construire(famille(), UmlDiagram.defaut(),
+        UmlView vue = ConstructeurDeVues.construire(famille(), UmlDiagram.defaults(),
             Regles.lues("""
                 { "views": [ { "name": "Mapping", "retain": ["KeysymEntry", "Mnemonic",
                     "Ucp", "Code", "KeyboardMap", "XkbSymbolsReader"] } ] }
@@ -293,7 +293,7 @@ class ConstructeurDeVuesTest {
 
     @Test
     void uneVueDontToutSeTient_nEstPasContrainte() {
-        UmlView vue = ConstructeurDeVues.construire(famille(), UmlDiagram.defaut(),
+        UmlView vue = ConstructeurDeVues.construire(famille(), UmlDiagram.defaults(),
             Regles.lues("""
                 { "views": [ { "name": "Famille",
                     "retain": ["KeysymEntry", "Mnemonic", "Ucp", "Code"] } ] }
@@ -305,7 +305,7 @@ class ConstructeurDeVuesTest {
 
     @Test
     void leRepresentantDUnBloc_estSaPremiereBoiteEcrite() {
-        UmlView vue = ConstructeurDeVues.construire(famille(), UmlDiagram.defaut(),
+        UmlView vue = ConstructeurDeVues.construire(famille(), UmlDiagram.defaults(),
             Regles.lues("""
                 { "views": [ { "name": "Mapping", "retain": ["Mnemonic", "KeysymEntry",
                     "Ucp", "Code", "KeyboardMap"] } ] }
@@ -387,25 +387,25 @@ class ConstructeurDeVuesTest {
     void leNomDuPaquetageParDefaut_estEnAnglais() {
         ImmutableList<UmlView> toutes = ConstructeurDeVues.construire(
             ImmutableSet.of(UmlEntity.builder("SansPaquetage", "SansPaquetage").build()),
-            UmlDiagram.defaut(), Regles.lues("{ \"viewsByPackage\": true }", "test"));
+            UmlDiagram.defaults(), Regles.lues("{ \"viewsByPackage\": true }", "test"));
 
         assertEquals(ConstructeurDeVues.PAQUETAGE_PAR_DEFAUT, toutes.get(1).name());
-        assertEquals("default", toutes.get(1).nomDeFichier());
+        assertEquals("default", toutes.get(1).fileName());
     }
 
     @Test
     void leNomDeFichier_estNettoye() {
         assertEquals("autour-d-adresse",
             new UmlView("Autour d'Adresse", ImmutableList.copyOf(projet()),
-                UMLFlow.TOP_TO_BOTTOM).nomDeFichier());
+                UMLFlow.TOP_TO_BOTTOM).fileName());
         assertEquals("modele-de-facturation",
             new UmlView("Modèle de facturation !", ImmutableList.copyOf(projet()),
-                UMLFlow.TOP_TO_BOTTOM).nomDeFichier());
+                UMLFlow.TOP_TO_BOTTOM).fileName());
     }
 
     @Test
     void projetVide_neDonneAucuneVue() {
-        assertTrue(ConstructeurDeVues.construire(ImmutableSet.of(), UmlDiagram.defaut(),
+        assertTrue(ConstructeurDeVues.construire(ImmutableSet.of(), UmlDiagram.defaults(),
             Regles.aucune()).isEmpty());
     }
 

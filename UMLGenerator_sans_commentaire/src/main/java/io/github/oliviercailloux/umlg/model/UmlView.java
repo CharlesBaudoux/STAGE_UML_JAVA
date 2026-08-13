@@ -58,7 +58,7 @@ public record UmlView(String name, ImmutableList<UmlEntity> entities, UMLFlow di
      * @return un nom en minuscules, jamais vide : un nom fait uniquement de ponctuation retombe
      *     sur {@code vue}.
      */
-    public String nomDeFichier() {
+    public String fileName() {
         String sansAccents = Normalizer.normalize(name, Normalizer.Form.NFD)
             .replaceAll("\\p{M}+", "");
         String remplace = sansAccents.replaceAll("[^\\p{IsAlphabetic}\\p{IsDigit}]+", "-");

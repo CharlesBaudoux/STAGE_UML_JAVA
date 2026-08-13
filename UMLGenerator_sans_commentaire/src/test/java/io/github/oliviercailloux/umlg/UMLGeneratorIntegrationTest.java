@@ -168,7 +168,7 @@ class UMLGeneratorIntegrationTest {
             "La liste doit accompagner l'image, en mode fichier unique comme en mode dossier.");
         assertTrue(Files.readString(liste, StandardCharsets.UTF_8).contains("Oubliee"));
 
-        assertTrue(rapport.resume().contains("archi.svg"), rapport.resume());
+        assertTrue(rapport.summary().contains("archi.svg"), rapport.summary());
     }
 
     @Test
@@ -198,7 +198,7 @@ class UMLGeneratorIntegrationTest {
 
     @Test
     void lesCouleursConnues_sontExposeesParLaFacade() {
-        var couleurs = UMLGenerator.couleursConnues();
+        var couleurs = UMLGenerator.knownColors();
 
         assertTrue(couleurs.contains("LightBlue"), "Le catalogue de PlantUML doit être exposé.");
         assertTrue(couleurs.contains("red"));

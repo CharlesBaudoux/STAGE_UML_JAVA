@@ -46,7 +46,7 @@ final class PlantUmlSyntaxBuilder {
     // Sans réglages déclarés : ceux par défaut, c'est-à-dire ce que décrit un projet dont le
     // fichier de règles ne dit rien du dessin.
     PlantUmlSyntaxBuilder(UmlStyle style) {
-        this(style, UmlDiagram.defaut());
+        this(style, UmlDiagram.defaults());
     }
 
     PlantUmlSyntaxBuilder(UmlStyle style, UmlDiagram diagramme) {
@@ -90,7 +90,7 @@ final class PlantUmlSyntaxBuilder {
         // debutDeLigne et non label : le titre occupe à lui seul la ligne dessinée en tête du
         // diagramme, et un titre valant « === Facturation === » y perdait ses trois premiers
         // signes égal, lus comme un titre Creole.
-        if (diagramme.aUnTitre()) {
+        if (diagramme.hasTitle()) {
             tete.append("title ").append(PlantUmlEscaper.debutDeLigne(diagramme.title()))
                 .append('\n');
         }
@@ -153,7 +153,7 @@ final class PlantUmlSyntaxBuilder {
         for (Map.Entry<UmlPackage, ImmutableList<UmlEntity>> groupe
             : PackageRenderer.groupes(entities)) {
 
-            boolean groupee = groupe.getKey().estGroupee();
+            boolean groupee = groupe.getKey().isGrouped();
             if (groupee) {
                 builder.append(PackageRenderer.ouverture(groupe.getKey()));
             }

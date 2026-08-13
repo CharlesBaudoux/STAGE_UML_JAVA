@@ -185,7 +185,7 @@ class AffichageDesMembresTest {
                 { "omit": ["parameter names"] }
                 """));
 
-        assertTrue(methodes.get(0).parameters().stream().noneMatch(p -> p.nomme()),
+        assertTrue(methodes.get(0).parameters().stream().noneMatch(p -> p.isNamed()),
             methodes.toString());
         assertEquals("String", methodes.get(0).parameters().get(0).type());
     }

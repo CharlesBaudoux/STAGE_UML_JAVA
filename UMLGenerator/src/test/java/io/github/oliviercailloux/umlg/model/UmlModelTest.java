@@ -45,13 +45,13 @@ class UmlModelTest {
     void projetNull_estRefuse() {
         assertThrows(NullPointerException.class, () -> UmlProject.given(null));
         assertThrows(NullPointerException.class,
-            () -> new UmlProject(null, UmlDiagram.defaut(), ImmutableList.of()));
+            () -> new UmlProject(null, UmlDiagram.defaults(), ImmutableList.of()));
     }
 
     @Test
     void projetSansReglagesDEnsemble_estRefuse() {
         // Le second composant n'est jamais nul : tout le rendu compte sur sa présence, et
-        // UmlDiagram.defaut() est là pour dire « rien de particulier » sans avoir à l'omettre.
+        // UmlDiagram.defaults() est là pour dire « rien de particulier » sans avoir à l'omettre.
         assertThrows(NullPointerException.class,
             () -> UmlProject.given(Set.of(entiteMinimale()), null));
     }
@@ -60,7 +60,7 @@ class UmlModelTest {
     void projetSansDiagrammeDeclare_prendLesReglagesParDefaut() {
         // La forme courte de given() est celle qu'emploie un projet qui ne règle rien du dessin
         // d'ensemble, c'est-à-dire la grande majorité d'entre eux.
-        assertEquals(UmlDiagram.defaut(), UmlProject.given(Set.of(entiteMinimale())).diagram());
+        assertEquals(UmlDiagram.defaults(), UmlProject.given(Set.of(entiteMinimale())).diagram());
     }
 
     // L'IDENTITÉ, TENUE PAR LE PROJET
@@ -218,7 +218,7 @@ class UmlModelTest {
         UmlMethod methode = new UmlMethod("calculer", "void", "+", false, parametres);
         parametres.clear();
 
-        assertEquals(List.of(UmlParameter.anonyme("int"), UmlParameter.anonyme("String")),
+        assertEquals(List.of(UmlParameter.unnamed("int"), UmlParameter.unnamed("String")),
             methode.parameters(),
             "La signature ne doit pas suivre la liste passée au constructeur.");
     }
@@ -228,7 +228,7 @@ class UmlModelTest {
         UmlMethod methode = new UmlMethod("calculer", "void", "+", false, List.of("int"));
 
         assertThrows(UnsupportedOperationException.class,
-            () -> methode.parameters().add(UmlParameter.anonyme("long")));
+            () -> methode.parameters().add(UmlParameter.unnamed("long")));
     }
 
     @Test

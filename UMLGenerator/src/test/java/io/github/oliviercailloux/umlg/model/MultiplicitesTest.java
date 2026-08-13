@@ -19,7 +19,7 @@ class MultiplicitesTest {
     @ParameterizedTest
     @ValueSource(strings = {"", "*", "0", "1", "42", "0..1", "1..*", "0..*", "3..3", "999999999"})
     void lesFormesLicites_sontAcceptees(String multiplicite) {
-        assertDoesNotThrow(() -> Multiplicites.valider(multiplicite, "value"));
+        assertDoesNotThrow(() -> Multiplicites.validate(multiplicite, "value"));
     }
 
     @ParameterizedTest
@@ -27,7 +27,7 @@ class MultiplicitesTest {
         "1..", "..1", "1234567890"})
     void lesFormesFautives_sontRefusees(String multiplicite) {
         assertThrows(IllegalArgumentException.class,
-            () -> Multiplicites.valider(multiplicite, "value"));
+            () -> Multiplicites.validate(multiplicite, "value"));
     }
 
     @ParameterizedTest
@@ -35,7 +35,7 @@ class MultiplicitesTest {
     void lesFormesLicites_sontReconnues(String multiplicite) {
         // La question que la classe promettait de savoir répondre, et qu'elle n'offrait qu'en
         // levant : savoir devait passer par un try, et une exception tenait lieu de réponse.
-        assertTrue(Multiplicites.estValide(multiplicite));
+        assertTrue(Multiplicites.isValid(multiplicite));
     }
 
     @ParameterizedTest
@@ -44,13 +44,13 @@ class MultiplicitesTest {
     void lesFormesFautives_sontReconnues(String multiplicite) {
         // Les deux questions ne peuvent pas répondre différemment : elles lisent la même règle,
         // « 3..1 » compris, que seule la comparaison des bornes écarte.
-        assertFalse(Multiplicites.estValide(multiplicite));
+        assertFalse(Multiplicites.isValid(multiplicite));
     }
 
     @Test
     void uneBorneBasseSuperieureALaHaute_estRefusee() {
         var refus = assertThrows(IllegalArgumentException.class,
-            () -> Multiplicites.valider("3..1", "targetMultiplicity"));
+            () -> Multiplicites.validate("3..1", "targetMultiplicity"));
 
         assertTrue(refus.getMessage().contains("the lower bound exceeds the upper bound"),
             refus.getMessage());
@@ -61,7 +61,7 @@ class MultiplicitesTest {
         // C'est tout l'intérêt du second argument : le message doit désigner ce que
         // l'utilisateur a écrit, « sourceMultiplicity » ou « value », et non un nom interne.
         var refus = assertThrows(IllegalArgumentException.class,
-            () -> Multiplicites.valider("beaucoup", "sourceMultiplicity"));
+            () -> Multiplicites.validate("beaucoup", "sourceMultiplicity"));
 
         assertTrue(refus.getMessage().startsWith("sourceMultiplicity = \"beaucoup\""),
             refus.getMessage());

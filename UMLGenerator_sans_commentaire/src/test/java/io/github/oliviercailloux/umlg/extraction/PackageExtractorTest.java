@@ -41,15 +41,15 @@ class PackageExtractorTest {
 
         assertEquals("Module Paiement", groupe.name());
         assertEquals("", groupe.color());
-        assertTrue(groupe.estGroupee());
+        assertTrue(groupe.isGrouped());
     }
 
     @Test
     void classeSansAnnotation_nEstDansAucunGroupe() {
         UmlPackage groupe = EntityExtractor.extract(HorsGroupe.class).group();
 
-        assertEquals(UmlPackage.aucun(), groupe);
-        assertFalse(groupe.estGroupee());
+        assertEquals(UmlPackage.none(), groupe);
+        assertFalse(groupe.isGrouped());
     }
 
     @Test

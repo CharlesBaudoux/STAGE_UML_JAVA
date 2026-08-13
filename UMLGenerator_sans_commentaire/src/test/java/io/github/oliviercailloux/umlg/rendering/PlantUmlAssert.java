@@ -65,7 +65,7 @@ public final class PlantUmlAssert {
     }
 
     public static String documentPour(UmlStyle style, UmlEntity... entities) {
-        return documentPour(style, UmlDiagram.defaut(), entities);
+        return documentPour(style, UmlDiagram.defaults(), entities);
     }
 
     public static String documentPour(UmlDiagram diagramme, UmlEntity... entities) {

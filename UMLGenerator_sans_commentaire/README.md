@@ -247,7 +247,7 @@ il le peut pour `hide`, et il n'y a rien à ramener pour `omit`.
 
 `@UMLClass(color = ...)` accepte un code hexadécimal (`"#DDEEFF"`, `"#ABC"`) ou un nom de
 couleur PlantUML (`"red"`, `"LightBlue"`). Le catalogue complet s'obtient par
-`UMLGenerator.couleursConnues()`.
+`UMLGenerator.knownColors()`.
 
 ## Ce que la génération signale
 

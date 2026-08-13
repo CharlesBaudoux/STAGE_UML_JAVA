@@ -21,7 +21,7 @@ class PlantUmlPackageTest {
     }
 
     private static UmlEntity boite(String nom) {
-        return boite(nom, UmlPackage.aucun());
+        return boite(nom, UmlPackage.none());
     }
 
     // Les lignes du document, débarrassées de leur indentation : le contenu d'un rectangle est
