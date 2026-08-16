@@ -1,0 +1,59 @@
+@startuml
+skinparam classAttributeIconSize 0
+hide empty members
+skinparam nodesep 220
+skinparam ranksep 90
+
+interface "Identifiable" as Identifiable {
+}
+
+abstract class "Person" as Person {
+  # name : String
+  --
+  + {abstract} validate() : void
+}
+
+enum "Status" as Status {
+  Active
+  Suspended
+}
+
+class "Client" as Client <<Entity>> #LightBlue {
+  ~ /age : int
+  - archived : Order [0..*]
+  ~ balance : double {balance positive}
+  - counter : int
+  ~ labels : String [0..*]
+  ~ status : Status
+  --
+  + credit(amount : double) : void
+  + history() : String [0..*]
+  + identifier() : String
+  + /summarize() : String
+  + validate() : void
+}
+
+package "Billing" #EEF3F7 {
+class "Order" as Order {
+}
+
+class "ServiceBank" as ServiceBank {
+}
+
+class "Settlement" as Settlement {
+  - amount : double
+}
+
+}
+
+Identifiable <|.. Person
+(Order, ServiceBank) .. Settlement
+Client "buyer 1" *-down- "purchases 0..* {ordered} {not empty}" Order : <i>places</i>
+Client ..> ServiceBank : <i>invoices via</i>
+Person <|-- Client
+note top of Client : Core of the domain, do not expose outside the module
+note right of Client::balance
+&#78;ever negative
+end note
+note right of Client : {holder of age}
+@enduml

@@ -15,62 +15,62 @@ import java.time.LocalDate;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
-// Ce que @UMLDerived fait entrer dans le modèle.
+// What @UMLDerived brings into the model.
 //
-// L'annotation ne dit rien d'autre que « cet élément se calcule ». Toute la question est donc
-// qu'elle arrive intacte jusqu'au modèle, et qu'elle ne déborde pas sur les membres voisins.
+// The annotation says nothing but "this element is computed". The whole question is therefore
+// that it reaches the model intact, and that it does not spill over the neighbouring members.
 class DerivationTest {
 
-    private static Optional<UmlField> champ(UmlEntity e, String nom) {
-        return e.fields().stream().filter(f -> f.name().equals(nom)).findFirst();
+    private static Optional<UmlField> field(UmlEntity e, String name) {
+        return e.fields().stream().filter(f -> f.name().equals(name)).findFirst();
     }
 
-    private static Optional<UmlMethod> methode(UmlEntity e, String nom) {
-        return e.methods().stream().filter(m -> m.name().equals(nom)).findFirst();
+    private static Optional<UmlMethod> method(UmlEntity e, String name) {
+        return e.methods().stream().filter(m -> m.name().equals(name)).findFirst();
     }
 
     @UMLClass(strategy = UMLVisibility.PRIVATE)
-    static class Personne {
+    static class Person {
 
-        private LocalDate dateNaissance;
+        private LocalDate dateBirth;
 
         @UMLDerived
         private int age;
 
         @UMLDerived
-        public String resumer() {
+        public String summarize() {
             return "";
         }
 
-        public void deplacer() {}
+        public void move() {}
     }
 
     @Test
-    void attributAnnote_estDitDerive() {
-        UmlEntity entity = EntityExtractor.extract(Personne.class);
+    void annotatedField_isSaidDerived() {
+        UmlEntity entity = EntityExtractor.extract(Person.class);
 
-        assertTrue(champ(entity, "age").orElseThrow().derived());
+        assertTrue(field(entity, "age").orElseThrow().derived());
     }
 
     @Test
-    void attributVoisin_resteStocke() {
-        // La dérivation se pose membre par membre : rien ne doit déteindre sur l'attribut d'à
-        // côté, fût-il déclaré juste avant.
-        UmlEntity entity = EntityExtractor.extract(Personne.class);
+    void neighbouringField_staysStored() {
+        // Derivation is set member by member: nothing must rub off on the neighbouring
+        // side, even one declared just before.
+        UmlEntity entity = EntityExtractor.extract(Person.class);
 
-        assertFalse(champ(entity, "dateNaissance").orElseThrow().derived());
+        assertFalse(field(entity, "dateBirth").orElseThrow().derived());
     }
 
     @Test
-    void methodeAnnotee_estDiteDerivee() {
-        UmlEntity entity = EntityExtractor.extract(Personne.class);
+    void annotatedMethod_isSaidDerived() {
+        UmlEntity entity = EntityExtractor.extract(Person.class);
 
-        assertTrue(methode(entity, "resumer").orElseThrow().derived());
-        assertFalse(methode(entity, "deplacer").orElseThrow().derived());
+        assertTrue(method(entity, "summarize").orElseThrow().derived());
+        assertFalse(method(entity, "move").orElseThrow().derived());
     }
 
     @UMLClass(strategy = UMLVisibility.PUBLIC)
-    static class Panier {
+    static class Cart {
 
         @UMLDerived
         @UMLInclude
@@ -78,11 +78,11 @@ class DerivationTest {
     }
 
     @Test
-    void derivationEtInclusion_secombinent() {
-        // Les deux annotations répondent à deux questions distinctes — « le montre-t-on ? » et
-        // « est-il calculé ? » —, et doivent pouvoir cohabiter sur le même attribut.
-        UmlEntity entity = EntityExtractor.extract(Panier.class);
+    void derivationAndInclusion_combine() {
+        // The two annotations answer two distinct questions — "do we show it?" and
+        // "is it computed?" —, and must be able to coexist on the same field.
+        UmlEntity entity = EntityExtractor.extract(Cart.class);
 
-        assertTrue(champ(entity, "total").orElseThrow().derived());
+        assertTrue(field(entity, "total").orElseThrow().derived());
     }
 }

@@ -15,83 +15,83 @@ import io.github.oliviercailloux.umlg.rendering.PlantUmlAssert;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-// La notation « nom: Type », aux trois endroits où un type paraît : un attribut, le retour d'une
-// méthode, un paramètre.
+// The "name: Type" notation, in the three places where a type appears: a field, the return of a
+// a method, a parameter.
 //
-// Sur les noms de paramètres. Ce projet-ci est compilé avec l'option « -parameters » (voir le
-// pom), les cobayes qui suivent portent donc leurs noms et les tests peuvent les attendre. Un
-// projet compilé sans elle n'en a pas, et la bibliothèque n'écrit alors que les types — c'est le
-// cas qu'éprouve ProjectScannerIntegrationTest, qui compile ses cobayes sans l'option.
+// On parameter names. This project is compiled with the "-parameters" option (see the
+// pom), so the fixtures that follow carry their names and the tests can expect them. A
+// a project compiled without it has none, and the library then writes the types only — that is the
+// the case ProjectScannerIntegrationTest exercises, compiling its fixtures without the option.
 class PlantUmlSignatureTest {
 
-    @UMLClass(name = "Vol", strategy = UMLVisibility.PRIVATE)
-    static class Vol {
+    @UMLClass(name = "Flight", strategy = UMLVisibility.PRIVATE)
+    static class Flight {
         private String departureTime;
 
-        public void reporter(String nouvelleHeure, int minutes) {}
+        public void reporter(String newTime, int minutes) {}
 
         public String destination() {
             return "";
         }
 
         @UMLDerived
-        public static int compter(String code) {
+        public static int count(String code) {
             return 0;
         }
     }
 
     private static String source() {
-        return PlantUmlAssert.documentPour(EntityExtractor.extract(Vol.class));
+        return PlantUmlAssert.documentFor(EntityExtractor.extract(Flight.class));
     }
 
     @Test
-    void attribut_secritNomPuisType() {
+    void field_isWrittenNameThenType() {
         assertTrue(source().contains("- departureTime : String"), source());
     }
 
     @Test
-    void methode_ecritSonTypeDeRetourApresLesParentheses() {
+    void method_writesItsReturnTypeAfterTheParentheses() {
         assertTrue(source().contains("+ destination() : String"), source());
     }
 
     @Test
-    void parametres_portentLeurNomQuandLaCompilationLaGarde() {
-        assertTrue(source().contains("+ reporter(nouvelleHeure : String, minutes : int) : void"),
-            "Les paramètres doivent être nommés et séparés par une virgule :\n" + source());
-        // Le nom inventé par la réflexion ne doit jamais atteindre le dessin.
+    void parameters_carryTheirNameWhenCompilationKeepsIt() {
+        assertTrue(source().contains("+ reporter(newTime : String, minutes : int) : void"),
+            "The parameters must be named and separated by a comma:\n" + source());
+        // The name invented by reflection must never reach the drawing.
         assertFalse(source().contains("arg0"), source());
     }
 
     @Test
-    void staticEtDerive_gardentLeursNotationsAutourDeLaSignature() {
-        // {static} avant le nom, la barre oblique devant lui, le type de retour après : les trois
-        // notations doivent coexister sans se marcher dessus.
-        assertTrue(source().contains("+ {static} /compter(code : String) : int"), source());
+    void staticAndDerived_keepTheirNotationsAroundTheSignature() {
+        // {static} before the name, the slash in front of it, the return type after: the three
+        // notations must coexist without stepping on each other.
+        assertTrue(source().contains("+ {static} /count(code : String) : int"), source());
         PlantUmlAssert.assertCompile(source());
     }
 
     @Test
-    void parametreSansNom_neMontreQueSonType() {
-        // Le modèle construit à la main, comme le ferait l'extraction d'un projet compilé sans
-        // « -parameters » : sans nom, pas de deux-points orphelins.
-        UmlEntity entite = UmlEntity.builder("com.exemple.Compte", "Compte")
-            .methods(List.of(new UmlMethod("retirer", "void", "", "+", false,
-                ImmutableList.of(UmlParameter.unnamed("double"), new UmlParameter("motif",
+    void parameterWithoutName_showsItsTypeOnly() {
+        // The model built by hand, as extraction of a project compiled without
+        // --- "-parameters": with no name, no orphan colons ---
+        UmlEntity entity = UmlEntity.builder("com.example.Account", "Account")
+            .methods(List.of(new UmlMethod("remove", "void", "", "+", false,
+                ImmutableList.of(UmlParameter.unnamed("double"), new UmlParameter("pattern",
                     "String")),
                 false)))
             .build();
 
-        String source = PlantUmlAssert.documentPour(entite);
+        String source = PlantUmlAssert.documentFor(entity);
 
-        assertTrue(source.contains("+ retirer(double, motif : String) : void"), source);
+        assertTrue(source.contains("+ remove(double, pattern : String) : void"), source);
         PlantUmlAssert.assertCompile(source);
     }
 
     @Test
-    void lecteurVoitLaSignatureComplete() throws Exception {
-        String texte = PlantUmlAssert.texteRendu(EntityExtractor.extract(Vol.class));
+    void readerSeesTheCompleteSignature() throws Exception {
+        String text = PlantUmlAssert.textRendered(EntityExtractor.extract(Flight.class));
 
-        assertTrue(texte.contains("departureTime : String"), texte);
-        assertTrue(texte.contains("reporter(nouvelleHeure : String, minutes : int) : void"), texte);
+        assertTrue(text.contains("departureTime : String"), text);
+        assertTrue(text.contains("reporter(newTime : String, minutes : int) : void"), text);
     }
 }

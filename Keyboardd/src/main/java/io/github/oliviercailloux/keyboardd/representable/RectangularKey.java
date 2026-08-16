@@ -1,7 +1,6 @@
 package io.github.oliviercailloux.keyboardd.representable;
 
 import io.github.oliviercailloux.umlg.annotation.UMLClass;
-import io.github.oliviercailloux.umlg.annotation.UMLExclude;
 
 import io.github.oliviercailloux.geometry.Point;
 import io.github.oliviercailloux.geometry.Size;
@@ -17,7 +16,6 @@ import io.github.oliviercailloux.geometry.Zone;
 @UMLClass
 public record RectangularKey (Zone zone,
     /* empty for no signal */ String xKeyName) {
-  @UMLExclude
   public static RectangularKey from(Zone zone, String xKeyName) {
     return new RectangularKey(zone, xKeyName);
     // return new RectangularKey(Zone.at(topLeftCorner).resizedFixedCenter(size), xKeyName);

@@ -12,7 +12,7 @@ import io.github.oliviercailloux.umlg.extraction.relation.AssociationExtractor;
 import io.github.oliviercailloux.umlg.extraction.relation.DependencyExtractor;
 import io.github.oliviercailloux.umlg.extraction.relation.InheritanceExtractor;
 import io.github.oliviercailloux.umlg.extraction.relation.RelationExtractor;
-import io.github.oliviercailloux.umlg.extraction.rules.Regles;
+import io.github.oliviercailloux.umlg.extraction.rules.Rules;
 import io.github.oliviercailloux.umlg.model.UmlEntity;
 import io.github.oliviercailloux.umlg.model.UmlEntityKind;
 import io.github.oliviercailloux.umlg.model.UmlField;
@@ -22,13 +22,8 @@ import java.lang.reflect.Type;
 import java.lang.reflect.TypeVariable;
 import java.util.StringJoiner;
 
-// Traduit une classe annotée en une UmlEntity : c'est le chef d'orchestre de l'extraction.
-//
-// Il ne fait presque rien lui-même. Il lit l'en-tête (@UMLClass), puis délègue : les membres à
-// MemberExtractor, les relations aux RelationExtractor, la validation à ClassHeaderValidator.
 public final class EntityExtractor {
-
-    private static final ImmutableList<RelationExtractor> EXTRACTEURS = ImmutableList.of(
+    private static final ImmutableList<RelationExtractor> Extractors = ImmutableList.of(
         new AssociationExtractor(),
         new DependencyExtractor(),
         new InheritanceExtractor(),
@@ -36,19 +31,13 @@ public final class EntityExtractor {
 
     private EntityExtractor() {}
 
-    // Sans règles de projet : une classe extraite pour elle seule, telle que son code la décrit.
     public static UmlEntity extract(Class<?> clazz) {
-        return extract(clazz, Regles.aucune());
+        return extract(clazz, Rules.no());
     }
 
-    // Avec les règles du projet, celles que ProjectScanner a lues une fois pour toutes. Elles
-    // traversent l'extracteur pour atteindre tout ce qu'elles gouvernent : le nom des types
-    // affichés, les membres retenus, et l'ordre — celui des attributs et des méthodes, mais aussi
-    // celui des liens et des bulles, qui se rangeaient autrefois par alphabet quoi que le projet
-    // ait demandé, faute que les règles descendent jusqu'ici.
-    public static UmlEntity extract(Class<?> clazz, Regles regles) {
+    public static UmlEntity extract(Class<?> clazz, Rules rules) {
         checkNotNull(clazz);
-        checkNotNull(regles);
+        checkNotNull(rules);
 
         checkArgument(clazz.isAnnotationPresent(UMLClass.class),
             "Class %s does not carry the @UMLClass annotation.", clazz.getName());
@@ -58,27 +47,19 @@ public final class EntityExtractor {
         String finalName = annotation.name().isEmpty() ? clazz.getSimpleName() : annotation.name();
         String finalStereotype = annotation.stereotype();
         String finalColor = annotation.color();
-        // La seule résolution de UMLVisibility.PROJECT de toute la bibliothèque : la classe dit
-        // la sienne, ou s'en remet à celle du projet. Tout ce qui suit ne voit qu'une visibilité
-        // concrète, et n'a donc pas à connaître l'existence du renvoi.
-        UMLVisibility finalStrategy = regles.strategieDe(annotation.strategy());
+
+        UMLVisibility finalStrategy = rules.strategy(annotation.strategy());
 
         ClassHeaderValidator.validateName(finalName, clazz);
         ClassHeaderValidator.validateStereotype(finalStereotype, clazz);
         ClassHeaderValidator.validateColor(finalColor, clazz);
 
-        // Les membres sont extraits avant la construction du builder : les notes ont besoin de
-        // savoir lesquels seront dessinés, car une bulle ne s'accroche qu'à ce qui existe.
-        //
-        // Les méthodes écrites en notation attribut — @UMLInclude(asAttribute = true) —
-        // rejoignent le compartiment des attributs, après les attributs du code : ce que la
-        // classe stocke d'abord, ce qu'elle expose ensuite.
         ImmutableList<UmlField> fields = ImmutableList.<UmlField>builder()
-            .addAll(MemberExtractor.extractFields(clazz, finalStrategy, regles))
-            .addAll(MemberExtractor.methodesEnAttributs(clazz, finalStrategy, regles))
+            .addAll(MemberExtractor.extractFields(clazz, finalStrategy, rules))
+            .addAll(MemberExtractor.methodsAsAttributes(clazz, finalStrategy, rules))
             .build();
         ImmutableList<UmlMethod> methods =
-            MemberExtractor.extractMethods(clazz, finalStrategy, regles);
+            MemberExtractor.extractMethods(clazz, finalStrategy, rules);
 
         UmlEntity.Builder builder = UmlEntity.builder(clazz.getName(), finalName)
             .kind(kind(clazz))
@@ -86,29 +67,20 @@ public final class EntityExtractor {
             .color(finalColor)
             .strategy(finalStrategy)
 
-            .literals(MemberExtractor.extractLiterals(clazz, finalStrategy, regles))
+            .literals(MemberExtractor.extractLiterals(clazz, finalStrategy, rules))
             .fields(fields)
             .methods(methods)
-            .notes(NoteExtractor.extraire(clazz, fields, methods, regles))
-            .constraints(ConstraintExtractor.de(clazz, clazz.getName()))
-            .group(PackageExtractor.extraire(clazz))
-            .typeParameters(parametresDeType(clazz, regles));
+            .notes(NoteExtractor.extract(clazz, fields, methods, rules))
+            .constraints(ConstraintExtractor.of(clazz, clazz.getName()))
+            .group(PackageExtractor.extract(clazz))
+            .typeParameters(typeParameters(clazz, rules));
 
-        for (RelationExtractor extracteur : EXTRACTEURS) {
-            builder.relations(extracteur.extraire(clazz, regles));
+        for (RelationExtractor extractor : Extractors) {
+            builder.relations(extractor.extract(clazz, rules));
         }
         return builder.build();
     }
 
-    // Ce que la classe est, lu par réflexion.
-    //
-    // L'ordre des tests n'est pas indifférent, car les catégories de Java se recouvrent. Un type
-    // annotation est aussi une interface ; une interface porte toujours le modificateur
-    // abstract ; une énumération dont une constante a un corps est abstract elle aussi. Chaque
-    // cas particulier doit donc être écarté avant le cas général qui le contient.
-    //
-    // Un record n'apparaît pas dans ce test : c'est une classe finale, et il tombe donc dans
-    // CLASS — ce qui le décrit exactement.
     private static UmlEntityKind kind(Class<?> clazz) {
         if (clazz.isAnnotation()) {
             return UmlEntityKind.ANNOTATION;
@@ -125,36 +97,26 @@ public final class EntityExtractor {
         return UmlEntityKind.CLASS;
     }
 
-    // Les paramètres de type de la classe, chevrons compris : « <T> », « <K, V extends Number> ».
-    //
-    // UML les dessine dans un cartouche en pointillés au coin de la boîte ; PlantUML les écrit
-    // simplement à la suite du nom, ce qui dit la même chose. Ils manquaient tout à fait : une
-    // « Boite<T> » s'affichait « Boite », avec un attribut de type T que plus rien dans le
-    // diagramme ne définissait.
-    //
-    // Les bornes suivent les règles de nommage du projet, comme partout ailleurs : un
-    // « T extends ImmutableList » s'écrit « T extends List » si le projet le demande.
-    private static String parametresDeType(Class<?> clazz, Regles regles) {
+    private static String typeParameters(Class<?> clazz, Rules rules) {
         TypeVariable<?>[] variables = clazz.getTypeParameters();
         if (variables.length == 0) {
             return "";
         }
-        StringJoiner parametres = new StringJoiner(", ", "<", ">");
+        StringJoiner parameters = new StringJoiner(", ", "<", ">");
         for (TypeVariable<?> variable : variables) {
-            StringBuilder ecrit = new StringBuilder(variable.getName());
-            // « extends Object » est la borne par défaut : l'écrire n'apprendrait rien, et
-            // allongerait l'en-tête de toutes les classes génériques du projet.
-            StringJoiner bornes = new StringJoiner(" & ");
-            for (Type borne : variable.getBounds()) {
-                if (borne != Object.class) {
-                    bornes.add(TypeAffiche.de(borne, regles));
+            StringBuilder written = new StringBuilder(variable.getName());
+
+            StringJoiner bounds = new StringJoiner(" & ");
+            for (Type bound : variable.getBounds()) {
+                if (bound != Object.class) {
+                    bounds.add(DisplayedType.of(bound, rules));
                 }
             }
-            if (bornes.length() > 0) {
-                ecrit.append(" extends ").append(bornes);
+            if (bounds.length() > 0) {
+                written.append(" extends ").append(bounds);
             }
-            parametres.add(ecrit);
+            parameters.add(written);
         }
-        return parametres.toString();
+        return parameters.toString();
     }
 }

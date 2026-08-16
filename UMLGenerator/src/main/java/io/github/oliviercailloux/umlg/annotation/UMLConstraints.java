@@ -6,19 +6,11 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/**
- * Conteneur technique de @UMLConstraint, exigé par le mécanisme @Repeatable de Java.
- *
- * <p>L'utilisateur ne l'écrit jamais. Voir UMLDependencies et UMLNotes, qui jouent le même rôle.
- */
+/** The container the compiler fills when &#64;UMLConstraint is repeated. */
 @Documented
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.TYPE, ElementType.FIELD})
 public @interface UMLConstraints {
-
-    /**
-     * {@return les contraintes regroupées}. Le nom {@code value} est imposé par
-     * {@code @Repeatable}.
-     */
+    /** {@return the constraints set on the same element} */
     UMLConstraint[] value();
 }

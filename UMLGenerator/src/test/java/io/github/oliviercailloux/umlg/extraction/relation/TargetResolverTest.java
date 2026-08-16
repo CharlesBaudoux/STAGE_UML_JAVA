@@ -11,85 +11,85 @@ import io.github.oliviercailloux.umlg.model.UmlAssociation;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-// « La classe à l'autre bout du trait a-t-elle le droit d'y être ? »
+// "Is the class at the other end of the stroke allowed to be there?"
 //
-// target() étant obligatoire (sans default, javac refuse déjà une annotation où elle manque),
-// il n'y a plus rien à déduire : ces tests vérifient la seule validation — la cible déclarée
-// est acceptée telle quelle, ou refusée avec un message qui nomme la faute.
+// target() being mandatory (with no default, javac already refuses an annotation missing it),
+// there is nothing left to infer: these tests check validation only — the declared target
+// is accepted as is, or refused with a message naming the fault.
 class TargetResolverTest {
 
     @UMLClass
-    static class Commande {}
+    static class Order {}
 
-    // Sans @UMLClass : sert de cible interdite.
-    static class HorsDiagramme {}
+    // Without @UMLClass: serves as a forbidden target.
+    static class OutsideDiagram {}
 
-    private static UmlAssociation seuleAssociation(Class<?> clazz) {
+    private static UmlAssociation onlyAssociation(Class<?> clazz) {
         List<UmlAssociation> associations = EntityExtractor.extract(clazz).associations();
         assertEquals(1, associations.size(),
-            () -> "Attendu exactement une association sur " + clazz.getSimpleName()
+            () -> "Expected exactly one association on " + clazz.getSimpleName()
                 + ", obtenu : " + associations);
         return associations.get(0);
     }
 
-    // --- Cible valide ---
+    // --- Valid target ---
 
     @UMLClass
-    static class ChampSimple {
-        @UMLAssociation(target = Commande.class)
-        private Commande commande;
+    static class FieldSimple {
+        @UMLAssociation(target = Order.class)
+        private Order order;
     }
 
     @Test
-    void cibleDeclaree_estRepriseTelleQuelle() {
-        assertEquals(Commande.class.getName(),
-            seuleAssociation(ChampSimple.class).targetQualifiedName());
+    void declaredTarget_isTakenAsIs() {
+        assertEquals(Order.class.getName(),
+            onlyAssociation(FieldSimple.class).targetQualifiedName());
     }
 
     @UMLClass
-    static class ChampCibleIndependanteDuType {
-        // La cible déclarée fait foi, sans regard sur le type de l'attribut : rien n'est déduit.
-        @UMLAssociation(target = Commande.class)
-        private List<Object> boiteNoire;
+    static class FieldTargetIndependentOfTheType {
+        // The declared target prevails, regardless of the field type: nothing is inferred.
+        @UMLAssociation(target = Order.class)
+        private List<Object> blackBox;
     }
 
     @Test
-    void cibleDeclaree_nEstJamaisConfronteeAuTypeDeLAttribut() {
-        assertEquals(Commande.class.getName(),
-            seuleAssociation(ChampCibleIndependanteDuType.class).targetQualifiedName());
+    void declaredTarget_isNeverComparedToTheFieldType() {
+        assertEquals(Order.class.getName(),
+            onlyAssociation(FieldTargetIndependentOfTheType.class).targetQualifiedName());
     }
 
-    // --- Cible refusée : l'erreur nomme l'attribut fautif ---
+    // --- Refused target: the error names the faulty field ---
     //
-    // Ces cobayes ne portent volontairement pas @UMLClass : le balayage de target/test-classes
-    // par les tests d'intégration les extrairait, et échouerait.
+    // These fixtures deliberately carry no @UMLClass: the sweep of target/test-classes
+    // by the integration tests would extract them, and would fail.
 
-    static class ChampHorsDiagramme {
-        @UMLAssociation(target = HorsDiagramme.class)
-        private HorsDiagramme dependance;
+    static class FieldOutsideDiagram {
+        @UMLAssociation(target = OutsideDiagram.class)
+        private OutsideDiagram dependency;
     }
 
     @Test
-    void cibleSansUmlClass_estRefusee() {
-        // Sans ce refus, PlantUML inventerait une boîte vide portant ce nom : un diagramme
-        // faux, indiscernable d'une classe réellement sans membre.
+    void targetWithoutUmlClass_isRefused() {
+        // Without this refusal, PlantUML would invent an empty box carrying that name: a diagram
+        // wrong, indistinguishable from a class really without members.
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
-            () -> new AssociationExtractor().extraire(ChampHorsDiagramme.class));
+            () -> new AssociationExtractor().extract(FieldOutsideDiagram.class));
 
         assertTrue(e.getMessage().contains("@UMLClass"),
-            () -> "Le message doit expliquer ce qui manque : " + e.getMessage());
-        assertTrue(e.getMessage().contains("dependance"),
-            () -> "Le message doit désigner l'attribut fautif : " + e.getMessage());
+            () -> "The message must explain what is missing: " + e.getMessage());
+        assertTrue(e.getMessage().contains("dependency"),
+            () -> "The message must name the faulty field: " + e.getMessage());
     }
 
-    static class ChampPrimitif {
+    static class PrimitiveField {
         @UMLAssociation(target = int.class)
-        private int compteur;
+        private int counter;
     }
 
     @Test
-    void typePrimitif_estRefuse() {
+    void primitiveType_isRefused() {
         assertThrows(IllegalArgumentException.class,
-            () -> new AssociationExtractor().extraire(ChampPrimitif.class));
+            () -> new AssociationExtractor().extract(PrimitiveField.class));
     }
 }

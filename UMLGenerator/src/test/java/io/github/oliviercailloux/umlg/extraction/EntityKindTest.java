@@ -6,89 +6,89 @@ import io.github.oliviercailloux.umlg.annotation.UMLClass;
 import io.github.oliviercailloux.umlg.model.UmlEntityKind;
 import org.junit.jupiter.api.Test;
 
-// La nature de l'entité, déduite du mot-clé Java.
+// The nature of the entity, inferred from the Java keyword.
 //
-// L'enjeu de ces tests est l'ordre des questions posées à la réflexion : les catégories de Java
-// se recouvrent, et chaque cobaye ci-dessous appartient à plusieurs d'entre elles à la fois.
+// What is at stake in these tests is the order of the questions put to reflection: the Java categories
+// overlap, and each fixture below belongs to several of them at once.
 class EntityKindTest {
 
-    private static UmlEntityKind natureDe(Class<?> clazz) {
+    private static UmlEntityKind nature(Class<?> clazz) {
         return EntityExtractor.extract(clazz).kind();
     }
 
     @UMLClass
-    static class Compte {}
+    static class Account {}
 
     @Test
-    void classeOrdinaire_estUneClasse() {
-        assertEquals(UmlEntityKind.CLASS, natureDe(Compte.class));
+    void ordinaryClass_isAClass() {
+        assertEquals(UmlEntityKind.CLASS, nature(Account.class));
     }
 
     @UMLClass
     abstract static class Operation {}
 
     @Test
-    void classeAbstraite_estReconnue() {
-        assertEquals(UmlEntityKind.ABSTRACT_CLASS, natureDe(Operation.class));
+    void abstractClass_isRecognized() {
+        assertEquals(UmlEntityKind.ABSTRACT_CLASS, nature(Operation.class));
     }
 
     @UMLClass
-    interface Virement {}
+    interface Transfer {}
 
     @Test
-    void interface_estReconnueAvantLAbstraction() {
-        // Une interface porte toujours le modificateur abstract : si le test d'abstraction
-        // passait en premier, toutes les interfaces deviendraient des classes abstraites.
-        assertEquals(UmlEntityKind.INTERFACE, natureDe(Virement.class));
+    void interface_isRecognizedBeforeAbstraction() {
+        // An interface always carries the abstract modifier: if the abstraction test
+        // came first, every interface would become an abstract class.
+        assertEquals(UmlEntityKind.INTERFACE, nature(Transfer.class));
     }
 
     @UMLClass
-    enum Devise {
-        EURO, DOLLAR
+    enum Currency {
+        Euro, Dollar
     }
 
     @Test
-    void enumeration_estReconnue() {
-        assertEquals(UmlEntityKind.ENUM, natureDe(Devise.class));
+    void enumeration_isRecognized() {
+        assertEquals(UmlEntityKind.ENUM, nature(Currency.class));
     }
 
     @UMLClass
-    enum Operateur {
-        // Une constante à corps fait de l'énumération une classe abstraite pour le compilateur.
+    enum Operator {
+        // A constant with a body makes the enumeration an abstract class for the compiler.
         PLUS {
             @Override
-            int appliquer(int a, int b) {
+            int apply(int a, int b) {
                 return a + b;
             }
         };
 
-        abstract int appliquer(int a, int b);
+        abstract int apply(int a, int b);
     }
 
     @Test
-    void enumerationAbstraite_resteUneEnumeration() {
-        // Le cobaye le plus révélateur : Operateur est à la fois enum et abstract. Le test sur
-        // l'énumération doit donc précéder celui sur l'abstraction.
-        assertEquals(UmlEntityKind.ENUM, natureDe(Operateur.class));
+    void abstractEnumeration_staysAnEnumeration() {
+        // The most telling fixture: Operator is both enum and abstract. The test on
+        // the enumeration must therefore come before the one on abstraction.
+        assertEquals(UmlEntityKind.ENUM, nature(Operator.class));
     }
 
     @UMLClass
     @interface Auditable {}
 
     @Test
-    void typeAnnotation_estReconnuAvantLInterface() {
-        // Un @interface est une interface pour la réflexion : sans test préalable, il serait
-        // dessiné comme telle, et l'information serait perdue.
-        assertEquals(UmlEntityKind.ANNOTATION, natureDe(Auditable.class));
+    void annotationType_isRecognizedBeforeTheInterface() {
+        // An @interface is an interface for reflection: with no prior test, it would be
+        // drawn as such, and the information would be lost.
+        assertEquals(UmlEntityKind.ANNOTATION, nature(Auditable.class));
     }
 
     @UMLClass
-    record Montant(double valeur, String devise) {}
+    record Amount(double value, String currency) {}
 
     @Test
-    void record_estUneClasse() {
-        // Décision assumée : un record est une classe finale, et UML ne lui réserve aucune
-        // notation. Le dessiner en classe n'est pas un pis-aller, c'est exact.
-        assertEquals(UmlEntityKind.CLASS, natureDe(Montant.class));
+    void record_isAClass() {
+        // A deliberate decision: a record is a final class, and UML reserves it no
+        // notation. Le dessiner en class n'is not un pis-aller, c'is exact.
+        assertEquals(UmlEntityKind.CLASS, nature(Amount.class));
     }
 }

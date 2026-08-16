@@ -18,109 +18,109 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
-// Le rendu des dépendances, construit sur le même plan que PlantUmlAssociationTest : notation,
-// acceptation par le moteur, injection par le label, résolution de la cible, puis un aller
-// complet depuis les annotations.
+// The rendering of dependencies, built on the same plan as PlantUmlAssociationTest: notation,
+// acceptance by the engine, injection through the label, target resolution, then a round
+// complete, from the annotations on.
 //
-// Le point propre à ce fichier : dépendance et association doivent rester visuellement
-// distinctes (pointillé contre plein) alors qu'elles relient les deux mêmes boîtes.
+// The point specific to this file: dependency and association must stay visually
+// distinct (dotted against solid) even though they join the same two boxes.
 class PlantUmlDependencyTest {
 
     @UMLClass
-    static class ServiceBancaire {}
+    static class ServiceBank {}
 
-    private static UmlEntity cible(String nomQualifie) {
-        return UmlEntity.builder(nomQualifie, "Cible").build();
+    private static UmlEntity target(String qualifiedName) {
+        return UmlEntity.builder(qualifiedName, "Target").build();
     }
 
-    private static UmlEntity[] paire(UmlDependency dependance) {
+    private static UmlEntity[] pair(UmlDependency dependency) {
         UmlEntity source = UmlEntity.builder("Source", "Source")
-            .dependencies(ImmutableList.of(dependance)).build();
-        return new UmlEntity[] {source, cible(dependance.targetQualifiedName())};
+            .dependencies(ImmutableList.of(dependency)).build();
+        return new UmlEntity[] {source, target(dependency.targetQualifiedName())};
     }
 
-    private static List<String> lignesDeLien(String source) {
-        return PlantUmlAssert.lignesDeLien(source);
+    private static List<String> linkLines(String source) {
+        return PlantUmlAssert.linkLines(source);
     }
 
-    // Isole l'unique ligne de lien attendue, avec un message parlant si le compte diffère.
-    private static String ligneUnique(String source) {
-        List<String> lignes = lignesDeLien(source);
-        assertEquals(1, lignes.size(), () -> "Attendu un seul lien dans :\n" + source);
-        return lignes.get(0);
+    // Isolates the single expected link line, with a telling message if the count differs.
+    private static String lineUnique(String source) {
+        List<String> lines = linkLines(source);
+        assertEquals(1, lines.size(), () -> "Expected a single link in:\n" + source);
+        return lines.get(0);
     }
 
     // --- Notation ---
 
     @Test
-    void dependance_estUnTraitPointilleFleche() {
-        // Le pointillé est ce qui distingue, à la lecture, un simple usage d'un lien
-        // structurel : « ..> » et non « --> ».
-        assertEquals("Source ..> Cible",
-            ligneUnique(PlantUmlAssert.documentPour(paire(UmlDependency.toTarget("Cible")))));
+    void dependency_isADottedArrow() {
+        // The dotted line is what tells apart, on reading, a mere use from a
+        // structurel : « ..> » and not « --> ».
+        assertEquals("Source ..> Target",
+            lineUnique(PlantUmlAssert.documentFor(pair(UmlDependency.toTarget("Target")))));
     }
 
     @Test
-    void label_suitLesDeuxPoints() {
-        assertEquals("Source ..> Cible : facture via",
-            ligneUnique(PlantUmlAssert.documentPour(
-                paire(new UmlDependency("Cible", "facture via")))));
+    void label_followsTheColon() {
+        assertEquals("Source ..> Target : invoice via",
+            lineUnique(PlantUmlAssert.documentFor(
+                pair(new UmlDependency("Target", "invoice via")))));
     }
 
     @Test
-    void dependanceEtAssociation_coexistentSansSeConfondre() {
-        // Les deux natures de liens partent de la même classe : elles doivent produire deux
-        // traits distincts, l'un plein, l'autre pointillé.
+    void dependencyAndAssociation_coexistWithoutMerging() {
+        // Both link natures leave the same class: they must produce two
+        // distinct strokes, one solid, the other dotted.
         UmlEntity source = UmlEntity.builder("Source", "Source")
-            .associations(ImmutableList.of(UmlAssociation.builder("champ", "Cible").build()))
-            .dependencies(ImmutableList.of(UmlDependency.toTarget("Cible")))
+            .associations(ImmutableList.of(UmlAssociation.builder("field", "Target").build()))
+            .dependencies(ImmutableList.of(UmlDependency.toTarget("Target")))
             .build();
 
-        String rendu = PlantUmlAssert.documentPour(source, cible("Cible"));
+        String rendered = PlantUmlAssert.documentFor(source, target("Target"));
 
-        assertEquals(List.of("Source --> Cible", "Source ..> Cible"), lignesDeLien(rendu));
-        PlantUmlAssert.assertCompile(rendu);
+        assertEquals(List.of("Source --> Target", "Source ..> Target"), linkLines(rendered));
+        PlantUmlAssert.assertCompile(rendered);
     }
 
     @Test
-    void plusieursDependances_produisentAutantDeTraits() {
+    void severalDependencies_produceAsManyStrokes() {
         UmlEntity source = UmlEntity.builder("Source", "Source")
             .dependencies(ImmutableList.of(
-                new UmlDependency("A", "paie"), new UmlDependency("B", "trace")))
+                new UmlDependency("A", "pays"), new UmlDependency("B", "trace")))
             .build();
 
-        String rendu = PlantUmlAssert.documentPour(
+        String rendered = PlantUmlAssert.documentFor(
             source, UmlEntity.builder("A", "A").build(), UmlEntity.builder("B", "B").build());
 
-        assertEquals(List.of("Source ..> A : paie", "Source ..> B : trace"), lignesDeLien(rendu));
-        PlantUmlAssert.assertCompile(rendu);
+        assertEquals(List.of("Source ..> A : pays", "Source ..> B : trace"), linkLines(rendered));
+        PlantUmlAssert.assertCompile(rendered);
     }
 
-    // --- Le moteur accepte-t-il vraiment cela ? ---
+    // --- Does the engine really accept this? ---
 
-    static List<UmlDependency> dependancesVariees() {
+    static List<UmlDependency> dependenciesVaried() {
         return List.of(
-            UmlDependency.toTarget("Cible"),
-            new UmlDependency("Cible", "utilise"),
-            new UmlDependency("Cible", "n'appelle qu'en lecture"),
-            new UmlDependency("Cible", "Réf. n°42"));
+            UmlDependency.toTarget("Target"),
+            new UmlDependency("Target", "uses"),
+            new UmlDependency("Target", "n'appelle qu'en lecture"),
+            new UmlDependency("Target", "Ref. no.42"));
     }
 
     @ParameterizedTest
-    @MethodSource("dependancesVariees")
-    void dependanceRendue_estAccepteeParLeMoteur(UmlDependency dependance) {
-        String source = PlantUmlAssert.documentPour(paire(dependance));
+    @MethodSource("dependenciesVaried")
+    void renderedDependency_isAcceptedByTheEngine(UmlDependency dependency) {
+        String source = PlantUmlAssert.documentFor(pair(dependency));
 
         PlantUmlAssert.assertCompile(source);
-        assertEquals(2, PlantUmlAssert.aliasDeclares(source).size(),
-            () -> "Le lien a fait apparaître ou disparaître une boîte :\n" + source);
+        assertEquals(2, PlantUmlAssert.aliasDeclared(source).size(),
+            () -> "The link made a box appear or vanish:\n" + source);
     }
 
-    // --- Injection par le label ---
+    // --- Injection through the label ---
 
-    static List<String> labelsHostiles() {
+    static List<String> labelsHostile() {
         return List.of(
-            "fin\" as X\nclass Intruse",
+            "end\" as X\nclass Intruse",
             "<img:/etc/hostname>",
             "@enduml\n@startuml\nclass Intruse",
             "}\nclass Intruse {",
@@ -129,86 +129,86 @@ class PlantUmlDependencyTest {
     }
 
     @ParameterizedTest
-    @MethodSource("labelsHostiles")
-    void labelHostile_neCasseNiLeDocumentNiLeNombreDeBoites(String label) {
-        String source = PlantUmlAssert.documentPour(paire(new UmlDependency("Cible", label)));
+    @MethodSource("labelsHostile")
+    void hostileLabel_breaksNeitherTheDocumentNorTheBoxCount(String label) {
+        String source = PlantUmlAssert.documentFor(pair(new UmlDependency("Target", label)));
 
-        assertEquals(1, PlantUmlAssert.nombreDeDiagrammes(source),
-            () -> "Le label hostile a ouvert un second diagramme :\n" + source);
-        assertEquals(2, PlantUmlAssert.aliasDeclares(source).size(),
-            () -> "Le label hostile a déclaré une classe supplémentaire :\n" + source);
-        assertEquals(1, lignesDeLien(source).size(),
-            () -> "Le label hostile a terminé la ligne de lien :\n" + source);
+        assertEquals(1, PlantUmlAssert.diagramsCount(source),
+            () -> "Le label hostile a open un second diagram :\n" + source);
+        assertEquals(2, PlantUmlAssert.aliasDeclared(source).size(),
+            () -> "The hostile label declared an extra class:\n" + source);
+        assertEquals(1, linkLines(source).size(),
+            () -> "The hostile label ended the link line:\n" + source);
         PlantUmlAssert.assertCompile(source);
     }
 
     @Test
-    void labelQuelconque_estAfficheTelQuel() throws Exception {
-        String rendu =
-            PlantUmlAssert.texteRendu(paire(new UmlDependency("Cible", "facture (n°1)")));
+    void anyLabel_isDisplayedAsIs() throws Exception {
+        String rendered =
+            PlantUmlAssert.textRendered(pair(new UmlDependency("Target", "invoice (n°1)")));
 
-        assertTrue(rendu.contains("facture (n°1)"),
-            () -> "Le label n'est pas rendu fidèlement. Texte dessiné :\n" + rendu);
+        assertTrue(rendered.contains("invoice (n°1)"),
+            () -> "The label is not rendered faithfully. Drawn text:\n" + rendered);
     }
 
-    // --- Résolution de la cible ---
+    // --- Target resolution ---
 
     @Test
-    void cibleAbsenteDuDiagramme_estUneErreurFranche() {
-        UmlEntity solitaire = UmlEntity.builder("Source", "Source")
-            .dependencies(ImmutableList.of(UmlDependency.toTarget("Cible"))).build();
+    void targetAbsentFromTheDiagram_isAPlainError() {
+        UmlEntity lone = UmlEntity.builder("Source", "Source")
+            .dependencies(ImmutableList.of(UmlDependency.toTarget("Target"))).build();
 
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
-            () -> PlantUmlAssert.documentPour(solitaire));
+            () -> PlantUmlAssert.documentFor(lone));
 
-        assertTrue(e.getMessage().contains("Cible") && e.getMessage().contains("dependency"),
-            () -> "Le message doit désigner le lien fautif : " + e.getMessage());
+        assertTrue(e.getMessage().contains("Target") && e.getMessage().contains("dependency"),
+            () -> "The message must name the faulty link: " + e.getMessage());
     }
 
     @Test
-    void cibleResolueSurLeNomQualifie_etNonSurLeNomAffiche() {
-        UmlEntity homonyme = cible("pkg.a.Cible");
-        UmlEntity visee = cible("pkg.b.Cible");
+    void targetResolvedOnTheQualifiedName_andNotOnTheDisplayedName() {
+        UmlEntity homonym = target("pkg.a.Target");
+        UmlEntity targeted = target("pkg.b.Target");
         UmlEntity source = UmlEntity.builder("Source", "Source")
-            .dependencies(ImmutableList.of(UmlDependency.toTarget("pkg.b.Cible"))).build();
+            .dependencies(ImmutableList.of(UmlDependency.toTarget("pkg.b.Target"))).build();
 
-        String rendu = PlantUmlAssert.documentPour(homonyme, visee, source);
-        List<String> alias = PlantUmlAssert.aliasDeclares(rendu);
+        String rendered = PlantUmlAssert.documentFor(homonym, targeted, source);
+        List<String> alias = PlantUmlAssert.aliasDeclared(rendered);
 
-        // « homonyme » est déclarée en premier, elle garde donc l'alias non suffixé ; le lien
-        // doit viser l'autre.
-        assertEquals("Source ..> " + alias.get(1), ligneUnique(rendu));
-        PlantUmlAssert.assertCompile(rendu);
+        // "homonym" is declared first, so it keeps the unsuffixed alias; the link
+        // must viser l'other.
+        assertEquals("Source ..> " + alias.get(1), lineUnique(rendered));
+        PlantUmlAssert.assertCompile(rendered);
     }
 
-    // --- Bout en bout, depuis les annotations ---
+    // --- End to end, from the annotations on ---
 
     @UMLClass
-    @UMLDependency(target = ServiceBancaire.class, label = "facture via")
-    static class Panier {
-        @UMLAssociation(target = ServiceBancaire.class, targetMultiplicity = "0..1")
-        private ServiceBancaire dernierPaiement;
+    @UMLDependency(target = ServiceBank.class, label = "invoice via")
+    static class Cart {
+        @UMLAssociation(target = ServiceBank.class, targetMultiplicity = "0..1")
+        private ServiceBank lastPayment;
     }
 
     @Test
-    void exempleDeLaSpecification_estRenduEtAccepte() {
-        String source = PlantUmlAssert.documentPour(
-            EntityExtractor.extract(Panier.class), EntityExtractor.extract(ServiceBancaire.class));
+    void specificationExample_isRenderedAndAccepted() {
+        String source = PlantUmlAssert.documentFor(
+            EntityExtractor.extract(Cart.class), EntityExtractor.extract(ServiceBank.class));
 
         assertEquals(
-            List.of("Panier --> \"0..1\" ServiceBancaire",
-                "Panier ..> ServiceBancaire : facture via"),
-            lignesDeLien(source));
+            List.of("Cart --> \"0..1\" ServiceBank",
+                "Cart ..> ServiceBank : invoice via"),
+            linkLines(source));
         PlantUmlAssert.assertCompile(source);
     }
 
     @Test
-    void dependancesDeclarees_apparaissentApresToutesLesClasses() {
-        String source = PlantUmlAssert.documentPour(
-            EntityExtractor.extract(Panier.class), EntityExtractor.extract(ServiceBancaire.class));
+    void declaredDependencies_appearAfterEveryClass() {
+        String source = PlantUmlAssert.documentFor(
+            EntityExtractor.extract(Cart.class), EntityExtractor.extract(ServiceBank.class));
 
         assertTrue(source.indexOf("..>") > source.lastIndexOf("class \""),
-            () -> "Un lien cité avant la déclaration de sa cible ferait apparaître une boîte "
-                + "vide :\n" + source);
+            () -> "A link quoted before the declaration of its target would make a box appear "
+                + "empty :\n" + source);
     }
 }

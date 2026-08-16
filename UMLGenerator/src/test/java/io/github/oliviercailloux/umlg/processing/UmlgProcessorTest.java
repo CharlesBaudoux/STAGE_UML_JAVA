@@ -3,131 +3,131 @@ package io.github.oliviercailloux.umlg.processing;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import io.github.oliviercailloux.umlg.processing.CompilationCobaye.Verdict;
+import io.github.oliviercailloux.umlg.processing.CompilationFixture.Verdict;
 import java.io.IOException;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-// Ce que le processeur refuse de laisser compiler.
+// What the processor refuses to let compile.
 //
-// Chaque test compile un vrai fichier avec un vrai javac : ce qui est mesuré est donc exactement
-// ce que l'utilisateur obtiendrait dans son terminal, et non une simulation.
+// Each test compiles a real file with a real javac: what is measured is therefore exactly
+// what the user would get in their terminal, and not a simulation.
 //
-// Les cobayes sont écrits ici en chaînes de caractères, et non en classes imbriquées comme
-// ailleurs dans la suite : des classes fautives ne compileraient pas, et le module de test avec
-// elles. C'est le prix, assumé, d'un processeur qui fait bien son travail.
+// The fixtures are written here as strings, and not as nested classes as
+// elsewhere in the suite: faulty classes would not compile, and the test module with
+// them. That is the accepted price of a processor doing its job well.
 class UmlgProcessorTest {
 
-    // L'en-tête que partagent tous les cobayes vit dans CompilationCobaye, avec le harnais.
-    private static Verdict compiler(Path tmp, String corps) throws IOException {
-        return CompilationCobaye.compilerCorps(tmp, corps);
+    // The header every fixture shares lives in CompilationFixture, with the harness.
+    private static Verdict compiler(Path tmp, String body) throws IOException {
+        return CompilationFixture.compileBody(tmp, body);
     }
 
-    // --- Le cas nominal : un code correct doit passer ---
+    // --- Le cas nominal : un code correct must passer ---
 
     @Test
-    void codeCorrect_compileSansErreur(@TempDir Path tmp) throws IOException {
+    void correctCode_compilesWithoutError(@TempDir Path tmp) throws IOException {
         Verdict verdict = compiler(tmp, """
             @UMLClass(strategy = UMLVisibility.PUBLIC, color = "LightBlue", stereotype = "Entity")
-            class Commande {}
+            class Order {}
 
             @UMLClass
-            class ServiceBancaire {}
+            class ServiceBank {}
 
             @UMLClass(strategy = UMLVisibility.PUBLIC)
-            @UMLDependency(target = ServiceBancaire.class, label = "facture via")
+            @UMLDependency(target = ServiceBank.class, label = "invoice via")
             class Client {
-                @UMLAssociation(target = Commande.class, targetMultiplicity = "0..*",
-                    sourceMultiplicity = "1", targetRole = "achats")
-                private List<Commande> commandes;
+                @UMLAssociation(target = Order.class, targetMultiplicity = "0..*",
+                    sourceMultiplicity = "1", targetRole = "purchases")
+                private List<Order> orders;
 
                 @UMLInclude
-                private int compteur;
+                private int counter;
             }
             """);
 
-        assertTrue(verdict.reussie(), verdict.rapport());
-        // Un code correct est un code muet : pas seulement sans erreur, mais sans rien à
-        // signaler. C'est ce qui garde les avertissements audibles quand il y en a un.
-        assertTrue(verdict.avertissements().isEmpty(), verdict.rapport());
+        assertTrue(verdict.successful(), verdict.report());
+        // Correct code is silent code: not only without an error, but with nothing to
+        // reporting. That is what keeps the warnings audible when there is one.
+        assertTrue(verdict.warnings().isEmpty(), verdict.report());
     }
 
-    // --- La multiplicité d'un membre ---
+    // --- The multiplicity of a member ---
 
     @Test
-    void multipliciteIllisible_arreteLaCompilation(@TempDir Path tmp) throws IOException {
+    void unreadableMultiplicity_stopsCompilation(@TempDir Path tmp) throws IOException {
         Verdict verdict = compiler(tmp, """
             @UMLClass(strategy = UMLVisibility.PRIVATE)
-            class Mnemonique {
-                @UMLMultiplicity("beaucoup")
+            class Mnemonic {
+                @UMLMultiplicity("many")
                 private String alias;
             }
             """);
 
-        assertFalse(verdict.reussie(), "\"beaucoup\" n'est pas une multiplicité.");
-        assertTrue(verdict.erreurContient("valid UML multiplicity"), verdict.rapport());
+        assertFalse(verdict.successful(), "\"many\" is not a multiplicity.");
+        assertTrue(verdict.errorContains("valid UML multiplicity"), verdict.report());
     }
 
     @Test
-    void multipliciteEtAssociationSurLeMemeAttribut_arretentLaCompilation(@TempDir Path tmp)
+    void multiplicityAndAssociationOnTheSameField_stopCompilation(@TempDir Path tmp)
         throws IOException {
-        // Deux multiplicités sur la même propriété : la bibliothèque saurait en choisir une, mais
-        // le faire en silence reviendrait à décider à la place de l'auteur.
+        // Two multiplicities on the same property: the library could choose one, but
+        // doing so silently would amount to deciding in place of the author.
         Verdict verdict = compiler(tmp, """
             @UMLClass
-            class Commande {}
+            class Order {}
 
             @UMLClass
             class Client {
                 @UMLMultiplicity("0..*")
-                @UMLAssociation(target = Commande.class, targetMultiplicity = "1..*")
-                private List<Commande> commandes;
+                @UMLAssociation(target = Order.class, targetMultiplicity = "1..*")
+                private List<Order> orders;
             }
             """);
 
-        assertFalse(verdict.reussie(), verdict.rapport());
-        assertTrue(verdict.erreurContient("already given by targetMultiplicity"), verdict.rapport());
+        assertFalse(verdict.successful(), verdict.report());
+        assertTrue(verdict.errorContains("already given by targetMultiplicity"), verdict.report());
     }
 
     @Test
-    void multipliciteSurUneClasseHorsDiagramme_arreteLaCompilation(@TempDir Path tmp)
+    void multiplicityOnAClassOutsideTheDiagram_stopsCompilation(@TempDir Path tmp)
         throws IOException {
         Verdict verdict = compiler(tmp, """
-            class Mnemonique {
+            class Mnemonic {
                 @UMLMultiplicity("0..*")
                 private String alias;
             }
             """);
 
-        assertFalse(verdict.reussie(), verdict.rapport());
-        assertTrue(verdict.erreurContient("does not carry @UMLClass"), verdict.rapport());
+        assertFalse(verdict.successful(), verdict.report());
+        assertTrue(verdict.errorContains("does not carry @UMLClass"), verdict.report());
     }
 
-    // --- La cible d'une relation ---
+    // --- La target d'one relation ---
 
     @Test
-    void cibleSansUmlClass_arreteLaCompilation(@TempDir Path tmp) throws IOException {
+    void targetWithoutUmlClass_stopsCompilation(@TempDir Path tmp) throws IOException {
         Verdict verdict = compiler(tmp, """
-            class Commande {}
+            class Order {}
 
             @UMLClass
             class Client {
-                @UMLAssociation(target = Commande.class)
-                private Commande commande;
+                @UMLAssociation(target = Order.class)
+                private Order order;
             }
             """);
 
-        assertFalse(verdict.reussie(), "La cible n'est pas dans le diagramme.");
-        assertTrue(verdict.erreurContient("does not carry @UMLClass"), verdict.rapport());
-        // Le message doit dire quoi faire, pas seulement ce qui ne va pas.
-        assertTrue(verdict.erreurContient("Annotate it"), verdict.rapport());
+        assertFalse(verdict.successful(), "The target is not in the diagram.");
+        assertTrue(verdict.errorContains("does not carry @UMLClass"), verdict.report());
+        // The message must say what to do, not merely what is wrong.
+        assertTrue(verdict.errorContains("Annotate it"), verdict.report());
     }
 
     @Test
-    void ciblePrimitive_arreteLaCompilation(@TempDir Path tmp) throws IOException {
-        // int.class est du Java légal : son type est Class<Integer>. Seul le processeur peut
-        // refuser ce qui, pour javac seul, est une expression parfaitement valide.
+    void primitiveTarget_stopsCompilation(@TempDir Path tmp) throws IOException {
+        // int.class is legal Java: its type is Class<Integer>. Only the processor can
+        // refusing what, for javac alone, is a perfectly valid expression.
         Verdict verdict = compiler(tmp, """
             @UMLClass
             class Client {
@@ -136,67 +136,67 @@ class UmlgProcessorTest {
             }
             """);
 
-        assertFalse(verdict.reussie(), verdict.rapport());
-        assertTrue(verdict.erreurContient("primitive type"), verdict.rapport());
+        assertFalse(verdict.successful(), verdict.report());
+        assertTrue(verdict.errorContains("primitive type"), verdict.report());
     }
 
-    // --- Les multiplicités ---
+    // --- Multiplicities ---
 
     @Test
-    void multipliciteInversee_arreteLaCompilation(@TempDir Path tmp) throws IOException {
+    void reversedMultiplicity_stopsCompilation(@TempDir Path tmp) throws IOException {
         Verdict verdict = compiler(tmp, """
             @UMLClass
-            class Commande {}
+            class Order {}
 
             @UMLClass
             class Client {
-                @UMLAssociation(target = Commande.class, targetMultiplicity = "3..1")
-                private Commande commande;
+                @UMLAssociation(target = Order.class, targetMultiplicity = "3..1")
+                private Order order;
             }
             """);
 
-        assertFalse(verdict.reussie(), verdict.rapport());
-        assertTrue(verdict.erreurContient("lower bound exceeds the upper bound"),
-            verdict.rapport());
+        assertFalse(verdict.successful(), verdict.report());
+        assertTrue(verdict.errorContains("lower bound exceeds the upper bound"),
+            verdict.report());
     }
 
     @Test
-    void multipliciteIncomprehensible_arreteLaCompilation(@TempDir Path tmp) throws IOException {
+    void nonsensicalMultiplicity_stopsCompilation(@TempDir Path tmp) throws IOException {
         Verdict verdict = compiler(tmp, """
             @UMLClass
-            class Commande {}
+            class Order {}
 
             @UMLClass
             class Client {
-                @UMLAssociation(target = Commande.class, sourceMultiplicity = "beaucoup")
-                private Commande commande;
+                @UMLAssociation(target = Order.class, sourceMultiplicity = "many")
+                private Order order;
             }
             """);
 
-        assertFalse(verdict.reussie(), verdict.rapport());
-        assertTrue(verdict.erreurContient("valid UML multiplicity"), verdict.rapport());
-        // Le message vient du modèle : il nomme le paramètre fautif, ce que le positionnement
-        // sur l'annotation entière ne dirait pas.
-        assertTrue(verdict.erreurContient("sourceMultiplicity"), verdict.rapport());
+        assertFalse(verdict.successful(), verdict.report());
+        assertTrue(verdict.errorContains("valid UML multiplicity"), verdict.report());
+        // The message comes from the model: it names the faulty parameter, which positioning
+        // on the whole annotation would not say.
+        assertTrue(verdict.errorContains("sourceMultiplicity"), verdict.report());
     }
 
-    // --- La couleur ---
+    // --- La color ---
 
     @Test
-    void couleurInconnueDePlantUml_arreteLaCompilation(@TempDir Path tmp) throws IOException {
-        // La forme est valide — c'est un mot —, seule l'interrogation du vrai catalogue de
-        // PlantUML peut la refuser.
+    void colourUnknownToPlantUml_stopsCompilation(@TempDir Path tmp) throws IOException {
+        // The form is valid — it is a word — only querying the real catalogue of
+        // PlantUML may refuse it.
         Verdict verdict = compiler(tmp, """
-            @UMLClass(color = "PasUneCouleur")
+            @UMLClass(color = "NotAColor")
             class Client {}
             """);
 
-        assertFalse(verdict.reussie(), verdict.rapport());
-        assertTrue(verdict.erreurContient("Color unknown to PlantUML"), verdict.rapport());
+        assertFalse(verdict.successful(), verdict.report());
+        assertTrue(verdict.errorContains("Color unknown to PlantUML"), verdict.report());
     }
 
     @Test
-    void couleurValide_compile(@TempDir Path tmp) throws IOException {
+    void validColour_compiles(@TempDir Path tmp) throws IOException {
         Verdict verdict = compiler(tmp, """
             @UMLClass(color = "#FF0000")
             class Rouge {}
@@ -205,189 +205,189 @@ class UmlgProcessorTest {
             class Bleu {}
             """);
 
-        assertTrue(verdict.reussie(), verdict.rapport());
+        assertTrue(verdict.successful(), verdict.report());
     }
 
-    // --- Les dépendances ---
+    // --- Dependencies ---
 
     @Test
-    void dependanceVersSoiMeme_arreteLaCompilation(@TempDir Path tmp) throws IOException {
+    void dependencyOnItself_stopsCompilation(@TempDir Path tmp) throws IOException {
         Verdict verdict = compiler(tmp, """
             @UMLClass
             @UMLDependency(target = Client.class)
             class Client {}
             """);
 
-        assertFalse(verdict.reussie(), verdict.rapport());
-        assertTrue(verdict.erreurContient("cannot depend on itself"), verdict.rapport());
+        assertFalse(verdict.successful(), verdict.report());
+        assertTrue(verdict.errorContains("cannot depend on itself"), verdict.report());
     }
 
     @Test
-    void dependanceEnDouble_arreteLaCompilation(@TempDir Path tmp) throws IOException {
-        // Le cas répétable : le compilateur emballe les deux dans @UMLDependencies, et le
-        // processeur doit savoir déballer le conteneur pour les voir.
+    void duplicateDependency_stopsCompilation(@TempDir Path tmp) throws IOException {
+        // The repeatable case: the compiler wraps both in @UMLDependencies, and the
+        // the processor must be able to unwrap the container to see them.
         Verdict verdict = compiler(tmp, """
             @UMLClass
             class Service {}
 
             @UMLClass
-            @UMLDependency(target = Service.class, label = "paie")
-            @UMLDependency(target = Service.class, label = "paie")
+            @UMLDependency(target = Service.class, label = "pays")
+            @UMLDependency(target = Service.class, label = "pays")
             class Client {}
             """);
 
-        assertFalse(verdict.reussie(), verdict.rapport());
-        assertTrue(verdict.erreurContient("declared twice with the same label"), verdict.rapport());
+        assertFalse(verdict.successful(), verdict.report());
+        assertTrue(verdict.errorContains("declared twice with the same label"), verdict.report());
     }
 
     @Test
-    void dependancesRepeteesDistinctes_compilent(@TempDir Path tmp) throws IOException {
+    void distinctRepeatedDependencies_compile(@TempDir Path tmp) throws IOException {
         Verdict verdict = compiler(tmp, """
             @UMLClass
             class Service {}
 
             @UMLClass
-            class Journal {}
+            class Log {}
 
             @UMLClass
-            @UMLDependency(target = Service.class, label = "paie")
-            @UMLDependency(target = Journal.class, label = "trace")
+            @UMLDependency(target = Service.class, label = "pays")
+            @UMLDependency(target = Log.class, label = "trace")
             class Client {}
             """);
 
-        assertTrue(verdict.reussie(), verdict.rapport());
+        assertTrue(verdict.successful(), verdict.report());
     }
 
     // --- Les contradictions ---
 
     @Test
-    void includeEtExcludeEnsemble_arretentLaCompilation(@TempDir Path tmp) throws IOException {
-        // La bibliothèque saurait départager — @UMLExclude l'emporte — mais appliquer une règle
-        // en silence reviendrait à choisir à la place de l'auteur d'un code qui se contredit.
+    void includeAndExcludeTogether_stopCompilation(@TempDir Path tmp) throws IOException {
+        // The library could decide — @UMLExclude wins — but applying a rule
+        // silently would amount to choosing in place of the author of contradictory code.
         Verdict verdict = compiler(tmp, """
             @UMLClass
             class Client {
                 @UMLInclude
                 @UMLExclude
-                private String nom;
+                private String name;
             }
             """);
 
-        assertFalse(verdict.reussie(), verdict.rapport());
-        assertTrue(verdict.erreurContient("contradictory"), verdict.rapport());
+        assertFalse(verdict.successful(), verdict.report());
+        assertTrue(verdict.errorContains("contradictory"), verdict.report());
     }
 
-    // --- Les annotations sans effet ---
+    // --- Annotations without effect ---
 
     @Test
-    void associationSurUneClasseSansUmlClass_arreteLaCompilation(@TempDir Path tmp)
+    void associationOnAClassWithoutUmlClass_stopsCompilation(@TempDir Path tmp)
         throws IOException {
-        // Le @UMLClass oublié : l'annotation est correcte en elle-même, mais ne produirait rien.
+        // The forgotten @UMLClass: the annotation is correct in itself, but would produce nothing.
         Verdict verdict = compiler(tmp, """
             @UMLClass
-            class Commande {}
+            class Order {}
 
             class Client {
-                @UMLAssociation(target = Commande.class)
-                private Commande commande;
+                @UMLAssociation(target = Order.class)
+                private Order order;
             }
             """);
 
-        assertFalse(verdict.reussie(), verdict.rapport());
-        assertTrue(verdict.erreurContient("drawn from nowhere"), verdict.rapport());
+        assertFalse(verdict.successful(), verdict.report());
+        assertTrue(verdict.errorContains("drawn from nowhere"), verdict.report());
     }
 
     @Test
-    void includeSurUneClasseSansUmlClass_arreteLaCompilation(@TempDir Path tmp) throws IOException {
+    void includeOnAClassWithoutUmlClass_stopsCompilation(@TempDir Path tmp) throws IOException {
         Verdict verdict = compiler(tmp, """
             class Client {
                 @UMLInclude
-                private String nom;
+                private String name;
             }
             """);
 
-        assertFalse(verdict.reussie(), verdict.rapport());
-        assertTrue(verdict.erreurContient("has no effect"), verdict.rapport());
+        assertFalse(verdict.successful(), verdict.report());
+        assertTrue(verdict.errorContains("has no effect"), verdict.report());
     }
 
     @Test
-    void contrainteALaRegleVide_arreteLaCompilation(@TempDir Path tmp) throws IOException {
+    void constraintWithAnEmptyRule_stopsCompilation(@TempDir Path tmp) throws IOException {
         Verdict verdict = compiler(tmp, """
             @UMLClass
             @UMLConstraint(rule = "  ")
-            class Compte {}
+            class Account {}
             """);
 
-        assertFalse(verdict.reussie(), verdict.rapport());
-        assertTrue(verdict.erreurContient("cannot be empty"), verdict.rapport());
+        assertFalse(verdict.successful(), verdict.report());
+        assertTrue(verdict.errorContains("cannot be empty"), verdict.report());
     }
 
     @Test
-    void contrainteSurUneMethode_estRefuseeParJavacSeul(@TempDir Path tmp) throws IOException {
-        // Une contrainte porte sur un état, pas sur un appel : @Target l'interdit, et c'est le
-        // compilateur qui le dit.
+    void constraintOnAMethod_isRefusedByJavacAlone(@TempDir Path tmp) throws IOException {
+        // A constraint bears on a state, not on a call: @Target forbids it, and it is the
+        // the compiler that says so.
         Verdict verdict = compiler(tmp, """
             @UMLClass
-            class Compte {
-                @UMLConstraint(rule = "positif")
-                public void crediter() {}
+            class Account {
+                @UMLConstraint(rule = "positive")
+                public void credit() {}
             }
             """);
 
-        assertFalse(verdict.reussie(), verdict.rapport());
+        assertFalse(verdict.successful(), verdict.report());
     }
 
     @Test
-    void noteAuTexteVide_arreteLaCompilation(@TempDir Path tmp) throws IOException {
+    void noteWithEmptyText_stopsCompilation(@TempDir Path tmp) throws IOException {
         Verdict verdict = compiler(tmp, """
             @UMLClass
             @UMLNote(text = "   ")
             class Client {}
             """);
 
-        assertFalse(verdict.reussie(), verdict.rapport());
-        assertTrue(verdict.erreurContient("cannot be empty"), verdict.rapport());
+        assertFalse(verdict.successful(), verdict.report());
+        assertTrue(verdict.errorContains("cannot be empty"), verdict.report());
     }
 
     @Test
-    void noteSurUneClasseSansUmlClass_arreteLaCompilation(@TempDir Path tmp) throws IOException {
+    void noteOnAClassWithoutUmlClass_stopsCompilation(@TempDir Path tmp) throws IOException {
         Verdict verdict = compiler(tmp, """
-            @UMLNote(text = "Sans boite")
+            @UMLNote(text = "Without box")
             class Client {}
             """);
 
-        assertFalse(verdict.reussie(), verdict.rapport());
-        assertTrue(verdict.erreurContient("nothing to hang on"), verdict.rapport());
+        assertFalse(verdict.successful(), verdict.report());
+        assertTrue(verdict.errorContains("nothing to hang on"), verdict.report());
     }
 
     @Test
-    void deriveSurUneClasseSansUmlClass_arreteLaCompilation(@TempDir Path tmp) throws IOException {
+    void derivedOnAClassWithoutUmlClass_stopsCompilation(@TempDir Path tmp) throws IOException {
         Verdict verdict = compiler(tmp, """
-            class Personne {
+            class Person {
                 @UMLDerived
                 private int age;
             }
             """);
 
-        assertFalse(verdict.reussie(), verdict.rapport());
-        assertTrue(verdict.erreurContient("has no effect"), verdict.rapport());
+        assertFalse(verdict.successful(), verdict.report());
+        assertTrue(verdict.errorContains("has no effect"), verdict.report());
     }
 
     @Test
-    void deriveSurUneClasse_estRefuseeParJavacSeul(@TempDir Path tmp) throws IOException {
-        // La notion de classe dérivée n'existe pas en UML : @Target l'interdit, et c'est le
-        // compilateur qui le dit, sans que le processeur ait à s'en mêler.
+    void derivedOnAClass_isRefusedByJavacAlone(@TempDir Path tmp) throws IOException {
+        // The notion of a derived class does not exist in UML: @Target forbids it, and it is the
+        // the compiler that says so, without the processor having to step in.
         Verdict verdict = compiler(tmp, """
             @UMLDerived
             @UMLClass
-            class Personne {}
+            class Person {}
             """);
 
-        assertFalse(verdict.reussie(), verdict.rapport());
+        assertFalse(verdict.successful(), verdict.report());
     }
 
     @Test
-    void dependanceSurUneClasseSansUmlClass_arreteLaCompilation(@TempDir Path tmp)
+    void dependencyOnAClassWithoutUmlClass_stopsCompilation(@TempDir Path tmp)
         throws IOException {
         Verdict verdict = compiler(tmp, """
             @UMLClass
@@ -397,138 +397,138 @@ class UmlgProcessorTest {
             class Client {}
             """);
 
-        assertFalse(verdict.reussie(), verdict.rapport());
-        assertTrue(verdict.erreurContient("drawn from nowhere"), verdict.rapport());
+        assertFalse(verdict.successful(), verdict.report());
+        assertTrue(verdict.errorContains("drawn from nowhere"), verdict.report());
     }
 
-    // --- Les textes vides ---
+    // --- Les texts empty ---
 
     @Test
-    void nomFaitDEspaces_arreteLaCompilation(@TempDir Path tmp) throws IOException {
+    void nameMadeOfSpaces_stopsCompilation(@TempDir Path tmp) throws IOException {
         Verdict verdict = compiler(tmp, """
             @UMLClass(name = "   ")
             class Client {}
             """);
 
-        assertFalse(verdict.reussie(), verdict.rapport());
-        assertTrue(verdict.erreurContient("whitespace only"), verdict.rapport());
+        assertFalse(verdict.successful(), verdict.report());
+        assertTrue(verdict.errorContains("whitespace only"), verdict.report());
     }
 
     @Test
-    void roleFaitDEspaces_arreteLaCompilation(@TempDir Path tmp) throws IOException {
+    void roleMadeOfSpaces_stopsCompilation(@TempDir Path tmp) throws IOException {
         Verdict verdict = compiler(tmp, """
             @UMLClass
-            class Commande {}
+            class Order {}
 
             @UMLClass
             class Client {
-                @UMLAssociation(target = Commande.class, targetRole = "  ")
-                private Commande commande;
+                @UMLAssociation(target = Order.class, targetRole = "  ")
+                private Order order;
             }
             """);
 
-        assertFalse(verdict.reussie(), verdict.rapport());
-        assertTrue(verdict.erreurContient("whitespace only"), verdict.rapport());
+        assertFalse(verdict.successful(), verdict.report());
+        assertTrue(verdict.errorContains("whitespace only"), verdict.report());
     }
 
-    // --- La cible déduite du type de l'attribut : le processeur doit dire ce que dit la
-    // génération, ni plus ni moins ---
+    // --- The target inferred from the field type: the processor must say what the
+    // generation, no more and no less ---
 
     @Test
-    void associationSansCible_versUnTypeHorsDiagramme_arreteLaCompilation(@TempDir Path tmp)
+    void associationWithoutTarget_towardsATypeOutsideTheDiagram_stopsCompilation(@TempDir Path tmp)
         throws IOException {
-        // Ce test verrouillait un choix de conception qui n'existe plus : target() n'avait pas de
-        // valeur par défaut, et c'était javac seul qui refusait l'annotation qui l'omettait. Le
-        // paramètre porte aujourd'hui « default void.class » — la sentinelle « rien d'écrit », qui
-        // déclenche la déduction depuis le type de l'attribut. Le test continuait de passer, mais
-        // sur un tout autre motif que celui qu'il annonçait.
+        // This test locked a design choice that no longer exists: target() had no
+        // a default value, and it was javac alone that refused the annotation omitting it. The
+        // the parameter now carries "default void.class" — the "nothing written" sentinel, which
+        // triggers inference from the field type. The test went on passing, but
+        // on a pattern altogether different from the one it announced.
         //
-        // Ce qu'il garde désormais : la déduction ne relâche pas le contrôle. « private String
-        // nom » donne bien une cible — String —, et cette cible est refusée comme n'importe quelle
-        // autre classe hors du diagramme. La sentinelle ouvre la porte au type de l'attribut, pas
-        // au premier type venu.
+        // What it now keeps: inference does not loosen the check. "private String
+        // name" does give a target — String — and that target is refused like any
+        // another class outside the diagram. The sentinel opens the door to the field type, not
+        // to the first type that comes.
         Verdict verdict = compiler(tmp, """
             @UMLClass
             class Client {
                 @UMLAssociation(targetMultiplicity = "1")
-                private String nom;
+                private String name;
             }
             """);
 
-        assertFalse(verdict.reussie(), verdict.rapport());
-        assertTrue(verdict.erreurContient("target java.lang.String does not carry @UMLClass"),
-            verdict.rapport());
-        // Et le remède nomme le paramètre à écrire, plutôt que de constater seulement.
-        assertTrue(verdict.erreurContient("point target() at a class that is"), verdict.rapport());
+        assertFalse(verdict.successful(), verdict.report());
+        assertTrue(verdict.errorContains("target java.lang.String does not carry @UMLClass"),
+            verdict.report());
+        // And the remedy names the parameter to write, rather than merely stating the fact.
+        assertTrue(verdict.errorContains("point target() at a class that is"), verdict.report());
     }
 
     @Test
-    void associationSurUnChampDeTypeVariable_compile(@TempDir Path tmp) throws IOException {
-        // Le processeur arrêtait la compilation d'un code que la génération dessinait sans
-        // broncher : il tenait « T » pour indéterminé, là où la réflexion lit l'effacement,
-        // c'est-à-dire la borne. C'est l'écart le plus coûteux des deux moitiés, puisqu'il bloque
-        // l'utilisateur au lieu de le laisser voir un dessin discutable.
+    void associationOnATypeVariableField_compiles(@TempDir Path tmp) throws IOException {
+        // The processor stopped the compilation of code the generation drew without
+        // flinching: it held "T" as undetermined, where reflection reads the erasure,
+        // that is, the bound. It is the costliest gap of the two halves, since it blocks
+        // the user rather than letting them see a questionable drawing.
         Verdict verdict = compiler(tmp, """
             @UMLClass
-            class Commande {}
+            class Order {}
 
             @UMLClass
-            class Boite<T extends Commande> {
+            class Box<T extends Order> {
                 @UMLAssociation(targetMultiplicity = "1")
-                private T contenu;
+                private T content;
             }
             """);
 
-        assertTrue(verdict.reussie(), verdict.rapport());
-        assertTrue(verdict.avertissements().isEmpty(), verdict.rapport());
+        assertTrue(verdict.successful(), verdict.report());
+        assertTrue(verdict.warnings().isEmpty(), verdict.report());
     }
 
     @Test
-    void collectionBruteSansCible_nommeLeTypeFautif(@TempDir Path tmp) throws IOException {
-        // Le message vient désormais de CibleDeduite, à qui la règle appartient : celui du
-        // processeur ne nommait pas le type, et un projet à plusieurs associations laissait son
-        // auteur chercher laquelle était visée.
+    void rawCollectionWithoutTarget_namesTheFaultyType(@TempDir Path tmp) throws IOException {
+        // The message now comes from InferredTarget, to which the rule belongs: the one from
+        // the processor did not name the type, and a project with several associations left its
+        // author to find which one was meant.
         Verdict verdict = compiler(tmp, """
             @UMLClass
             class Client {
                 @UMLAssociation(targetMultiplicity = "0..*")
-                private List commandes;
+                private List orders;
             }
             """);
 
-        assertFalse(verdict.reussie(), verdict.rapport());
-        assertTrue(verdict.erreurContient("the field's type (List) does not say what it contains"),
-            verdict.rapport());
+        assertFalse(verdict.successful(), verdict.report());
+        assertTrue(verdict.errorContains("the field's type (List) does not say what it contains"),
+            verdict.report());
     }
 
     @Test
-    void champPrimitifSansCible_nommeLeTypeFautif(@TempDir Path tmp) throws IOException {
+    void primitiveFieldWithoutTarget_namesTheFaultyType(@TempDir Path tmp) throws IOException {
         Verdict verdict = compiler(tmp, """
             @UMLClass
             class Client {
                 @UMLAssociation(targetMultiplicity = "1")
-                private int compteur;
+                private int counter;
             }
             """);
 
-        assertFalse(verdict.reussie(), verdict.rapport());
+        assertFalse(verdict.successful(), verdict.report());
         assertTrue(
-            verdict.erreurContient("the field's type (int) does not name a class of the diagram"),
-            verdict.rapport());
+            verdict.errorContains("the field's type (int) does not name a class of the diagram"),
+            verdict.report());
     }
 
     @Test
-    void contrainteVide_reprendLeMessageDuModele(@TempDir Path tmp) throws IOException {
-        // La règle n'est plus réécrite ici : le refus de javac est mot pour mot celui que la
-        // génération aurait produit. Les deux textes avaient déjà divergé.
+    void emptyConstraint_reusesTheModelMessage(@TempDir Path tmp) throws IOException {
+        // The rule is no longer rewritten here: javac's refusal is word for word the one the
+        // the generation would have produced. The two texts had already diverged.
         Verdict verdict = compiler(tmp, """
             @UMLClass
             @UMLConstraint(rule = " ")
-            class Compte {}
+            class Account {}
             """);
 
-        assertFalse(verdict.reussie(), verdict.rapport());
-        assertTrue(verdict.erreurContient(
-            "A constraint cannot be empty or made of whitespace only."), verdict.rapport());
+        assertFalse(verdict.successful(), verdict.report());
+        assertTrue(verdict.errorContains(
+            "A constraint cannot be empty or made of whitespace only."), verdict.report());
     }
 }

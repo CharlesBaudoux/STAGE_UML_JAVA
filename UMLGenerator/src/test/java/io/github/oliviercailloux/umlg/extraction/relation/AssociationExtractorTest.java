@@ -18,134 +18,134 @@ import io.github.oliviercailloux.umlg.model.UmlField;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-// L'extraction des associations : son articulation avec le compartiment des attributs, la
-// reprise des paramètres de l'annotation, et la qualité des messages d'erreur.
+// The extraction of associations: its interplay with the field compartment, the
+// the carrying over of the annotation parameters, and the quality of the error messages.
 //
-// La résolution de la cible, elle, a son propre test (TargetResolverTest).
+// Target resolution, for its part, has its own test (TargetResolverTest).
 class AssociationExtractorTest {
 
-    // Deux cibles possibles ; elles doivent porter @UMLClass pour être visables.
+    // Two possible targets; they must carry @UMLClass to be aimed at.
     @UMLClass
-    static class Commande {}
+    static class Order {}
 
     @UMLClass
-    static class Ligne {}
+    static class Line {}
 
-    // Extrait l'unique association attendue, en échouant avec un message utile s'il y en a zéro
-    // ou plusieurs. Évite de répéter la même vérification dans chaque test.
-    private static UmlAssociation seuleAssociation(Class<?> clazz) {
+    // Extracts the single expected association, failing with a useful message if there are zero
+    // or several. Avoids repeating the same check in each test.
+    private static UmlAssociation onlyAssociation(Class<?> clazz) {
         List<UmlAssociation> associations = EntityExtractor.extract(clazz).associations();
         assertEquals(1, associations.size(),
-            () -> "Attendu exactement une association sur " + clazz.getSimpleName()
+            () -> "Expected exactly one association on " + clazz.getSimpleName()
                 + ", obtenu : " + associations);
         return associations.get(0);
     }
 
-    // --- Articulation avec les attributs et les dérogations ---
+    // --- Interplay with fields and exemptions ---
 
     @UMLClass(strategy = UMLVisibility.PRIVATE)
-    static class ChampPromu {
-        @UMLAssociation(target = Commande.class)
-        private Commande commande;
+    static class FieldPromoted {
+        @UMLAssociation(target = Order.class)
+        private Order order;
         private String reference;
     }
 
     @Test
-    void attributPromuEnAssociation_quitteLeCompartimentDesAttributs() {
-        // En UML une propriété se note dans la boîte ou comme un lien, jamais les deux.
-        UmlEntity entity = EntityExtractor.extract(ChampPromu.class);
+    void fieldPromotedToAssociation_leavesTheFieldCompartment() {
+        // In UML a property is written in the box or as a link, never both.
+        UmlEntity entity = EntityExtractor.extract(FieldPromoted.class);
 
         assertEquals(List.of("reference"), entity.fields().stream().map(UmlField::name).toList());
         assertEquals(1, entity.associations().size());
     }
 
     @UMLClass
-    static class ChampPriveSansStrategie {
-        @UMLAssociation(target = Commande.class)
-        private Commande commande;
+    static class PrivateFieldWithoutStrategy {
+        @UMLAssociation(target = Order.class)
+        private Order order;
     }
 
     @Test
-    void associationSurChampInvisible_estQuandMemeDessinee() {
-        // La stratégie filtre le contenu des boîtes, pas les liens entre elles : une
-        // composition entre deux classes du modèle ne disparaît pas parce que le champ qui la
-        // porte est privé — c'est le cas le plus courant.
-        UmlEntity entity = EntityExtractor.extract(ChampPriveSansStrategie.class);
+    void associationOnAnInvisibleField_isDrawnAnyway() {
+        // The strategy filters the content of the boxes, not the links between them: a
+        // a composition between two classes of the model does not vanish because the field carrying it
+        // carrying it is private — that is the most common case.
+        UmlEntity entity = EntityExtractor.extract(PrivateFieldWithoutStrategy.class);
 
         assertTrue(entity.fields().isEmpty());
         assertEquals(1, entity.associations().size());
     }
 
     @UMLClass(strategy = UMLVisibility.PRIVATE)
-    static class ChampExclu {
-        @UMLAssociation(target = Commande.class)
+    static class FieldExcluded {
+        @UMLAssociation(target = Order.class)
         @UMLExclude
-        private Commande commande;
+        private Order order;
     }
 
     @Test
-    void umlExclude_faitTaireLAssociationEtLAttribut() {
-        UmlEntity entity = EntityExtractor.extract(ChampExclu.class);
+    void umlExclude_silencesTheAssociationAndTheField() {
+        UmlEntity entity = EntityExtractor.extract(FieldExcluded.class);
 
-        assertTrue(entity.associations().isEmpty(), "@UMLExclude doit supprimer le lien.");
+        assertTrue(entity.associations().isEmpty(), "@UMLExclude must remove the link.");
         assertTrue(entity.fields().isEmpty(),
-            "L'attribut promu ne doit pas réapparaître dans la boîte.");
+            "The promoted field must not reappear in the box.");
     }
 
     @UMLClass
-    static class SansAssociation {
-        private Commande commande;
+    static class WithoutAssociation {
+        private Order order;
     }
 
     @Test
-    void sansAnnotation_aucuneAssociationNEstDeduite() {
-        // La déduction automatique des liens n'est pas du ressort de cette annotation : un
-        // attribut nu reste un attribut.
-        assertTrue(EntityExtractor.extract(SansAssociation.class).associations().isEmpty());
+    void withoutAnnotation_noAssociationIsInferred() {
+        // Automatic inference of links is not the business of this annotation: a
+        // attribute nu remains un attribute.
+        assertTrue(EntityExtractor.extract(WithoutAssociation.class).associations().isEmpty());
     }
 
-    // --- Paramètres ---
+    // --- Parameters ---
 
     @UMLClass
-    static class ExempleDeLaSpecification {
+    static class SpecificationExample {
         @UMLAssociation(
-            target = Ligne.class,
+            target = Line.class,
             type = UMLRelationType.COMPOSITION,
             sourceMultiplicity = "1",
             targetMultiplicity = "0..*",
-            targetRole = "achats",
-            label = "passe",
+            targetRole = "purchases",
+            label = "passed",
             sourceRole = "client",
             direction = UMLDirection.DOWN)
-        private List<Ligne> lignes;
+        private List<Line> lines;
     }
 
     @Test
-    void tousLesParametres_sontRepercutesDansLeModele() {
-        UmlAssociation association = seuleAssociation(ExempleDeLaSpecification.class);
+    void everyParameter_isCarriedOverToTheModel() {
+        UmlAssociation association = onlyAssociation(SpecificationExample.class);
 
-        assertEquals("lignes", association.fieldName());
-        assertEquals(Ligne.class.getName(), association.targetQualifiedName());
+        assertEquals("lines", association.fieldName());
+        assertEquals(Line.class.getName(), association.targetQualifiedName());
         assertEquals(UMLRelationType.COMPOSITION, association.type());
         assertEquals("1", association.sourceMultiplicity());
         assertEquals("0..*", association.targetMultiplicity());
         assertEquals("client", association.sourceRole());
-        assertEquals("achats", association.targetRole());
-        assertEquals("passe", association.label());
+        assertEquals("purchases", association.targetRole());
+        assertEquals("passed", association.label());
         assertEquals(UMLDirection.DOWN, association.direction());
     }
 
     @UMLClass
-    static class AnnotationNue {
-        @UMLAssociation(target = Commande.class)
-        private Commande commande;
+    static class AnnotationBare {
+        @UMLAssociation(target = Order.class)
+        private Order order;
     }
 
-    // Le pendant du test précédent : hormis target, obligatoire, tout doit valoir « rien » —
-    // chaîne vide, NONE — et jamais null, que le rendu aurait à tester partout.
+    // The counterpart of the previous test: apart from target, mandatory, everything must mean "nothing" —
+    // the empty string, NONE — and never null, which the rendering would have to test everywhere.
     @Test
-    void parDefaut_touteValeurFacultativeEstNeutre() {
-        UmlAssociation association = seuleAssociation(AnnotationNue.class);
+    void byDefault_everyOptionalValueIsNeutral() {
+        UmlAssociation association = onlyAssociation(AnnotationBare.class);
 
         assertEquals(UMLRelationType.ASSOCIATION, association.type());
         assertEquals(UMLDirection.NONE, association.direction());
@@ -157,31 +157,31 @@ class AssociationExtractorTest {
         assertTrue(association.constraints().isEmpty());
     }
 
-    // --- Le « où » ajouté au « quoi » ---
+    // --- The "where" added to the "what" ---
 
-    // Sans @UMLClass, volontairement : le test appelle l'extracteur directement, sans passer par
-    // EntityExtractor qui, lui, exigerait l'annotation.
-    static class ChampMultipliciteInvalide {
-        @UMLAssociation(target = Commande.class, targetMultiplicity = "beaucoup")
-        private Commande commande;
+    // Without @UMLClass, deliberately: the test calls the extractor directly, without going through
+    // EntityExtractor, which would require the annotation.
+    static class FieldInvalidMultiplicity {
+        @UMLAssociation(target = Order.class, targetMultiplicity = "many")
+        private Order order;
     }
 
     @Test
-    void multipliciteInvalide_estRefuseeEnNommantSonEmplacement() {
-        // Sur un projet de quarante classes, « "beaucoup" n'est pas une multiplicité » est un
-        // message qui ne mène nulle part : l'extraction y ajoute le « où ».
+    void invalidMultiplicity_isRefusedNamingItsLocation() {
+        // On a project of forty classes, "\"many\" is not a multiplicity" is a
+        // a message leading nowhere: extraction adds the "where" to it.
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
-            () -> new AssociationExtractor().extraire(ChampMultipliciteInvalide.class));
+            () -> new AssociationExtractor().extract(FieldInvalidMultiplicity.class));
 
-        assertTrue(e.getMessage().contains("commande")
+        assertTrue(e.getMessage().contains("order")
                 && e.getMessage().contains("targetMultiplicity"),
-            () -> "Message trop pauvre pour situer la faute : " + e.getMessage());
+            () -> "Message too poor to locate the fault: " + e.getMessage());
     }
 
     @Test
-    void listeDAssociations_estImmuable() {
+    void associationList_isImmutable() {
         List<UmlAssociation> associations =
-            EntityExtractor.extract(AnnotationNue.class).associations();
+            EntityExtractor.extract(AnnotationBare.class).associations();
 
         assertThrows(UnsupportedOperationException.class, () -> associations.clear());
     }

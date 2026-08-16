@@ -1,0 +1,161 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/CharlesBaudoux/STAGE_UML_JAVA/main/UMLGenerator/src/main/resources/umlg-schema.json",
+  "title": "umlg rules file",
+  "description": "The rules a project applies to all its diagrams. The file is named umlg.json and sits at the root of the scanned directory — for a plain Maven project, src/main/resources/umlg.json. The file is optional: no file means no rule. JSON has no comments, so a key whose name starts with an underscore is not a rule and is not read; that is where a note goes. Every enumerated word is written in lower case.",
+  "type": "object",
+  "unevaluatedProperties": false,
+  "properties": {
+    "$schema": {
+      "description": "The schema that describes this file. Not a rule, and not read: it is how an editor knows what to validate and what to complete.",
+      "type": "string"
+    },
+    "strategy": {
+      "description": "What classes that declare no strategy of their own take. Absent means none, which shows no member at all. \"project\" is not accepted here: it is what a class writes to defer to this key.",
+      "enum": ["none", "public", "protected", "package", "private"]
+    },
+    "types": {
+      "$ref": "#/$defs/types"
+    },
+    "hide": {
+      "description": "Name patterns whose members disappear from the box. One list for methods and fields alike. @UMLInclude brings back what a pattern hides.",
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/pattern" }
+    },
+    "omit": {
+      "description": "What is dropped from the line of a member that stays displayed. Unlike hide, nothing here can be brought back by @UMLInclude — the member is already there.",
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": ["visibility", "parameter names", "return void", "abstract"]
+      }
+    },
+    "title": {
+      "description": "The title written above the full view. Leave the key out for no title.",
+      "type": "string",
+      "pattern": "\\S"
+    },
+    "direction": {
+      "description": "The reading direction of the full view. Each declared view states its own.",
+      "$ref": "#/$defs/direction",
+      "default": "top-to-bottom"
+    },
+    "order": {
+      "description": "The order of the members inside the boxes: the order of the code, or the alphabet.",
+      "enum": ["declaration", "alphabetical"],
+      "default": "alphabetical"
+    },
+    "multiplicity": {
+      "description": "Translates the shape of containers into multiplicities: Set<X> is written X [0..*], Optional<X> is written X [0..1]. @UMLMultiplicity, an individual decision, wins over this translation.",
+      "const": "brackets"
+    },
+    "showEmptyMembers": {
+      "description": "Whether empty attribute and method compartments are drawn. False by default: without a declared strategy, a box has no member, and drawing would put two empty rectangles under every name.",
+      "type": "boolean",
+      "default": false
+    },
+    "views": {
+      "description": "The declared views, in writing order — which is the order of the produced files. Two views cannot share a name.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/view" }
+    },
+    "viewsByPackage": {
+      "description": "Whether one view per package is computed, in addition to what is declared.",
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "patternProperties": {
+    "^_": {
+      "description": "A note. Not a rule, and not read."
+    }
+  },
+  "$defs": {
+    "types": {
+      "description": "Replaces a type name by another one, everywhere that type appears in a box: fields, return types, parameters. The key is written either simple (ImmutableList) or qualified (com.google.common.collect.ImmutableList); the qualified form lifts the ambiguity when two packages hold a class of the same name, and is looked up first.",
+      "type": "object",
+      "unevaluatedProperties": false,
+      "patternProperties": {
+        "^_": {
+          "description": "A note. Not a rule, and not read."
+        },
+        "^[^_\\s]": {
+          "description": "The name displayed in place of the key.",
+          "type": "string",
+          "pattern": "^\\S+$"
+        }
+      }
+    },
+    "pattern": {
+      "description": "A family of names, in the form get*, *Cache or log. The star stands for any run of characters, and the comparison is case sensitive. A pattern never designates one element by name: it carries no dot — @UMLExclude is what silences a single member — and it cannot be made of stars only, which would hide every member of every class.",
+      "type": "string",
+      "pattern": "^(?!\\*+$)[^\\s.]+$"
+    },
+    "direction": {
+      "enum": ["top-to-bottom", "left-to-right"]
+    },
+    "view": {
+      "description": "One view: its name, what it retains, what it removes, its reading direction.",
+      "type": "object",
+      "required": ["name", "retain"],
+      "unevaluatedProperties": false,
+      "properties": {
+        "name": {
+          "description": "The name of the view, which serves as its title and as its file name.",
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "retain": {
+          "description": "What the view draws. At least one class or package.",
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/selector" }
+        },
+        "remove": {
+          "description": "What is taken back out of what retain brought in.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/selector" }
+        },
+        "direction": {
+          "description": "The reading direction of this view.",
+          "$ref": "#/$defs/direction",
+          "default": "top-to-bottom"
+        }
+      },
+      "patternProperties": {
+        "^_": {
+          "description": "A note. Not a rule, and not read."
+        }
+      }
+    },
+    "selector": {
+      "description": "A string names a class — the most frequent form, hence the shortest. The two other kinds are objects carrying exactly one key: package takes a whole package, and around takes a class and its immediate neighbours. Neighbours come from declared relations, not from the types used by fields or methods.",
+      "oneOf": [
+        {
+          "title": "a class",
+          "type": "string",
+          "pattern": "^\\S+$"
+        },
+        {
+          "title": "a whole package",
+          "type": "object",
+          "required": ["package"],
+          "additionalProperties": false,
+          "properties": {
+            "package": { "type": "string", "pattern": "^\\S+$" }
+          }
+        },
+        {
+          "title": "a class and its immediate neighbours",
+          "type": "object",
+          "required": ["around"],
+          "additionalProperties": false,
+          "properties": {
+            "around": { "type": "string", "pattern": "^\\S+$" }
+          }
+        }
+      ]
+    }
+  }
+}

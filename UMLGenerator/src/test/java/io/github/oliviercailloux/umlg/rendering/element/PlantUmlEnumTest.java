@@ -13,97 +13,97 @@ import io.github.oliviercailloux.umlg.rendering.PlantUmlAssert;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-// Le rendu du compartiment des littéraux, et le placement des filets séparateurs quand une boîte
-// compte jusqu'à trois compartiments.
+// The rendering of the literal compartment, and the placing of separating lines when a box
+// counts up to three compartments.
 class PlantUmlEnumTest {
 
-    private static UmlEntity.Builder enumeration(String nom) {
-        return UmlEntity.builder("pkg." + nom, nom)
+    private static UmlEntity.Builder enumeration(String name) {
+        return UmlEntity.builder("pkg." + name, name)
                         .kind(UmlEntityKind.ENUM)
                         .strategy(UMLVisibility.PUBLIC);
     }
 
     @Test
-    void litteral_estEcritNu() {
-        String source = PlantUmlAssert.documentPour(
-            enumeration("Devise").literals(List.of("EURO", "DOLLAR")).build());
+    void literal_isWrittenBare() {
+        String source = PlantUmlAssert.documentFor(
+            enumeration("Currency").literals(List.of("Euro", "Dollar")).build());
 
-        assertTrue(source.contains("  EURO\n"), source);
-        assertTrue(source.contains("  DOLLAR\n"), source);
+        assertTrue(source.contains("  Euro\n"), source);
+        assertTrue(source.contains("  Dollar\n"), source);
     }
 
     @Test
-    void litteral_nAJamaisNiVisibiliteNiTypeNiStatic() {
-        // La régression que ce test verrouille : « + {static} Devise EURO » au lieu de « EURO ».
-        String source = PlantUmlAssert.documentPour(
-            enumeration("Devise").literals(List.of("EURO")).build());
+    void literal_neverHasVisibilityTypeOrStatic() {
+        // The regression this test locks: "+ {static} Currency Euro" instead of "Euro".
+        String source = PlantUmlAssert.documentFor(
+            enumeration("Currency").literals(List.of("Euro")).build());
 
-        assertFalse(source.contains("+ EURO"), source);
+        assertFalse(source.contains("+ Euro"), source);
         assertFalse(source.contains("{static}"), source);
-        assertFalse(source.contains("Devise EURO"), source);
+        assertFalse(source.contains("Currency Euro"), source);
     }
 
     @Test
-    void litterauxSeuls_nOntAucunFiletSeparateur() {
-        String source = PlantUmlAssert.documentPour(
-            enumeration("Devise").literals(List.of("EURO", "DOLLAR")).build());
+    void literalsAlone_haveNoSeparatingLine() {
+        String source = PlantUmlAssert.documentFor(
+            enumeration("Currency").literals(List.of("Euro", "Dollar")).build());
 
         assertFalse(source.contains("  --\n"), source);
     }
 
     @Test
-    void litterauxEtAttributs_sontSeparesParUnFilet() {
-        String source = PlantUmlAssert.documentPour(
-            enumeration("Planete")
-                .literals(List.of("TERRE"))
-                .fields(List.of(new UmlField("masse", "double", "-", false)))
+    void literalsAndFields_areSeparatedByALine() {
+        String source = PlantUmlAssert.documentFor(
+            enumeration("Planet")
+                .literals(List.of("Earth"))
+                .fields(List.of(new UmlField("mass", "double", "-", false)))
                 .build());
 
-        assertEquals(List.of("  TERRE", "  --", "  - masse : double"),
-            corpsDeLaBoite(source));
+        assertEquals(List.of("  Earth", "  --", "  - mass : double"),
+            boxBody(source));
     }
 
     @Test
-    void troisCompartiments_recoiventDeuxFilets() {
-        String source = PlantUmlAssert.documentPour(
-            enumeration("Planete")
-                .literals(List.of("TERRE"))
-                .fields(List.of(new UmlField("masse", "double", "-", false)))
-                .methods(List.of(new UmlMethod("masse", "double", "+", false, List.of())))
+    void threeCompartments_receiveTwoLines() {
+        String source = PlantUmlAssert.documentFor(
+            enumeration("Planet")
+                .literals(List.of("Earth"))
+                .fields(List.of(new UmlField("mass", "double", "-", false)))
+                .methods(List.of(new UmlMethod("mass", "double", "+", false, List.of())))
                 .build());
 
         assertEquals(
-            List.of("  TERRE", "  --", "  - masse : double", "  --", "  + masse() : double"),
-            corpsDeLaBoite(source));
+            List.of("  Earth", "  --", "  - mass : double", "  --", "  + mass() : double"),
+            boxBody(source));
     }
 
     @Test
-    void classeOrdinaire_gardeSonUniqueFilet() {
-        // Non-régression : une classe sans littéral doit produire exactement ce qu'elle
-        // produisait avant l'ajout du troisième compartiment.
-        String source = PlantUmlAssert.documentPour(
-            UmlEntity.builder("pkg.Compte", "Compte")
-                     .fields(List.of(new UmlField("solde", "double", "-", false)))
-                     .methods(List.of(new UmlMethod("retirer", "void", "+", false,
+    void ordinaryClass_keepsItsSingleNet() {
+        // Non-regression: a class without a literal must produce exactly what it
+        // produced before the third compartment was added.
+        String source = PlantUmlAssert.documentFor(
+            UmlEntity.builder("pkg.Account", "Account")
+                     .fields(List.of(new UmlField("balance", "double", "-", false)))
+                     .methods(List.of(new UmlMethod("remove", "void", "+", false,
                          List.of("double"))))
                      .build());
 
-        assertEquals(List.of("  - solde : double", "  --", "  + retirer(double) : void"),
-            corpsDeLaBoite(source));
+        assertEquals(List.of("  - balance : double", "  --", "  + remove(double) : void"),
+            boxBody(source));
     }
 
     @Test
-    void enumerationRendue_estAccepteeParPlantUml() {
-        PlantUmlAssert.assertCompile(PlantUmlAssert.documentPour(
-            enumeration("Devise")
-                .literals(List.of("EURO", "DOLLAR"))
+    void renderedEnumeration_isAcceptedByPlantUml() {
+        PlantUmlAssert.assertCompile(PlantUmlAssert.documentFor(
+            enumeration("Currency")
+                .literals(List.of("Euro", "Dollar"))
                 .fields(List.of(new UmlField("code", "String", "-", false)))
                 .build()));
     }
 
-    // Les lignes intérieures de l'unique boîte du document : celles qui commencent par une
+    // The inner lines of the single box of the document: those starting with an
     // indentation, filets compris.
-    private static List<String> corpsDeLaBoite(String source) {
+    private static List<String> boxBody(String source) {
         return source.lines().filter(l -> l.startsWith("  ")).toList();
     }
 }

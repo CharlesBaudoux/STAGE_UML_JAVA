@@ -1,22 +1,10 @@
 package io.github.oliviercailloux.umlg.model;
 
-/**
- * Les deux natures de lien d'héritage.
- *
- * <p>Toutes deux portent le même triangle creux du côté du parent ; seul le trait diffère.
- */
+/** The two ways of inheriting, drawn with a solid or a dotted stroke. */
 public enum UmlInheritanceType {
-
-    /**
-     * Un {@code extends} entre deux classes, ou entre deux interfaces : la source est une sorte
-     * de la cible, dont elle hérite la structure. Trait plein.
-     */
+    /** A class extends a class: solid stroke. */
     GENERALIZATION,
 
-    /**
-     * Un {@code implements} : la source s'engage à honorer le contrat de la cible, sans rien
-     * hériter de sa structure. Trait pointillé, cette différence de dessin étant justement là
-     * pour dire que le lien est d'une autre nature.
-     */
+    /** A class realizes an interface: dotted stroke. */
     REALIZATION
 }

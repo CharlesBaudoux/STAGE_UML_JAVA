@@ -13,84 +13,84 @@ import io.github.oliviercailloux.umlg.model.UmlMethod;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-// La forme exacte du texte PlantUML engendré pour une boîte : ordre des morceaux, marqueurs,
-// séparateur de compartiments, en-tête et fin de document.
+// The exact form of the PlantUML text generated for a box: order of the chunks, markers,
+// compartment separator, header and end of document.
 //
-// Les assertions portent sur des extraits littéraux (« + int age ») : c'est volontairement
-// rigide, car c'est précisément cette forme qui est le contrat avec PlantUML. Chaque test
-// termine par assertCompile, pour vérifier non seulement que le texte est celui attendu, mais
-// que PlantUML l'accepte.
+// The assertions bear on literal excerpts ("+ int age"): this is deliberately
+// rigid, because it is precisely this form that is the contract with PlantUML. Each test
+// ends with assertCompile, to check not only that the text is the expected one, but
+// that PlantUML accepts it.
 class PlantUmlSyntaxStructureTest {
 
-    private static UmlEntity entite(List<UmlField> champs, List<UmlMethod> methodes) {
-        return new UmlEntity("E", "", "", UMLVisibility.PUBLIC, champs, methodes);
+    private static UmlEntity entity(List<UmlField> fields, List<UmlMethod> methods) {
+        return new UmlEntity("E", "", "", UMLVisibility.PUBLIC, fields, methods);
     }
 
-    private static final UmlField CHAMP = new UmlField("nom", "String", "-", false);
-    private static final UmlMethod METHODE = new UmlMethod("agir", "void", "+", false, List.of());
+    private static final UmlField Field = new UmlField("name", "String", "-", false);
+    private static final UmlMethod Method = new UmlMethod("agir", "void", "+", false, List.of());
 
-    private static String rendu(UmlEntity entity) {
-        return PlantUmlAssert.documentPour(entity);
+    private static String rendered(UmlEntity entity) {
+        return PlantUmlAssert.documentFor(entity);
     }
 
-    // --- Le séparateur attributs / méthodes ---
+    // --- The fields / methods separator ---
 
     @Test
-    void separateur_presentUniquementSiChampsEtMethodes() {
-        String source = rendu(entite(List.of(CHAMP), List.of(METHODE)));
+    void separator_presentOnlyIfFieldsAndMethods() {
+        String source = rendered(entity(List.of(Field), List.of(Method)));
 
         assertTrue(source.contains("  --\n"),
-            "Le séparateur doit apparaître entre attributs et méthodes.");
+            "The separator must appear between fields and methods.");
         PlantUmlAssert.assertCompile(source);
     }
 
     @Test
-    void separateur_absentSiSeulementDesChamps() {
-        String source = rendu(entite(List.of(CHAMP), List.of()));
+    void separator_absentIfFieldsOnly() {
+        String source = rendered(entity(List.of(Field), List.of()));
 
         assertFalse(source.contains("--"),
-            "Sans méthode, un séparateur laisserait un compartiment vide dans le rendu.");
+            "With no method, a separator would leave an empty compartment in the rendering.");
         PlantUmlAssert.assertCompile(source);
     }
 
     @Test
-    void separateur_absentSiSeulementDesMethodes() {
-        String source = rendu(entite(List.of(), List.of(METHODE)));
+    void separator_absentIfMethodsOnly() {
+        String source = rendered(entity(List.of(), List.of(Method)));
 
         assertFalse(source.contains("--"));
         PlantUmlAssert.assertCompile(source);
     }
 
     @Test
-    void entiteSansAucunMembre_produitUneCoquilleValide() {
-        String source = rendu(entite(List.of(), List.of()));
+    void entityWithoutAnyMember_producesAValidShell() {
+        String source = rendered(entity(List.of(), List.of()));
 
         assertFalse(source.contains("--"));
         PlantUmlAssert.assertCompile(source);
     }
 
-    // --- Attributs ---
+    // --- Fields ---
 
     @Test
-    void champ_estRenduTypePuisNom() {
-        // Ordre UML « visibilité type nom », et non « nom : type ».
-        String source = rendu(entite(List.of(new UmlField("age", "int", "+", false)), List.of()));
+    void field_isRenderedTypeThenName() {
+        // UML order "visibility type name", and not "name : type".
+        String source = rendered(entity(List.of(new UmlField("age", "int", "+", false)), List.of()));
 
         assertTrue(source.contains("  + age : int\n"), source);
         PlantUmlAssert.assertCompile(source);
     }
 
     @Test
-    void champStatique_porteLeMarqueurStatic() {
-        String source = rendu(entite(List.of(new UmlField("SEUIL", "int", "+", true)), List.of()));
+    void staticField_carriesTheStaticMarker() {
+        String source = rendered(entity(List.of(new UmlField("Threshold", "int", "+", true)), List.of()));
 
-        assertTrue(source.contains("  + {static} SEUIL : int\n"), source);
+        assertTrue(source.contains("  + {static} Threshold : int\n"), source);
         PlantUmlAssert.assertCompile(source);
     }
 
     @Test
-    void lesQuatreSymbolesDeVisibilite_sontRendusTelsQuels() {
-        String source = rendu(entite(List.of(
+    void theFourVisibilitySymbols_areRenderedAsIs() {
+        String source = rendered(entity(List.of(
             new UmlField("a", "int", "+", false),
             new UmlField("b", "int", "-", false),
             new UmlField("c", "int", "#", false),
@@ -103,93 +103,93 @@ class PlantUmlSyntaxStructureTest {
         PlantUmlAssert.assertCompile(source);
     }
 
-    // --- Méthodes ---
+    // --- Methods ---
 
     @Test
-    void methodeSansParametre_renduAvecParenthesesVides() {
-        String source = rendu(entite(List.of(), List.of(METHODE)));
+    void methodWithoutParameter_renderedWithEmptyParentheses() {
+        String source = rendered(entity(List.of(), List.of(Method)));
 
         assertTrue(source.contains("  + agir() : void\n"), source);
         PlantUmlAssert.assertCompile(source);
     }
 
     @Test
-    void parametres_sontJointsParVirguleEspace() {
-        UmlMethod m = new UmlMethod("calculer", "double", "+", false,
+    void parameters_areJoinedByCommaSpace() {
+        UmlMethod m = new UmlMethod("compute", "double", "+", false,
             List.of("int", "String", "boolean"));
-        String source = rendu(entite(List.of(), List.of(m)));
+        String source = rendered(entity(List.of(), List.of(m)));
 
-        assertTrue(source.contains("  + calculer(int, String, boolean) : double\n"), source);
+        assertTrue(source.contains("  + compute(int, String, boolean) : double\n"), source);
         PlantUmlAssert.assertCompile(source);
     }
 
     @Test
-    void methodeStatique_porteLeMarqueurStaticAvantLeTypeDeRetour() {
+    void staticMethod_carriesTheStaticMarkerBeforeTheReturnType() {
         UmlMethod m = new UmlMethod("creer", "E", "+", true, List.of());
-        String source = rendu(entite(List.of(), List.of(m)));
+        String source = rendered(entity(List.of(), List.of(m)));
 
         assertTrue(source.contains("  + {static} creer() : E\n"), source);
         PlantUmlAssert.assertCompile(source);
     }
 
     @Test
-    void typeGenerique_neCassePasLaSyntaxe() {
-        // getSimpleName() efface les paramètres de type, mais un tableau donne "String[]".
-        UmlField champ = new UmlField("elements", "String[]", "-", false);
-        String source = rendu(entite(List.of(champ), List.of()));
+    void genericType_doesNotBreakTheSyntax() {
+        // getSimpleName() erases type parameters, but an array gives "String[]".
+        UmlField field = new UmlField("elements", "String[]", "-", false);
+        String source = rendered(entity(List.of(field), List.of()));
 
         assertTrue(source.contains("- elements : String[]"), source);
         PlantUmlAssert.assertCompile(source);
     }
 
-    // --- Stéréotype et couleur ---
+    // --- Stereotype and colour ---
 
     @Test
-    void stereotypeVide_nEstPasRendu() {
+    void emptyStereotype_isNotRendered() {
         String source =
-            rendu(new UmlEntity("E", "", "", UMLVisibility.PUBLIC, List.of(), List.of()));
+            rendered(new UmlEntity("E", "", "", UMLVisibility.PUBLIC, List.of(), List.of()));
 
-        assertFalse(source.contains("<<"), "Un stéréotype vide ne doit pas produire « <<>> ».");
+        assertFalse(source.contains("<<"), "An empty stereotype must not produce \"<<>>\".");
         PlantUmlAssert.assertCompile(source);
     }
 
     @Test
-    void stereotypeRenseigne_estRenduEntreChevrons() {
+    void filledInStereotype_isRenderedBetweenAngleBrackets() {
         String source =
-            rendu(new UmlEntity("E", "Service", "", UMLVisibility.PUBLIC, List.of(), List.of()));
+            rendered(new UmlEntity("E", "Service", "", UMLVisibility.PUBLIC, List.of(), List.of()));
 
         assertTrue(source.contains("<<Service>>"), source);
         PlantUmlAssert.assertCompile(source);
     }
 
     @Test
-    void couleurSansDiese_estNormaliseeCommeAvecDiese() {
-        // Les deux écritures sont acceptées par @UMLClass : elles doivent produire le même rendu.
-        String sans =
-            rendu(new UmlEntity("E", "", "AABBCC", UMLVisibility.PUBLIC, List.of(), List.of()));
-        String avec =
-            rendu(new UmlEntity("E", "", "#AABBCC", UMLVisibility.PUBLIC, List.of(), List.of()));
+    void colourWithoutHash_isNormalizedAsWithHash() {
+        // Both writings are accepted by @UMLClass: they must produce the same rendering.
+        String without =
+            rendered(new UmlEntity("E", "", "AABBCC", UMLVisibility.PUBLIC, List.of(), List.of()));
+        String with =
+            rendered(new UmlEntity("E", "", "#AABBCC", UMLVisibility.PUBLIC, List.of(), List.of()));
 
-        assertEquals(avec, sans, "« AABBCC » et « #AABBCC » doivent produire un rendu identique.");
-        assertTrue(sans.contains("#AABBCC"), sans);
-        PlantUmlAssert.assertCompile(sans);
+        assertEquals(with, without, "\u00ab AABBCC \u00bb and \u00ab #AABBCC \u00bb must produce an identical rendering.");
+        assertTrue(without.contains("#AABBCC"), without);
+        PlantUmlAssert.assertCompile(without);
     }
 
     @Test
-    void couleurVide_nEstPasRendue() {
+    void emptyColour_isNotRendered() {
         String source =
-            rendu(new UmlEntity("E", "", "", UMLVisibility.PUBLIC, List.of(), List.of()));
+            rendered(new UmlEntity("E", "", "", UMLVisibility.PUBLIC, List.of(), List.of()));
 
-        // La déclaration, et non le document : le bloc de style porte lui aussi des « # », et
-        // les y interdire reviendrait à interdire toute couleur par défaut.
+        // The declaration, and not the document: the style block also carries "#", and
+        // forbidding them there would amount to forbidding any default colour.
         assertTrue(source.contains("class \"E\" as E {"),
-            () -> "Une couleur vide ne doit pas produire un « # » orphelin :\n" + source);
+            () -> "An empty colour must not produce an orphan \"#\":\n" + source);
         PlantUmlAssert.assertCompile(source);
     }
 
     @Test
-    void stereotypeEtCouleur_coexistentDansLaDeclaration() {
-        String source = rendu(
+    void stereotypeAndColour_coexistInTheDeclaration() {
+        String source = rendered(
             new UmlEntity("E", "Entity", "#FF0000", UMLVisibility.PUBLIC, List.of(), List.of()));
 
         assertTrue(source.contains("class \"E\" as E <<Entity>> #FF0000 {"), source);
@@ -199,8 +199,8 @@ class PlantUmlSyntaxStructureTest {
     // --- Document ---
 
     @Test
-    void documentComplet_ouvreEtFermeLeDiagramme() {
-        String source = rendu(entite(List.of(), List.of()));
+    void wholeDocument_opensAndClosesTheDiagram() {
+        String source = rendered(entity(List.of(), List.of()));
 
         assertTrue(source.startsWith("@startuml\n"), source);
         assertTrue(source.endsWith("@enduml\n"), source);
@@ -208,31 +208,31 @@ class PlantUmlSyntaxStructureTest {
     }
 
     @Test
-    void plusieursClasses_sontToutesDeclarees() {
+    void severalClasses_areAllDeclared() {
         UmlEntity a = new UmlEntity("A", "", "", UMLVisibility.PUBLIC, List.of(), List.of());
         UmlEntity b = new UmlEntity("B", "", "", UMLVisibility.PUBLIC, List.of(), List.of());
 
-        String source = PlantUmlAssert.documentPour(a, b);
+        String source = PlantUmlAssert.documentFor(a, b);
 
-        assertEquals(List.of("A", "B"), PlantUmlAssert.nomsDeclares(source));
+        assertEquals(List.of("A", "B"), PlantUmlAssert.namesDeclared(source));
         PlantUmlAssert.assertCompile(source);
     }
 
     @Test
-    void addClass_estFluent() {
+    void addClass_isFluent() {
         PlantUmlSyntaxBuilder builder = new PlantUmlSyntaxBuilder(UmlStyle.PLANTUML);
-        UmlEntity e = entite(List.of(), List.of());
+        UmlEntity e = entity(List.of(), List.of());
 
         assertSame(builder, builder.addClass(e),
-            "addClass déclare renvoyer this : le chaînage doit fonctionner.");
+            "addClass declares it returns this: chaining must work.");
     }
 
-    // Le rendu ne doit dépendre d'aucun état résiduel : deux appels sur la même entité donnent
-    // le même texte, sinon le fichier engendré changerait sans que le code change.
+    // The rendering must depend on no residual state: two calls on the same entity give
+    // the same text, otherwise the generated file would change without the code changing.
     @Test
-    void rendu_estDeterministe() {
-        UmlEntity e = entite(List.of(CHAMP), List.of(METHODE));
+    void rendering_isDeterministic() {
+        UmlEntity e = entity(List.of(Field), List.of(Method));
 
-        assertEquals(rendu(e), rendu(e), "Deux rendus de la même entité doivent être identiques.");
+        assertEquals(rendered(e), rendered(e), "Two renderings of the same entity must be identical.");
     }
 }

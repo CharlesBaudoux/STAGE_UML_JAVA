@@ -12,114 +12,114 @@ import io.github.oliviercailloux.umlg.rendering.PlantUmlAssert;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-// Le regroupement visuel : quelles boîtes entrent dans quel rectangle, et ce que le rectangle
-// ne change pas.
+// Visual grouping: which boxes enter which rectangle, and what the rectangle
+// does not change.
 class PlantUmlPackageTest {
 
-    private static UmlEntity boite(String nom, UmlPackage groupe) {
-        return UmlEntity.builder("com.exemple." + nom, nom).group(groupe).build();
+    private static UmlEntity box(String name, UmlPackage group) {
+        return UmlEntity.builder("com.example." + name, name).group(group).build();
     }
 
-    private static UmlEntity boite(String nom) {
-        return boite(nom, UmlPackage.none());
+    private static UmlEntity box(String name) {
+        return box(name, UmlPackage.none());
     }
 
-    // Les lignes du document, débarrassées de leur indentation : le contenu d'un rectangle est
-    // écrit décalé, et ce décalage ne doit pas entrer dans les comparaisons.
-    private static List<String> lignes(String source) {
+    // The lines of the document, stripped of their indentation: the content of a rectangle is
+    // written shifted, and that shift must not enter the comparisons.
+    private static List<String> lines(String source) {
         return source.lines().map(String::strip).filter(l -> !l.isEmpty()).toList();
     }
 
     @Test
-    void classeGroupee_estEncadreeParUnRectangle() {
-        String source = PlantUmlAssert.documentPour(
-            boite("Facture", new UmlPackage("Module Paiement", "")));
+    void groupedClass_isFramedByARectangle() {
+        String source = PlantUmlAssert.documentFor(
+            box("Invoice", new UmlPackage("Module Payment", "")));
 
-        assertTrue(source.contains("package \"Module Paiement\" {"), source);
-        // Le rectangle doit se refermer : sans l'accolade, PlantUML avalerait tout ce qui suit.
-        assertTrue(lignes(source).contains("}"), source);
+        assertTrue(source.contains("package \"Module Payment\" {"), source);
+        // The rectangle must close: without the brace, PlantUML would swallow everything that follows.
+        assertTrue(lines(source).contains("}"), source);
     }
 
     @Test
-    void groupeColore_porteSaCouleur() {
-        String source = PlantUmlAssert.documentPour(
-            boite("Facture", new UmlPackage("Module Paiement", "#EEEEEE")));
+    void colouredGroup_carriesItsColour() {
+        String source = PlantUmlAssert.documentFor(
+            box("Invoice", new UmlPackage("Module Payment", "#EEEEEE")));
 
-        assertTrue(source.contains("package \"Module Paiement\" #EEEEEE {"), source);
+        assertTrue(source.contains("package \"Module Payment\" #EEEEEE {"), source);
     }
 
     @Test
-    void classeSansGroupe_nEstEncadreeParRien() {
-        assertFalse(PlantUmlAssert.documentPour(boite("Facture")).contains("package "),
-            "Une classe sans @UMLPackage se dessine au premier niveau.");
+    void classWithoutGroup_isFramedByNothing() {
+        assertFalse(PlantUmlAssert.documentFor(box("Invoice")).contains("package "),
+            "A class without @UMLPackage is drawn at the top level.");
     }
 
     @Test
-    void deuxClassesDuMemeGroupe_partagentUnSeulRectangle() {
-        UmlPackage groupe = new UmlPackage("Facturation", "");
-        String source = PlantUmlAssert.documentPour(
-            boite("Facture", groupe), boite("Ligne", groupe));
+    void twoClassesOfTheSameGroup_shareASingleRectangle() {
+        UmlPackage group = new UmlPackage("Billing", "");
+        String source = PlantUmlAssert.documentFor(
+            box("Invoice", group), box("Line", group));
 
-        // Une seule ouverture pour les deux : c'est le nom qui fait l'identité du groupe.
+        // A single opening for both: it is the name that makes the identity of the group.
         assertEquals(1, source.lines().filter(l -> l.startsWith("package ")).count(), source);
-        assertTrue(source.indexOf("Facture") > source.indexOf("package "), source);
+        assertTrue(source.indexOf("Invoice") > source.indexOf("package "), source);
     }
 
     @Test
-    void deuxGroupesDistincts_donnentDeuxRectangles() {
-        String source = PlantUmlAssert.documentPour(
-            boite("Facture", new UmlPackage("Facturation", "")),
-            boite("Compte", new UmlPackage("Sécurité", "")));
+    void twoDistinctGroups_giveTwoRectangles() {
+        String source = PlantUmlAssert.documentFor(
+            box("Invoice", new UmlPackage("Billing", "")),
+            box("Account", new UmlPackage("Security", "")));
 
         assertEquals(2, source.lines().filter(l -> l.startsWith("package ")).count(), source);
     }
 
     @Test
-    void classesGroupeesEtLibres_cohabitent() {
-        String source = PlantUmlAssert.documentPour(
-            boite("Libre"), boite("Rangee", new UmlPackage("Facturation", "")));
+    void groupedAndFreeClasses_coexist() {
+        String source = PlantUmlAssert.documentFor(
+            box("Free"), box("Filed", new UmlPackage("Billing", "")));
 
-        // Les boîtes sans groupe viennent en tête : elles n'ont pas de rectangle à ouvrir, et la
-        // source se lit mieux ainsi.
-        assertTrue(source.indexOf("\"Libre\"") < source.indexOf("package "), source);
+        // The boxes without a group come first: they have no rectangle to open, and the
+        // the source reads better that way.
+        assertTrue(source.indexOf("\"Free\"") < source.indexOf("package "), source);
         PlantUmlAssert.assertCompile(source);
     }
 
     @Test
-    void couleursContradictoires_laPremiereLEmporte() {
-        // Un rectangle n'a qu'une couleur. La première rencontrée est retenue, et l'écart est
-        // signalé sur la sortie d'erreur — ce que ce test ne mesure pas, mais qui explique
-        // pourquoi la seconde disparaît sans que rien n'échoue.
-        String source = PlantUmlAssert.documentPour(
-            boite("Facture", new UmlPackage("Facturation", "#EEEEEE")),
-            boite("Ligne", new UmlPackage("Facturation", "#123456")));
+    void contradictoryColours_theFirstOneWins() {
+        // A rectangle has only one colour. The first one met is kept, and the difference is
+        // reported to standard error — which this test does not measure, but which explains
+        // why the second vanishes with nothing failing.
+        String source = PlantUmlAssert.documentFor(
+            box("Invoice", new UmlPackage("Billing", "#EEEEEE")),
+            box("Line", new UmlPackage("Billing", "#123456")));
 
         assertTrue(source.contains("#EEEEEE"), source);
         assertFalse(source.contains("#123456"), source);
     }
 
     @Test
-    void couleurDeclareeApresUnGroupeSansCouleur_estRetenue() {
-        // Rien ne s'y oppose : aucune couleur n'avait encore été choisie, et la perdre serait
+    void colourDeclaredAfterAColourlessGroup_isKept() {
+        // Nothing stands against it: no colour had been chosen yet, and losing it would be
         // gratuit.
-        String source = PlantUmlAssert.documentPour(
-            boite("Facture", new UmlPackage("Facturation", "")),
-            boite("Ligne", new UmlPackage("Facturation", "#123456")));
+        String source = PlantUmlAssert.documentFor(
+            box("Invoice", new UmlPackage("Billing", "")),
+            box("Line", new UmlPackage("Billing", "#123456")));
 
-        assertTrue(source.contains("package \"Facturation\" #123456 {"), source);
+        assertTrue(source.contains("package \"Billing\" #123456 {"), source);
     }
 
-    // Ce que la bibliothèque a écrit sur la sortie d'erreur pendant le rendu.
+    // What the library wrote to standard error during the rendering.
     //
-    // Le flux est remplacé le temps de l'appel, puis rendu : un test qui laisserait derrière lui
-    // un System.err détourné fausserait tous les suivants, d'où le try/finally.
-    private static String erreurPendantLeRendu(UmlEntity... entites) {
+    // The stream is replaced for the duration of the call, then restored: a test leaving behind it
+    // a diverted System.err would skew every later one, hence the try/finally.
+    private static String errorDuringRendering(UmlEntity... entities) {
         java.io.PrintStream original = System.err;
         java.io.ByteArrayOutputStream capture = new java.io.ByteArrayOutputStream();
         try {
             System.setErr(new java.io.PrintStream(capture, true,
                 java.nio.charset.StandardCharsets.UTF_8));
-            PlantUmlAssert.documentPour(entites);
+            PlantUmlAssert.documentFor(entities);
         } finally {
             System.setErr(original);
         }
@@ -127,73 +127,73 @@ class PlantUmlPackageTest {
     }
 
     @Test
-    void couleurAjouteeAUnGroupeQuiNenAvaitPas_neSignaleRien() {
-        // Un avertissement qui annonce la perte d'une couleur effectivement dessinée serait pire
-        // que pas d'avertissement du tout : il apprend à ne plus les lire.
-        assertTrue(erreurPendantLeRendu(
-            boite("Facture", new UmlPackage("Facturation", "")),
-            boite("Ligne", new UmlPackage("Facturation", "#123456"))).isEmpty(),
-            "Aucune couleur n'est perdue : il n'y a rien à signaler.");
+    void colourAddedToAColourlessGroup_reportsNothing() {
+        // A warning announcing the loss of a colour actually drawn would be worse
+        // than no warning at all: it teaches one to stop reading them.
+        assertTrue(errorDuringRendering(
+            box("Invoice", new UmlPackage("Billing", "")),
+            box("Line", new UmlPackage("Billing", "#123456"))).isEmpty(),
+            "No colour is lost: there is nothing to report.");
     }
 
     @Test
-    void couleurReellementPerdue_estSignalee() {
-        String erreurs = erreurPendantLeRendu(
-            boite("Facture", new UmlPackage("Facturation", "#EEEEEE")),
-            boite("Ligne", new UmlPackage("Facturation", "#123456")));
+    void colourReallyLost_isReported() {
+        String errors = errorDuringRendering(
+            box("Invoice", new UmlPackage("Billing", "#EEEEEE")),
+            box("Line", new UmlPackage("Billing", "#123456")));
 
-        assertTrue(erreurs.contains("#123456"), erreurs);
-        assertTrue(erreurs.contains("com.exemple.Ligne"), erreurs);
+        assertTrue(errors.contains("#123456"), errors);
+        assertTrue(errors.contains("com.example.Line"), errors);
     }
 
     @Test
-    void classeSansCouleurDansUnGroupeColore_neSignaleRien() {
-        assertTrue(erreurPendantLeRendu(
-            boite("Facture", new UmlPackage("Facturation", "#EEEEEE")),
-            boite("Ligne", new UmlPackage("Facturation", ""))).isEmpty(),
-            "Une classe qui ne demande aucune couleur n'en perd aucune.");
+    void colourlessClassInAColouredGroup_reportsNothing() {
+        assertTrue(errorDuringRendering(
+            box("Invoice", new UmlPackage("Billing", "#EEEEEE")),
+            box("Line", new UmlPackage("Billing", ""))).isEmpty(),
+            "A class asking for no colour loses none.");
     }
 
     @Test
-    void couleurInconnue_estRefusee() {
-        // La même exigence que pour une boîte : le vocabulaire des couleurs est celui du moteur
-        // de rendu, et il est fermé.
-        assertThrows(IllegalArgumentException.class, () -> PlantUmlAssert.documentPour(
-            boite("Facture", new UmlPackage("Facturation", "PasUneCouleur"))));
+    void unknownColour_isRefused() {
+        // The same requirement as for a box: the colour vocabulary is that of the engine
+        // of rendering, and it is closed.
+        assertThrows(IllegalArgumentException.class, () -> PlantUmlAssert.documentFor(
+            box("Invoice", new UmlPackage("Billing", "NotAColor"))));
     }
 
     @Test
-    void nomDuGroupe_estEchappe() {
-        String source = PlantUmlAssert.documentPour(
-            boite("Facture", new UmlPackage("Vue <b>large</b>", "")));
+    void groupName_isEscaped() {
+        String source = PlantUmlAssert.documentFor(
+            box("Invoice", new UmlPackage("View <b>wide</b>", "")));
 
         assertFalse(source.contains("<b>"), source);
         PlantUmlAssert.assertCompile(source);
     }
 
     @Test
-    void unLienTraverseLesRectangles() {
-        // Une association entre deux groupes reste un trait ordinaire : les relations sont
-        // écrites hors des rectangles, après toutes les boîtes.
-        UmlEntity source = UmlEntity.builder("com.exemple.Facture", "Facture")
-            .group(new UmlPackage("Facturation", ""))
+    void aLinkCrossesTheRectangles() {
+        // An association between two groups stays an ordinary stroke: relations are
+        // written outside the rectangles, after every box.
+        UmlEntity source = UmlEntity.builder("com.example.Invoice", "Invoice")
+            .group(new UmlPackage("Billing", ""))
             .associations(List.of(
-                UmlAssociation.builder("compte", "com.exemple.Compte").build()))
+                UmlAssociation.builder("account", "com.example.Account").build()))
             .build();
-        UmlEntity cible = boite("Compte", new UmlPackage("Sécurité", ""));
+        UmlEntity target = box("Account", new UmlPackage("Security", ""));
 
-        String document = PlantUmlAssert.documentPour(source, cible);
+        String document = PlantUmlAssert.documentFor(source, target);
 
-        assertEquals(1, PlantUmlAssert.lignesDeLien(document).size(), document);
+        assertEquals(1, PlantUmlAssert.linkLines(document).size(), document);
         PlantUmlAssert.assertCompile(document);
     }
 
     @Test
-    void leGroupe_neChangeAucuneBoite() {
-        // Un rectangle range les boîtes ; il ne les modifie pas.
+    void theGroup_changesNoBox() {
+        // A rectangle files the boxes; it does not change them.
         assertEquals(
-            PlantUmlAssert.nomsDeclares(PlantUmlAssert.documentPour(boite("Facture"))),
-            PlantUmlAssert.nomsDeclares(PlantUmlAssert.documentPour(
-                boite("Facture", new UmlPackage("Facturation", "#EEEEEE")))));
+            PlantUmlAssert.namesDeclared(PlantUmlAssert.documentFor(box("Invoice"))),
+            PlantUmlAssert.namesDeclared(PlantUmlAssert.documentFor(
+                box("Invoice", new UmlPackage("Billing", "#EEEEEE")))));
     }
 }

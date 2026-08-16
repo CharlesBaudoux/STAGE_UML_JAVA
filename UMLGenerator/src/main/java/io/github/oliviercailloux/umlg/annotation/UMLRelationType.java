@@ -1,26 +1,16 @@
 package io.github.oliviercailloux.umlg.annotation;
 
 /**
- * Les trois natures de lien qu'une @UMLAssociation peut prendre.
- *
- * <p>Elles diffèrent par la force du lien de possession, et se traduisent par trois traits
- * différents (voir RelationRenderer).
+ * The three natures an &#64;UMLAssociation can take, which differ by the strength of
+ * ownership.
  */
 public enum UMLRelationType {
-
-    /**
-     * Lien simple : les deux classes se connaissent, aucune ne possède l'autre. Trait nu.
-     */
+    /** The two classes know each other, neither owns the other: bare stroke. */
     ASSOCIATION,
 
-    /**
-     * Possession forte : la cible ne survit pas à la source. Losange plein côté source.
-     */
+    /** The target does not outlive the source: filled diamond on the source side. */
     COMPOSITION,
 
-    /**
-     * Possession faible : la cible existe indépendamment, elle est seulement regroupée par la
-     * source. Losange creux côté source.
-     */
+    /** The target exists on its own and is merely grouped: hollow diamond on the source side. */
     AGGREGATION
 }

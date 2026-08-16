@@ -4,39 +4,16 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
- * Un paramètre d'une méthode, tel qu'il s'écrit dans la signature : {@code name: String}.
+ * A parameter of a method.
  *
- * <p>Le nom est facultatif, et c'est le compilateur qui en décide. Java n'écrit les noms des
- * paramètres dans le {@code .class} que si le projet est compilé avec l'option
- * {@code -parameters} ; sans elle, la réflexion ne connaît que {@code arg0}, {@code arg1}…
- * Plutôt que d'afficher ces noms-là, qui n'apprennent rien et que personne n'a écrits, un
- * paramètre sans nom ne montre que son type.
- *
- * <p>D'où deux formes possibles sur le dessin, et une seule règle pour choisir : le nom paraît
- * s'il existe vraiment.
- *
- * <pre>
- * representations(name: String)   le projet est compilé avec -parameters
- * representations(String)         il ne l'est pas
- * </pre>
- *
- * @param name le nom écrit dans le code, ou la chaîne vide quand la compilation ne l'a pas
- *     conservé.
- * @param type nom simple du type, comme partout ailleurs dans le modèle. Ni nul ni vide.
+ * @param name the name of the parameter, empty if it is not known.
+ * @param type the displayed type.
  */
 public record UmlParameter(
     String name,
     String type
 ) {
-
-    /**
-     * Vérifie les invariants du paramètre.
-     *
-     * @throws NullPointerException si le nom ou le type est nul ; l'absence de nom se dit avec la
-     *     chaîne vide.
-     * @throws IllegalArgumentException si le type est vide, ou si le nom n'est fait que
-     *     d'espaces.
-     */
+    /** Checks that the type is written and that the name, if any, is not made of spaces. */
     public UmlParameter {
         checkNotNull(name, "The parameter name cannot be null (use an empty string).");
         checkNotNull(type, "The parameter type cannot be null.");
@@ -47,20 +24,16 @@ public record UmlParameter(
     }
 
     /**
-     * Le cas d'un projet compilé sans {@code -parameters} : le type, et rien d'autre.
+     * A parameter reduced to its type, its name being absent from the .class files.
      *
-     * @param type le nom simple du type.
-     * @return un paramètre sans nom, qui ne montrera que son type.
+     * @param type the displayed type.
+     * @return a parameter reduced to its type, its name being absent from the .class files.
      */
     public static UmlParameter unnamed(String type) {
         return new UmlParameter("", type);
     }
 
-    /**
-     * Le paramètre porte-t-il un nom ?
-     *
-     * @return vrai si le nom a survécu à la compilation, et sera donc écrit dans la signature.
-     */
+    /** {@return true if the parameter carries a name} */
     public boolean isNamed() {
         return !name.isEmpty();
     }

@@ -5,114 +5,68 @@ import io.github.oliviercailloux.umlg.model.UmlEntity;
 import io.github.oliviercailloux.umlg.model.UmlPackage;
 import io.github.oliviercailloux.umlg.rendering.syntax.ColorCodec;
 import io.github.oliviercailloux.umlg.rendering.syntax.PlantUmlEscaper;
-import io.github.oliviercailloux.umlg.warning.Avertisseur;
+import io.github.oliviercailloux.umlg.warning.Warner;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-// Range les boîtes dans leurs rectangles, et écrit l'ouverture de chacun.
-//
-// Forme produite :
-//   package "Module Paiement" #EEEEEE {
-//     class "Facture" as Facture {
-//     }
-//   }
-//
-// Deux responsabilités, tenues ensemble parce qu'elles répondent à la même question — « quel
-// rectangle, et de quelle couleur ? » : constituer les groupes à partir des entités, et écrire
-// la ligne qui ouvre l'un d'eux.
 public final class PackageRenderer {
-
-    // La ligne qui referme un rectangle. Une constante plutôt qu'un littéral répété : l'ouverture
-    // et la fermeture doivent rester appariées, et se lire l'une près de l'autre.
-    public static final String FERMETURE = "}\n\n";
+    public static final String Closing = "}\n\n";
 
     private PackageRenderer() {}
 
-    // Les entités rangées par groupe, dans l'ordre où les groupes apparaissent.
-    //
-    // La clé est le groupe retenu — nom et couleur —, et non le nom seul : l'appelant n'a plus
-    // ensuite qu'à écrire ce qu'on lui donne. Les entités sans groupe sont rassemblées sous
-    // UmlPackage.none(), première clé de la table quand il y en a : elles se dessinent au
-    // premier niveau, et les voir en tête de la source engendrée est plus lisible.
-    //
-    // LA COULEUR QUAND ELLE EST DÉCLARÉE DEUX FOIS
-    //
-    // Un rectangle n'a qu'une couleur, et deux classes du même groupe peuvent en déclarer deux.
-    // La première rencontrée l'emporte — il faut bien trancher —, et l'écart est signalé plutôt
-    // que tu : l'auteur a écrit une couleur qu'il ne verra pas, et rien sur le dessin ne le lui
-    // dirait.
-    public static ImmutableList<Map.Entry<UmlPackage, ImmutableList<UmlEntity>>> groupes(
-        Iterable<UmlEntity> entites) {
+    public static ImmutableList<Map.Entry<UmlPackage, ImmutableList<UmlEntity>>> groups(
+        Iterable<UmlEntity> entities) {
+        Map<String, UmlPackage> keptGroups = new LinkedHashMap<>();
+        Map<String, ImmutableList.Builder<UmlEntity>> members = new LinkedHashMap<>();
 
-        // Clé : le nom du groupe, qui en est l'identité. Une LinkedHashMap pour que l'ordre des
-        // rectangles dans le fichier soit celui de leur première apparition, et non celui d'un
-        // hachage — la source engendrée doit être reproductible.
-        Map<String, UmlPackage> retenus = new LinkedHashMap<>();
-        Map<String, ImmutableList.Builder<UmlEntity>> membres = new LinkedHashMap<>();
-        // Le nom complet de la classe qui a fixé la couleur d'un groupe, pour le message.
-        Map<String, String> premiereCouleur = new LinkedHashMap<>();
+        Map<String, String> firstColor = new LinkedHashMap<>();
 
-        for (UmlEntity entite : entites) {
-            UmlPackage groupe = entite.group();
-            String cle = groupe.name();
+        for (UmlEntity entity : entities) {
+            UmlPackage group = entity.group();
+            String key = group.name();
 
-            UmlPackage retenu = retenus.get(cle);
-            if (retenu == null) {
-                retenus.put(cle, groupe);
-                membres.put(cle, ImmutableList.builder());
-                if (groupe.isGrouped() && !groupe.color().isEmpty()) {
-                    premiereCouleur.put(cle, entite.qualifiedName());
+            UmlPackage kept = keptGroups.get(key);
+            if (kept == null) {
+                keptGroups.put(key, group);
+                members.put(key, ImmutableList.builder());
+                if (group.isGrouped() && !group.color().isEmpty()) {
+                    firstColor.put(key, entity.qualifiedName());
                 }
-            } else if (groupe.isGrouped() && !groupe.color().isEmpty()
-                && !groupe.color().equals(retenu.color())) {
-
-                if (retenu.color().isEmpty()) {
-                    // Le groupe n'avait pas encore de couleur : celle-ci n'en concurrence
-                    // aucune, et rien ne justifierait de la perdre — ni de le signaler.
-                    retenus.put(cle, groupe);
-                    premiereCouleur.put(cle, entite.qualifiedName());
+            } else if (group.isGrouped() && !group.color().isEmpty()
+                && !group.color().equals(kept.color())) {
+                if (kept.color().isEmpty()) {
+                    keptGroups.put(key, group);
+                    firstColor.put(key, entity.qualifiedName());
                 } else {
-                    // Deux couleurs déclarées pour un rectangle qui n'en a qu'une : celle-ci est
-                    // réellement perdue, et c'est le seul cas où il y a quelque chose à dire.
-                    signalerCouleurEnDouble(entite, groupe, retenu, premiereCouleur.get(cle));
+                    reportDuplicateColor(entity, group, kept, firstColor.get(key));
                 }
             }
-            membres.get(cle).add(entite);
+            members.get(key).add(entity);
         }
 
-        ImmutableList.Builder<Map.Entry<UmlPackage, ImmutableList<UmlEntity>>> resultat =
+        ImmutableList.Builder<Map.Entry<UmlPackage, ImmutableList<UmlEntity>>> result =
             ImmutableList.builder();
-        for (Map.Entry<String, UmlPackage> groupe : retenus.entrySet()) {
-            resultat.add(Map.entry(groupe.getValue(), membres.get(groupe.getKey()).build()));
+        for (Map.Entry<String, UmlPackage> group : keptGroups.entrySet()) {
+            result.add(Map.entry(group.getValue(), members.get(group.getKey()).build()));
         }
-        return resultat.build();
+        return result.build();
     }
 
-    // La ligne qui ouvre un rectangle. Le nom est entre guillemets, ce qui permet espaces et
-    // accents ; la couleur, elle, est validée par ColorCodec plutôt qu'échappée — son
-    // vocabulaire est fermé.
-    //
-    // Le nom occupe à lui seul l'étiquette dessinée du rectangle : c'est donc debutDeLigne et non
-    // label, sans quoi un groupe nommé « |a|b| » se dessinerait en tableau à deux cellules.
-    public static String ouverture(UmlPackage groupe) {
-        StringBuilder ligne = new StringBuilder("package \"")
-            .append(PlantUmlEscaper.debutDeLigne(groupe.name())).append('"');
+    public static String opening(UmlPackage group) {
+        StringBuilder line = new StringBuilder("package \"")
+            .append(PlantUmlEscaper.lineStart(group.name())).append('"');
 
-        if (!groupe.color().isEmpty()) {
-            ligne.append(' ').append(ColorCodec.code(groupe.color(), groupe.name()));
+        if (!group.color().isEmpty()) {
+            line.append(' ').append(ColorCodec.code(group.color(), group.name()));
         }
-        return ligne.append(" {\n").toString();
+        return line.append(" {\n").toString();
     }
 
-    // L'écart est dit sur la sortie d'erreur, faute d'un meilleur canal à ce stade : la
-    // génération ne peut pas s'arrêter — le diagramme reste juste, il est seulement d'une autre
-    // couleur que celle qu'on croyait — et le processeur d'annotations, qui aurait dit la même
-    // chose plus tôt, ne voit pas toujours les deux classes dans la même compilation.
-    private static void signalerCouleurEnDouble(UmlEntity entite, UmlPackage declare,
-        UmlPackage retenu, String premiere) {
-        Avertisseur.dire("@UMLPackage on " + entite.qualifiedName() + ": group \""
-            + declare.name() + "\" already has the color \"" + retenu.color() + "\""
-            + (premiere == null ? "" : ", set by " + premiere)
+    private static void reportDuplicateColor(UmlEntity entity, UmlPackage declare,
+        UmlPackage kept, String first) {
+        Warner.say("@UMLPackage on " + entity.qualifiedName() + ": group \""
+            + declare.name() + "\" already has the color \"" + kept.color() + "\""
+            + (first == null ? "" : ", set by " + first)
             + "; a rectangle has only one, so \"" + declare.color() + "\" will not be drawn.");
     }
 }

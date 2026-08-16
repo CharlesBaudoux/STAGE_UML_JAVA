@@ -1,51 +1,30 @@
 package io.github.oliviercailloux.umlg.model;
 
-/**
- * Ce que la boîte est : classe, interface, énumération…
- *
- * <p>Cette nature est déduite du code par réflexion, jamais écrite par l'utilisateur. C'est
- * pourquoi l'énumération vit dans le modèle et non dans le paquetage {@code annotation}, qui ne
- * contient que le vocabulaire que l'utilisateur écrit lui-même.
- *
- * <p>Un {@code record} n'a pas de valeur propre : c'est une classe finale, et UML ne lui réserve
- * aucune notation. Il est donc rendu comme {@link #CLASS}, ce qui n'est pas un pis-aller mais la
- * description exacte de ce qu'il est.
- */
+/** What a box is, and the word PlantUML writes before its name. */
 public enum UmlEntityKind {
-
-    /** Une classe ordinaire, et aussi un {@code record}. */
+    /** An ordinary class. */
     CLASS("class"),
 
-    /**
-     * Une classe abstraite. Le nom est alors mis en italique, comme le veut la norme UML.
-     */
+    /** An abstract class. */
     ABSTRACT_CLASS("abstract class"),
 
-    /** Une interface. */
+    /** One interface. */
     INTERFACE("interface"),
 
-    /** Une énumération, dont les littéraux occupent leur propre compartiment. */
+    /** An enumeration. */
     ENUM("enum"),
 
-    /**
-     * Un type annotation ({@code @interface}). Pour la réflexion ce sont des interfaces, mais
-     * PlantUML sait les dessiner à part, et les confondre effacerait une information.
-     */
+    /** One annotation. */
     ANNOTATION("annotation");
 
-    // Le mot par lequel commence la déclaration de la boîte dans le fichier PlantUML.
-    private final String motCle;
+    private final String wordKey;
 
-    UmlEntityKind(String motCle) {
-        this.motCle = motCle;
+    UmlEntityKind(String wordKey) {
+        this.wordKey = wordKey;
     }
 
-    /**
-     * Le mot-clé de déclaration correspondant.
-     *
-     * @return le mot par lequel commence la déclaration de la boîte dans le fichier PlantUML.
-     */
+    /** {@return the word PlantUML writes at the head of the box} */
     public String keyword() {
-        return motCle;
+        return wordKey;
     }
 }

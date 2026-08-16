@@ -14,110 +14,110 @@ import io.github.oliviercailloux.umlg.model.UmlNote;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-// Ce que l'extraction retient des @UMLNote.
+// What extraction keeps of @UMLNote.
 //
-// Le fil conducteur : une bulle ne se dessine qu'accrochée à quelque chose. Toutes les notes
-// visant un membre que la boîte ne montre pas doivent disparaître ici, sans quoi le rendu
-// demanderait à PlantUML d'accrocher une bulle à un membre qu'il ne connaît pas.
+// The thread running through: a bubble is drawn only when hung on something. Every note
+// aiming at a member the box does not show must vanish here, otherwise the rendering
+// would ask PlantUML to hang a bubble on a member it does not know.
 class NoteExtractorTest {
 
-    private static List<String> textes(UmlEntity entity) {
+    private static List<String> texts(UmlEntity entity) {
         return entity.notes().stream().map(UmlNote::text).toList();
     }
 
     @UMLClass
-    @UMLNote(text = "Coeur du domaine")
-    @UMLNote(text = "Ne pas exposer hors du module", direction = UMLDirection.LEFT)
-    static class Commande {}
+    @UMLNote(text = "Core of the domain")
+    @UMLNote(text = "Do not expose outside the module", direction = UMLDirection.LEFT)
+    static class Order {}
 
     @Test
-    void notesDeClasse_sontToutesRetenues() {
-        UmlEntity entity = EntityExtractor.extract(Commande.class);
+    void classNotes_areAllKept() {
+        UmlEntity entity = EntityExtractor.extract(Order.class);
 
-        assertEquals(List.of("Coeur du domaine", "Ne pas exposer hors du module"), textes(entity));
+        assertEquals(List.of("Core of the domain", "Do not expose outside the module"), texts(entity));
         assertTrue(entity.notes().stream().noneMatch(UmlNote::isOnMember));
     }
 
     @Test
-    void directionEcrite_estConservee() {
-        UmlEntity entity = EntityExtractor.extract(Commande.class);
+    void writtenDirection_isKept() {
+        UmlEntity entity = EntityExtractor.extract(Order.class);
 
         assertEquals(UMLDirection.NONE, entity.notes().get(0).direction());
         assertEquals(UMLDirection.LEFT, entity.notes().get(1).direction());
     }
 
     @UMLClass(strategy = UMLVisibility.PUBLIC)
-    static class Compte {
+    static class Account {
 
-        @UMLNote(text = "Jamais negatif")
-        public double solde;
+        @UMLNote(text = "Never negative")
+        public double balance;
 
-        @UMLNote(text = "Invisible, donc perdue")
-        private String motDePasse;
+        @UMLNote(text = "Invisible, hence lost")
+        private String passedWord;
 
-        @UMLNote(text = "Algorithme critique", direction = UMLDirection.RIGHT)
-        public void verifier() {}
+        @UMLNote(text = "Algorithm critical", direction = UMLDirection.RIGHT)
+        public void check() {}
     }
 
     @Test
-    void noteDeMembre_porteLeNomDuMembre() {
-        UmlEntity entity = EntityExtractor.extract(Compte.class);
+    void memberNote_carriesTheMemberName() {
+        UmlEntity entity = EntityExtractor.extract(Account.class);
 
         UmlNote note = entity.notes().stream()
-            .filter(n -> n.text().equals("Jamais negatif")).findFirst().orElseThrow();
+            .filter(n -> n.text().equals("Never negative")).findFirst().orElseThrow();
 
-        assertEquals("solde", note.anchor());
+        assertEquals("balance", note.anchor());
         assertTrue(note.isOnMember());
     }
 
     @Test
-    void noteDeMethode_porteLeNomDeLaMethode() {
-        UmlEntity entity = EntityExtractor.extract(Compte.class);
+    void methodNote_carriesTheMethodName() {
+        UmlEntity entity = EntityExtractor.extract(Account.class);
 
-        assertEquals("verifier", entity.notes().stream()
-            .filter(n -> n.text().equals("Algorithme critique")).findFirst().orElseThrow()
+        assertEquals("check", entity.notes().stream()
+            .filter(n -> n.text().equals("Algorithm critical")).findFirst().orElseThrow()
             .anchor());
     }
 
     @Test
-    void noteVisantUnMembreMasque_estEcartee() {
-        // La stratégie est PUBLIC : motDePasse n'entre pas dans la boîte, et sa note n'a plus
-        // rien où s'accrocher. Le processeur d'annotations, lui, l'aura dit à la compilation.
-        UmlEntity entity = EntityExtractor.extract(Compte.class);
+    void noteAimingAtAHiddenMember_isDropped() {
+        // The strategy is PUBLIC: password does not enter the box, and its note no longer has
+        // nothing to hang on. The annotation processor, for its part, will have said so at compile time.
+        UmlEntity entity = EntityExtractor.extract(Account.class);
 
-        assertTrue(textes(entity).stream().noneMatch(t -> t.contains("perdue")),
-            "La note d'un membre masqué doit disparaître : " + textes(entity));
+        assertTrue(texts(entity).stream().noneMatch(t -> t.contains("lost")),
+            "The note of a hidden member must vanish: " + texts(entity));
     }
 
     @UMLClass(strategy = UMLVisibility.PRIVATE)
     static class Client {
 
-        @UMLNote(text = "Visée par un lien, pas par une boîte")
-        @UMLAssociation(target = Commande.class)
-        private Commande commande;
+        @UMLNote(text = "Aimed at by a link, not by a box")
+        @UMLAssociation(target = Order.class)
+        private Order order;
     }
 
     @Test
-    void noteSurUnAttributPromuEnLien_estEcartee() {
-        // L'attribut est devenu un trait : il n'est plus dans la boîte, et une note ne
-        // s'accroche pas à un trait.
+    void noteOnAFieldPromotedToLink_isDropped() {
+        // The field became a stroke: it is no longer in the box, and a note cannot
+        // does not hang on a stroke.
         UmlEntity entity = EntityExtractor.extract(Client.class);
 
-        assertEquals(List.of(), textes(entity));
+        assertEquals(List.of(), texts(entity));
     }
 
-    // Délibérément sans @UMLClass, et l'extracteur est appelé directement : un cobaye fautif qui
-    // porterait l'annotation serait ramassé par ProjectScanner, et ferait échouer les tests
-    // d'intégration qui balaient tout le répertoire des classes de test.
+    // Deliberately without @UMLClass, and the extractor is called directly: a faulty fixture that
+    // carrying the annotation would be picked up by ProjectScanner, and would fail the tests
+    // integration tests sweeping the whole test-class directory.
     @UMLNote(text = "   ")
-    static class NoteVide {}
+    static class EmptyNote {}
 
     @Test
-    void texteFaitDEspaces_estRefuseEnNommantLEmplacement() {
+    void textMadeOfSpaces_isRefusedNamingTheLocation() {
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
-            () -> NoteExtractor.extraire(NoteVide.class, List.of(), List.of()));
+            () -> NoteExtractor.extract(EmptyNote.class, List.of(), List.of()));
 
-        assertTrue(e.getMessage().contains("NoteVide"), e.getMessage());
+        assertTrue(e.getMessage().contains("EmptyNote"), e.getMessage());
         assertTrue(e.getMessage().contains("@UMLNote"), e.getMessage());
     }
 }

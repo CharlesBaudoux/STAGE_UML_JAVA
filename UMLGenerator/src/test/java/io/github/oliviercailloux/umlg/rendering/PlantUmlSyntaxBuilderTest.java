@@ -9,70 +9,70 @@ import io.github.oliviercailloux.umlg.UmlStyle;
 import io.github.oliviercailloux.umlg.model.UmlEntity;
 import org.junit.jupiter.api.Test;
 
-// Deux vérifications d'ensemble sur l'assemblage du document : l'ossature (@startuml, style,
-// @enduml) et une boîte complète, depuis les annotations jusqu'au texte engendré.
+// Two overall checks on the assembly of the document: the skeleton (@startuml, style,
+// @enduml) and a complete box, from the annotations to the generated text.
 //
-// Le détail de chaque morceau est éprouvé ailleurs (PlantUmlSyntaxStructureTest) ; ce fichier
-// vérifie que tout tient ensemble.
+// The detail of each chunk is exercised elsewhere (PlantUmlSyntaxStructureTest); this file
+// checks that everything holds together.
 class PlantUmlSyntaxBuilderTest {
 
-    // 1. Arrange : Création d'un cobaye avec toutes les nouvelles options du PDF
+    // 1. Arrange: build a fixture with every new option of the PDF
     @UMLClass(
         name = "ClientTest",
         stereotype = "Entity",
         color = "#FF0000",
         strategy = UMLVisibility.PRIVATE
     )
-    static class ClasseCobayeComplete {
-        private String nom;
+    static class CompleteFixtureClass {
+        private String name;
         public int age;
 
-        public void faireQuelqueChose() {}
-        private void methodeSecrete() {}
+        public void doSomeThing() {}
+        private void methodSecret() {}
     }
 
     @Test
-    void testSyntaxeEnteteEtPiedDePage() {
+    void testSyntaxHeaderAndFooter() {
         PlantUmlSyntaxBuilder builder = new PlantUmlSyntaxBuilder(UmlStyle.PLANTUML);
 
         // Act
         builder.startDocument();
         builder.endDocument();
 
-        String resultat = builder.build();
+        String result = builder.build();
 
         // Assert
-        assertTrue(resultat.contains("@startuml"), "Le document doit commencer par @startuml");
-        assertTrue(resultat.contains("skinparam classAttributeIconSize 0"),
-            "Le document doit forcer l'affichage des symboles textes (+, -)");
-        assertTrue(resultat.contains("@enduml"), "Le document doit se terminer par @enduml");
+        assertTrue(result.contains("@startuml"), "The document must start with @startuml");
+        assertTrue(result.contains("skinparam classAttributeIconSize 0"),
+            "The document must force the display of the text symbols (+, -)");
+        assertTrue(result.contains("@enduml"), "The document must end with @enduml");
     }
 
     @Test
-    void testSyntaxeClasseComplete() {
-        // Arrange : Notre entité décode les règles grâce à l'API de Réflexion
-        UmlEntity entite = EntityExtractor.extract(ClasseCobayeComplete.class);
+    void testSyntaxCompleteClass() {
+        // Arrange: our entity decodes the rules through the reflection API
+        UmlEntity entity = EntityExtractor.extract(CompleteFixtureClass.class);
         PlantUmlSyntaxBuilder builder = new PlantUmlSyntaxBuilder(UmlStyle.PLANTUML);
 
-        // Act : On génère le texte PlantUML
-        builder.addClass(entite);
-        String resultat = builder.build();
+        // Act: generate the PlantUML text
+        builder.addClass(entity);
+        String result = builder.build();
 
-        // Assert : Vérification de la ligne de déclaration
-        assertTrue(resultat.contains("class \"ClientTest\" as ClientTest <<Entity>> #FF0000 {"),
-            "La déclaration de la classe doit inclure le nom surchargé, le stéréotype et la "
-                + "couleur.");
+        // Assert: check the declaration line
+        assertTrue(result.contains("class \"ClientTest\" as ClientTest <<Entity>> #FF0000 {"),
+            "The class declaration must include the overridden name, the stereotype and the "
+                + "color.");
 
-        // Assert : Vérification des attributs (avec la stratégie PRIVATE)
-        assertTrue(resultat.contains("- nom : String"),
-            "L'attribut privé doit être présent avec le symbole '-'");
-        assertTrue(resultat.contains("+ age : int"),
-            "L'attribut public doit être présent avec le symbole '+'");
+        // Assert: check the fields (with the PRIVATE strategy)
+        assertTrue(result.contains("- name : String"),
+            "The private field must be present with the '-' symbol");
+        assertTrue(result.contains("+ age : int"),
+            "The public field must be present with the '+' symbol");
 
-        // Assert : Vérification des méthodes
-        assertTrue(resultat.contains("+ faireQuelqueChose() : void"),
-            "La méthode publique doit être formatée correctement");
-        assertTrue(resultat.contains("- methodeSecrete() : void"),
-            "La méthode privée doit être formatée correctement");
+        // Assert: check the methods
+        assertTrue(result.contains("+ doSomeThing() : void"),
+            "The public method must be formatted correctly");
+        assertTrue(result.contains("- methodSecret() : void"),
+            "The private method must be formatted correctly");
     }
 }

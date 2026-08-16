@@ -14,189 +14,189 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
-// Le rendu des bulles de commentaire.
+// The rendering of comment bubbles.
 //
-// Deux préoccupations : le bon placement (PlantUML n'accepte pas de note sans côté, et son
-// vocabulaire n'est pas celui de l'énuméré), et la sûreté du texte — c'est le seul endroit du
-// diagramme où l'utilisateur écrit une phrase entière.
+// Two concerns: the right placement (PlantUML accepts no note without a side, and its
+// the vocabulary is not that of the enumerated one), and the safety of the text — it is the only place of the
+// a diagram where the user writes a whole sentence.
 class PlantUmlNoteTest {
 
-    private static UmlEntity boite(List<UmlNote> notes) {
-        return UmlEntity.builder("com.exemple.Client", "Client")
-            .fields(List.of(new UmlField("solde", "double", "-", false)))
+    private static UmlEntity box(List<UmlNote> notes) {
+        return UmlEntity.builder("com.example.Client", "Client")
+            .fields(List.of(new UmlField("balance", "double", "-", false)))
             .notes(notes).build();
     }
 
     private static String source(UmlNote... notes) {
-        return PlantUmlAssert.documentPour(boite(List.of(notes)));
+        return PlantUmlAssert.documentFor(box(List.of(notes)));
     }
 
-    // Les lignes qui ouvrent une note.
-    private static List<String> lignesDeNote(String source) {
+    // The lines that open a note.
+    private static List<String> noteLines(String source) {
         return source.lines().filter(l -> l.startsWith("note ")).toList();
     }
 
-    // Le bloc complet d'une note de membre : l'ouverture, le texte, le terminateur.
-    private static List<String> blocDeNote(String source) {
-        return blocDeNote(source, 3);
+    // The whole block of a member note: the opening, the text, the terminator.
+    private static List<String> noteBloc(String source) {
+        return noteBloc(source, 3);
     }
 
-    // La même chose, quand le texte occupe plus d'une ligne : le bloc en compte alors autant en
+    // The same thing, when the text takes more than one line: the block then counts as many
     // plus.
-    private static List<String> blocDeNote(String source, int hauteur) {
-        List<String> lignes = source.lines().toList();
-        int debut = lignes.indexOf(lignes.stream().filter(l -> l.startsWith("note "))
+    private static List<String> noteBloc(String source, int height) {
+        List<String> lines = source.lines().toList();
+        int start = lines.indexOf(lines.stream().filter(l -> l.startsWith("note "))
             .findFirst().orElseThrow());
-        return lignes.subList(debut, debut + hauteur);
+        return lines.subList(start, start + height);
     }
 
     @Test
-    void noteSurClasse_seRattacheALaBoite() {
-        String source = source(UmlNote.onClass("Dette technique assumee", UMLDirection.RIGHT));
+    void classNote_hangsOnTheBox() {
+        String source = source(UmlNote.onClass("Dette technical assumee", UMLDirection.RIGHT));
 
-        assertEquals(List.of("note right of Client : Dette technique assumee"),
-            lignesDeNote(source));
+        assertEquals(List.of("note right of Client : Dette technical assumee"),
+            noteLines(source));
         PlantUmlAssert.assertCompile(source);
     }
 
     @ParameterizedTest
     @CsvSource({"NONE,right", "RIGHT,right", "LEFT,left", "UP,top", "DOWN,bottom"})
-    void direction_estTraduiteDansLeVocabulaireDePlantUml(UMLDirection direction, String attendu) {
-        // UP et DOWN ne se disent pas « up » et « down » : une simple mise en minuscules
-        // produirait une syntaxe que PlantUML refuse. NONE doit choisir un côté, faute de quoi
-        // la note n'aurait nulle part où se poser.
-        String source = source(UmlNote.onClass("Texte", direction));
+    void direction_isTranslatedIntoPlantUmlVocabulary(UMLDirection direction, String expected) {
+        // UP and DOWN are not said "up" and "down": a mere lowercasing
+        // would produce a syntax PlantUML refuses. NONE must choose a side, otherwise
+        // the note would have nowhere to sit.
+        String source = source(UmlNote.onClass("Text", direction));
 
-        assertEquals(List.of("note " + attendu + " of Client : Texte"), lignesDeNote(source));
+        assertEquals(List.of("note " + expected + " of Client : Text"), noteLines(source));
         PlantUmlAssert.assertCompile(source);
     }
 
     @Test
-    void noteSurMembre_seRattacheAuMembre() {
-        // PlantUML refuse la forme d'une seule ligne pour un membre : seul le bloc fonctionne.
-        // Le texte y est écrit avec son premier caractère encodé, ce qui le rend incapable
-        // d'imiter le terminateur.
-        String source = source(new UmlNote("Jamais negatif", UMLDirection.RIGHT, "solde"));
+    void memberNote_hangsOnTheMember() {
+        // PlantUML refuses the single-line form for a member: only the block works.
+        // The text is written there with its first character encoded, which makes it unable
+        // of imitating the terminator.
+        String source = source(new UmlNote("Never negative", UMLDirection.RIGHT, "balance"));
 
-        assertEquals(List.of("note right of Client::solde", "&#74;amais negatif", "end note"),
-            blocDeNote(source));
+        assertEquals(List.of("note right of Client::balance", "&#78;ever negative", "end note"),
+            noteBloc(source));
         PlantUmlAssert.assertCompile(source);
     }
 
     @ParameterizedTest
     @CsvSource({"NONE,right", "RIGHT,right", "LEFT,left", "UP,right", "DOWN,right"})
-    void directionSurMembre_seRabatSurUnCoteQuePlantUmlConnait(UMLDirection direction,
-        String attendu) {
-        // PlantUML ne place une note de membre qu'à gauche ou à droite : « note top of A::m »
-        // n'est pas dégradé, il est refusé, et son refus emporte le document entier. UP et DOWN
-        // doivent donc se rabattre, sans quoi une seule annotation mal orientée remplacerait le
-        // diagramme par une image d'erreur.
-        String source = source(new UmlNote("Texte", direction, "solde"));
+    void directionOnAMember_fallsBackOnASidePlantUmlKnows(UMLDirection direction,
+        String expected) {
+        // PlantUML places a member note on the left or on the right only: "note top of A::m"
+        // is not degraded, it is refused, and its refusal carries away the whole document. UP and DOWN
+        // must therefore fall back, otherwise a single misdirected annotation would replace the
+        // the diagram by an error image.
+        String source = source(new UmlNote("Text", direction, "balance"));
 
-        assertEquals("note " + attendu + " of Client::solde", blocDeNote(source).get(0), source);
+        assertEquals("note " + expected + " of Client::balance", noteBloc(source).get(0), source);
         PlantUmlAssert.assertCompile(source);
     }
 
     @Test
-    void noteSurMembre_texteMultiligne_utiliseDeVraisSauts() {
-        // Un bloc n'interprète pas la séquence « \n » : elle s'y afficherait en toutes lettres.
-        // Ce sont donc de vrais retours à la ligne qu'il faut écrire — l'inverse exact de la
-        // forme sur une seule ligne.
-        String source = source(new UmlNote("Premiere\nSeconde", UMLDirection.RIGHT, "solde"));
+    void memberNote_multilineText_usesRealBreaks() {
+        // A block does not interpret the "\n" sequence: it would be displayed there in full.
+        // So it must write real line breaks — the exact opposite of the
+        // form on one only line.
+        String source = source(new UmlNote("Premiere\nSeconde", UMLDirection.RIGHT, "balance"));
 
         assertEquals(
-            List.of("note right of Client::solde", "&#80;remiere", "&#83;econde", "end note"),
-            blocDeNote(source, 4), source);
+            List.of("note right of Client::balance", "&#80;remiere", "&#83;econde", "end note"),
+            noteBloc(source, 4), source);
         PlantUmlAssert.assertCompile(source);
     }
 
     @Test
-    void noteSurMembre_texteMultiligne_estLuSurPlusieursLignes() throws Exception {
-        // Le seul niveau qui prouve la correction : ce que le lecteur voit. Un « \n » littéral
-        // apparaîtrait ici au milieu de la phrase.
-        String texte = PlantUmlAssert.texteRendu(
-            boite(List.of(new UmlNote("Premiere\nSeconde", UMLDirection.RIGHT, "solde"))));
+    void memberNote_multilineText_isReadOverSeveralLines() throws Exception {
+        // The only level proving the fix: what the reader sees. A literal "\n"
+        // would appear here in the middle of the sentence.
+        String text = PlantUmlAssert.textRendered(
+            box(List.of(new UmlNote("Premiere\nSeconde", UMLDirection.RIGHT, "balance"))));
 
-        assertFalse(texte.contains("\\n"), "Le saut de ligne s'affiche en toutes lettres :\n"
-            + texte);
-        assertTrue(texte.contains("Premiere"), texte);
-        assertTrue(texte.contains("Seconde"), texte);
+        assertFalse(text.contains("\\n"), "The line break is displayed in full:\n"
+            + text);
+        assertTrue(text.contains("Premiere"), text);
+        assertTrue(text.contains("Second"), text);
     }
 
     @Test
-    void noteSurMembre_ligneInterieureImitantLeTerminateur_neRefermeRien() {
-        // Le découpage en lignes crée une brèche que la forme d'un seul tenant n'avait pas :
-        // n'importe quelle ligne du texte devient une ligne du bloc. La protection porte donc
-        // sur toutes, et non plus sur la première seule.
+    void memberNote_innerLineImitatingTheTerminator_closesNothing() {
+        // Splitting into lines opens a breach the single-piece form did not have:
+        // any line of the text becomes a line of the block. The protection therefore bears
+        // on everything, and no longer on the first one alone.
         String source =
-            source(new UmlNote("Anodin\nend note\nclass Pirate", UMLDirection.RIGHT, "solde"));
+            source(new UmlNote("Anodin\nend note\nclass Pirate", UMLDirection.RIGHT, "balance"));
 
-        assertEquals(1, PlantUmlAssert.nombreDeDiagrammes(source), source);
-        assertFalse(PlantUmlAssert.aliasDeclares(source).contains("Pirate"), source);
+        assertEquals(1, PlantUmlAssert.diagramsCount(source), source);
+        assertFalse(PlantUmlAssert.aliasDeclared(source).contains("Pirate"), source);
         PlantUmlAssert.assertCompile(source);
     }
 
     @Test
-    void noteSurMembre_texteImitantLeTerminateur_neRefermeRien() {
-        // Le cas qui justifie l'encodage : sans lui, cette note se refermerait sur elle-même et
-        // PlantUML rejetterait le document entier.
-        String source = source(new UmlNote("end note", UMLDirection.RIGHT, "solde"));
+    void memberNote_textImitatingTheTerminator_closesNothing() {
+        // The case warranting the encoding: without it, this note would close on itself and
+        // PlantUML would reject the whole document.
+        String source = source(new UmlNote("end note", UMLDirection.RIGHT, "balance"));
 
-        assertEquals(List.of("note right of Client::solde", "&#101;nd note", "end note"),
-            blocDeNote(source));
+        assertEquals(List.of("note right of Client::balance", "&#101;nd note", "end note"),
+            noteBloc(source));
         PlantUmlAssert.assertCompile(source);
     }
 
     @Test
-    void noteSurMembre_lecteurVoitLeTexteImitant() throws Exception {
-        // L'encodage ne doit pas se voir : le lecteur lit bien « end note ».
-        String texte = PlantUmlAssert.texteRendu(
-            boite(List.of(new UmlNote("end note", UMLDirection.RIGHT, "solde"))));
+    void memberNote_readerSeesTheImitatingText() throws Exception {
+        // The encoding must not show: the reader indeed reads "end note".
+        String text = PlantUmlAssert.textRendered(
+            box(List.of(new UmlNote("end note", UMLDirection.RIGHT, "balance"))));
 
-        assertTrue(texte.contains("end note"), texte);
+        assertTrue(text.contains("end note"), text);
     }
 
     @Test
-    void notesMultiples_sortentToutes() {
+    void severalNotes_allComeOut() {
         String source = source(UmlNote.onClass("Premiere", UMLDirection.UP),
-            UmlNote.onClass("Seconde", UMLDirection.DOWN));
+            UmlNote.onClass("Second", UMLDirection.DOWN));
 
-        assertEquals(2, lignesDeNote(source).size(), source);
+        assertEquals(2, noteLines(source).size(), source);
         PlantUmlAssert.assertCompile(source);
     }
 
-    // --- La sûreté du texte ---
+    // --- The safety of the text ---
 
     @Test
-    void texteMultiligne_resteSurUneSeuleLigne() {
-        // Le retour à la ligne devient la séquence « \n », que PlantUML affiche comme un saut de
-        // ligne. Ce qui compte ici est qu'aucune ligne nouvelle n'apparaisse dans la source : le
-        // reste du texte serait alors lu comme de la syntaxe.
+    void multilineText_staysOnASingleLine() {
+        // The line break becomes the "\n" sequence, which PlantUML displays as a break of
+        // line. What counts here is that no new line appears in the source: the
+        // the rest of the text would then be read as syntax.
         String source = source(UmlNote.onClass("Premiere\nSeconde", UMLDirection.RIGHT));
 
-        assertEquals(1, lignesDeNote(source).size(), source);
-        assertTrue(lignesDeNote(source).get(0).contains("\\n"), source);
+        assertEquals(1, noteLines(source).size(), source);
+        assertTrue(noteLines(source).get(0).contains("\\n"), source);
         PlantUmlAssert.assertCompile(source);
     }
 
     @Test
-    void texteContenantEndNote_neRefermeRien() {
-        // La raison d'être de la forme sur une seule ligne : dans la forme en bloc, cette phrase
-        // refermerait la bulle et la suite s'écrirait en syntaxe PlantUML.
+    void textContainingEndNote_closesNothing() {
+        // The reason for the single-line form: in the block form, this sentence
+        // would close the bubble and what follows would be written as PlantUML syntax.
         String source =
             source(UmlNote.onClass("end note\n@enduml\nclass Pirate", UMLDirection.RIGHT));
 
-        assertEquals(1, PlantUmlAssert.nombreDeDiagrammes(source),
-            "Le texte a decoupe le document :\n" + source);
-        assertFalse(PlantUmlAssert.aliasDeclares(source).contains("Pirate"), source);
+        assertEquals(1, PlantUmlAssert.diagramsCount(source),
+            "The text cut the document:\n" + source);
+        assertFalse(PlantUmlAssert.aliasDeclared(source).contains("Pirate"), source);
         PlantUmlAssert.assertCompile(source);
     }
 
     @Test
-    void lecteurVoitLeTexte() throws Exception {
-        String texte = PlantUmlAssert.texteRendu(
-            boite(List.of(UmlNote.onClass("Algorithme critique", UMLDirection.RIGHT))));
+    void readerSeesText() throws Exception {
+        String text = PlantUmlAssert.textRendered(
+            box(List.of(UmlNote.onClass("Algorithm critical", UMLDirection.RIGHT))));
 
-        assertTrue(texte.contains("Algorithme critique"), texte);
+        assertTrue(text.contains("Algorithm critical"), text);
     }
 }

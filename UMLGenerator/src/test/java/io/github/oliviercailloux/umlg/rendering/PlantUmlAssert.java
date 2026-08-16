@@ -18,217 +18,215 @@ import net.sourceforge.plantuml.FileFormatOption;
 import net.sourceforge.plantuml.SourceStringReader;
 import net.sourceforge.plantuml.core.Diagram;
 
-// Boîte à outils partagée par les tests de rendu. Ce n'est pas une classe de test : elle ne
-// contient aucun @Test, seulement des aides.
+// Toolbox shared by the rendering tests. This is not a test class: it holds no @Test, only
+// helpers.
 //
-// Elle répond à deux questions, à deux niveaux différents :
-//   - le texte engendré est-il correct ? (assertCompile, lignesDeLien, aliasDeclares…)
-//   - qu'est-ce que le lecteur voit vraiment ? (texteRendu, qui va jusqu'à produire le SVG et
-//     en relire le texte).
+// It answers two questions, at two different levels:
+//   - is the generated text correct? (assertCompile, linkLines, aliasDeclared…)
+//   - what does the reader really see? (textRendered, which goes as far as producing the SVG and
+//     reading its text back).
 //
-// Le second niveau est le seul à pouvoir prouver qu'une injection ne passe pas : un texte
-// dangereux peut être présent dans la source PlantUML sous forme encodée, et n'être qu'un
-// texte à l'écran.
+// The second level is the only one able to prove that an injection does not get through: a
+// dangerous text may be present in the PlantUML source in encoded form, and be nothing but text
+// on screen.
 //
-// Elle est dans le paquetage rendering pour atteindre PlantUmlSyntaxBuilder, qui n'est pas
-// public.
+// It sits in the rendering package so as to reach PlantUmlSyntaxBuilder, which is not public.
 public final class PlantUmlAssert {
 
-    // Les mots par lesquels peut commencer la déclaration d'une boîte, c'est-à-dire les keyword()
-    // d'UmlEntityKind. « abstract class » vient avant « class » : l'alternance d'une expression
-    // régulière retient la première branche qui réussit, et l'ordre inverse ne reconnaîtrait
-    // jamais la forme longue.
-    private static final String MOTS_CLES_DE_BOITE =
+    // The words a box declaration may start with, that is, the keyword() values of UmlEntityKind.
+    // "abstract class" comes before "class": the alternation of a regular expression keeps the
+    // first branch that succeeds, and the reverse order would never recognize the long form.
+    private static final String BOX_WORDS_KEYS =
         "abstract class|class|interface|enum|annotation";
 
-    // « class "Nom affiché" as Alias » : le groupe 1 capture le nom, le groupe 2 l'alias. Le
-    // groupe du mot-clé est non capturant (?:...) pour que la numérotation reste inchangée.
-    // MULTILINE fait que ^ vaut « début de ligne » et non « début de texte ».
-    private static final Pattern DECLARATION_CLASSE =
-        Pattern.compile("^(?:" + MOTS_CLES_DE_BOITE + ") \"([^\"]*)\" as (\\S+)",
+    // "class \"Displayed name\" as Alias": group 1 captures the name, group 2 the alias. The
+    // keyword group is non-capturing (?:...) so that the numbering stays unchanged. MULTILINE makes
+    // ^ mean "start of line" and not "start of text".
+    private static final Pattern DECLARATION_CLASS =
+        Pattern.compile("^(?:" + BOX_WORDS_KEYS + ") \"([^\"]*)\" as (\\S+)",
             Pattern.MULTILINE);
 
-    // La même liste, pour écarter les déclarations de boîte du tri des lignes de lien.
-    private static final Pattern DEBUT_DE_BOITE =
-        Pattern.compile("^(?:" + MOTS_CLES_DE_BOITE + ") ");
+    // The same list, used to drop box declarations when sorting out link lines.
+    private static final Pattern BOX_START =
+        Pattern.compile("^(?:" + BOX_WORDS_KEYS + ") ");
 
-    // Le contenu des balises <text> du SVG, c'est-à-dire ce qui est effectivement affiché.
-    // DOTALL permet au point de franchir les retours à la ligne.
-    private static final Pattern TEXTE_SVG =
+    // The content of the SVG <text> tags, that is, what is actually displayed. DOTALL lets the dot
+    // cross line breaks.
+    private static final Pattern TEXT_SVG =
         Pattern.compile("<text [^>]*>(.*?)</text>", Pattern.DOTALL);
 
-    private static final Pattern ENTITE_NUMERIQUE = Pattern.compile("&#(\\d+);");
+    private static final Pattern NUMERIC_ENTITY = Pattern.compile("&#(\\d+);");
 
-    // L'habillage que PlantUmlLayout.nomDeLien pose autour d'un label ; on le retire pour
-    // comparer les lignes de lien à leur forme nue. La couleur appartient au thème de la
-    // bibliothèque et disparaît sous UmlStyle.PLANTUML, d'où le groupe optionnel : l'italique,
-    // lui, est commun aux deux apparences.
-    private static final Pattern HABILLAGE_NOM_DE_LIEN =
+    // The styling PlantUmlLayout.linkName sets around a label; it is removed in order to compare
+    // link lines to their bare form. The colour belongs to the library theme and vanishes under
+    // UmlStyle.PLANTUML, hence the optional group: the italics, for their part, are shared by both
+    // appearances.
+    private static final Pattern LINK_STYLING_NAME =
         Pattern.compile("(?:<color:#[0-9A-Fa-f]{6}>)?<i>(.*)</i>(?:</color>)?");
 
     private PlantUmlAssert() {}
 
-    // Le filet de sécurité de tous les tests de syntaxe : PlantUML lit-il la source sans rien
-    // signaler ? PlantUML étant tolérant, il n'échoue pas toujours — d'où la vérification
-    // explicite de getWarningOrError en plus de la présence d'un diagramme.
+    // The safety net of every syntax test: does PlantUML read the source without reporting
+    // anything? PlantUML being lenient, it does not always fail — hence the explicit check of
+    // getWarningOrError on top of the presence of a diagram.
     public static void assertCompile(String source) {
-        List<BlockUml> blocs = new SourceStringReader(source).getBlocks();
+        List<BlockUml> blocks = new SourceStringReader(source).getBlocks();
 
-        assertFalse(blocs.isEmpty(),
-            () -> "PlantUML n'a reconnu aucun diagramme dans la source :\n" + source);
+        assertFalse(blocks.isEmpty(),
+            () -> "PlantUML recognized no diagram in the source:\n" + source);
 
-        for (BlockUml bloc : blocs) {
-            Diagram diagramme = bloc.getDiagram();
-            String probleme = diagramme.getWarningOrError();
-            if (probleme != null) {
-                // La source complète est jointe au message : sans elle, l'échec est
-                // indéchiffrable.
-                fail("PlantUML a rejeté la syntaxe générée (" + diagramme.getClass().getSimpleName()
-                    + ") : " + probleme.strip() + "\n--- source rejetée ---\n" + source);
+        for (BlockUml block : blocks) {
+            Diagram diagram = block.getDiagram();
+            String problem = diagram.getWarningOrError();
+            if (problem != null) {
+                // The whole source is attached to the message: without it, the failure is
+                // undecipherable.
+                fail("PlantUML rejected the generated syntax (" + diagram.getClass().getSimpleName()
+                    + "): " + problem.strip() + "\n--- rejected source ---\n" + source);
             }
         }
     }
 
-    // Sert à détecter une injection : un @enduml glissé dans un nom découperait le document en
-    // plusieurs diagrammes. Le compte attendu est toujours 1.
-    public static int nombreDeDiagrammes(String source) {
+    // Used to detect an injection: an @enduml slipped into a name would cut the document into
+    // several diagrams. The expected count is always 1.
+    public static int diagramsCount(String source) {
         return new SourceStringReader(source).getBlocks().size();
     }
 
-    // Rejoue la séquence de PlantUmlWriter, sans écrire de fichier : les boîtes d'abord, les
-    // relations ensuite, les notes en dernier.
+    // Replays the sequence of PlantUmlWriter, without writing a file: the boxes first, then the
+    // relations, and the notes last.
     //
-    // Toute passe ajoutée au writer doit l'être ici aussi, sans quoi les tests de rendu
-    // mesureraient un document que personne ne produit jamais.
-    public static String documentPour(UmlEntity... entities) {
-        return documentPour(UmlStyle.PLANTUML, entities);
+    // Any pass added to the writer must be added here too; otherwise the rendering tests would
+    // measure a document nobody ever produces.
+    public static String documentFor(UmlEntity... entities) {
+        return documentFor(UmlStyle.PLANTUML, entities);
     }
 
-    // La même chose sous une apparence donnée, pour les seuls tests qui parlent d'apparence.
-    public static String documentPour(UmlStyle style, UmlEntity... entities) {
-        return documentPour(style, UmlDiagram.defaults(), entities);
+    // The same thing under a given appearance, for the tests that speak of appearance only.
+    public static String documentFor(UmlStyle style, UmlEntity... entities) {
+        return documentFor(style, UmlDiagram.defaults(), entities);
     }
 
-    // La même chose avec des réglages d'ensemble déclarés, pour les seuls tests qui parlent du
-    // titre, du sens de lecture ou des compartiments vides. Les autres passent par les surcharges
-    // ci-dessus, qui décrivent un projet n'ayant rien réglé.
-    public static String documentPour(UmlDiagram diagramme, UmlEntity... entities) {
-        return documentPour(UmlStyle.PLANTUML, diagramme, entities);
+    // The same thing with declared overall settings, for the tests that speak of the title, the
+    // reading direction or the empty compartments only. The others go through the overloads above,
+    // which describe a project having set nothing.
+    public static String documentFor(UmlDiagram diagram, UmlEntity... entities) {
+        return documentFor(UmlStyle.PLANTUML, diagram, entities);
     }
 
-    public static String documentPour(UmlStyle style, UmlDiagram diagramme,
+    public static String documentFor(UmlStyle style, UmlDiagram diagram,
         UmlEntity... entities) {
-        // La séquence des passes n'est plus recopiée ici : on appelle celle du writer.
+        // The sequence of passes is no longer copied here: the writer's own is called.
         //
-        // Elle l'était, avec un commentaire qui prévenait qu'il faudrait la tenir à jour. Elle ne
-        // l'a pas été : le jour où la fusion des associations réciproques est entrée dans le
-        // writer, ce helper a continué d'écrire l'ancien document, et l'essentiel des tests de
-        // rendu — tous ceux qui passent par lui, c'est-à-dire la plus grande part de la suite —
-        // ont continué de mesurer un dessin que la bibliothèque ne produisait plus, tous verts.
-        // Un helper de test qui reproduit le code testé ne teste bientôt plus que lui-même.
-        return new PlantUmlSyntaxBuilder(style, diagramme).document(List.of(entities)).build();
+        // It used to be, with a comment warning that it would have to be kept up to date. It was
+        // not: the day the merging of reciprocal associations entered the writer, this helper went
+        // on writing the old document, and most of the rendering tests — every test going through
+        // it, that is, the largest part of the suite — went on measuring a drawing the library no
+        // longer produced, all of them green. A test helper that reproduces the code under test
+        // soon tests nothing but itself.
+        return new PlantUmlSyntaxBuilder(style, diagram).document(List.of(entities)).build();
     }
 
-    // Ne garde que les lignes de relation, en éliminant tout le reste par exclusion : lignes
-    // vides, membres (indentés), directives @, déclarations de classe, ouvertures de groupe,
-    // accolades fermantes, réglages d'ensemble, style. Ce qui subsiste est un trait.
+    // Keeps the relation lines only, ruling out everything else by exclusion: empty lines, members
+    // (indented), @ directives, class declarations, group openings, closing braces, overall
+    // settings, style. What is left is a stroke.
     //
-    // L'exclusion doit suivre ce que le rendu écrit : toute directive nouvelle posée en tête de
-    // ligne serait sinon comptée comme un lien, et les tests de relations mesureraient autre
-    // chose que ce qu'ils croient.
-    public static List<String> lignesDeLien(String source) {
+    // The exclusion must follow what the rendering writes: any new directive set at the head of a
+    // line would otherwise be counted as a link, and the relation tests would measure something
+    // other than what they believe.
+    public static List<String> linkLines(String source) {
         return source.lines()
             .filter(l -> !l.isBlank() && !l.startsWith(" ") && !l.startsWith("@")
-                && !DEBUT_DE_BOITE.matcher(l).find() && !l.startsWith("}")
+                && !BOX_START.matcher(l).find() && !l.startsWith("}")
                 && !l.startsWith("package ") && !l.startsWith("title ")
                 && !l.startsWith("left to right direction")
                 && !l.startsWith("top to bottom direction")
                 && !l.startsWith("skinparam") && !l.startsWith("hide ")
                 && !l.startsWith("show ") && !l.startsWith("!") && !l.startsWith("note "))
             .map(String::strip)
-            .map(PlantUmlAssert::sansHabillage)
+            .map(PlantUmlAssert::withoutStyling)
             .toList();
     }
 
-    // « $1 » réinjecte le groupe capturé : la couleur et l'italique disparaissent, le texte
-    // reste. Les tests peuvent ainsi comparer au label attendu sans connaître sa mise en forme.
-    private static String sansHabillage(String ligne) {
-        return HABILLAGE_NOM_DE_LIEN.matcher(ligne).replaceAll("$1");
+    // "$1" puts the captured group back: the colour and the italics vanish, the text stays. Tests
+    // can thus compare against the expected label without knowing how it is laid out.
+    private static String withoutStyling(String line) {
+        return LINK_STYLING_NAME.matcher(line).replaceAll("$1");
     }
 
-    // Les alias attribués, dans l'ordre de déclaration.
-    public static List<String> aliasDeclares(String source) {
+    // The aliases assigned, in declaration order.
+    public static List<String> aliasDeclared(String source) {
         List<String> alias = new ArrayList<>();
-        Matcher m = DECLARATION_CLASSE.matcher(source);
+        Matcher m = DECLARATION_CLASS.matcher(source);
         while (m.find()) {
             alias.add(m.group(2));
         }
         return alias;
     }
 
-    // Le niveau « ce que voit le lecteur » : on produit vraiment le SVG et on en extrait le
-    // texte affiché.
-    public static String texteRendu(UmlEntity... entities) throws Exception {
+    // The "what the reader sees" level: the SVG is really produced, and the displayed text is
+    // extracted from it.
+    public static String textRendered(UmlEntity... entities) throws Exception {
         String svg = svg(entities);
 
-        // PlantUML ne lève pas d'exception en cas d'échec : il dessine une image d'erreur. Il
-        // faut donc la reconnaître, sans quoi le test passerait sur un diagramme raté.
+        // PlantUML raises no exception on failure: it draws an error image. It must therefore be
+        // recognized, otherwise the test would pass on a botched diagram.
         assertFalse(svg.contains("An error has occured"),
-            () -> "Le moteur PlantUML a planté sur la source générée :\n" + documentPour(entities));
+            () -> "The PlantUML engine crashed on the generated source:\n" + documentFor(entities));
 
-        StringBuilder texte = new StringBuilder();
-        Matcher m = TEXTE_SVG.matcher(svg);
+        StringBuilder text = new StringBuilder();
+        Matcher m = TEXT_SVG.matcher(svg);
         while (m.find()) {
-            texte.append(decodeXml(m.group(1))).append('\n');
+            text.append(decodeXml(m.group(1))).append('\n');
         }
-        return texte.toString();
+        return text.toString();
     }
 
-    // Le rendu complet, en mémoire : ByteArrayOutputStream au lieu d'un fichier.
+    // The whole rendering, in memory: a ByteArrayOutputStream rather than a file.
     public static String svg(UmlEntity... entities) throws Exception {
         return svg(UmlStyle.PLANTUML, entities);
     }
 
     public static String svg(UmlStyle style, UmlEntity... entities) throws Exception {
         ByteArrayOutputStream os = new ByteArrayOutputStream();
-        new SourceStringReader(documentPour(style, entities))
+        new SourceStringReader(documentFor(style, entities))
             .outputImage(os, new FileFormatOption(FileFormat.SVG));
         return os.toString(StandardCharsets.UTF_8);
     }
 
-    // Ramène le fragment SVG au texte que le lecteur voit réellement.
+    // Brings the SVG fragment back to the text the reader really sees.
     private static String decodeXml(String fragment) {
-        // Les entités numériques d'abord : sinon « &amp;#60; » (un « &#60; » littéral voulu)
-        // deviendrait « < » et le test validerait l'injection qu'il est censé détecter.
-        Matcher m = ENTITE_NUMERIQUE.matcher(fragment);
-        StringBuilder sortie = new StringBuilder();
+        // Numeric entities first: otherwise "&amp;#60;" (a deliberate literal "&#60;") would
+        // become "<" and the test would bless the very injection it is meant to detect.
+        Matcher m = NUMERIC_ENTITY.matcher(fragment);
+        StringBuilder output = new StringBuilder();
         while (m.find()) {
-            // quoteReplacement neutralise les « $ » et « \ » du remplacement, qui auraient
-            // sinon un sens spécial pour appendReplacement.
-            m.appendReplacement(sortie,
+            // quoteReplacement neutralizes the "$" and "\" of the replacement, which would
+            // otherwise carry a special meaning for appendReplacement.
+            m.appendReplacement(output,
                 Matcher.quoteReplacement(String.valueOf((char) Integer.parseInt(m.group(1)))));
         }
-        // Recopie ce qui suit la dernière correspondance : sans cela, la fin serait perdue.
-        m.appendTail(sortie);
+        // Copies what follows the last match: without it, the end would be lost.
+        m.appendTail(output);
 
-        return sortie.toString()
+        return output.toString()
             .replace("&lt;", "<")
             .replace("&gt;", ">")
             .replace("&quot;", "\"")
             .replace("&apos;", "'")
             .replace("&amp;", "&")
-            // PlantUML insère des espaces insécables dans le SVG ; on les ramène à l'espace
-            // ordinaire pour que les comparaisons de texte soient possibles.
+            // PlantUML inserts non-breaking spaces in the SVG; they are brought back to the
+            // ordinary space so that text comparisons are possible.
             .replace('\u00A0', ' ');
     }
 
-    // Les noms affichés, dans l'ordre de déclaration.
-    public static List<String> nomsDeclares(String source) {
-        List<String> noms = new ArrayList<>();
-        Matcher m = DECLARATION_CLASSE.matcher(source);
+    // The displayed names, in declaration order.
+    public static List<String> namesDeclared(String source) {
+        List<String> names = new ArrayList<>();
+        Matcher m = DECLARATION_CLASS.matcher(source);
         while (m.find()) {
-            noms.add(m.group(1));
+            names.add(m.group(1));
         }
-        return noms;
+        return names;
     }
 }

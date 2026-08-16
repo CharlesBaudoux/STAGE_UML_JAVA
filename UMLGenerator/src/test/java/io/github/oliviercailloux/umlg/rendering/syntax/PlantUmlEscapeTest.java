@@ -16,209 +16,209 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
-// L'échappement, éprouvé sur des textes délibérément hostiles.
+// Escaping, exercised on deliberately hostile texts.
 //
-// Deux exigences opposées, qu'il faut tenir en même temps :
-//   - sûreté — aucun texte ne doit pouvoir déclarer une classe, ouvrir un second diagramme ni
-//     activer une balise Creole (<img>, <size>, <b>) ;
-//   - fidélité — ce que l'utilisateur a écrit doit s'afficher tel quel, guillemets et
+// Two opposite requirements, to be held at the same time:
+//   - safety — no text must be able to declare a class, open a second diagram nor
+//     activate a Creole tag (<img>, <size>, <b>);
+//   - fidelity — what the user wrote must be displayed as is, quotes and
 //     esperluettes compris.
 //
-// La fidélité se vérifie sur le SVG rendu (texteRendu), pas sur la source : un texte encodé
-// dans la source est précisément ce qu'on attend, et c'est à l'écran qu'il redevient lisible.
+// Fidelity is checked on the rendered SVG (textRendered), not on the source: an encoded text
+// in the source is precisely what is expected, and it becomes readable again on screen.
 class PlantUmlEscapeTest {
 
-    private static UmlEntity nommee(String nom) {
-        return new UmlEntity(nom, "", "", UMLVisibility.PUBLIC, List.of(), List.of());
+    private static UmlEntity named(String name) {
+        return new UmlEntity(name, "", "", UMLVisibility.PUBLIC, List.of(), List.of());
     }
 
-    private static UmlEntity stereotypee(String stereotype) {
+    private static UmlEntity stereotyped(String stereotype) {
         return new UmlEntity("E", stereotype, "", UMLVisibility.PUBLIC, List.of(), List.of());
     }
 
-    // Le catalogue d'attaques, fourni aux tests par @MethodSource — le pendant de @ValueSource
-    // quand les valeurs demandent d'être construites. Chaque entrée vise une brèche précise :
-    // sortir des guillemets, injecter une balise, doubler l'encodage, casser la ligne, fermer
-    // le diagramme, glisser des caractères de contrôle.
-    static List<String> nomsHostiles() {
+    // The catalogue of attacks, supplied to the tests by @MethodSource — the counterpart of @ValueSource
+    // when the values need to be built. Each entry aims at a precise breach:
+    // escaping the quotes, injecting a tag, doubling the encoding, breaking the line, closing
+    // the diagram, slipping in control characters.
+    static List<String> namesHostile() {
         return List.of(
-            "Nom\"Injecte",
+            "Name\"Injected",
             "\" as X\nclass \"Intruse",
             "<img:/etc/hostname>",
             "<size:40>ENORME</size>",
             "<b>gras</b>",
             "&#60;img:/etc/hostname&#62;",
             "C:\\Users\\moi",
-            "fin\\",
-            "ligne1\nligne2",
-            "ligne1\r\nligne2",
+            "end\\",
+            "line1\nline2",
+            "line1\r\nline2",
             "@enduml\n@startuml\nclass Intruse",
             "}\nclass Intruse {",
-            // Le balisage que PlantUML lit en plus des chevrons : le Creole, et la syntaxe de
-            // lien. Ces entrées manquaient au catalogue, et elles passaient toutes — « [[…]] »
-            // engendrait un href dans le SVG, les autres escamotaient leurs propres marqueurs.
-            "Compte [[http://ailleurs.example]]",
-            "[[http://ailleurs.example{infobulle} etiquette]]",
-            "**gras**",
-            "//pente//",
-            "~~barre~~",
-            "__souligne__",
-            "--barre--",
-            "avec nul \u0000 et bip \u0007");
+            // The markup PlantUML reads on top of the angle brackets: Creole, and the syntax of
+            // link. These entries were missing from the catalogue, and they all got through — "[[…]]"
+            // generated an href in the SVG, the others swallowed their own markers.
+            "Account [[http://elsewhere.example]]",
+            "[[http://elsewhere.example{infobulle} label]]",
+            "**bold**",
+            "//slope//",
+            "~~bar~~",
+            "__underscore__",
+            "--bar--",
+            "with null \u0000 and bip \u0007");
     }
 
-    // --- Invariant principal : aucune entrée ne peut casser le document ---
+    // --- Main invariant: no entry can break the document ---
 
     @ParameterizedTest
-    @MethodSource("nomsHostiles")
-    void nomHostile_produitUnDocumentValideDUneSeuleClasse(String nom) {
-        String source = PlantUmlAssert.documentPour(nommee(nom));
+    @MethodSource("namesHostile")
+    void hostileName_producesAValidSingleClassDocument(String name) {
+        String source = PlantUmlAssert.documentFor(named(name));
 
         PlantUmlAssert.assertCompile(source);
-        assertEquals(1, PlantUmlAssert.nomsDeclares(source).size(),
-            "Le nom hostile a déclaré une classe supplémentaire :\n" + source);
-        assertEquals(1, PlantUmlAssert.nombreDeDiagrammes(source),
-            "Un seul diagramme doit être ouvert :\n" + source);
+        assertEquals(1, PlantUmlAssert.namesDeclared(source).size(),
+            "The hostile name declared an extra class:\n" + source);
+        assertEquals(1, PlantUmlAssert.diagramsCount(source),
+            "A single diagram must be opened:\n" + source);
     }
 
     @ParameterizedTest
-    @MethodSource("nomsHostiles")
-    void nomHostile_neLaissePasserAucuneBaliseCreole(String nom) {
-        String source = PlantUmlAssert.documentPour(nommee(nom));
+    @MethodSource("namesHostile")
+    void hostileName_letsNoCreoleTagThrough(String name) {
+        String source = PlantUmlAssert.documentFor(named(name));
 
-        assertFalse(source.contains("<img"), "Balise <img> non neutralisée :\n" + source);
-        assertFalse(source.contains("<size"), "Balise <size> non neutralisée :\n" + source);
-        assertFalse(source.contains("<b>"), "Balise <b> non neutralisée :\n" + source);
+        assertFalse(source.contains("<img"), "Tag <img> not neutralized:\n" + source);
+        assertFalse(source.contains("<size"), "Tag <size> not neutralized:\n" + source);
+        assertFalse(source.contains("<b>"), "Tag <b> not neutralized:\n" + source);
     }
 
     @ParameterizedTest
-    @MethodSource("nomsHostiles")
-    void nomHostile_neCasseJamaisLaLigneDeDeclaration(String nom) {
-        String source = PlantUmlAssert.documentPour(nommee(nom));
+    @MethodSource("namesHostile")
+    void hostileName_neverBreaksTheDeclarationLine(String name) {
+        String source = PlantUmlAssert.documentFor(named(name));
         String declaration = source.lines()
             .filter(l -> l.startsWith("class "))
             .findFirst()
-            .orElseThrow(() -> new AssertionError("Aucune déclaration :\n" + source));
+            .orElseThrow(() -> new AssertionError("No declaration:\n" + source));
 
-        // Exactement deux guillemets : ceux que le writer a posés lui-même.
+        // Exactly two quotes: the ones the writer set itself.
         assertEquals(2, declaration.chars().filter(c -> c == '"').count(),
-            "Le nom a introduit un guillemet dans la déclaration : " + declaration);
+            "The name introduced a quote in the declaration: " + declaration);
     }
 
-    // --- Fidélité : ce qui est affiché est ce que l'utilisateur a écrit ---
+    // --- Fidelity: what is displayed is what the user wrote ---
 
     @ParameterizedTest
     @ValueSource(strings = {
-        "Compte (bancaire)", "L'Utilisateur", "Client<T>", "Nom\"Injecte", "A&B",
+        "Account (bank)", "The User", "Client<T>", "Name\"Injected", "A&B",
         "&#60;b&#62;", "C:\\Users", "Reservation n°42",
-        // Le Creole était consommé sans laisser de trace : « **Compte** » s'affichait
-        // « Compte » en gras, et les astérisques que l'utilisateur avait écrites manquaient.
-        "**gras**", "//pente//", "~~barre~~", "__souligne__", "--barre--",
-        "Compte [[http://ailleurs.example]]",
+        // Creole was consumed leaving no trace: "**Account**" was displayed
+        // "Account" in bold, and the asterisks the user had written were missing.
+        "**bold**", "//slope//", "~~bar~~", "__underscore__", "--bar--",
+        "Account [[http://elsewhere.example]]",
     })
-    void nomQuelconque_estAfficheTelQuel(String nom) throws Exception {
-        String rendu = PlantUmlAssert.texteRendu(nommee(nom));
+    void anyName_isDisplayedAsIs(String name) throws Exception {
+        String rendered = PlantUmlAssert.textRendered(named(name));
 
-        assertTrue(rendu.contains(nom),
-            "Le nom « " + nom + " » n'est pas rendu fidèlement. Texte dessiné :\n" + rendu);
+        assertTrue(rendered.contains(name),
+            "The name \"" + name + "\" is not rendered faithfully. Drawn text:\n" + rendered);
     }
 
     @Test
-    void entiteEchappee_nEstPasReinterpretee() throws Exception {
-        // Le contournement classique : encoder soi-même la balise pour traverser un
-        // échappement qui aurait oublié l'esperluette.
-        UmlEntity e = nommee("&#60;img:/etc/hostname&#62;");
+    void escapedEntity_isNotReinterpreted() throws Exception {
+        // The classic workaround: encoding the tag oneself to cross an
+        // an escaping that would have forgotten the ampersand.
+        UmlEntity e = named("&#60;img:/etc/hostname&#62;");
 
-        String source = PlantUmlAssert.documentPour(e);
+        String source = PlantUmlAssert.documentFor(e);
         assertTrue(source.contains("&#38;#60;"),
-            "L'esperluette doit être encodée en premier : " + source);
+            "The ampersand must be encoded first: " + source);
 
-        String rendu = PlantUmlAssert.texteRendu(e);
-        assertTrue(rendu.contains("&#60;img:/etc/hostname&#62;"),
-            "Le texte doit s'afficher littéralement, pas être décodé en balise :\n" + rendu);
+        String rendered = PlantUmlAssert.textRendered(e);
+        assertTrue(rendered.contains("&#60;img:/etc/hostname&#62;"),
+            "The text must be displayed literally, not decoded into a tag:\n" + rendered);
     }
 
     @Test
-    void antislash_estDoubleEtNonEncode() throws Exception {
-        // « &#92; » fait planter PlantUML (l'antislash décodé est réinjecté dans un
-        // Matcher.appendReplacement) : c'est « \\ » la bonne échappatoire.
-        String source = PlantUmlAssert.documentPour(nommee("C:\\Users"));
+    void backslash_isDoubledAndNotEncoded() throws Exception {
+        // "&#92;" crashes PlantUML (the decoded backslash is fed back into a
+        // Matcher.appendReplacement): "\\" is the right escape.
+        String source = PlantUmlAssert.documentFor(named("C:\\Users"));
 
         assertFalse(source.contains("&#92;"), source);
         assertTrue(source.contains("C:\\\\Users"), source);
-        assertTrue(PlantUmlAssert.texteRendu(nommee("C:\\Users")).contains("C:\\Users"));
+        assertTrue(PlantUmlAssert.textRendered(named("C:\\Users")).contains("C:\\Users"));
     }
 
     @Test
-    void sautDeLigne_devientUnPassageALaLigne() {
-        String source = PlantUmlAssert.documentPour(nommee("ligne1\nligne2"));
+    void lineBreak_becomesALineFeed() {
+        String source = PlantUmlAssert.documentFor(named("line1\nline2"));
 
         assertEquals(1, source.lines().filter(l -> l.startsWith("class ")).count());
-        assertTrue(source.contains("ligne1\\nligne2"),
-            "Le saut de ligne doit devenir un « \\n » PlantUML, pas disparaître :\n" + source);
+        assertTrue(source.contains("line1\\nline2"),
+            "The line break must become a PlantUML \"\\n\", not vanish:\n" + source);
         PlantUmlAssert.assertCompile(source);
     }
 
     @Test
-    void retourChariotWindows_neProduitQuUnSeulPassageALaLigne() {
-        String source = PlantUmlAssert.documentPour(nommee("ligne1\r\nligne2"));
+    void windowsCarriageReturn_producesASingleLineBreak() {
+        String source = PlantUmlAssert.documentFor(named("line1\r\nline2"));
 
-        assertTrue(source.contains("ligne1\\nligne2"), source);
+        assertTrue(source.contains("line1\\nline2"), source);
         assertFalse(source.contains("\\n\\n"), source);
     }
 
-    // --- Stéréotype : un autre contexte, d'autres règles ---
+    // --- Stereotype: another context, other rules ---
 
     @Test
-    void stereotypeAvecChevrons_neTronquePasLaSuite() throws Exception {
-        UmlEntity e = stereotypee("A>>B");
+    void stereotypeWithAngleBrackets_doesNotTruncateWhatFollows() throws Exception {
+        UmlEntity e = stereotyped("A>>B");
 
-        PlantUmlAssert.assertCompile(PlantUmlAssert.documentPour(e));
-        assertTrue(PlantUmlAssert.texteRendu(e).contains("A>>B"),
-            "Un « >> » interne tronquait silencieusement le stéréotype.");
+        PlantUmlAssert.assertCompile(PlantUmlAssert.documentFor(e));
+        assertTrue(PlantUmlAssert.textRendered(e).contains("A>>B"),
+            "An inner \">>\" silently truncated the stereotype.");
     }
 
     @Test
-    void stereotypeAvecEsperluette_estAffichee() throws Exception {
-        assertTrue(PlantUmlAssert.texteRendu(stereotypee("R&D")).contains("R&D"));
+    void stereotypeWithAmpersand_isDisplayed() throws Exception {
+        assertTrue(PlantUmlAssert.textRendered(stereotyped("R&D")).contains("R&D"));
     }
 
     @Test
-    void stereotypeAvecSautDeLigne_resteSurUneLigne() {
-        String source = PlantUmlAssert.documentPour(stereotypee("a\nb"));
+    void stereotypeWithLineBreak_staysOnOneLine() {
+        String source = PlantUmlAssert.documentFor(stereotyped("a\nb"));
 
         assertTrue(source.contains("<<a b>>"), source);
         PlantUmlAssert.assertCompile(source);
     }
 
     @Test
-    void stereotype_nEncodePasLAntislash() {
-        // Contrairement au label, le contenu de << >> n'est pas passé au Creole : y doubler
-        // l'antislash en afficherait deux.
+    void stereotype_doesNotEncodeTheBackslash() {
+        // Unlike the label, the content of << >> is not passed to Creole: doubling
+        // l'antislash en afficherait two.
         assertEquals("a\\b", PlantUmlEscaper.stereotype("a\\b"));
         assertEquals("a\\\\b", PlantUmlEscaper.label("a\\b"));
     }
 
-    // --- Membres ---
+    // --- Members ---
 
     @Test
-    void membreHostile_neCassePasLeCompartiment() {
+    void hostileMember_doesNotBreakTheCompartment() {
         UmlEntity e = new UmlEntity("E", "", "", UMLVisibility.PUBLIC,
-            List.of(new UmlField("champ\n}\nclass Intruse {", "<img:/etc/hostname>", "-", false)),
+            List.of(new UmlField("field\n}\nclass Intruse {", "<img:/etc/hostname>", "-", false)),
             List.of(new UmlMethod("m\"ethode", "void", "+", false, List.of("A>B"))));
 
-        String source = PlantUmlAssert.documentPour(e);
+        String source = PlantUmlAssert.documentFor(e);
 
         PlantUmlAssert.assertCompile(source);
-        assertEquals(1, PlantUmlAssert.nomsDeclares(source).size(), source);
+        assertEquals(1, PlantUmlAssert.namesDeclared(source).size(), source);
         assertFalse(source.contains("<img"), source);
     }
 
-    // --- Couleur : vocabulaire fermé, donc validée et non encodée ---
+    // --- Colour: a closed vocabulary, hence validated and not encoded ---
 
     @Test
-    void couleurNommee_estAcceptee() {
-        String source = PlantUmlAssert.documentPour(
+    void namedColour_isAccepted() {
+        String source = PlantUmlAssert.documentFor(
             new UmlEntity("E", "", "LightBlue", UMLVisibility.PUBLIC, List.of(), List.of()));
 
         assertTrue(source.contains("#LightBlue"), source);
@@ -226,123 +226,123 @@ class PlantUmlEscapeTest {
     }
 
     @Test
-    void couleurInconnue_echoueFranchement() {
-        UmlEntity e = new UmlEntity("E", "", "PasUneCouleur", UMLVisibility.PUBLIC,
+    void unknownColour_failsPlainly() {
+        UmlEntity e = new UmlEntity("E", "", "NotAColor", UMLVisibility.PUBLIC,
             List.of(), List.of());
 
-        // Sans ce garde-fou, PlantUML rendrait une image d'erreur qu'aucun test de taille de
-        // fichier ne distingue d'un diagramme correct.
-        IllegalArgumentException erreur =
-            assertThrows(IllegalArgumentException.class, () -> PlantUmlAssert.documentPour(e));
-        assertTrue(erreur.getMessage().contains("PasUneCouleur"), erreur.getMessage());
+        // Without this guard, PlantUML would return an error image no file-size test
+        // file is told from a correct diagram.
+        IllegalArgumentException error =
+            assertThrows(IllegalArgumentException.class, () -> PlantUmlAssert.documentFor(e));
+        assertTrue(error.getMessage().contains("NotAColor"), error.getMessage());
     }
 
     @Test
-    void couleurHexadecimale_resteAcceptee() {
-        PlantUmlAssert.assertCompile(PlantUmlAssert.documentPour(
+    void hexadecimalColour_staysAccepted() {
+        PlantUmlAssert.assertCompile(PlantUmlAssert.documentFor(
             new UmlEntity("E", "", "AABBCC", UMLVisibility.PUBLIC, List.of(), List.of())));
-        PlantUmlAssert.assertCompile(PlantUmlAssert.documentPour(
+        PlantUmlAssert.assertCompile(PlantUmlAssert.documentFor(
             new UmlEntity("E", "", "#ABC", UMLVisibility.PUBLIC, List.of(), List.of())));
     }
 
-    // --- L'encodeur lui-même ---
+    // --- The encoder itself ---
 
     @Test
-    void encodeur_nUtiliseQueDesEntitesNumeriques() {
-        // PlantUML ne décode pas les entités nommées : « &lt; » s'afficherait tel quel.
+    void encoder_usesNumericEntitiesOnly() {
+        // PlantUML does not decode named entities: "&lt;" would be displayed as is.
         assertEquals("&#60;&#62;&#38;&#34;", PlantUmlEscaper.label("<>&\""));
     }
 
     @Test
-    void encodeur_laisseIntactUnTexteOrdinaire() {
-        String texte = "Compte (bancaire) n°42 - L'Utilisateur";
+    void encoder_leavesAnOrdinaryTextIntact() {
+        String text = "Account (bank) n°42 - The User";
 
-        assertEquals(texte, PlantUmlEscaper.label(texte));
-        assertEquals(texte, PlantUmlEscaper.stereotype(texte));
+        assertEquals(text, PlantUmlEscaper.label(text));
+        assertEquals(text, PlantUmlEscaper.stereotype(text));
     }
 
     @Test
-    void encodeur_supprimeLesCaracteresDeControle() {
+    void encoder_removesControlCharacters() {
         assertEquals("ab", PlantUmlEscaper.label("a\u0000b"));
         assertEquals("ab", PlantUmlEscaper.stereotype("a\u0007b"));
     }
 
-    // --- Le balisage Creole, et la syntaxe de lien ---
+    // --- Creole markup, and the link syntax ---
 
     @Test
-    void unNomPorteurDunLien_neProduitAucunHref() throws Exception {
-        // La brèche : PlantUML lit « [[url]] » comme un lien, et l'échappement ne connaissait
-        // que les chevrons. Le SVG produit portait un href vers une adresse arbitraire — et la
-        // boîte en portait deux quand la bibliothèque y posait déjà son lien de navigation.
-        String svg = PlantUmlAssert.svg(nommee("Compte [[http://ailleurs.example]]"));
+    void aNameCarryingALink_producesNoHref() throws Exception {
+        // The breach: PlantUML reads "[[url]]" as a link, and escaping knew
+        // than the angle brackets. The produced SVG carried an href to an arbitrary address — and the
+        // box carried two when the library already set its navigation link there.
+        String svg = PlantUmlAssert.svg(named("Account [[http://elsewhere.example]]"));
 
-        assertFalse(svg.contains("ailleurs.example\""),
-            "Le nom a engendré un lien dans le SVG :\n" + svg);
-        assertFalse(svg.contains("<a href="), "Le nom a engendré un lien dans le SVG :\n" + svg);
+        assertFalse(svg.contains("elsewhere.example\""),
+            "The name generated a link in the SVG:\n" + svg);
+        assertFalse(svg.contains("<a href="), "The name generated a link in the SVG:\n" + svg);
     }
 
     @Test
-    void encodeur_neCasseQueLaPaire_etLaisseLeCaractereIsole() {
-        // Encoder toutes les occurrences aurait suffi à fermer la brèche, mais aurait rendu le
-        // fichier engendré illisible : un tiret bas ou un astérisque isolé est un caractère
-        // ordinaire, présent dans quantité d'identifiants. Seule la paire est cassée.
-        assertEquals("nom_de_champ", PlantUmlEscaper.label("nom_de_champ"));
+    void encoder_breaksThePairOnly_andLeavesTheLoneCharacter() {
+        // Encoding every occurrence would have been enough to close the breach, but would have made the
+        // the generated file unreadable: a lone underscore or asterisk is an
+        // ordinary, present in plenty of identifiers. Only the pair is broken.
+        assertEquals("field_name", PlantUmlEscaper.label("field_name"));
         assertEquals("a * b", PlantUmlEscaper.label("a * b"));
-        assertEquals("et/ou", PlantUmlEscaper.label("et/ou"));
+        assertEquals("and/or", PlantUmlEscaper.label("and/or"));
 
-        // Les deux paires sont cassées, l'ouvrante et la fermante : PlantUML n'exige pas
-        // qu'elles soient appariées pour reconnaître un marqueur.
-        assertEquals("&#95;_souligne&#95;_", PlantUmlEscaper.label("__souligne__"));
-        // Le crochet fermant n'ouvre rien : seul « [[ » engendre un lien.
-        assertEquals("&#91;[lien]]", PlantUmlEscaper.label("[[lien]]"));
+        // Both pairs are broken, the opening and the closing one: PlantUML does not require
+        // that they be paired to recognize a marker.
+        assertEquals("&#95;_underscore&#95;_", PlantUmlEscaper.label("__underscore__"));
+        // The closing bracket opens nothing: only "[[" generates a link.
+        assertEquals("&#91;[link]]", PlantUmlEscaper.label("[[link]]"));
     }
 
-    // --- Quand l'échappement vide la chaîne ---
+    // --- When escaping empties the string ---
     //
-    // isBlank() ne tient pas les caractères de contrôle pour des blancs, alors que l'échappement
-    // les supprime : un texte fait de ces seuls caractères traversait toutes les gardes en amont,
-    // puis ressortait valant "". La chaîne vide est fautive à trois positions — « class "" as C »
-    // et « <<>> » sont refusés par le moteur, « <i></i> » se dessine « </i> » sur le trait —, et
-    // la question doit donc être posée au texte échappé.
+    // isBlank() does not treat control characters as blanks, whereas escaping
+    // removes them: a text made of those characters alone crossed every upstream guard,
+    // then came back out as "". The empty string is faulty at three positions — "class \"\" as C"
+    // and "<<>>" are refused by the engine, "<i></i>" draws as "</i>" on the stroke —, and
+    // so the question must be asked of the escaped text.
 
-    // Le refus à l'extraction est éprouvé par ClassHeaderValidatorTest, qui atteint la classe de
-    // validation ; ici on éprouve la ceinture, côté rendu — un UmlEntity peut être construit à la
-    // main, sans passer par l'extraction, et « <<>> » resterait refusé par le moteur.
+    // Refusal at extraction time is exercised by ClassHeaderValidatorTest, which reaches the class
+    // validation; here the belt is exercised, on the rendering side — a UmlEntity can be built by
+    // hand, without going through extraction, and "<<>>" would stay refused by the engine.
     @Test
-    void stereotypeVideApresEchappement_nEcritPasDeChevronsVides() {
-        String source = PlantUmlAssert.documentPour(stereotypee("\1\2"));
+    void stereotypeEmptyAfterEscaping_writesNoEmptyAngleBrackets() {
+        String source = PlantUmlAssert.documentFor(stereotyped("\1\2"));
 
         assertFalse(source.contains("<<>>"), source);
         PlantUmlAssert.assertCompile(source);
     }
 
     @Test
-    void nomVideApresEchappement_seVoitDansLaSourceEngendree() {
-        // La démonstration du défaut, à la position que la validation garde en amont : sans le
-        // refus de ClassHeaderValidator, c'est « class "" as C » qui serait écrit, et le moteur
-        // le rejette.
+    void nameEmptyAfterEscaping_showsInTheGeneratedSource() {
+        // The demonstration of the defect, at the position the upstream validation checks: without the
+        // ClassHeaderValidator's refusal, it is "class \"\" as C" that would be written, and the engine
+        // rejects it.
         assertEquals("", PlantUmlEscaper.label("\1\2"));
         assertEquals("", PlantUmlEscaper.stereotype("\1\2"));
     }
 
     @Test
-    void nomVideApresEchappement_estRefuseParLeRendu() {
-        // La ceinture du rendu, symétrique de celle du stéréotype : le modèle refuse un nom vide
-        // ou fait d'espaces, mais il ne connaît pas PlantUML et laisse donc passer un nom fait de
-        // caractères de contrôle. Le message nomme la boîte, là où le refus du moteur, deux
-        // couches plus loin, accusait « un défaut de la bibliothèque ».
-        var refus = assertThrows(IllegalArgumentException.class,
-            () -> PlantUmlAssert.documentPour(nommee("\1\2")));
+    void nameEmptyAfterEscaping_isRefusedByTheRendering() {
+        // The rendering's belt, symmetrical to the stereotype's: the model refuses an empty name
+        // or made of spaces, but it does not know PlantUML and therefore lets through a name made of
+        // control characters. The message names the box, where the engine's refusal, two
+        // layers further on, blamed "a defect of the library".
+        var refusal = assertThrows(IllegalArgumentException.class,
+            () -> PlantUmlAssert.documentFor(named("\1\2")));
 
-        assertTrue(refus.getMessage().contains("invisible characters only"), refus.getMessage());
+        assertTrue(refusal.getMessage().contains("invisible characters only"), refusal.getMessage());
     }
 
     @Test
-    void encodeur_appliqueDeuxFois_neProduitToujoursPasDeBalise() {
-        // Encoder deux fois n'est pas l'identité (c'est attendu), mais ne doit jamais rouvrir
-        // une balise : c'est la propriété qui compte.
-        String deuxFois = PlantUmlEscaper.label(PlantUmlEscaper.label("<img:/etc/hostname>"));
+    void encoder_appliedTwice_stillProducesNoTag() {
+        // Encoding twice is not the identity (that is expected), but must never reopen
+        // a tag: it is the property that counts.
+        String twoTimes = PlantUmlEscaper.label(PlantUmlEscaper.label("<img:/etc/hostname>"));
 
-        assertFalse(deuxFois.contains("<"), deuxFois);
+        assertFalse(twoTimes.contains("<"), twoTimes);
     }
 }

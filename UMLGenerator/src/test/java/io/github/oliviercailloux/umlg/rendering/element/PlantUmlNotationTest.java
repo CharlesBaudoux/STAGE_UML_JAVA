@@ -20,251 +20,251 @@ import io.github.oliviercailloux.umlg.rendering.PlantUmlAssert;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-// Le choix entre les deux notations d'une association : le trait, ou la ligne dans la boîte.
+// The choice between the two notations of an association: the stroke, or the line in the box.
 //
-// Ces tests partent tous des annotations et vont jusqu'au document, parce que c'est précisément
-// le chemin que notation() détourne : le même @UMLAssociation doit produire un trait d'un côté,
-// une ligne d'attribut de l'autre, et jamais les deux — la règle UML qui interdit d'afficher deux
-// fois la même propriété vaut quelle que soit la notation choisie.
+// These tests all start from the annotations and go to the document, because that is precisely
+// the path notation() diverts: the same @UMLAssociation must produce a stroke on one side,
+// a field line on the other, and never both — the UML rule forbidding to display twice
+// times the same property holds whatever the chosen notation.
 class PlantUmlNotationTest {
 
     @UMLClass
-    static class Commande {}
+    static class Order {}
 
-    // La classe de départ, déclinée une fois par cas. Elles se ressemblent : c'est le paramètre
-    // qui change, et lui seul.
+    // The starting class, declined once per case. They look alike: it is the parameter
+    // that changes, and it alone.
 
-    @UMLClass(name = "Defaut")
-    static class Defaut {
-        @UMLAssociation(target = Commande.class, targetMultiplicity = "0..*")
-        private List<Commande> commandes;
+    @UMLClass(name = "Default")
+    static class Default {
+        @UMLAssociation(target = Order.class, targetMultiplicity = "0..*")
+        private List<Order> orders;
     }
 
-    @UMLClass(name = "DansLaBoite")
-    static class DansLaBoite {
-        @UMLAssociation(target = Commande.class, targetMultiplicity = "0..*",
+    @UMLClass(name = "InBox")
+    static class InBox {
+        @UMLAssociation(target = Order.class, targetMultiplicity = "0..*",
             notation = UMLNotation.ATTRIBUTE)
-        private List<Commande> commandes;
+        private List<Order> orders;
     }
 
     private static String document(Class<?>... classes) {
-        UmlEntity[] entites = new UmlEntity[classes.length];
+        UmlEntity[] entities = new UmlEntity[classes.length];
         for (int i = 0; i < classes.length; i++) {
-            entites[i] = EntityExtractor.extract(classes[i]);
+            entities[i] = EntityExtractor.extract(classes[i]);
         }
-        return PlantUmlAssert.documentPour(entites);
+        return PlantUmlAssert.documentFor(entities);
     }
 
-    // --- Le défaut ---
+    // --- The default ---
 
     @Test
-    void sansNotation_leLienResteUnTrait() {
-        String source = document(Defaut.class, Commande.class);
+    void withoutNotation_theLinkStaysAStroke() {
+        String source = document(Default.class, Order.class);
 
-        assertEquals(List.of("Defaut --> \"0..*\" Commande"), PlantUmlAssert.lignesDeLien(source));
-        assertFalse(source.contains("commandes"),
-            "L'attribut a quitté la boîte au profit du trait :\n" + source);
+        assertEquals(List.of("Default --> \"0..*\" Order"), PlantUmlAssert.linkLines(source));
+        assertFalse(source.contains("orders"),
+            "The field left the box in favour of the stroke:\n" + source);
         PlantUmlAssert.assertCompile(source);
     }
 
     // --- La notation ATTRIBUTE ---
 
     @Test
-    void notationAttribute_ecritLaLigneDansLaBoite() {
-        String source = document(DansLaBoite.class, Commande.class);
+    void attributeNotation_writesTheLineInTheBox() {
+        String source = document(InBox.class, Order.class);
 
-        // Le type affiché est la cible, et non « List » : c'est la multiplicité qui dit qu'il y
-        // en a plusieurs, comme le veut UML.
-        assertTrue(source.contains("- commandes : Commande [0..*]"),
-            "La ligne attendue est absente :\n" + source);
+        // The displayed type is the target, and not "List": it is the multiplicity that says there
+        // has several, as UML requires.
+        assertTrue(source.contains("- orders : Order [0..*]"),
+            "La line expected is missing :\n" + source);
         PlantUmlAssert.assertCompile(source);
     }
 
     @Test
-    void notationAttribute_neDessineAucunTrait() {
-        String source = document(DansLaBoite.class, Commande.class);
+    void attributeNotation_drawsNoStroke() {
+        String source = document(InBox.class, Order.class);
 
-        assertEquals(List.of(), PlantUmlAssert.lignesDeLien(source),
-            "Une propriété ne s'affiche jamais deux fois :\n" + source);
-        // Les deux boîtes restent : la cible ne disparaît pas avec le trait.
-        assertEquals(2, PlantUmlAssert.aliasDeclares(source).size(), source);
+        assertEquals(List.of(), PlantUmlAssert.linkLines(source),
+            "A property is never displayed twice:\n" + source);
+        // Both boxes stay: the target does not vanish with the stroke.
+        assertEquals(2, PlantUmlAssert.aliasDeclared(source).size(), source);
     }
 
     @Test
-    void lecteurVoitLaMultiplicite() throws Exception {
-        String texte = PlantUmlAssert.texteRendu(EntityExtractor.extract(DansLaBoite.class),
-            EntityExtractor.extract(Commande.class));
+    void readerSeesMultiplicity() throws Exception {
+        String text = PlantUmlAssert.textRendered(EntityExtractor.extract(InBox.class),
+            EntityExtractor.extract(Order.class));
 
-        assertTrue(texte.contains("[0..*]"),
-            "La multiplicité doit survivre au dessin, et non rester dans le fichier source :\n"
-                + texte);
+        assertTrue(text.contains("[0..*]"),
+            "The multiplicity must survive the drawing, and not stay in the source file:\n"
+                + text);
     }
 
     @UMLClass
-    static class SansMultiplicite {
-        @UMLAssociation(target = Commande.class, notation = UMLNotation.ATTRIBUTE)
-        private Commande commande;
+    static class WithoutMultiplicity {
+        @UMLAssociation(target = Order.class, notation = UMLNotation.ATTRIBUTE)
+        private Order order;
     }
 
     @Test
-    void sansMultiplicite_aucunCrochetNEstEcrit() {
-        String source = document(SansMultiplicite.class, Commande.class);
+    void withoutMultiplicity_noBracketIsWritten() {
+        String source = document(WithoutMultiplicity.class, Order.class);
 
-        assertTrue(source.contains("- commande : Commande\n"),
-            "Une multiplicité vide vaut « exactement un » et ne s'écrit pas :\n" + source);
+        assertTrue(source.contains("- order : Order\n"),
+            "An empty multiplicity means \"exactly one\" and is not written:\n" + source);
         assertFalse(source.contains("[]"), source);
     }
 
-    // --- Ce que la ligne porte en plus ---
+    // --- What the line carries on top ---
 
     @UMLClass
-    static class Decoree {
+    static class Decorated {
         @UMLConstraint(rule = "ordered")
-        @UMLConstraint(rule = "non vide")
+        @UMLConstraint(rule = "not empty")
         @UMLDerived
-        @UMLAssociation(target = Commande.class, targetMultiplicity = "1..*",
+        @UMLAssociation(target = Order.class, targetMultiplicity = "1..*",
             notation = UMLNotation.ATTRIBUTE)
-        protected List<Commande> achats;
+        protected List<Order> purchases;
     }
 
     @Test
-    void barreObliqueMultipliciteEtContraintes_seSuiventDansLOrdreUml() {
-        // L'ordre est celui d'UML, et le même que sur un trait : le nom, sa multiplicité, puis
-        // les règles, dans l'ordre où elles sont écrites.
-        String source = document(Decoree.class, Commande.class);
+    void slashMultiplicityAndConstraints_followTheUmlOrder() {
+        // The order is UML's, and the same as on a stroke: the name, its multiplicity, then
+        // the rules, in the order they are written.
+        String source = document(Decorated.class, Order.class);
 
-        assertTrue(source.contains("# /achats : Commande [1..*] {ordered} {non vide}"),
-            "La ligne attendue est absente :\n" + source);
+        assertTrue(source.contains("# /purchases : Order [1..*] {ordered} {not empty}"),
+            "La line expected is missing :\n" + source);
         PlantUmlAssert.assertCompile(source);
     }
 
-    // --- Le rôle, qui devient le nom de la propriété ---
+    // --- The role, which becomes the name of the property ---
 
-    @UMLClass(name = "Clavier")
-    static class Clavier {
+    @UMLClass(name = "Keyboard")
+    static class Keyboard {
         @UMLNote(text = "Doublons autorises")
-        @UMLAssociation(target = Commande.class, targetRole = "physicalKeys",
+        @UMLAssociation(target = Order.class, targetRole = "physicalKeys",
             targetMultiplicity = "0..*", notation = UMLNotation.ATTRIBUTE)
-        private List<Commande> keys;
+        private List<Order> keys;
     }
 
     @Test
-    void roleCible_nommeLaPropriete() {
-        // En notation attribut, le rôle cible est le nom que l'on lit dans la boîte : c'est ce
-        // que dit UML, et c'est ce qu'écrivent les diagrammes tenus à la main — « physicalKeys »
-        // là où le code déclare un champ « keys ».
-        String source = document(Clavier.class, Commande.class);
+    void targetRole_namesTheProperty() {
+        // In attribute notation, the target role is the name one reads in the box: that is what
+        // what UML says, and that is what hand-kept diagrams write — "physicalKeys"
+        // where the code declares a "keys" field.
+        String source = document(Keyboard.class, Order.class);
 
-        assertTrue(source.contains("- physicalKeys : Commande [0..*]"),
-            "Le rôle doit nommer la ligne :\n" + source);
+        assertTrue(source.contains("- physicalKeys : Order [0..*]"),
+            "The role must name the line:\n" + source);
         assertFalse(source.contains(" keys "), source);
         PlantUmlAssert.assertCompile(source);
     }
 
     @Test
-    void noteSurUnePropriete_saccrocheAuNomAffiche() {
-        // Une bulle désigne un membre par le nom que PlantUML lui connaît ; viser le nom du
-        // champ Java accrocherait la note à un membre inexistant.
-        String source = document(Clavier.class, Commande.class);
+    void noteOnAProperty_hangsOnTheDisplayedName() {
+        // A bubble designates a member by the name PlantUML knows it under; aiming at the name of the
+        // a Java field would hang the note on a member that does not exist.
+        String source = document(Keyboard.class, Order.class);
 
-        assertTrue(source.contains("note right of Clavier::physicalKeys"),
-            "La note doit viser le nom affiché :\n" + source);
+        assertTrue(source.contains("note right of Keyboard::physicalKeys"),
+            "The note must aim at the displayed name:\n" + source);
         PlantUmlAssert.assertCompile(source);
     }
 
-    // --- Les dérogations et la stratégie ---
+    // --- Exemptions and the strategy ---
 
     @UMLClass(strategy = UMLVisibility.NONE)
-    static class StrategieMuette {
-        @UMLAssociation(target = Commande.class, targetMultiplicity = "0..*",
+    static class SilentStrategy {
+        @UMLAssociation(target = Order.class, targetMultiplicity = "0..*",
             notation = UMLNotation.ATTRIBUTE)
-        private List<Commande> commandes;
+        private List<Order> orders;
     }
 
     @Test
-    void strategieNone_neMasquePasUneAssociationDemandee() {
-        // Sous la notation ARROW, le trait se dessine quelle que soit la stratégie : une demande
-        // explicite l'emporte sur un défaut. La notation ATTRIBUTE suit la même règle, sans quoi
-        // le même code dirait deux choses selon la façon de le dessiner.
-        String source = document(StrategieMuette.class, Commande.class);
+    void noneStrategy_doesNotHideAnAskedForAssociation() {
+        // Under the ARROW notation, the stroke is drawn whatever the strategy: an explicit
+        // explicit wins over a default. The ATTRIBUTE notation follows the same rule, otherwise
+        // the same code would say two things depending on how it is drawn.
+        String source = document(SilentStrategy.class, Order.class);
 
-        assertTrue(source.contains("- commandes : Commande [0..*]"), source);
+        assertTrue(source.contains("- orders : Order [0..*]"), source);
     }
 
     @UMLClass(strategy = UMLVisibility.PRIVATE)
-    static class Retiree {
+    static class Removed {
         @UMLExclude
-        @UMLAssociation(target = Commande.class, targetMultiplicity = "0..*",
+        @UMLAssociation(target = Order.class, targetMultiplicity = "0..*",
             notation = UMLNotation.ATTRIBUTE)
-        private List<Commande> commandes;
+        private List<Order> orders;
     }
 
     @Test
-    void exclude_retireLaLigneCommeIlRetireraitLeTrait() {
-        String source = document(Retiree.class, Commande.class);
+    void exclude_removesTheLineAsItWouldRemoveTheStroke() {
+        String source = document(Removed.class, Order.class);
 
-        assertFalse(source.contains("commandes"), source);
-        assertEquals(List.of(), PlantUmlAssert.lignesDeLien(source), source);
+        assertFalse(source.contains("orders"), source);
+        assertEquals(List.of(), PlantUmlAssert.linkLines(source), source);
     }
 
-    // --- Ce que la notation ne relâche pas ---
+    // --- What the notation does not loosen ---
     //
-    // Ces cobayes ne portent volontairement pas @UMLClass, et l'extraction des membres est
-    // appelée directement : le balayage de target/test-classes par les tests d'intégration les
-    // extrairait sinon, et échouerait sur des fautes qui sont ici l'objet du test.
+    // These fixtures deliberately carry no @UMLClass, and member extraction is
+    // called directly: the sweep of target/test-classes by the integration tests
+    // would otherwise extract, and would fail on faults that are here the object of the test.
 
-    static class HorsDiagramme {}
+    static class OutsideDiagram {}
 
-    static class CibleNonAnnotee {
-        @UMLAssociation(target = HorsDiagramme.class, notation = UMLNotation.ATTRIBUTE)
-        private HorsDiagramme champ;
+    static class TargetNotAnnotated {
+        @UMLAssociation(target = OutsideDiagram.class, notation = UMLNotation.ATTRIBUTE)
+        private OutsideDiagram field;
     }
 
     @Test
-    void cibleSansUmlClass_estRefuseeCommePourUnTrait() {
-        // La notation choisit une forme de dessin ; elle ne fait pas de n'importe quelle classe
-        // une classe du diagramme.
+    void targetWithoutUmlClass_isRefusedAsForAStroke() {
+        // The notation picks a drawing form; it does not make just any class
+        // a class of the diagram.
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
-            () -> MemberExtractor.extractFields(CibleNonAnnotee.class, UMLVisibility.PRIVATE));
+            () -> MemberExtractor.extractFields(TargetNotAnnotated.class, UMLVisibility.PRIVATE));
 
         assertTrue(e.getMessage().contains("@UMLClass"), e.getMessage());
     }
 
-    static class MultipliciteFautive {
-        @UMLAssociation(target = Commande.class, targetMultiplicity = "3..1",
+    static class MultiplicityFaulty {
+        @UMLAssociation(target = Order.class, targetMultiplicity = "3..1",
             notation = UMLNotation.ATTRIBUTE)
-        private List<Commande> commandes;
+        private List<Order> orders;
     }
 
     @Test
-    void multipliciteInvalide_estRefuseeEtNommeLAttribut() {
-        // La même grammaire que sur un trait, et le même refus : « 3..1 » ne décrit rien.
+    void invalidMultiplicity_isRefusedAndNamesTheField() {
+        // The same grammar as on a stroke, and the same refusal: "3..1" describes nothing.
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
-            () -> MemberExtractor.extractFields(MultipliciteFautive.class, UMLVisibility.PRIVATE));
+            () -> MemberExtractor.extractFields(MultiplicityFaulty.class, UMLVisibility.PRIVATE));
 
-        assertTrue(e.getMessage().contains("commandes"),
-            "Le message doit désigner l'attribut fautif : " + e.getMessage());
+        assertTrue(e.getMessage().contains("orders"),
+            "The message must name the faulty field: " + e.getMessage());
     }
 
-    // --- Les deux notations dans le même diagramme ---
+    // --- Both notations in the same diagram ---
 
     @UMLClass
-    static class Melangee {
-        @UMLAssociation(target = Commande.class, targetMultiplicity = "0..*",
+    static class Mixed {
+        @UMLAssociation(target = Order.class, targetMultiplicity = "0..*",
             notation = UMLNotation.ATTRIBUTE)
-        private List<Commande> archivees;
+        private List<Order> archived;
 
-        @UMLAssociation(target = Commande.class, targetMultiplicity = "1", targetRole = "courante")
-        private Commande courante;
+        @UMLAssociation(target = Order.class, targetMultiplicity = "1", targetRole = "current")
+        private Order current;
     }
 
     @Test
-    void deuxNotations_coexistentSurLaMemeClasse() {
-        String source = document(Melangee.class, Commande.class);
+    void twoNotations_coexistOnTheSameClass() {
+        String source = document(Mixed.class, Order.class);
 
-        assertTrue(source.contains("- archivees : Commande [0..*]"), source);
-        assertEquals(List.of("Melangee --> \"courante 1\" Commande"),
-            PlantUmlAssert.lignesDeLien(source), source);
+        assertTrue(source.contains("- archived : Order [0..*]"), source);
+        assertEquals(List.of("Mixed --> \"current 1\" Order"),
+            PlantUmlAssert.linkLines(source), source);
         PlantUmlAssert.assertCompile(source);
     }
 }

@@ -14,131 +14,131 @@ import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
-// Les invariants transversaux du modèle : refus des nulls, copies défensives, immuabilité de ce
-// qui est exposé, et égalité par valeur.
+// The cross-cutting invariants of the model: refusal of nulls, defensive copies, immutability of what
+// what is exposed, and value equality.
 //
-// Ces trois dernières propriétés découlent du choix des records et d'ImmutableList ; les tester
-// explicitement les fige, pour qu'un remplacement de ImmutableList par une List ordinaire ne
-// passe pas inaperçu.
+// These last three properties follow from the choice of records and ImmutableList; testing them
+// explicitly freezes them, so that replacing ImmutableList by an ordinary List does not
+// does not go unnoticed.
 class UmlModelTest {
 
-    // Fabrique partagée : une entité sans rien, quand seul l'objet importe et pas son contenu.
-    private static UmlEntity entiteMinimale() {
+    // Shared factory: an entity with nothing, when only the object matters and not its content.
+    private static UmlEntity entityMinimum() {
         return new UmlEntity("E", "", "", UMLVisibility.NONE, List.of(), List.of());
     }
 
     // --- UmlProject ---
 
     @Test
-    void projetVide_estRefuse() {
-        // Un diagramme sans classe n'a pas de sens : mieux vaut une erreur explicite qu'un
-        // SVG blanc.
+    void emptyProject_isRefused() {
+        // A diagram without a class is meaningless: an explicit error is better than a
+        // a blank SVG.
         IllegalArgumentException e =
             assertThrows(IllegalArgumentException.class, () -> UmlProject.given(Set.of()));
 
-        // On vérifie aussi le message : c'est lui que lira l'utilisateur, et le second argument
-        // d'assertTrue le fait apparaître dans le rapport si le test échoue.
+        // The message is checked too: it is what the user will read, and the second argument
+        // of assertTrue makes it appear in the report if the test fails.
         assertTrue(e.getMessage().contains("at least one annotated class"), e.getMessage());
     }
 
     @Test
-    void projetNull_estRefuse() {
+    void nullProject_isRefused() {
         assertThrows(NullPointerException.class, () -> UmlProject.given(null));
         assertThrows(NullPointerException.class,
             () -> new UmlProject(null, UmlDiagram.defaults(), ImmutableList.of()));
     }
 
     @Test
-    void projetSansReglagesDEnsemble_estRefuse() {
-        // Le second composant n'est jamais nul : tout le rendu compte sur sa présence, et
-        // UmlDiagram.defaults() est là pour dire « rien de particulier » sans avoir à l'omettre.
+    void projectWithoutOverallSettings_isRefused() {
+        // The second component is never null: the whole rendering counts on its presence, and
+        // UmlDiagram.defaults() is there to say "nothing in particular" without having to omit it.
         assertThrows(NullPointerException.class,
-            () -> UmlProject.given(Set.of(entiteMinimale()), null));
+            () -> UmlProject.given(Set.of(entityMinimum()), null));
     }
 
     @Test
-    void projetSansDiagrammeDeclare_prendLesReglagesParDefaut() {
-        // La forme courte de given() est celle qu'emploie un projet qui ne règle rien du dessin
-        // d'ensemble, c'est-à-dire la grande majorité d'entre eux.
-        assertEquals(UmlDiagram.defaults(), UmlProject.given(Set.of(entiteMinimale())).diagram());
+    void projectWithoutDeclaredDiagram_takesTheDefaultSettings() {
+        // The short form of given() is the one used by a project setting nothing of the drawing
+        // overall, that is, the vast majority of them.
+        assertEquals(UmlDiagram.defaults(), UmlProject.given(Set.of(entityMinimum())).diagram());
     }
 
-    // L'IDENTITÉ, TENUE PAR LE PROJET
+    // IDENTITY, HELD BY THE PROJECT
     //
-    // UmlEntity dit de qualifiedName qu'il est « l'identité de l'entité ». Mais l'ImmutableSet des
-    // entités dédoublonne sur les quatorze composantes du record : deux entités de même nom
-    // qualifié ne différant que par une couleur y tenaient toutes les deux, et la faute ne se
-    // découvrait qu'au rendu — ou pas du tout en usage purement programmatique.
+    // UmlEntity says of qualifiedName that it is "the identity of the entity". But the ImmutableSet of
+    // entities deduplicate over the fourteen components of the record: two entities with the same name
+    // qualified names differing only by a colour both fitted there, and the fault did not
+    // showed only at rendering time — or not at all in purely programmatic use.
 
     @Test
-    void deuxEntitesDeMemeNomQualifie_sontRefusees() {
-        UmlEntity bleue = UmlEntity.builder("com.banque.Compte", "Compte").color("#DDEEFF").build();
-        UmlEntity rouge = UmlEntity.builder("com.banque.Compte", "Compte").color("#FFDDDD").build();
+    void twoEntitiesWithTheSameQualifiedName_areRefused() {
+        UmlEntity blue = UmlEntity.builder("com.bank.Account", "Account").color("#DDEEFF").build();
+        UmlEntity red = UmlEntity.builder("com.bank.Account", "Account").color("#FFDDDD").build();
 
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
-            () -> UmlProject.given(new LinkedHashSet<>(List.of(bleue, rouge))));
+            () -> UmlProject.given(new LinkedHashSet<>(List.of(blue, red))));
 
-        assertTrue(e.getMessage().contains("com.banque.Compte"),
-            "Le message doit nommer le doublon, seule chose à corriger : " + e.getMessage());
+        assertTrue(e.getMessage().contains("com.bank.Account"),
+            "The message must name the duplicate, the only thing to fix: " + e.getMessage());
     }
 
     @Test
-    void deuxEntitesDeNomsQualifiesDistincts_cohabitent() {
-        // Le contrôle porte sur le nom complet, et non sur le nom affiché : deux classes de même
-        // nom simple dans deux paquetages différents sont deux boîtes légitimes.
-        UmlEntity ici = UmlEntity.builder("com.banque.Compte", "Compte").build();
-        UmlEntity ailleurs = UmlEntity.builder("com.clients.Compte", "Compte").build();
+    void twoEntitiesWithDistinctQualifiedNames_coexist() {
+        // The check bears on the qualified name, and not on the displayed name: two classes with the same
+        // the same simple name in two different packages are two legitimate boxes.
+        UmlEntity here = UmlEntity.builder("com.bank.Account", "Account").build();
+        UmlEntity elsewhere = UmlEntity.builder("com.clients.Account", "Account").build();
 
-        assertEquals(2, UmlProject.given(new LinkedHashSet<>(List.of(ici, ailleurs)))
+        assertEquals(2, UmlProject.given(new LinkedHashSet<>(List.of(here, elsewhere)))
             .entities().size());
     }
 
     @Test
-    void entitesDUnProjet_sontImmuables() {
-        UmlProject projet = UmlProject.given(Set.of(entiteMinimale()));
+    void entitiesOfAProject_areImmutable() {
+        UmlProject project = UmlProject.given(Set.of(entityMinimum()));
 
-        // Une collection immuable de Guava ne refuse pas l'ajout par un booléen : elle lève.
+        // A Guava immutable collection does not refuse the addition with a boolean: it raises.
         assertThrows(UnsupportedOperationException.class,
-            () -> projet.entities().add(entiteMinimale()));
+            () -> project.entities().add(entityMinimum()));
     }
 
     @Test
-    void projet_conserveLOrdreDInsertion() {
-        // ImmutableSet préserve l'ordre : c'est ce qui rend le diagramme reproductible d'un
-        // scan à l'autre.
+    void project_keepsInsertionOrder() {
+        // ImmutableSet preserves the order: that is what makes the diagram reproducible from one
+        // scan to the next.
         UmlEntity a = new UmlEntity("A", "", "", UMLVisibility.NONE, List.of(), List.of());
         UmlEntity b = new UmlEntity("B", "", "", UMLVisibility.NONE, List.of(), List.of());
         UmlEntity c = new UmlEntity("C", "", "", UMLVisibility.NONE, List.of(), List.of());
 
-        UmlProject projet = UmlProject.given(new LinkedHashSet<>(List.of(b, c, a)));
+        UmlProject project = UmlProject.given(new LinkedHashSet<>(List.of(b, c, a)));
 
         assertEquals(List.of("B", "C", "A"),
-            projet.entities().stream().map(UmlEntity::name).toList());
+            project.entities().stream().map(UmlEntity::name).toList());
     }
 
     @Test
-    void projet_neCopiePasInutilementUnImmutableSet() {
-        // ImmutableSet.copyOf rend l'argument tel quel s'il est déjà immuable : rien à recopier,
-        // il ne peut plus changer.
-        ImmutableSet<UmlEntity> entites = ImmutableSet.of(entiteMinimale());
+    void project_doesNotNeedlesslyCopyAnImmutableSet() {
+        // ImmutableSet.copyOf returns the argument as is if it is already immutable: nothing to copy,
+        // it can no longer change.
+        ImmutableSet<UmlEntity> entities = ImmutableSet.of(entityMinimum());
 
-        assertEquals(entites, UmlProject.given(entites).entities());
+        assertEquals(entities, UmlProject.given(entities).entities());
     }
 
-    // Égalité par valeur, fournie par le record : deux projets de même contenu sont le même
-    // projet. C'est ce qui rend les assertEquals des autres tests possibles.
+    // Value equality, provided by the record: two projects with the same content are the same
+    // project. That is what makes the assertEquals of the other tests possible.
     @Test
-    void projetsAvecMemesEntites_sontEgaux() {
-        assertEquals(UmlProject.given(Set.of(entiteMinimale())),
-            UmlProject.given(Set.of(entiteMinimale())));
+    void projectsWithTheSameEntities_areEqual() {
+        assertEquals(UmlProject.given(Set.of(entityMinimum())),
+            UmlProject.given(Set.of(entityMinimum())));
     }
 
     // --- UmlEntity ---
 
-    // Chaque paramètre est mis à null tour à tour : un checkNotNull oublié se verrait, alors
-    // qu'un seul cas de test ne le montrerait pas.
+    // Each parameter is set to null in turn: a forgotten checkNotNull would show, whereas
+    // than a single test case would show.
     @Test
-    void entite_refuseChaqueArgumentNull() {
+    void entity_refusesEveryNullArgument() {
         assertThrows(NullPointerException.class,
             () -> new UmlEntity(null, "", "", UMLVisibility.NONE, List.of(), List.of()));
         assertThrows(NullPointerException.class,
@@ -154,44 +154,44 @@ class UmlModelTest {
     }
 
     @Test
-    void entite_refuseUnNomVide() {
-        // Le dernier chemin par lequel une boîte sans nom entrait dans le modèle : la
-        // construction directe par l'API, que ClassHeaderValidator ne voit pas. Le rendu
-        // écrivait alors « class "" as E », que le moteur refuse deux couches plus loin.
+    void entity_refusesAnEmptyName() {
+        // The last path by which a nameless box entered the model: the
+        // direct construction through the API, which ClassHeaderValidator does not see. The rendering
+        // then wrote "class \"\" as E", which the engine refuses two layers further on.
         assertThrows(IllegalArgumentException.class,
             () -> new UmlEntity("", "", "", UMLVisibility.NONE, List.of(), List.of()));
         assertThrows(IllegalArgumentException.class,
             () -> new UmlEntity("   ", "", "", UMLVisibility.NONE, List.of(), List.of()));
-        // Le nom complet reste distinct du nom affiché : les deux sont exigés.
+        // The qualified name stays distinct from the displayed name: both are required.
         assertThrows(IllegalArgumentException.class,
-            () -> UmlEntity.builder("com.banque.Compte", "  ").build());
+            () -> UmlEntity.builder("com.bank.Account", "  ").build());
     }
 
     @Test
-    void entite_copieLesListesRecuesALaConstruction() {
-        // Sans copie défensive, l'appelant pourrait modifier le contenu du diagramme après
-        // coup, à l'insu de l'entité.
-        List<UmlField> champs = new ArrayList<>();
-        champs.add(new UmlField("a", "int", "+", false));
-        List<UmlMethod> methodes = new ArrayList<>();
-        methodes.add(new UmlMethod("m", "void", "+", false, List.of()));
+    void entity_copiesTheListsReceivedAtConstruction() {
+        // Without a defensive copy, the caller could change the content of the diagram after
+        // stroke, unbeknownst to the entity.
+        List<UmlField> fields = new ArrayList<>();
+        fields.add(new UmlField("a", "int", "+", false));
+        List<UmlMethod> methods = new ArrayList<>();
+        methods.add(new UmlMethod("m", "void", "+", false, List.of()));
 
-        UmlEntity entity = new UmlEntity("E", "", "", UMLVisibility.PUBLIC, champs, methodes);
+        UmlEntity entity = new UmlEntity("E", "", "", UMLVisibility.PUBLIC, fields, methods);
 
-        // Le geste du test : on vide les listes d'origine après construction. Sans copie
-        // défensive, l'entité se retrouverait vide elle aussi.
-        champs.clear();
-        methodes.clear();
+        // The gesture of the test: the original lists are emptied after construction. Without a
+        // defensive, the entity would find itself empty as well.
+        fields.clear();
+        methods.clear();
 
         assertEquals(1, entity.fields().size(),
-            "La liste d'attributs ne doit pas suivre la source.");
+            "The field list must not follow the source.");
         assertEquals(1, entity.methods().size(),
-            "La liste de méthodes ne doit pas suivre la source.");
+            "The method list must not follow the source.");
     }
 
     @Test
-    void entite_exposeDesListesImmuables() {
-        UmlEntity entity = entiteMinimale();
+    void entity_exposesImmutableLists() {
+        UmlEntity entity = entityMinimum();
 
         assertThrows(UnsupportedOperationException.class,
             () -> entity.fields().add(new UmlField("a", "int", "+", false)));
@@ -200,86 +200,86 @@ class UmlModelTest {
     }
 
     @Test
-    void entitesDifferantParUnSeulChamp_neSontPasEgales() {
+    void entitiesDifferingByASingleField_areNotEqual() {
         UmlEntity a = new UmlEntity("E", "", "", UMLVisibility.PUBLIC, List.of(), List.of());
         UmlEntity b = new UmlEntity("E", "", "", UMLVisibility.PRIVATE, List.of(), List.of());
 
-        assertNotEquals(a, b, "La stratégie fait partie de l'identité de l'entité.");
+        assertNotEquals(a, b, "The strategy is part of the identity of the entity.");
     }
 
     // --- UmlMethod ---
 
     @Test
-    void methode_copieSesTypesDeParametres() {
-        // Même exigence que pour UmlEntity : la signature ne doit pas pouvoir changer une
-        // fois la méthode construite.
-        List<String> parametres = new ArrayList<>(List.of("int", "String"));
+    void method_copiesItsParameterTypes() {
+        // The same requirement as for UmlEntity: the signature must not be able to change an
+        // once the method is built.
+        List<String> parameters = new ArrayList<>(List.of("int", "String"));
 
-        UmlMethod methode = new UmlMethod("calculer", "void", "+", false, parametres);
-        parametres.clear();
+        UmlMethod method = new UmlMethod("compute", "void", "+", false, parameters);
+        parameters.clear();
 
         assertEquals(List.of(UmlParameter.unnamed("int"), UmlParameter.unnamed("String")),
-            methode.parameters(),
-            "La signature ne doit pas suivre la liste passée au constructeur.");
+            method.parameters(),
+            "The signature must not follow the list passed to the constructor.");
     }
 
     @Test
-    void methode_exposeUneListeDeParametresImmuable() {
-        UmlMethod methode = new UmlMethod("calculer", "void", "+", false, List.of("int"));
+    void method_exposesAnImmutableParameterList() {
+        UmlMethod method = new UmlMethod("compute", "void", "+", false, List.of("int"));
 
         assertThrows(UnsupportedOperationException.class,
-            () -> methode.parameters().add(UmlParameter.unnamed("long")));
+            () -> method.parameters().add(UmlParameter.unnamed("long")));
     }
 
     @Test
-    void methodesDeMemeNomMaisDeSignatureDifferente_neSontPasEgales() {
-        UmlMethod sans = new UmlMethod("envoyer", "void", "+", false, List.of());
-        UmlMethod avec = new UmlMethod("envoyer", "void", "+", false, List.of("String"));
+    void methodsWithSameNameButDifferentSignature_areNotEqual() {
+        UmlMethod without = new UmlMethod("send", "void", "+", false, List.of());
+        UmlMethod with = new UmlMethod("send", "void", "+", false, List.of("String"));
 
-        assertNotEquals(sans, avec,
-            "Deux surcharges doivent rester distinctes, sinon un Set les fusionnerait.");
+        assertNotEquals(without, with,
+            "Two overloads must stay distinct, otherwise a Set would merge them.");
     }
 
     // --- UmlField ---
 
-    // Ces deux tests-ci ne vérifient que l'égalité par valeur engendrée par le record, dont
-    // dépendent les comparaisons de listes ailleurs ; ceux qui suivent portent sur les invariants
-    // du constructeur compact.
+    // These two tests check only the value equality generated by the record, whose
+    // the list comparisons elsewhere depend on; those that follow bear on the invariants
+    // of the compact constructor.
     @Test
-    void champsIdentiques_sontEgaux() {
+    void identicalFields_areEqual() {
         assertEquals(new UmlField("a", "int", "+", false), new UmlField("a", "int", "+", false));
     }
 
     @Test
-    void champStatiqueEtNonStatique_neSontPasEgaux() {
+    void staticAndNonStaticField_areNotEqual() {
         assertNotEquals(new UmlField("a", "int", "+", true), new UmlField("a", "int", "+", false));
     }
 
-    // LES TROIS COMPOSANTES QUI N'ÉTAIENT PAS TENUES
+    // THE THREE COMPONENTS THAT WERE NOT HELD
     //
-    // UmlField et UmlMethod étaient les deux seuls records du modèle à ne contrôler ni le nom, ni
-    // le type, ni la visibilité : « new UmlField(null, null, null, false) » passait sans broncher,
-    // et le rendu écrivait « - null : null » dans la boîte, deux couches plus loin. Le voisin
-    // immédiat UmlParameter refusait pourtant déjà un type vide.
+    // UmlField and UmlMethod were the only two records of the model checking neither the name, nor
+    // the type, nor the visibility: "new UmlField(null, null, null, false)" passed without flinching,
+    // and the rendering wrote "- null : null" in the box, two layers later. The neighbour
+    // immediate UmlParameter nevertheless already refused an empty type.
 
     @Test
-    void champSansNom_estRefuse() {
+    void fieldWithoutName_isRefused() {
         assertThrows(NullPointerException.class, () -> new UmlField(null, "int", "+", false));
         assertThrows(IllegalArgumentException.class, () -> new UmlField("  ", "int", "+", false));
     }
 
     @Test
-    void champSansType_estRefuse() {
+    void fieldWithoutType_isRefused() {
         assertThrows(NullPointerException.class, () -> new UmlField("a", null, "+", false));
 
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
             () -> new UmlField("a", "", "+", false));
         assertTrue(e.getMessage().contains("a"),
-            "Le message doit nommer l'attribut fautif : " + e.getMessage());
+            "The message must name the faulty field: " + e.getMessage());
     }
 
     @Test
-    void champDeVisibiliteInconnue_estRefuse() {
+    void fieldOfUnknownVisibility_isRefused() {
         assertThrows(NullPointerException.class, () -> new UmlField("a", "int", null, false));
 
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
@@ -288,16 +288,16 @@ class UmlModelTest {
     }
 
     @Test
-    void champSansVisibiliteEcrite_estAccepte() {
-        // La chaîne vide n'est pas un oubli : c'est ce que produit la règle « omit visibility »
-        // du projet, qui demande de ne rien écrire devant le membre.
+    void fieldWithoutWrittenVisibility_isAccepted() {
+        // The empty string is no oversight: it is what the "omit visibility" rule produces
+        // of the project, which asks that nothing be written before the member.
         assertEquals("", new UmlField("a", "int", "", false).visibility());
     }
 
-    // --- UmlMethod, mêmes invariants ---
+    // --- UmlMethod, same invariants ---
 
     @Test
-    void methodeSansNom_estRefusee() {
+    void methodWithoutName_isRefused() {
         assertThrows(NullPointerException.class,
             () -> new UmlMethod(null, "void", "+", false, List.of()));
         assertThrows(IllegalArgumentException.class,
@@ -305,20 +305,20 @@ class UmlModelTest {
     }
 
     @Test
-    void methodeDeVisibiliteInconnue_estRefusee() {
+    void methodOfUnknownVisibility_isRefused() {
         assertThrows(IllegalArgumentException.class,
             () -> new UmlMethod("m", "void", "?", false, List.of()));
     }
 
     @Test
-    void methodeSansTypeDeRetourEcrit_estAcceptee() {
-        // UML tient le type de retour pour facultatif, et la règle « omit return void » s'en sert :
-        // la chaîne vide dit « ne rien écrire après les parenthèses ».
+    void methodWithoutWrittenReturnType_isAccepted() {
+        // UML holds the return type to be optional, and the "omit return void" rule uses that:
+        // the empty string says "write nothing after the parentheses".
         assertEquals("", new UmlMethod("m", "", "+", false, List.of()).returnType());
     }
 
     @Test
-    void methodeDontLeTypeDeRetourNEstQueDesEspaces_estRefusee() {
+    void methodWhoseReturnTypeIsOnlySpaces_isRefused() {
         assertThrows(IllegalArgumentException.class,
             () -> new UmlMethod("m", " ", "+", false, List.of()));
     }

@@ -14,78 +14,78 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
-// Où atterrissent les @UMLConstraint.
+// Where the @UMLConstraint annotations land.
 //
-// Trois destinations selon ce que l'annotation vise, et la troisième est une règle d'arbitrage :
-// sur un attribut porteur de @UMLAssociation, la contrainte suit le lien, pas l'attribut.
+// Three destinations depending on what the annotation aims at, and the third is an arbitration rule:
+// on a field carrying @UMLAssociation, the constraint follows the link, not the field.
 class ConstraintExtractorTest {
 
-    private static Optional<UmlField> champ(UmlEntity e, String nom) {
-        return e.fields().stream().filter(f -> f.name().equals(nom)).findFirst();
+    private static Optional<UmlField> field(UmlEntity e, String name) {
+        return e.fields().stream().filter(f -> f.name().equals(name)).findFirst();
     }
 
     @UMLClass
-    static class Commande {}
+    static class Order {}
 
     @UMLClass(strategy = UMLVisibility.PRIVATE)
-    @UMLConstraint(rule = "solde >= decouvertAutorise")
-    @UMLConstraint(rule = "titulaire majeur")
-    static class CompteBancaire {
+    @UMLConstraint(rule = "balance >= overdraftAllowed")
+    @UMLConstraint(rule = "holder major")
+    static class AccountBank {
 
-        @UMLConstraint(rule = "toujours positif")
-        private double solde;
+        @UMLConstraint(rule = "always positive")
+        private double balance;
 
-        private double decouvertAutorise;
+        private double overdraftAllowed;
 
         @UMLConstraint(rule = "subset")
-        @UMLAssociation(target = Commande.class, targetRole = "achats",
+        @UMLAssociation(target = Order.class, targetRole = "purchases",
             targetMultiplicity = "0..*")
-        private List<Commande> commandes;
+        private List<Order> orders;
     }
 
-    private static UmlEntity compte() {
-        return EntityExtractor.extract(CompteBancaire.class);
-    }
-
-    @Test
-    void contraintesDeClasse_sontToutesRetenues() {
-        assertEquals(List.of("solde >= decouvertAutorise", "titulaire majeur"),
-            compte().constraints());
+    private static UmlEntity account() {
+        return EntityExtractor.extract(AccountBank.class);
     }
 
     @Test
-    void contrainteDAttribut_suitLAttribut() {
-        assertEquals(List.of("toujours positif"),
-            champ(compte(), "solde").orElseThrow().constraints());
+    void classConstraints_areAllKept() {
+        assertEquals(List.of("balance >= overdraftAllowed", "holder major"),
+            account().constraints());
     }
 
     @Test
-    void attributVoisin_resteSansContrainte() {
-        assertEquals(List.of(), champ(compte(), "decouvertAutorise").orElseThrow().constraints());
+    void fieldConstraint_followsTheField() {
+        assertEquals(List.of("always positive"),
+            field(account(), "balance").orElseThrow().constraints());
     }
 
     @Test
-    void contrainteSurUnAttributPromuEnLien_suitLeLien() {
-        // La règle d'arbitrage : l'attribut n'est plus dans la boîte, c'est le trait que la
-        // contrainte vise.
-        assertEquals(List.of("subset"), compte().associations().get(0).constraints());
+    void neighbouringField_staysWithoutConstraint() {
+        assertEquals(List.of(), field(account(), "overdraftAllowed").orElseThrow().constraints());
     }
 
-    // Sans @UMLClass, et l'extracteur est appelé directement : un cobaye fautif annoté serait
-    // ramassé par ProjectScanner et ferait échouer les tests d'intégration.
-    static class RegleVide {
+    @Test
+    void constraintOnAFieldPromotedToLink_followsTheLink() {
+        // The arbitration rule: the field is no longer in the box, it is the stroke that the
+        // constraint vise.
+        assertEquals(List.of("subset"), account().associations().get(0).constraints());
+    }
+
+    // Without @UMLClass, and the extractor is called directly: an annotated faulty fixture would be
+    // picked up by ProjectScanner and would fail the integration tests.
+    static class EmptyRule {
 
         @UMLConstraint(rule = "  ")
-        private double solde;
+        private double balance;
     }
 
     @Test
-    void regleFaiteDEspaces_estRefuseeEnNommantLEmplacement() throws Exception {
+    void ruleMadeOfSpaces_isRefusedNamingTheLocation() throws Exception {
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
-            () -> ConstraintExtractor.de(RegleVide.class.getDeclaredField("solde"),
-                "RegleVide.solde"));
+            () -> ConstraintExtractor.of(EmptyRule.class.getDeclaredField("balance"),
+                "EmptyRule.balance"));
 
-        assertTrue(e.getMessage().contains("RegleVide.solde"), e.getMessage());
+        assertTrue(e.getMessage().contains("EmptyRule.balance"), e.getMessage());
         assertTrue(e.getMessage().contains("@UMLConstraint"), e.getMessage());
     }
 }

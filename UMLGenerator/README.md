@@ -1,72 +1,69 @@
-# umlg — des diagrammes de classes UML depuis le code annoté
+# umlg — UML class diagrams from annotated code
 
-`umlg` engendre des diagrammes de classes PlantUML (SVG ou PNG) à partir d'un projet Java
-compilé. Rien n'y est deviné : une classe entre dans le diagramme parce qu'elle porte
-`@UMLClass`, un lien se dessine parce qu'une annotation le déclare ou que le type de l'attribut
-le dit, et ce qui vaut pour le projet entier s'écrit une fois, dans un fichier `umlg.json`.
+`umlg` generates PlantUML class diagrams (SVG or PNG) from a compiled Java project. Nothing is
+guessed: a class enters the diagram because it carries `@UMLClass`, a link is drawn because an
+annotation declares it or because the field type says so, and what holds for the whole project is
+written once, in an `umlg.json` file.
 
-Trois morceaux :
+Three pieces:
 
-- **la bibliothèque** (`umlg`) : les annotations, le générateur, et un processeur d'annotations
-  qui refuse à la compilation un code annoté à tort ;
-- **le plugin Maven** (`umlg-maven-plugin`) : `mvn compile umlg:generate`, sans un argument à
-  écrire ;
-- **le fichier `umlg.json`** : les règles du projet — stratégie, bruit, renommages de types,
-  vues.
+- **the library** (`umlg`): the annotations, the generator, and an annotation processor that
+  refuses wrongly annotated code at compile time;
+- **the Maven plugin** (`umlg-maven-plugin`): `mvn compile umlg:generate`, with not one argument
+  to write;
+- **the `umlg.json` file**: the rules of the project — strategy, noise, type renamings, views.
 
 ## Installation
 
 ### Graphviz
 
-**La mise en page d'un diagramme de classes est faite par Graphviz : `dot` doit être installé.**
-Ce n'est pas une dépendance Maven, elle ne s'installe donc pas toute seule.
+**The layout of a class diagram is done by Graphviz: `dot` must be installed.** It is not a Maven
+dependency, so it does not install itself.
 
 ```sh
-apt install graphviz        # ou : brew install graphviz
-dot -V                      # doit répondre une version
+apt install graphviz        # or: brew install graphviz
+dot -V                      # must answer with a version
 ```
 
-À défaut, la variable d'environnement `GRAPHVIZ_DOT` peut désigner l'exécutable.
+Failing that, the `GRAPHVIZ_DOT` environment variable can name the executable.
 
-La génération refuse de travailler sans lui, et le dit — sans cette garde, PlantUML écrirait une
-image portant « Cannot find Graphviz » que rien ne distingue d'un dessin réussi. **La construction
-de la bibliothèque elle-même l'exige aussi** : une vingtaine de tests rendent réellement un SVG, et
-sur une machine sans `dot` ils échouent sur des assertions de contenu obscures plutôt que sur un
-message de configuration.
+The generation refuses to work without it, and says so — without that guard, PlantUML would write
+an image reading "Cannot find Graphviz" that nothing tells apart from a successful drawing. **The
+build of the library itself requires it too**: a score of tests really render an SVG, and on a
+machine without `dot` they fail on obscure content assertions rather than on a configuration
+message.
 
-### La bibliothèque et le plugin
+### The library and the plugin
 
-La bibliothèque n'est pas publiée sur un dépôt central : il faut l'installer localement, une
-fois, ainsi que le plugin.
+The library is not published on a central repository: it must be installed locally, once, together
+with the plugin.
 
 ```sh
 cd UMLGenerator           && mvn install -DskipTests
 cd ../umlg-maven-plugin   && mvn install
 ```
 
-## Brancher un projet : le pom complet
+## Wiring a project: the complete pom
 
 ```xml
 <properties>
-  <!-- umlg demande Java 21. -->
+  <!-- umlg requires Java 21. -->
   <maven.compiler.source>21</maven.compiler.source>
   <maven.compiler.target>21</maven.compiler.target>
   <!--
-    Écrit les noms des paramètres dans les .class. Sans cette option, la réflexion ne
-    connaît que « arg0 », « arg1 »… et umlg n'affiche alors que les types :
-    « entries(String) » au lieu de « entries(xKeyName : String) ». La génération le
-    signale si l'option manque.
+    Writes parameter names in the .class files. Without this option, reflection knows only
+    "arg0", "arg1"… and umlg then displays types only: "entries(String)" instead of
+    "entries(xKeyName : String)". The generation reports it if the option is missing.
   -->
   <maven.compiler.parameters>true</maven.compiler.parameters>
 </properties>
 
 <dependencies>
   <!--
-    Les annotations, et le processeur qui vérifie à la compilation ce qu'elles déclarent.
-    javac le découvre aujourd'hui par META-INF/services dès que la bibliothèque est sur le
-    classpath, mais il en avertit désormais et annonce que cette découverte automatique
-    disparaîtra : le nommer explicitement, comme dans le bloc du compilateur ci-dessous, est
-    la forme qui durera.
+    The annotations, and the processor checking at compile time what they declare. javac
+    discovers it today through META-INF/services as soon as the library is on the classpath, but
+    it now warns about it and announces that this automatic discovery will disappear: naming it
+    explicitly, as in the compiler block below, is the form that will last.
   -->
   <dependency>
     <groupId>io.github.oliviercailloux</groupId>
@@ -81,23 +78,21 @@ cd ../umlg-maven-plugin   && mvn install
       <groupId>org.apache.maven.plugins</groupId>
       <artifactId>maven-compiler-plugin</artifactId>
       <!--
-        La version, et ce n'est pas une précaution de style : sans elle, Maven résout la 3.1,
-        publiée en 2013, antérieure au paramètre « parameters ». La propriété
-        maven.compiler.parameters ci-dessus est alors ignorée en silence — les signatures
-        perdent leurs noms de paramètres, et umlg conseille d'ajouter ce que vous avez déjà
-        écrit.
+        The version, and this is no stylistic precaution: without it, Maven resolves 3.1,
+        published in 2013, older than the "parameters" setting. The maven.compiler.parameters
+        property above is then silently ignored — the signatures lose their parameter names, and
+        umlg advises adding what you have already written.
       -->
       <version>3.13.0</version>
       <configuration>
         <!--
-          Sans showWarnings, Maven passe « -nowarn » à javac, ce qui fait taire tous les
-          avertissements du processeur d'umlg — c'est-à-dire tout ce qu'il a à dire, ses
-          erreurs mises à part.
+          Without showWarnings, Maven passes "-nowarn" to javac, which silences every warning of
+          the umlg processor — that is, everything it has to say, its errors aside.
         -->
         <showWarnings>true</showWarnings>
         <!--
-          Nomme le processeur au lieu de le laisser découvrir. javac avertit désormais que la
-          découverte par le classpath disparaîtra ; cette forme-ci ne bougera pas.
+          Names the processor rather than letting it be discovered. javac now warns that
+          discovery through the classpath will disappear; this form will not move.
         -->
         <annotationProcessorPaths>
           <path>
@@ -108,23 +103,22 @@ cd ../umlg-maven-plugin   && mvn install
         </annotationProcessorPaths>
         <compilerArgs>
           <!--
-            Donne au processeur le fichier de règles du projet. Sans cette option, il ignore
-            la stratégie retenue et se tait sur tout ce qui en dépend — un @UMLInclude sans
-            effet, un @UMLDerived sur un membre que la stratégie n'affiche pas. Il préfère se
-            taire que deviner ; encore faut-il lui donner de quoi savoir.
+            Gives the processor the rules file of the project. Without this option, it ignores
+            the chosen strategy and stays silent on everything depending on it — a @UMLInclude
+            without effect, a @UMLDerived on a member the strategy does not display. It would
+            rather stay silent than guess; it still needs something to know from.
 
-            Le chemin est écrit absolu, par ${project.basedir} : javac résout un chemin relatif
-            contre son propre répertoire de travail, qui n'est pas nécessairement celui du
-            projet — dans une construction multi-modules il ne l'est pas. Un chemin relatif
-            « marche » alors ici et pas là, et le processeur se contente d'avertir qu'il n'a
-            rien trouvé.
+            The path is written absolute, through ${project.basedir}: javac resolves a relative
+            path against its own working directory, which is not necessarily the project's — in a
+            multi-module build it is not. A relative path then "works" here and not there, and the
+            processor merely warns that it found nothing.
           -->
           <arg>-Aumlg.rules=${project.basedir}/src/main/resources/umlg.json</arg>
         </compilerArgs>
       </configuration>
     </plugin>
 
-    <!-- « mvn compile umlg:generate » : target/classes analysé, diagrammes/ écrit. -->
+    <!-- "mvn compile umlg:generate": target/classes analysed, diagrams/ written. -->
     <plugin>
       <groupId>io.github.oliviercailloux</groupId>
       <artifactId>umlg-maven-plugin</artifactId>
@@ -141,119 +135,141 @@ cd ../umlg-maven-plugin   && mvn install
 </build>
 ```
 
-La génération se lance alors par :
+The generation is then run with:
 
 ```sh
 mvn compile umlg:generate
 ```
 
-Elle écrit `diagrammes/` à la racine du projet : la vue d'ensemble (`projet.svg`) à sa racine,
-les autres vues dans `diagrammes/vues/`, chaque image accompagnée de sa source `.puml`, et la
-liste complète des classes restées hors du diagramme dans `ignored-classes.txt`. Réglages par
-propriétés : `-Dumlg.outputFile=architecture.svg` (un seul fichier), `-Dumlg.format=png`,
+It writes `diagrams/` at the root of the project: the overview view (`project.svg`) at its root,
+the other views in `diagrams/views/`, each image accompanied by its `.puml` source, and the
+complete list of the classes left out of the diagram in `ignored-classes.txt`. Settings through
+properties: `-Dumlg.outputFile=architecture.svg` (a single file), `-Dumlg.format=png`,
 `-Dumlg.outputDirectory=…`, `-Dumlg.skip=true`.
 
-Sans Maven, la même génération s'obtient par programme :
+Without Maven, the same generation is obtained programmatically:
 
 ```java
 UMLGenerator.builder()
     .sourceDirectory("target/classes")
-    .outputDirectory("diagrammes")
+    .outputDirectory("diagrams")
     .build()
-    .generate();   // rend un RapportDeGeneration
+    .generate();   // returns a GenerationReport
 ```
 
-## Annoter
+## Annotating
 
-`@UMLClass` est l'annotation pivot : une classe qui ne la porte pas est ignorée (la génération
-compte ces classes, et les nomme dans `ignored-classes.txt`). Le reste du vocabulaire, en bref —
-chaque annotation porte sa Javadoc :
+`@UMLClass` is the pivotal annotation: a class that does not carry it is ignored (the generation
+counts those classes, and names them in `ignored-classes.txt`). The rest of the vocabulary, in
+brief — each annotation carries its Javadoc:
 
-| Annotation | Ce qu'elle dit |
+| Annotation | What it says |
 |---|---|
-| `@UMLClass(name, stereotype, color, strategy)` | cette classe est une boîte ; sa stratégie dit quels membres se dessinent |
-| `@UMLAssociation(target, notation, type, …)` | cet attribut est un lien — un trait (`ARROW`) ou une ligne dans la boîte (`ATTRIBUTE`) |
-| `@UMLDependency`, `@UMLAssociationClass` | dépendances, classes d'association |
-| `@UMLInclude(name, asAttribute)` | montre ce membre quelle que soit la stratégie ; `name` le renomme, `asAttribute = true` écrit un accesseur en notation attribut (`xKeycodeByXKeyName : Map<String, Short>`, sans parenthèses) |
-| `@UMLExclude` | tais ce membre — le veto de plus haute priorité ; posé sur la déclaration d'une interface, il vaut pour tous les overrides |
-| `@UMLMultiplicity("0..*")` | la multiplicité d'une propriété, quand le type ne la dit pas |
-| `@UMLNote`, `@UMLConstraint`, `@UMLDerived`, `@UMLPackage` | bulles, contraintes, membres calculés, groupes visuels |
+| `@UMLClass(name, stereotype, color, strategy)` | this class is a box; its strategy says which members are drawn |
+| `@UMLAssociation(target, notation, type, …)` | this field is a link — a stroke (`ARROW`) or a line in the box (`ATTRIBUTE`) |
+| `@UMLDependency`, `@UMLAssociationClass` | dependencies, association classes |
+| `@UMLInclude(name, asAttribute)` | show this member whatever the strategy; `name` renames it, `asAttribute = true` writes an accessor in attribute notation (`xKeycodeByXKeyName : Map<String, Short>`, without parentheses) |
+| `@UMLExclude` | silence this member — the veto of highest priority; set on the declaration of an interface, it holds for every override |
+| `@UMLMultiplicity("0..*")` | the multiplicity of a property, when the type does not say it |
+| `@UMLNote`, `@UMLConstraint`, `@UMLDerived`, `@UMLPackage` | bubbles, constraints, computed members, visual groups |
 
-Les composants d'un record sont sa définition : ils se dessinent quelle que soit la stratégie,
-`@UMLExclude` restant le seul moyen d'en taire un.
+The components of a record are its definition: they are drawn whatever the strategy, `@UMLExclude`
+remaining the only way of silencing one.
 
-## Le fichier `umlg.json`
+## The `umlg.json` file
 
-Facultatif, posé dans `src/main/resources/umlg.json` (la construction le recopie à la racine du
-répertoire analysé). Un objet JSON, une clé par nature de règle ; une clé inconnue arrête la
-génération, et une règle restée sans effet est signalée en fin de scan. JSON n'a pas de
-commentaires : une clé dont le nom commence par `_` n'est pas lue, et c'est là que va une note.
-L'essentiel :
+Optional, placed in `src/main/resources/umlg.json` (the build copies it to the root of the
+analysed directory). A JSON object, one key per nature of rule; an unknown key stops the
+generation, and a rule left without effect is reported at the end of the scan. JSON has no
+comments: a key whose name starts with `_` is not read, and that is where a note goes. The
+essentials:
 
 ```json
 {
-  "_": "Ce que les boîtes montrent, sans annoter chaque classe.",
+  "_": "What the boxes show, without annotating every class.",
   "strategy": "public",
 
-  "_hide": "Des motifs de noms — méthodes et attributs indifféremment ; « * » remplace n'importe quelle suite de caractères.",
+  "_hide": "Name patterns — methods and fields alike; \"*\" stands for any sequence of characters.",
   "hide": ["get*", "set*", "toString", "with*", "is*", "log", "LOGGER"],
 
-  "_omit": "Un retour void ne s'écrit pas ; ni « + » ni « - » devant les membres ; « from(KeyboardMap) » au lieu de « from(map : KeyboardMap) » ; pas d'italique sur une opération sans implémentation.",
+  "_omit": "A void return is not written; no \"+\" or \"-\" before the members; \"from(KeyboardMap)\" instead of \"from(map : KeyboardMap)\"; no italics on an operation without implementation.",
   "omit": ["return void", "visibility", "parameter names", "abstract"],
 
-  "_types": "Le nom sous lequel un type s'affiche.",
+  "_types": "The name under which a type is displayed.",
   "types": { "ImmutableList": "List" },
 
-  "_ordre": "Les membres dans l'ordre du code, plutôt qu'alphabétique.",
+  "_order": "The members in code order, rather than alphabetical.",
   "order": "declaration",
-  "_multiplicity": "Set<X> s'écrit « X [0..*] », Optional<X> « X [0..1] ».",
+  "_multiplicity": "Set<X> is written \"X [0..*]\", Optional<X> \"X [0..1]\".",
   "multiplicity": "brackets",
 
-  "_dessin": "Le titre de la vue d'ensemble, son sens de lecture, et les compartiments vides rétablis.",
-  "title": "Architecture du module",
+  "_drawing": "The title of the overview view, its reading direction, and the empty compartments restored.",
+  "title": "Architecture of the module",
   "direction": "left-to-right",
   "showEmptyMembers": true,
 
   "views": [
     { "name": "Mapping", "retain": ["KeysymEntry", "KeyboardMap"],
       "remove": ["XkbSymbolsReader"], "direction": "left-to-right" },
-    { "name": "Autour de X", "retain": [{ "around": "X" }] }
+    { "name": "Around X", "retain": [{ "around": "X" }] }
   ],
-  "_viewsByPackage": "Une vue par paquetage, sans rien déclarer.",
+  "_viewsByPackage": "One view per package, without declaring anything.",
   "viewsByPackage": true
 }
 ```
 
-Une chaîne dans un `retain` ou un `remove` désigne une classe ; `{ "package": … }` prend tout un
-paquetage, `{ "around": … }` une classe et ses voisines immédiates. L'ordre d'écriture est celui du
-dessin.
+A string in a `retain` or a `remove` designates a class; `{ "package": … }` takes a whole package,
+`{ "around": … }` a class and its immediate neighbours. The writing order is that of the drawing.
 
-Onze clés, et **aucune** qui refasse ce qu'une annotation sait faire. Le critère est unique :
-*si la décision désigne un élément par son nom, c'est une annotation ; sinon c'est une règle.* D'où
-la règle de priorité, sans exception à retenir : **l'annotation l'emporte toujours sur la règle.**
+### Validating the file in an editor
 
-Trois conséquences : aucune règle ne désigne un membre nommément — `"hide": ["Representation.string"]`
-est refusé, `@UMLExclude` est fait pour cela ; aucune règle ne range une classe nommée —
-`@UMLPackage` seul ; aucune règle ne fabrique une boîte ni un lien — ce qui n'est pas dans le code
-n'est pas sur le diagramme. Et ce qui ne dit rien du modèle se règle à l'appel plutôt qu'ici :
-`.keepPrevious(true)`, ou `-Dumlg.keepPrevious=true`, conserve la génération précédente dans un
-dossier voisin numéroté au lieu de la remplacer.
+A JSON schema is delivered with the library, as `umlg-schema.json`: it describes the eleven keys,
+the words each of them accepts, and the shape of a view. The file refers to it through `$schema`,
+which is not a rule and is not read — it is the usage of the format, and it is what gives, in an
+editor, key completion and underlining of faults, without setting anything else:
 
-Deux mots, et ce qui les sépare : `hide` fait disparaître un membre, `omit` retire un morceau de
-la ligne d'un membre qui reste affiché. Le mot dit à lui seul si `@UMLInclude` peut le contredire —
-il le peut pour `hide`, et il n'y a rien à ramener pour `omit`.
+```json
+{
+  "$schema": "https://raw.githubusercontent.com/CharlesBaudoux/STAGE_UML_JAVA/main/UMLGenerator/src/main/resources/umlg-schema.json",
+  "strategy": "public"
+}
+```
 
-## Les couleurs
+A local copy does just as well, and avoids the network: `"$schema": "./umlg-schema.json"`, the file
+set next to `umlg.json`.
 
-`@UMLClass(color = ...)` accepte un code hexadécimal (`"#DDEEFF"`, `"#ABC"`) ou un nom de
-couleur PlantUML (`"red"`, `"LightBlue"`). Le catalogue complet s'obtient par
+The schema says what a schema can say. Three refusals remain the reader's alone, which it holds:
+two views with the same name, a JSON key written twice, and a file that is not UTF-8 without BOM.
+
+A second description of the format ends up diverging from the first: `SchemaTest` keeps it in step
+by comparing the keys and words of the schema to those the refusal messages of the reader name.
+Adding a twelfth key without writing it in the schema fails the build.
+
+Eleven keys, and **none** redoing what an annotation can do. The criterion is a single one: *if the
+decision designates an element by its name, it is an annotation; otherwise it is a rule.* Hence the
+precedence rule, with no exception to remember: **the annotation always wins over the rule.**
+
+Three consequences: no rule designates a member by name — `"hide": ["Representation.string"]` is
+refused, `@UMLExclude` is made for that; no rule files a named class — `@UMLPackage` alone; no rule
+makes a box or a link — what is not in the code is not on the diagram. And what says nothing of the
+model is set at the call rather than here: `.keepPrevious(true)`, or `-Dumlg.keepPrevious=true`,
+keeps the previous generation in a numbered neighbouring directory rather than replacing it.
+
+Two words, and what separates them: `hide` makes a member vanish, `omit` removes a piece of the
+line of a member that stays displayed. The word alone says whether `@UMLInclude` can contradict it
+— it can for `hide`, and there is nothing to bring back for `omit`.
+
+## Colours
+
+`@UMLClass(color = ...)` accepts a hexadecimal code (`"#DDEEFF"`, `"#ABC"`) or a PlantUML colour
+name (`"red"`, `"LightBlue"`). The complete catalogue is obtained through
 `UMLGenerator.knownColors()`.
 
-## Ce que la génération signale
+## What the generation reports
 
-La génération dit ce qu'elle a fait — combien de diagrammes, où, combien de classes dessinées et
-ignorées — et avertit sur ce qui vaut d'être vu sans arrêter le dessin : boîtes vides faute de
-stratégie, compilation sans `-parameters`, règles restées lettre morte, vue `around` sans voisin,
-diagramme aux proportions illisibles. Les fautes, elles, arrêtent : annotation contradictoire,
-couleur inconnue, fichier de règles fautif ou qui n'est pas en UTF-8 — et le processeur
-d'annotations dit les mêmes choses dès la compilation, à la ligne près.
+The generation says what it did — how many diagrams, where, how many classes drawn and ignored —
+and warns about what is worth seeing without stopping the drawing: boxes empty for lack of a
+strategy, compilation without `-parameters`, rules left a dead letter, an `around` view with no
+neighbour, a diagram with unreadable proportions. Faults, for their part, stop it: contradictory
+annotation, unknown colour, faulty rules file or one that is not UTF-8 — and the annotation
+processor says the same things as early as compile time, down to the line.

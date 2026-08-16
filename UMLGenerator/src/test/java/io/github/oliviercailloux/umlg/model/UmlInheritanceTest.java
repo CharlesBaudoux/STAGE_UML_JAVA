@@ -8,59 +8,59 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-// Vérifie les gardes du record UmlInheritance, et sa place parmi les relations.
+// Checks the guards of the UmlInheritance record, and its place among the relations.
 class UmlInheritanceTest {
 
     @Test
-    void cibleVideOuNulle_estRefusee() {
+    void emptyOrNullTarget_isRefused() {
         assertThrows(NullPointerException.class,
             () -> new UmlInheritance(null, UmlInheritanceType.GENERALIZATION));
-        assertThrows(NullPointerException.class, () -> new UmlInheritance("Cible", null));
+        assertThrows(NullPointerException.class, () -> new UmlInheritance("Target", null));
         assertThrows(IllegalArgumentException.class,
             () -> new UmlInheritance("  ", UmlInheritanceType.GENERALIZATION));
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"pkg.Vehicule", "Vehicule", "a.b.c.D$Interne"})
-    void cibleValide_estConservee(String cible) {
-        assertEquals(cible, UmlInheritance.generalization(cible).targetQualifiedName());
+    @ValueSource(strings = {"pkg.Vehicle", "Vehicle", "a.b.c.D$Internal"})
+    void validTarget_isKept(String target) {
+        assertEquals(target, UmlInheritance.generalization(target).targetQualifiedName());
     }
 
-    // Un lien d'héritage ne porte jamais de texte : le contrat d'UmlRelation impose la méthode,
-    // la chaîne vide dit l'absence. RelationRenderer n'écrit alors rien après le trait.
+    // An inheritance link never carries text: the UmlRelation contract imposes the method,
+    // the empty string says absence. RelationRenderer then writes nothing after the stroke.
     @Test
-    void heritage_nAJamaisDeLabel() {
-        assertEquals("", UmlInheritance.generalization("Cible").label());
-        assertEquals("", UmlInheritance.realization("Cible").label());
+    void inheritance_neverHasALabel() {
+        assertEquals("", UmlInheritance.generalization("Target").label());
+        assertEquals("", UmlInheritance.realization("Target").label());
     }
 
     @Test
-    void fabriques_posentLeBonType() {
+    void factories_setTheRightType() {
         assertEquals(UmlInheritanceType.GENERALIZATION,
-            UmlInheritance.generalization("Cible").type());
-        assertEquals(UmlInheritanceType.REALIZATION, UmlInheritance.realization("Cible").type());
+            UmlInheritance.generalization("Target").type());
+        assertEquals(UmlInheritanceType.REALIZATION, UmlInheritance.realization("Target").type());
     }
 
-    // Un record : deux liens d'héritage de même cible et de même nature sont le même objet.
+    // A record: two inheritance links with the same target and nature are the same object.
     @Test
-    void deuxHeritagesIdentiques_sontEgaux() {
-        assertEquals(UmlInheritance.generalization("Cible"),
-            UmlInheritance.generalization("Cible"));
+    void twoIdenticalInheritances_areEqual() {
+        assertEquals(UmlInheritance.generalization("Target"),
+            UmlInheritance.generalization("Target"));
     }
 
-    // La relation doit se laisser trier par UmlEntity.relations(Class) comme les deux autres :
-    // c'est ce qui permet aux accesseurs spécialisés de cohabiter dans une liste unique.
+    // The relation must let itself be sorted by UmlEntity.relations(Class) like the other two:
+    // that is what lets specialized accessors coexist in a single list.
     @Test
-    void heritages_seTrientAvecLesAutresRelations() {
-        UmlInheritance heritage = UmlInheritance.generalization("pkg.Parent");
-        UmlDependency dependance = UmlDependency.toTarget("pkg.Service");
+    void inheritances_sortWithTheOtherRelations() {
+        UmlInheritance inheritance = UmlInheritance.generalization("pkg.Parent");
+        UmlDependency dependency = UmlDependency.toTarget("pkg.Service");
 
-        UmlEntity entity = UmlEntity.builder("pkg.Enfant", "Enfant")
-            .relations(ImmutableList.of(heritage, dependance))
+        UmlEntity entity = UmlEntity.builder("pkg.Child", "Child")
+            .relations(ImmutableList.of(inheritance, dependency))
             .build();
 
-        assertEquals(ImmutableList.of(heritage), entity.inheritances());
-        assertEquals(ImmutableList.of(dependance), entity.dependencies());
+        assertEquals(ImmutableList.of(inheritance), entity.inheritances());
+        assertEquals(ImmutableList.of(dependency), entity.dependencies());
         assertEquals(ImmutableList.of(), entity.associations());
     }
 }

@@ -13,65 +13,65 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
-// Le lien invisible qu'une vue pose entre deux blocs : présent dans la source, absent du dessin.
+// The invisible link a view sets between two blocks: present in the source, absent from the drawing.
 class PlantUmlLayoutTest {
 
-    private static UmlEntity cible() {
-        return UmlEntity.builder("com.exemple.Moteur", "Moteur").build();
+    private static UmlEntity target() {
+        return UmlEntity.builder("com.example.Engine", "Engine").build();
     }
 
     private static UmlEntity source(UMLDirection direction) {
-        return UmlEntity.builder("com.exemple.Voiture", "Voiture")
-            .relations(List.of(new UmlLayout("com.exemple.Moteur", direction)))
+        return UmlEntity.builder("com.example.Car", "Car")
+            .relations(List.of(new UmlLayout("com.example.Engine", direction)))
             .build();
     }
 
-    private static String ligneUnique(UMLDirection direction) {
-        return PlantUmlAssert.lignesDeLien(
-            PlantUmlAssert.documentPour(source(direction), cible())).get(0);
+    private static String lineUnique(UMLDirection direction) {
+        return PlantUmlAssert.linkLines(
+            PlantUmlAssert.documentFor(source(direction), target())).get(0);
     }
 
     @ParameterizedTest
     @CsvSource({"UP,up", "DOWN,down", "LEFT,left", "RIGHT,right"})
-    void directionDemandee_entreDansLeConnecteur(UMLDirection direction, String attendu) {
-        assertTrue(ligneUnique(direction).contains("-[hidden]" + attendu + "->"),
-            ligneUnique(direction));
+    void requestedDirection_entersTheConnector(UMLDirection direction, String expected) {
+        assertTrue(lineUnique(direction).contains("-[hidden]" + expected + "->"),
+            lineUnique(direction));
     }
 
     @Test
-    void sansDirection_leLienResteNu() {
-        // Le lien existe tout de même : il rapproche les deux boîtes sans dire de quel côté.
-        assertTrue(ligneUnique(UMLDirection.NONE).contains("-[hidden]->"),
-            ligneUnique(UMLDirection.NONE));
+    void withoutDirection_theLinkStaysBare() {
+        // The link exists all the same: it brings the two boxes together without saying on which side.
+        assertTrue(lineUnique(UMLDirection.NONE).contains("-[hidden]->"),
+            lineUnique(UMLDirection.NONE));
     }
 
     @Test
-    void leLien_nePorteAucuneEtiquette() {
-        // Rien ne pourrait la lire : la ligne n'est pas dessinée.
-        assertEquals(-1, ligneUnique(UMLDirection.DOWN).indexOf(" : "),
-            ligneUnique(UMLDirection.DOWN));
+    void theLink_carriesNoLabel() {
+        // Nothing could read it: the line is not drawn.
+        assertEquals(-1, lineUnique(UMLDirection.DOWN).indexOf(" : "),
+            lineUnique(UMLDirection.DOWN));
     }
 
     @Test
-    void laCible_doitAvoirEteDeclaree() {
-        // Un lien invisible reste un lien : son extrémité est une boîte du diagramme, et son
-        // absence est signalée comme pour n'importe quelle relation.
+    void theTarget_mustHaveBeenDeclared() {
+        // An invisible link stays a link: its endpoint is a box of the diagram, and its
+        // absence is reported as for any other relation.
         assertThrows(IllegalArgumentException.class,
-            () -> PlantUmlAssert.documentPour(source(UMLDirection.DOWN)));
+            () -> PlantUmlAssert.documentFor(source(UMLDirection.DOWN)));
     }
 
     @Test
-    void lePlacement_neChangeAucuneBoite() {
+    void thePlacement_changesNoBox() {
         assertEquals(
-            PlantUmlAssert.nomsDeclares(PlantUmlAssert.documentPour(
-                UmlEntity.builder("com.exemple.Voiture", "Voiture").build(), cible())),
-            PlantUmlAssert.nomsDeclares(PlantUmlAssert.documentPour(
-                source(UMLDirection.DOWN), cible())));
+            PlantUmlAssert.namesDeclared(PlantUmlAssert.documentFor(
+                UmlEntity.builder("com.example.Car", "Car").build(), target())),
+            PlantUmlAssert.namesDeclared(PlantUmlAssert.documentFor(
+                source(UMLDirection.DOWN), target())));
     }
 
     @Test
-    void leMoteurAccepteLaSyntaxe() {
+    void theEngineAcceptsTheSyntax() {
         PlantUmlAssert.assertCompile(
-            PlantUmlAssert.documentPour(source(UMLDirection.DOWN), cible()));
+            PlantUmlAssert.documentFor(source(UMLDirection.DOWN), target()));
     }
 }

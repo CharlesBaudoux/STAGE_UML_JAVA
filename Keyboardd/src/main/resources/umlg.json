@@ -1,8 +1,9 @@
 {
-  "_strategy": "Aucune boîte ne montre ses membres par défaut : chaque classe le demande.",
+  "$schema": "https://raw.githubusercontent.com/CharlesBaudoux/STAGE_UML_JAVA/main/UMLGenerator/src/main/resources/umlg-schema.json",
+  "_strategy": "No box shows its members by default: each class asks for it.",
   "strategy": "none",
 
-  "_types": "Les types de Guava n'apprennent rien au lecteur du diagramme.",
+  "_types": "Guava's types teach the diagram reader nothing.",
   "types": {
     "ImmutableSet": "Set",
     "ImmutableList": "List",
@@ -10,7 +11,7 @@
     "ImmutableBiMap": "BiMap"
   },
 
-  "_notation": "La notation des diagrammes tenus à la main : ni void, ni visibilités, ni {abstract}.",
+  "_notation": "The notation of hand-kept diagrams: no void, no visibilities, no {abstract}.",
   "omit": ["return void", "visibility", "abstract"],
   "multiplicity": "brackets",
   "order": "declaration",
@@ -34,8 +35,8 @@
         "RectangularKey", "RectangularKeyboard", "SvgKeyboard"],
       "direction": "left-to-right"
     },
-    { "name": "Autour de SvgKeyboard", "retain": [{ "around": "SvgKeyboard" }] },
-    { "name": "Autour de CanonicalKeyboardMap", "retain": [{ "around": "CanonicalKeyboardMap" }] }
+    { "name": "Around SvgKeyboard", "retain": [{ "around": "SvgKeyboard" }] },
+    { "name": "Around CanonicalKeyboardMap", "retain": [{ "around": "CanonicalKeyboardMap" }] }
   ],
 
   "viewsByPackage": true

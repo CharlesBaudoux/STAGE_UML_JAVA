@@ -13,76 +13,76 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
-// Le rendu des liens d'héritage et des mots-clés de boîte.
+// The rendering of inheritance links and box keywords.
 class PlantUmlInheritanceTest {
 
-    private static UmlEntity boite(String nomQualifie, String nom, UmlEntityKind kind) {
-        return UmlEntity.builder(nomQualifie, nom).kind(kind).build();
+    private static UmlEntity box(String qualifiedName, String name, UmlEntityKind kind) {
+        return UmlEntity.builder(qualifiedName, name).kind(kind).build();
     }
 
-    private static UmlEntity enfant(String nom, UmlInheritance... heritages) {
-        return UmlEntity.builder("pkg." + nom, nom)
-            .relations(ImmutableList.copyOf(heritages))
+    private static UmlEntity child(String name, UmlInheritance... inheritances) {
+        return UmlEntity.builder("pkg." + name, name)
+            .relations(ImmutableList.copyOf(inheritances))
             .build();
     }
 
-    // --- Les traits ---
+    // --- Les strokes ---
 
     @Test
-    void generalisation_donneUnTraitPlein() {
-        UmlEntity parent = boite("pkg.Vehicule", "Vehicule", UmlEntityKind.CLASS);
-        UmlEntity voiture = enfant("Voiture", UmlInheritance.generalization("pkg.Vehicule"));
+    void generalization_givesASolidStroke() {
+        UmlEntity parent = box("pkg.Vehicle", "Vehicle", UmlEntityKind.CLASS);
+        UmlEntity car = child("Car", UmlInheritance.generalization("pkg.Vehicle"));
 
-        assertEquals(List.of("Vehicule <|-- Voiture"),
-            PlantUmlAssert.lignesDeLien(PlantUmlAssert.documentPour(parent, voiture)));
+        assertEquals(List.of("Vehicle <|-- Car"),
+            PlantUmlAssert.linkLines(PlantUmlAssert.documentFor(parent, car)));
     }
 
     @Test
-    void realisation_donneUnTraitPointille() {
-        UmlEntity roulant = boite("pkg.Roulant", "Roulant", UmlEntityKind.INTERFACE);
-        UmlEntity camion = enfant("Camion", UmlInheritance.realization("pkg.Roulant"));
+    void realization_givesADottedStroke() {
+        UmlEntity rolling = box("pkg.Rolling", "Rolling", UmlEntityKind.INTERFACE);
+        UmlEntity truck = child("Truck", UmlInheritance.realization("pkg.Rolling"));
 
-        assertEquals(List.of("Roulant <|.. Camion"),
-            PlantUmlAssert.lignesDeLien(PlantUmlAssert.documentPour(roulant, camion)));
+        assertEquals(List.of("Rolling <|.. Truck"),
+            PlantUmlAssert.linkLines(PlantUmlAssert.documentFor(rolling, truck)));
     }
 
     @Test
-    void laCibleEstEcriteEnPremier() {
-        // Ce n'est pas une coquetterie : dans « A <|-- B », le sens du trait dit aussi à PlantUML
-        // de placer A au-dessus de B. La forme « B --|> A », équivalente pour le lecteur,
-        // retournerait la hiérarchie — un parent se dessine au-dessus de ses enfants.
-        UmlEntity parent = boite("pkg.Vehicule", "Vehicule", UmlEntityKind.CLASS);
-        UmlEntity voiture = enfant("Voiture", UmlInheritance.generalization("pkg.Vehicule"));
+    void theTargetIsWrittenFirst() {
+        // This is no affectation: in "A <|-- B", the direction of the stroke also tells PlantUML
+        // to put A above B. The form "B --|> A", equivalent for the reader,
+        // would flip the hierarchy — a parent is drawn above its children.
+        UmlEntity parent = box("pkg.Vehicle", "Vehicle", UmlEntityKind.CLASS);
+        UmlEntity car = child("Car", UmlInheritance.generalization("pkg.Vehicle"));
 
-        String ligne = PlantUmlAssert.lignesDeLien(
-            PlantUmlAssert.documentPour(parent, voiture)).get(0);
+        String line = PlantUmlAssert.linkLines(
+            PlantUmlAssert.documentFor(parent, car)).get(0);
 
-        assertTrue(ligne.indexOf("Vehicule") < ligne.indexOf("Voiture"), ligne);
+        assertTrue(line.indexOf("Vehicle") < line.indexOf("Car"), line);
     }
 
     @Test
-    void heritage_neRecoitAucunLabel() {
-        // UmlInheritance.label() rend la chaîne vide : rien ne doit être écrit après le trait.
-        UmlEntity parent = boite("pkg.Vehicule", "Vehicule", UmlEntityKind.CLASS);
-        UmlEntity voiture = enfant("Voiture", UmlInheritance.generalization("pkg.Vehicule"));
+    void inheritance_receivesNoLabel() {
+        // UmlInheritance.label() returns the empty string: nothing must be written after the stroke.
+        UmlEntity parent = box("pkg.Vehicle", "Vehicle", UmlEntityKind.CLASS);
+        UmlEntity car = child("Car", UmlInheritance.generalization("pkg.Vehicle"));
 
-        assertTrue(PlantUmlAssert.lignesDeLien(PlantUmlAssert.documentPour(parent, voiture))
+        assertTrue(PlantUmlAssert.linkLines(PlantUmlAssert.documentFor(parent, car))
                                  .get(0).indexOf(':') < 0);
     }
 
     @Test
-    void plusieursHeritages_donnentAutantDeLignes() {
-        UmlEntity roulant = boite("pkg.Roulant", "Roulant", UmlEntityKind.INTERFACE);
-        UmlEntity vehicule = boite("pkg.Vehicule", "Vehicule", UmlEntityKind.ABSTRACT_CLASS);
-        UmlEntity bus = enfant("Bus",
-            UmlInheritance.generalization("pkg.Vehicule"),
-            UmlInheritance.realization("pkg.Roulant"));
+    void severalInheritances_giveAsManyLines() {
+        UmlEntity rolling = box("pkg.Rolling", "Rolling", UmlEntityKind.INTERFACE);
+        UmlEntity vehicle = box("pkg.Vehicle", "Vehicle", UmlEntityKind.ABSTRACT_CLASS);
+        UmlEntity bus = child("Bus",
+            UmlInheritance.generalization("pkg.Vehicle"),
+            UmlInheritance.realization("pkg.Rolling"));
 
-        assertEquals(List.of("Vehicule <|-- Bus", "Roulant <|.. Bus"),
-            PlantUmlAssert.lignesDeLien(PlantUmlAssert.documentPour(roulant, vehicule, bus)));
+        assertEquals(List.of("Vehicle <|-- Bus", "Rolling <|.. Bus"),
+            PlantUmlAssert.linkLines(PlantUmlAssert.documentFor(rolling, vehicle, bus)));
     }
 
-    // --- Les mots-clés de boîte ---
+    // --- The box keywords ---
 
     @ParameterizedTest
     @CsvSource({
@@ -92,49 +92,49 @@ class PlantUmlInheritanceTest {
         "ENUM,            enum",
         "ANNOTATION,      annotation"
     })
-    void natureDeLEntite_choisitLeMotCle(UmlEntityKind kind, String motCle) {
-        String source = PlantUmlAssert.documentPour(boite("pkg.E", "E", kind));
+    void entityNature_choosesTheKeyword(UmlEntityKind kind, String wordKey) {
+        String source = PlantUmlAssert.documentFor(box("pkg.E", "E", kind));
 
-        assertTrue(source.contains(motCle + " \"E\" as E {"), source);
+        assertTrue(source.contains(wordKey + " \"E\" as E {"), source);
     }
 
     @Test
-    void toutesLesNatures_sontAccepteesParPlantUml() {
-        // Le mot-clé engendré doit exister dans la version de PlantUML embarquée : c'est le seul
-        // test qui le prouve, la construction du texte ne le vérifiant pas.
-        UmlEntity[] boites = new UmlEntity[UmlEntityKind.values().length];
+    void everyNature_isAcceptedByPlantUml() {
+        // The generated keyword must exist in the embedded version of PlantUML: that is the only
+        // test proving it, the building of the text not checking it.
+        UmlEntity[] boxes = new UmlEntity[UmlEntityKind.values().length];
         int i = 0;
         for (UmlEntityKind kind : UmlEntityKind.values()) {
-            boites[i] = boite("pkg." + kind.name(), kind.name(), kind);
+            boxes[i] = box("pkg." + kind.name(), kind.name(), kind);
             i++;
         }
 
-        PlantUmlAssert.assertCompile(PlantUmlAssert.documentPour(boites));
+        PlantUmlAssert.assertCompile(PlantUmlAssert.documentFor(boxes));
     }
 
     @Test
-    void hierarchieComplete_estAccepteeParPlantUml() {
-        UmlEntity roulant = boite("pkg.Roulant", "Roulant", UmlEntityKind.INTERFACE);
-        UmlEntity vehicule = boite("pkg.Vehicule", "Vehicule", UmlEntityKind.ABSTRACT_CLASS);
-        UmlEntity bus = enfant("Bus",
-            UmlInheritance.generalization("pkg.Vehicule"),
-            UmlInheritance.realization("pkg.Roulant"));
+    void completeHierarchy_isAcceptedByPlantUml() {
+        UmlEntity rolling = box("pkg.Rolling", "Rolling", UmlEntityKind.INTERFACE);
+        UmlEntity vehicle = box("pkg.Vehicle", "Vehicle", UmlEntityKind.ABSTRACT_CLASS);
+        UmlEntity bus = child("Bus",
+            UmlInheritance.generalization("pkg.Vehicle"),
+            UmlInheritance.realization("pkg.Rolling"));
 
-        PlantUmlAssert.assertCompile(PlantUmlAssert.documentPour(roulant, vehicule, bus));
+        PlantUmlAssert.assertCompile(PlantUmlAssert.documentFor(rolling, vehicle, bus));
     }
 
-    // --- Le périmètre, vu du rendu ---
+    // --- The perimeter, seen from the rendering ---
 
     @Test
-    void cibleNonDeclaree_estSignaleeCommeUnHeritage() {
-        // Le message doit nommer la nature du lien fautif : sans cela, l'utilisateur cherche une
-        // association qui n'existe pas.
-        UmlEntity orphelin = enfant("Orphelin", UmlInheritance.generalization("pkg.Absente"));
+    void undeclaredTarget_isReportedAsAnInheritance() {
+        // The message must name the nature of the faulty link: without that, the user looks for a
+        // association that does not exist.
+        UmlEntity orphan = child("Orphan", UmlInheritance.generalization("pkg.Missing"));
 
         IllegalArgumentException e = org.junit.jupiter.api.Assertions.assertThrows(
-            IllegalArgumentException.class, () -> PlantUmlAssert.documentPour(orphelin));
+            IllegalArgumentException.class, () -> PlantUmlAssert.documentFor(orphan));
 
         assertTrue(e.getMessage().contains("generalization"), e.getMessage());
-        assertTrue(e.getMessage().contains("pkg.Absente"), e.getMessage());
+        assertTrue(e.getMessage().contains("pkg.Missing"), e.getMessage());
     }
 }

@@ -4,59 +4,33 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 import com.google.common.collect.ImmutableList;
 import io.github.oliviercailloux.umlg.annotation.UMLAssociationClass;
-import io.github.oliviercailloux.umlg.extraction.rules.Regles;
+import io.github.oliviercailloux.umlg.extraction.rules.Rules;
 import io.github.oliviercailloux.umlg.model.UmlAssociationClass;
 
-// Relit l'@UMLAssociationClass posée sur la classe.
-//
-// Au plus une par classe, l'annotation n'étant pas répétable : une classe qualifie un lien, pas
-// plusieurs. Les deux extrémités sont validées par la même règle que toutes les autres — une
-// cible hors du diagramme ferait partir le trait de nulle part.
 public final class AssociationClassExtractor implements RelationExtractor {
-
-    // Les règles du projet ne disent rien d'une classe d'association : elle se lit sur
-    // l'annotation de la classe, qui n'en porte qu'une.
     @Override
-    public ImmutableList<UmlAssociationClass> extraire(Class<?> clazz, Regles regles) {
+    public ImmutableList<UmlAssociationClass> extract(Class<?> clazz, Rules rules) {
         UMLAssociationClass annotation = clazz.getAnnotation(UMLAssociationClass.class);
         if (annotation == null) {
             return ImmutableList.of();
         }
-        String contexte = "@UMLAssociationClass sur " + clazz.getName();
+        String context = "@UMLAssociationClass on " + clazz.getName();
 
-        // La classe d'association est le troisième point du dessin : la voir revenir en
-        // extrémité rattacherait le lien à lui-même.
-        //
-        // Avant la validation des extrémités, parce qu'une classe d'association qui se désigne
-        // elle-même porte forcément @UMLClass : la seconde question n'aurait rien à dire, et
-        // seule celle-ci explique la faute.
         checkArgument(annotation.source() != clazz,
-            messageExtremiteReflexive(contexte, "source()"));
+            messageReflexiveEndpoint(context, "source()"));
         checkArgument(annotation.target() != clazz,
-            messageExtremiteReflexive(contexte, "target()"));
+            messageReflexiveEndpoint(context, "target()"));
 
-        TargetResolver.validerCible(annotation.source(), contexte, "source()");
-        TargetResolver.validerCible(annotation.target(), contexte, "target()");
+        TargetResolver.validateTarget(annotation.source(), context, "source()");
+        TargetResolver.validateTarget(annotation.target(), context, "target()");
 
         return ImmutableList.of(new UmlAssociationClass(annotation.source().getName(),
             annotation.target().getName()));
     }
 
-    // « Cette extrémité est la classe d'association elle-même », dit une seule fois.
-    //
-    // Le processeur d'annotations pose la même question à la compilation, et l'avait donc
-    // réécrite : les deux textes avaient divergé, et les deux contrôles ne se faisaient même plus
-    // dans le même ordre. La règle vit ici, avec l'extraction qui l'applique ; le processeur
-    // vient la lire.
-    //
-    // Le texte nomme l'extrémité fautive, et n'a donc plus à répéter « l'une des deux extrémités »
-    // : « source() is the association class itself » dit déjà laquelle, et la proposition
-    // suivante n'a plus qu'à dire pourquoi c'est impossible.
-    //
-    // @param membre le nom du paramètre fautif, « source() » ou « target() ».
-    public static String messageExtremiteReflexive(String contexte, String membre) {
-        return contexte + ": " + membre + " is the association class itself, which qualifies the "
+    public static String messageReflexiveEndpoint(String context, String member) {
+        return context + ": " + member + " is the association class itself, which qualifies the "
             + "link and cannot also be an end of it — the link would be attached to the very box "
-            + "that qualifies it. Point " + membre + " at one of the two classes the link joins.";
+            + "that qualifies it. Point " + member + " at one of the two classes the link joins.";
     }
 }

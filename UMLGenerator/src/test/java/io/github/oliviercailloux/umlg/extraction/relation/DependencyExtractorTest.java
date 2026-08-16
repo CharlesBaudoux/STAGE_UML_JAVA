@@ -13,156 +13,156 @@ import io.github.oliviercailloux.umlg.model.UmlEntity;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-// L'extraction des dépendances : la répétabilité de l'annotation, et les fautes que
-// l'extracteur refuse de laisser passer en silence.
+// The extraction of dependencies: the repeatability of the annotation, and the faults
+// the extractor refuses to let through silently.
 //
-// À noter : les classes fautives des tests de refus ne portent pas @UMLClass, et les tests
-// appellent DependencyExtractor directement. C'est voulu — sans quoi le scan de
-// target/test-classes, dans les tests d'intégration, les rencontrerait et échouerait.
+// Note: the faulty classes of the refusal tests carry no @UMLClass, and the tests
+// call DependencyExtractor directly. That is intended — otherwise the scan of
+// target/test-classes, in the integration tests, would meet them and would fail.
 class DependencyExtractorTest {
 
     @UMLClass
-    static class ServiceBancaire {}
+    static class ServiceBank {}
 
     @UMLClass
-    static class Journal {}
+    static class Log {}
 
-    // Cible interdite : pas de @UMLClass, donc pas dans le diagramme.
-    static class HorsDiagramme {}
+    // Forbidden target: no @UMLClass, hence not in the diagram.
+    static class OutsideDiagram {}
 
     // --- Cas nominal ---
 
     @UMLClass
-    @UMLDependency(target = ServiceBancaire.class, label = "facture via")
-    static class Panier {}
+    @UMLDependency(target = ServiceBank.class, label = "invoice via")
+    static class Cart {}
 
     @Test
-    void dependanceSimple_estExtraite() {
-        UmlEntity entity = EntityExtractor.extract(Panier.class);
+    void simpleDependency_isExtracted() {
+        UmlEntity entity = EntityExtractor.extract(Cart.class);
 
         assertEquals(
-            ImmutableList.of(new UmlDependency(ServiceBancaire.class.getName(), "facture via")),
+            ImmutableList.of(new UmlDependency(ServiceBank.class.getName(), "invoice via")),
             entity.dependencies());
     }
 
     @UMLClass
-    @UMLDependency(target = ServiceBancaire.class)
-    static class SansMotif {}
+    @UMLDependency(target = ServiceBank.class)
+    static class WithoutPattern {}
 
     @Test
-    void labelOmis_laisseLeLienNu() {
-        assertEquals("", EntityExtractor.extract(SansMotif.class).dependencies().get(0).label());
+    void omittedLabel_leavesTheLinkBare() {
+        assertEquals("", EntityExtractor.extract(WithoutPattern.class).dependencies().get(0).label());
     }
 
     @UMLClass
-    @UMLDependency(target = ServiceBancaire.class, label = "paie")
-    @UMLDependency(target = Journal.class, label = "trace")
-    static class DeuxDependances {}
+    @UMLDependency(target = ServiceBank.class, label = "pays")
+    @UMLDependency(target = Log.class, label = "trace")
+    static class TwoDependencies {}
 
     @Test
-    void annotationRepetee_produitAutantDeLiens() {
-        // Une classe ne dépend presque jamais d'une seule autre : l'annotation doit être
-        // répétable, sans quoi il faudrait choisir laquelle des dépendances montrer.
-        List<UmlDependency> dependances =
-            EntityExtractor.extract(DeuxDependances.class).dependencies();
+    void repeatedAnnotation_producesAsManyLinks() {
+        // A class almost never depends on a single other: the annotation must be
+        // repeatable, otherwise one would have to choose which dependency to show.
+        List<UmlDependency> dependencies =
+            EntityExtractor.extract(TwoDependencies.class).dependencies();
 
-        assertEquals(2, dependances.size());
+        assertEquals(2, dependencies.size());
         assertEquals(
-            List.of(ServiceBancaire.class.getName(), Journal.class.getName()),
-            dependances.stream().map(UmlDependency::targetQualifiedName).toList());
+            List.of(ServiceBank.class.getName(), Log.class.getName()),
+            dependencies.stream().map(UmlDependency::targetQualifiedName).toList());
     }
 
     @UMLClass
-    @UMLDependency(target = ServiceBancaire.class, label = "paie")
-    @UMLDependency(target = ServiceBancaire.class, label = "rembourse")
-    static class MemeCibleDeuxMotifs {}
+    @UMLDependency(target = ServiceBank.class, label = "pays")
+    @UMLDependency(target = ServiceBank.class, label = "rembourse")
+    static class SameTargetTwoPatterns {}
 
     @Test
-    void memeCibleAvecDesMotifsDifferents_estAcceptee() {
-        // Deux traits parallèles portant deux étiquettes distinctes : le lecteur les voit, et
-        // ils disent chacun quelque chose.
-        assertEquals(2, EntityExtractor.extract(MemeCibleDeuxMotifs.class).dependencies().size());
+    void sameTargetWithDifferentReasons_isAccepted() {
+        // Two parallel strokes carrying two distinct labels: the reader sees them, and
+        // each of them says something.
+        assertEquals(2, EntityExtractor.extract(SameTargetTwoPatterns.class).dependencies().size());
     }
 
     @UMLClass
-    static class AucuneDependance {}
+    static class NoDependency {}
 
     @Test
-    void sansAnnotation_aucuneDependanceNEstDeduite() {
-        assertTrue(EntityExtractor.extract(AucuneDependance.class).dependencies().isEmpty());
+    void withoutAnnotation_noDependencyIsInferred() {
+        assertTrue(EntityExtractor.extract(NoDependency.class).dependencies().isEmpty());
     }
 
     // --- Fautes silencieuses ---
 
-    @UMLDependency(target = ServiceBancaire.class, label = "paie")
-    @UMLDependency(target = ServiceBancaire.class, label = "paie")
-    static class DoublonExact {}
+    @UMLDependency(target = ServiceBank.class, label = "pays")
+    @UMLDependency(target = ServiceBank.class, label = "pays")
+    static class ExactDuplicate {}
 
     @Test
-    void dependanceDeclareeDeuxFoisALIdentique_estRefusee() {
-        // Deux traits rigoureusement superposés : rien ne se voit sur le diagramme, et c'est
-        // toujours le signe d'un copier-coller plutôt que d'une intention.
+    void dependencyDeclaredTwiceIdentically_isRefused() {
+        // Two strictly superimposed strokes: nothing shows on the diagram, and that is
+        // always the sign of a copy-paste rather than of an intention.
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
-            () -> new DependencyExtractor().extraire(DoublonExact.class));
+            () -> new DependencyExtractor().extract(ExactDuplicate.class));
 
         assertTrue(e.getMessage().contains("twice"),
-            () -> "Le message doit nommer la faute : " + e.getMessage());
+            () -> "The message must name the fault: " + e.getMessage());
     }
 
-    @UMLDependency(target = AutoDependance.class)
-    static class AutoDependance {}
+    @UMLDependency(target = AutoDependency.class)
+    static class AutoDependency {}
 
     @Test
-    void classeDependantDElleMeme_estRefusee() {
+    void classDependingOnItself_isRefused() {
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
-            () -> new DependencyExtractor().extraire(AutoDependance.class));
+            () -> new DependencyExtractor().extract(AutoDependency.class));
 
         assertTrue(e.getMessage().contains("depend on itself"),
-            () -> "Le message doit nommer la faute : " + e.getMessage());
+            () -> "The message must name the fault: " + e.getMessage());
     }
 
-    @UMLDependency(target = HorsDiagramme.class)
-    static class CibleNonAnnotee {}
+    @UMLDependency(target = OutsideDiagram.class)
+    static class TargetNotAnnotated {}
 
     @Test
-    void cibleSansUmlClass_estRefusee() {
-        // Sans ce refus, PlantUML inventerait une boîte vide portant ce nom : un diagramme
-        // faux, indiscernable d'une classe réellement sans membre.
+    void targetWithoutUmlClass_isRefused() {
+        // Without this refusal, PlantUML would invent an empty box carrying that name: a diagram
+        // wrong, indistinguishable from a class really without members.
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
-            () -> new DependencyExtractor().extraire(CibleNonAnnotee.class));
+            () -> new DependencyExtractor().extract(TargetNotAnnotated.class));
 
         assertTrue(e.getMessage().contains("@UMLClass") && e.getMessage().contains("target()"),
-            () -> "Le message doit expliquer ce qui manque et comment y remédier : "
+            () -> "The message must explain what is missing and how to fix it: "
                 + e.getMessage());
     }
 
-    // int.class est un Class valide côté Java, mais ne désigne aucune boîte possible.
+    // int.class is a valid Class on the Java side, but names no possible box.
     @UMLDependency(target = int.class)
-    static class CiblePrimitive {}
+    static class PrimitiveTarget {}
 
     @Test
-    void ciblePrimitive_estRefusee() {
+    void primitiveTarget_isRefused() {
         assertThrows(IllegalArgumentException.class,
-            () -> new DependencyExtractor().extraire(CiblePrimitive.class));
+            () -> new DependencyExtractor().extract(PrimitiveTarget.class));
     }
 
-    @UMLDependency(target = ServiceBancaire.class, label = "   ")
-    static class LabelBlanc {}
+    @UMLDependency(target = ServiceBank.class, label = "   ")
+    static class BlankLabel {}
 
     @Test
-    void labelBlanc_estRefuseEnNommantLaClasse() {
-        // Le « quoi » vient du modèle, le « où » de l'extraction.
+    void blankLabel_isRefusedNamingTheClass() {
+        // The "what" comes from the model, the "where" from extraction.
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
-            () -> new DependencyExtractor().extraire(LabelBlanc.class));
+            () -> new DependencyExtractor().extract(BlankLabel.class));
 
-        assertTrue(e.getMessage().contains("LabelBlanc"),
-            () -> "Le message doit situer la faute : " + e.getMessage());
+        assertTrue(e.getMessage().contains("BlankLabel"),
+            () -> "The message must locate the fault: " + e.getMessage());
     }
 
     @Test
-    void listeDeDependances_estImmuable() {
-        List<UmlDependency> dependances = EntityExtractor.extract(Panier.class).dependencies();
+    void dependencyList_isImmutable() {
+        List<UmlDependency> dependencies = EntityExtractor.extract(Cart.class).dependencies();
 
-        assertThrows(UnsupportedOperationException.class, () -> dependances.clear());
+        assertThrows(UnsupportedOperationException.class, () -> dependencies.clear());
     }
 }

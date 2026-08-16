@@ -1,6 +1,6 @@
 package io.github.oliviercailloux.umlg;
 
-import static io.github.oliviercailloux.umlg.CompilationSansProcesseur.compiler;
+import static io.github.oliviercailloux.umlg.CompilationWithoutProcessor.compiler;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -29,415 +29,415 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
-// La bibliothèque entière, du code annoté au fichier livré.
+// The whole library, from the annotated code to the delivered file.
 //
-// Trois familles de tests :
-//   - la chaîne complète : on écrit un vrai projet Java, on le compile, on le scanne, on lit le
-//     SVG produit et on y vérifie que les décisions prises en amont (@UMLExclude, filtre
-//     anti-bruit, stratégie) tiennent jusqu'à l'image ;
-//   - un invariant global sur target/test-classes : quel que soit le cobaye qu'un futur test
-//     ajoutera, l'ensemble doit continuer à produire un PlantUML valide et sans alias en
+// Three families of tests:
+//   - the whole chain: a real Java project is written, compiled, scanned, and the
+//     produced SVG, and it is checked there that the decisions taken upstream (@UMLExclude, the
+//     noise control, strategy) hold all the way to the image;
+//   - a global invariant over target/test-classes: whatever fixture a future test
+//     adds, the whole must go on producing valid PlantUML with no alias in
 //     double ;
-//   - l'accord entre le Builder et le writer sur les extensions : ce que l'un accepte, l'autre
-//     doit savoir le rendre — un désaccord passé entre eux est à l'origine de ces tests.
+//   - the agreement between the Builder and the writer on extensions: what one accepts, the other
+//     must be able to render it — a past disagreement between them is the origin of these tests.
 class UMLGeneratorIntegrationTest {
 
-    // Nombre magique d'un PNG : sert à vérifier le format réellement écrit.
-    private static final byte[] ENTETE_PNG = {(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A};
+    // Magic number of a PNG: used to check the format actually written.
+    private static final byte[] HEADER_PNG = {(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A};
 
-    // Le harnais javac — écrire un .java, le compiler pour de bon, scanner le répertoire de
-    // sortie — vit dans CompilationSansProcesseur, importé statiquement ci-dessus.
+    // The javac harness — write a .java, compile it for real, scan the output
+    // output — lives in CompilationWithoutProcessor, statically imported above.
 
-    // --- Chaîne complète ---
+    // --- Whole chain ---
 
     @Test
-    void projetAnnote_produitUnSvgContenantLArchitecture(@TempDir Path tmp) throws Exception {
-        // Le scénario nominal de la bibliothèque, de bout en bout.
+    void annotatedProject_producesAnSvgHoldingTheArchitecture(@TempDir Path tmp) throws Exception {
+        // The nominal scenario of the library, end to end.
         Path classes = tmp.resolve("classes");
-        compiler(tmp.resolve("src"), classes, "com/banque/Compte.java", """
-            package com.banque;
+        compiler(tmp.resolve("src"), classes, "com/bank/Account.java", """
+            package com.bank;
 
             import io.github.oliviercailloux.umlg.annotation.UMLClass;
             import io.github.oliviercailloux.umlg.annotation.UMLExclude;
             import io.github.oliviercailloux.umlg.annotation.UMLVisibility;
 
             @UMLClass(stereotype = "Entity", color = "#DDEEFF", strategy = UMLVisibility.PRIVATE)
-            public class Compte {
-                private double solde;
+            public class Account {
+                private double balance;
 
                 @UMLExclude
                 private String traceInterne;
 
-                public void deposer(double montant) {}
-                public double getSolde() { return solde; }
+                public void deposit(double amount) {}
+                public double getSolde() { return balance; }
             }
             """);
-        // Le fichier de règles, posé à la racine du répertoire analysé — là où la construction
-        // Maven le recopierait. Sans lui, aucun accesseur ne serait masqué : c'est justement ce
-        // que ce test doit prouver de bout en bout, du fichier écrit à la main jusqu'au SVG.
+        // The rules file, set at the root of the analysed directory — where the build
+        // Maven would copy it. Without it, no accessor would be hidden: that is precisely what
+        // which this test must prove end to end, from the hand-written file to the SVG.
         Files.writeString(classes.resolve("umlg.json"), "{ \"hide\": [\"get*\"] }\n",
             StandardCharsets.UTF_8);
 
-        Path sortie = tmp.resolve("architecture.svg");
+        Path output = tmp.resolve("architecture.svg");
 
         UMLGenerator.builder()
             .sourceDirectory(classes.toString())
-            .outputFile(sortie.toString())
+            .outputFile(output.toString())
             .build()
             .generate();
 
-        String svg = Files.readString(sortie, StandardCharsets.UTF_8);
+        String svg = Files.readString(output, StandardCharsets.UTF_8);
 
         assertFalse(svg.toLowerCase().contains("syntax error"),
-            "Le diagramme livré est une image d'erreur :\n" + svg);
-        assertTrue(svg.contains("Compte"), "La classe annotée doit apparaître.");
-        assertTrue(svg.contains("solde"), "L'attribut privé doit apparaître (strategy PRIVATE).");
-        assertTrue(svg.contains("deposer"), "La méthode métier doit apparaître.");
-        assertTrue(svg.contains("Entity"), "Le stéréotype doit apparaître.");
+            "The delivered diagram is an error image:\n" + svg);
+        assertTrue(svg.contains("Account"), "The annotated class must appear.");
+        assertTrue(svg.contains("balance"), "The private field must appear (strategy PRIVATE).");
+        assertTrue(svg.contains("deposit"), "The business method must appear.");
+        assertTrue(svg.contains("Entity"), "The stereotype must appear.");
         assertFalse(svg.contains("traceInterne"),
-            "@UMLExclude doit masquer l'attribut jusqu'au SVG.");
+            "@UMLExclude must hide the field all the way to the SVG.");
         assertFalse(svg.contains("getSolde"),
-            "\"hide get*\" doit tenir depuis le fichier de règles jusqu'au SVG.");
+            "\"hide get*\" must hold from the rules file to the SVG.");
     }
 
     @Test
-    void projetSansAucuneAnnotation_echoueAvecUnMessageUtile(@TempDir Path tmp) throws Exception {
+    void projectWithoutAnyAnnotation_failsWithAUsefulMessage(@TempDir Path tmp) throws Exception {
         Path classes = tmp.resolve("classes");
-        compiler(tmp.resolve("src"), classes, "com/banque/Neutre.java", """
-            package com.banque;
+        compiler(tmp.resolve("src"), classes, "com/bank/Neutral.java", """
+            package com.bank;
 
-            public class Neutre {}
+            public class Neutral {}
             """);
-        Path sortie = tmp.resolve("architecture.svg");
+        Path output = tmp.resolve("architecture.svg");
 
-        UMLGenerator generateur = UMLGenerator.builder()
+        UMLGenerator generator = UMLGenerator.builder()
             .sourceDirectory(classes.toString())
-            .outputFile(sortie.toString())
+            .outputFile(output.toString())
             .build();
 
-        RuntimeException e = assertThrows(RuntimeException.class, generateur::generate);
+        RuntimeException e = assertThrows(RuntimeException.class, generator::generate);
 
-        // generate() enrobe toute erreur : le message doit rendre le diagnostic possible.
+        // generate() wraps every error: the message must make the diagnosis possible.
         assertTrue(e.getMessage().contains(classes.toString()),
-            "Le dossier source doit figurer dans le message : " + e.getMessage());
-        assertTrue(e.getMessage().contains(sortie.toString()),
-            "Le fichier de sortie doit figurer dans le message : " + e.getMessage());
-        assertNotNull(e.getCause(), "La cause d'origine doit être conservée.");
-        assertFalse(Files.exists(sortie), "Aucun fichier ne doit être écrit en cas d'échec.");
+            "The source directory must appear in the message: " + e.getMessage());
+        assertTrue(e.getMessage().contains(output.toString()),
+            "The output file must appear in the message: " + e.getMessage());
+        assertNotNull(e.getCause(), "The original cause must be kept.");
+        assertFalse(Files.exists(output), "No file must be written on failure.");
     }
 
     @Test
-    void generate_rendLeCompteRendu_etNommeToutesLesIgnoreesDansUnFichier(@TempDir Path tmp)
+    void generate_returnsTheReport_andNamesEveryIgnoredClassInAFile(@TempDir Path tmp)
         throws Exception {
-        // Le compte rendu s'arrête de nommer au-delà d'une douzaine ; le fichier écrit dans le
-        // dossier de sortie n'a pas cette limite — il est là pour être ouvert quand le nombre a
-        // donné l'alerte.
+        // The returned report stops naming beyond a dozen; the file written in the
+        // the output directory does not have that limit — it is there to be opened when the count has
+        // raised the alarm.
         Path classes = tmp.resolve("classes");
-        compiler(tmp.resolve("src"), classes, "com/banque/Compte.java", """
-            package com.banque;
+        compiler(tmp.resolve("src"), classes, "com/bank/Account.java", """
+            package com.bank;
 
             import io.github.oliviercailloux.umlg.annotation.UMLClass;
 
             @UMLClass
-            public class Compte {}
+            public class Account {}
 
-            class Oubliee {}
+            class Forgotten {}
 
-            class Ecartee {}
+            class Dropped {}
             """);
-        Path dossier = tmp.resolve("diagrammes");
+        Path folder = tmp.resolve("diagrams");
 
-        RapportDeGeneration rapport = UMLGenerator.builder()
+        GenerationReport report = UMLGenerator.builder()
             .sourceDirectory(classes.toString())
-            .outputDirectory(dossier.toString())
+            .outputDirectory(folder.toString())
             .build()
             .generate();
 
-        assertEquals(1, rapport.classesLues());
-        assertEquals(List.of("Ecartee", "Oubliee"), rapport.classesIgnorees());
+        assertEquals(1, report.classesRead());
+        assertEquals(List.of("Dropped", "Forgotten"), report.classesIgnored());
 
-        Path liste = dossier.resolve(UMLGenerator.FICHIER_DES_CLASSES_IGNOREES);
-        assertTrue(Files.exists(liste), "La liste complète doit être écrite dans le dossier.");
-        String contenu = Files.readString(liste, StandardCharsets.UTF_8);
-        assertTrue(contenu.contains("Oubliee") && contenu.contains("Ecartee"), contenu);
+        Path list = folder.resolve(UMLGenerator.CLASSES_IGNORED_FILE);
+        assertTrue(Files.exists(list), "The complete list must be written in the directory.");
+        String content = Files.readString(list, StandardCharsets.UTF_8);
+        assertTrue(content.contains("Forgotten") && content.contains("Dropped"), content);
 
-        // La source .puml accompagne l'image, prête à être retouchée ou comparée.
-        String puml = Files.readString(dossier.resolve("projet.puml"), StandardCharsets.UTF_8);
+        // The .puml source goes with the image, ready to be touched up or compared.
+        String puml = Files.readString(folder.resolve("project.puml"), StandardCharsets.UTF_8);
         assertTrue(puml.startsWith("@startuml"), puml);
-        assertTrue(puml.contains("Compte"), puml);
+        assertTrue(puml.contains("Account"), puml);
     }
 
     @Test
-    void enModeFichierUnique_laListeEstEcriteAussi(@TempDir Path tmp) throws Exception {
-        // Le mode fichier unique n'avait aucun test sur ce point, alors que c'est celui de
-        // l'utilisateur qui n'a rien configuré — et donc celui qui a le plus besoin d'apprendre
-        // quelles classes ne sont pas sur son dessin.
+    void inSingleFileMode_theListIsWrittenToo(@TempDir Path tmp) throws Exception {
+        // Single-file mode had no test on that point, although it is the one used by
+        // the user who configured nothing — and hence the one who most needs to learn
+        // which classes are not on their drawing.
         Path classes = tmp.resolve("classes");
-        compiler(tmp.resolve("src"), classes, "com/banque/Compte.java", """
-            package com.banque;
+        compiler(tmp.resolve("src"), classes, "com/bank/Account.java", """
+            package com.bank;
 
             import io.github.oliviercailloux.umlg.annotation.UMLClass;
 
             @UMLClass
-            public class Compte {}
+            public class Account {}
 
-            class Oubliee {}
+            class Forgotten {}
             """);
 
-        RapportDeGeneration rapport = UMLGenerator.builder()
+        GenerationReport report = UMLGenerator.builder()
             .sourceDirectory(classes.toString())
             .outputFile(tmp.resolve("archi.svg").toString())
             .build()
             .generate();
 
-        Path liste = tmp.resolve(UMLGenerator.FICHIER_DES_CLASSES_IGNOREES);
-        assertTrue(Files.exists(liste),
-            "La liste doit accompagner l'image, en mode fichier unique comme en mode dossier.");
-        assertTrue(Files.readString(liste, StandardCharsets.UTF_8).contains("Oubliee"));
+        Path list = tmp.resolve(UMLGenerator.CLASSES_IGNORED_FILE);
+        assertTrue(Files.exists(list),
+            "The list must go with the image, in single-file mode as in directory mode.");
+        assertTrue(Files.readString(list, StandardCharsets.UTF_8).contains("Forgotten"));
 
-        // Et le compte rendu nomme le fichier demandé, non le dossier qui le contient.
-        assertTrue(rapport.summary().contains("archi.svg"), rapport.summary());
+        // And the returned report names the requested file, not the directory holding it.
+        assertTrue(report.summary().contains("archi.svg"), report.summary());
     }
 
     @Test
-    void sansClasseIgnoree_leFichierPerimeEstRetire(@TempDir Path tmp) throws Exception {
-        // Une liste laissée par une génération précédente mentirait d'autant mieux qu'elle a
-        // l'air à sa place.
+    void withoutIgnoredClass_theStaleFileIsRemoved(@TempDir Path tmp) throws Exception {
+        // A list left by a previous generation would lie all the better for having
+        // look in place.
         Path classes = tmp.resolve("classes");
-        compiler(tmp.resolve("src"), classes, "com/banque/Compte.java", """
-            package com.banque;
+        compiler(tmp.resolve("src"), classes, "com/bank/Account.java", """
+            package com.bank;
 
             import io.github.oliviercailloux.umlg.annotation.UMLClass;
 
             @UMLClass
-            public class Compte {}
+            public class Account {}
             """);
-        Path dossier = tmp.resolve("diagrammes");
-        Files.createDirectories(dossier);
-        Path liste = dossier.resolve(UMLGenerator.FICHIER_DES_CLASSES_IGNOREES);
-        Files.writeString(liste, "Perimee\n", StandardCharsets.UTF_8);
+        Path folder = tmp.resolve("diagrams");
+        Files.createDirectories(folder);
+        Path list = folder.resolve(UMLGenerator.CLASSES_IGNORED_FILE);
+        Files.writeString(list, "Perimee\n", StandardCharsets.UTF_8);
 
         UMLGenerator.builder()
             .sourceDirectory(classes.toString())
-            .outputDirectory(dossier.toString())
+            .outputDirectory(folder.toString())
             .build()
             .generate();
 
-        assertFalse(Files.exists(liste), "La liste périmée doit disparaître.");
+        assertFalse(Files.exists(list), "The stale list must vanish.");
     }
 
     @Test
-    void lesCouleursConnues_sontExposeesParLaFacade() {
-        // Le catalogue était enfermé dans un paquetage non exporté : l'utilisateur dont la
-        // couleur était refusée ne pouvait pas demander lesquelles existent.
-        var couleurs = UMLGenerator.knownColors();
+    void theKnownColours_areExposedByTheFacade() {
+        // The catalogue was locked in a non-exported package: the user whose
+        // colour was refused could not ask which ones exist.
+        var colors = UMLGenerator.knownColors();
 
-        assertTrue(couleurs.contains("LightBlue"), "Le catalogue de PlantUML doit être exposé.");
-        assertTrue(couleurs.contains("red"));
+        assertTrue(colors.contains("LightBlue"), "The PlantUML catalogue must be exposed.");
+        assertTrue(colors.contains("red"));
     }
 
     @Test
-    void echecDEcriture_estEnrobeAvecLeContexte(@TempDir Path tmp) throws Exception {
+    void writeFailure_isWrappedWithTheContext(@TempDir Path tmp) throws Exception {
         Path classes = tmp.resolve("classes");
-        compiler(tmp.resolve("src"), classes, "com/banque/Compte.java", """
-            package com.banque;
+        compiler(tmp.resolve("src"), classes, "com/bank/Account.java", """
+            package com.bank;
 
             import io.github.oliviercailloux.umlg.annotation.UMLClass;
 
             @UMLClass
-            public class Compte {}
+            public class Account {}
             """);
 
-        UMLGenerator generateur = UMLGenerator.builder()
+        UMLGenerator generator = UMLGenerator.builder()
             .sourceDirectory(classes.toString())
-            .outputFile(tmp.resolve("dossier/absent/architecture.svg").toString())
+            .outputFile(tmp.resolve("folder/absent/architecture.svg").toString())
             .build();
 
-        RuntimeException e = assertThrows(RuntimeException.class, generateur::generate);
+        RuntimeException e = assertThrows(RuntimeException.class, generator::generate);
         assertTrue(e.getMessage().contains("generate the UML diagram"), e.getMessage());
     }
 
     @Test
-    void generationRepetee_estIdempotente(@TempDir Path tmp) throws Exception {
-        // Relancer le générateur sur un projet inchangé ne doit ni échouer ni produire un
-        // diagramme différent.
+    void repeatedGeneration_isIdempotent(@TempDir Path tmp) throws Exception {
+        // Running the generator again on an unchanged project must neither fail nor produce a
+        // a different diagram.
         Path classes = tmp.resolve("classes");
-        compiler(tmp.resolve("src"), classes, "com/banque/Compte.java", """
-            package com.banque;
+        compiler(tmp.resolve("src"), classes, "com/bank/Account.java", """
+            package com.bank;
 
             import io.github.oliviercailloux.umlg.annotation.UMLClass;
             import io.github.oliviercailloux.umlg.annotation.UMLVisibility;
 
             @UMLClass(strategy = UMLVisibility.PUBLIC)
-            public class Compte {
-                public double solde;
-                public void deposer(double montant) {}
+            public class Account {
+                public double balance;
+                public void deposit(double amount) {}
             }
             """);
-        Path sortie = tmp.resolve("architecture.svg");
+        Path output = tmp.resolve("architecture.svg");
 
-        UMLGenerator generateur = UMLGenerator.builder()
+        UMLGenerator generator = UMLGenerator.builder()
             .sourceDirectory(classes.toString())
-            .outputFile(sortie.toString())
+            .outputFile(output.toString())
             .build();
 
-        generateur.generate();
-        String premier = Files.readString(sortie, StandardCharsets.UTF_8);
-        generateur.generate();
-        String second = Files.readString(sortie, StandardCharsets.UTF_8);
+        generator.generate();
+        String first = Files.readString(output, StandardCharsets.UTF_8);
+        generator.generate();
+        String second = Files.readString(output, StandardCharsets.UTF_8);
 
-        assertTrue(second.contains("Compte"));
-        assertEquals(premier, second,
-            "Deux générations identiques doivent donner le même SVG.");
+        assertTrue(second.contains("Account"));
+        assertEquals(first, second,
+            "Two identical generations must give the same SVG.");
     }
 
-    // --- Invariant global sur les cobayes du projet ---
+    // --- Global invariant over the project fixtures ---
 
     @Test
-    void toutesLesClassesCobayesDuProjet_produisentUnDiagrammeValide() throws Exception {
-        // Filet de sécurité : quel que soit le cobaye ajouté par un futur test, l'ensemble
-        // de target/test-classes doit continuer à produire un PlantUML que le moteur accepte.
-        // C'est ce test qui attrape les alias vides ou en collision, qu'aucun assert sur la
-        // taille du fichier ne peut voir.
-        UmlProject projet = ProjectScanner.scan(Paths.get("target", "test-classes")).projet();
+    void allProjectFixtureClasses_produceAValidDiagram() throws Exception {
+        // Safety net: whatever fixture a future test adds, the whole
+        // of target/test-classes must go on producing PlantUML the engine accepts.
+        // It is this test that catches empty or colliding aliases, which no assert on the
+        // the file size cannot see.
+        UmlProject project = ProjectScanner.scan(Paths.get("target", "test-classes")).project();
 
-        String source = PlantUmlAssert.documentPour(projet.entities().toArray(new UmlEntity[0]));
+        String source = PlantUmlAssert.documentFor(project.entities().toArray(new UmlEntity[0]));
 
         PlantUmlAssert.assertCompile(source);
     }
 
     @Test
-    void aliasDesCobayesDuProjet_sontTousUniques() throws Exception {
-        UmlProject projet = ProjectScanner.scan(Paths.get("target", "test-classes")).projet();
-        String source = PlantUmlAssert.documentPour(projet.entities().toArray(new UmlEntity[0]));
+    void aliasesOfProjectFixtures_areAllUnique() throws Exception {
+        UmlProject project = ProjectScanner.scan(Paths.get("target", "test-classes")).project();
+        String source = PlantUmlAssert.documentFor(project.entities().toArray(new UmlEntity[0]));
 
-        List<String> alias = PlantUmlAssert.aliasDeclares(source);
+        List<String> alias = PlantUmlAssert.aliasDeclared(source);
 
-        assertEquals(projet.entities().size(), alias.size(),
-            "Chaque entité scannée doit donner une déclaration de classe.");
+        assertEquals(project.entities().size(), alias.size(),
+            "Every scanned entity must give one class declaration.");
         assertEquals(alias.size(), alias.stream().distinct().count(),
-            "Des alias en double fusionneraient des classes distinctes : " + alias);
+            "Duplicate aliases would merge distinct classes: " + alias);
     }
 
     // --- Builder ---
 
     @ParameterizedTest
     @ValueSource(strings = {"a.svg", "a.SVG", "a.Svg", "a.png", "a.PNG", "a.pNg",
-        "MON.DIAGRAMME.SVG"})
-    void builder_accepteLesExtensionsQuelleQueSoitLaCasse(String nom, @TempDir Path tmp) {
-        // Le Builder refusait « Diagramme.SVG » alors que PlantUmlWriter savait le rendre :
-        // les deux comparaient l'extension chacun de leur côté, l'un sans normaliser la casse.
+        "MY.DIAGRAM.SVG"})
+    void builder_acceptsExtensionsWhateverTheCase(String name, @TempDir Path tmp) {
+        // The Builder refused "Diagram.SVG" while PlantUmlWriter could render it:
+        // both compared the extension on their own side, one without normalizing the case.
         assertDoesNotThrow(
-            () -> UMLGenerator.builder().sourceDirectory(tmp.toString()).outputFile(nom).build());
+            () -> UMLGenerator.builder().sourceDirectory(tmp.toString()).outputFile(name).build());
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"a.jpg", "a.pdf", "a.txt", "diagramme", "svg", "a.svg.bak", "a.s vg"})
-    void builder_refuseToujoursLesFormatsNonSupportes(String nom, @TempDir Path tmp) {
-        // Le durcissement de la casse ne doit pas transformer le filtre en passoire.
+    @ValueSource(strings = {"a.jpg", "a.pdf", "a.txt", "diagram", "svg", "a.svg.bak", "a.s vg"})
+    void builder_stillRefusesUnsupportedFormats(String name, @TempDir Path tmp) {
+        // Hardening the case must not turn the filter into a sieve.
         assertThrows(IllegalArgumentException.class,
-            () -> UMLGenerator.builder().sourceDirectory(tmp.toString()).outputFile(nom));
+            () -> UMLGenerator.builder().sourceDirectory(tmp.toString()).outputFile(name));
     }
 
     @Test
-    void builder_nommeLeFichierFautifDansSonMessage(@TempDir Path tmp) {
+    void builder_namesTheFaultyFileInItsMessage(@TempDir Path tmp) {
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
-            () -> UMLGenerator.builder().sourceDirectory(tmp.toString()).outputFile("rapport.pdf"));
+            () -> UMLGenerator.builder().sourceDirectory(tmp.toString()).outputFile("report.pdf"));
 
-        assertTrue(e.getMessage().contains("rapport.pdf"), e.getMessage());
+        assertTrue(e.getMessage().contains("report.pdf"), e.getMessage());
     }
 
-    // @CsvSource : chaque ligne fournit deux arguments, le nom de fichier et le format attendu.
+    // @CsvSource: each line provides two arguments, the file name and the expected format.
     @ParameterizedTest
     @CsvSource({"a.svg, SVG", "A.SVG, SVG", "a.Svg, SVG", "a.png, PNG", "A.PNG, PNG", "a.pNg, PNG"})
-    void toutNomAccepteParLeBuilder_estRenduDansLeFormatDeSonExtension(
-        String nom, String formatAttendu, @TempDir Path tmp) throws Exception {
-        // Le vrai invariant, celui qui empêche les deux composants de redivorcer : ce que le
-        // Builder laisse passer, le writer doit le rendre dans le format annoncé par
-        // l'extension — casse comprise, et sans repli silencieux sur le PNG.
-        UMLGenerator.builder().sourceDirectory(tmp.toString()).outputFile(nom).build();
+    void everyNameTheBuilderAccepts_isRenderedInItsExtensionFormat(
+        String name, String expectedFormat, @TempDir Path tmp) throws Exception {
+        // The real invariant, the one keeping the two components from parting again: what the
+        // Builder lets through, the writer must render it in the format announced by
+        // the extension — case included, and with no silent fallback to PNG.
+        UMLGenerator.builder().sourceDirectory(tmp.toString()).outputFile(name).build();
 
-        Path sortie = tmp.resolve(nom);
-        PlantUmlWriter.write(UmlProject.given(Set.of(EntityExtractor.extract(Cobaye.class))),
-            sortie.toString());
+        Path output = tmp.resolve(name);
+        PlantUmlWriter.write(UmlProject.given(Set.of(EntityExtractor.extract(Fixture.class))),
+            output.toString());
 
-        if (formatAttendu.equals("SVG")) {
-            assertTrue(Files.readString(sortie, StandardCharsets.UTF_8).contains("<svg"),
-                nom + " doit produire du SVG.");
+        if (expectedFormat.equals("SVG")) {
+            assertTrue(Files.readString(output, StandardCharsets.UTF_8).contains("<svg"),
+                name + " must produce SVG.");
         } else {
-            byte[] entete = Arrays.copyOf(Files.readAllBytes(sortie), ENTETE_PNG.length);
-            assertArrayEquals(ENTETE_PNG, entete, nom + " doit produire du PNG.");
+            byte[] header = Arrays.copyOf(Files.readAllBytes(output), HEADER_PNG.length);
+            assertArrayEquals(HEADER_PNG, header, name + " must produce PNG.");
         }
     }
 
     @Test
-    void generationCompleteAvecExtensionEnMajuscules_produitBienDuSvg(@TempDir Path tmp)
+    void fullGenerationWithUppercaseExtension_reallyProducesSvg(@TempDir Path tmp)
         throws Exception {
-        // La chaîne complète, pas seulement la validation : « .SVG » traverse le Builder,
-        // le scan et le writer.
+        // The whole chain, not validation only: ".SVG" crosses the Builder,
+        // the scan and the writer.
         Path classes = tmp.resolve("classes");
-        compiler(tmp.resolve("src"), classes, "com/banque/Compte.java", """
-            package com.banque;
+        compiler(tmp.resolve("src"), classes, "com/bank/Account.java", """
+            package com.bank;
 
             import io.github.oliviercailloux.umlg.annotation.UMLClass;
 
             @UMLClass
-            public class Compte {}
+            public class Account {}
             """);
-        Path sortie = tmp.resolve("ARCHITECTURE.SVG");
+        Path output = tmp.resolve("ARCHITECTURE.SVG");
 
         UMLGenerator.builder()
             .sourceDirectory(classes.toString())
-            .outputFile(sortie.toString())
+            .outputFile(output.toString())
             .build()
             .generate();
 
-        String contenu = Files.readString(sortie, StandardCharsets.UTF_8);
-        assertTrue(contenu.contains("<svg"), "Le fichier livré doit être du SVG, pas du PNG.");
-        assertTrue(contenu.contains("Compte"));
+        String content = Files.readString(output, StandardCharsets.UTF_8);
+        assertTrue(content.contains("<svg"), "The delivered file must be SVG, not PNG.");
+        assertTrue(content.contains("Account"));
     }
 
     @Test
-    void supporte_refuseUnNomNull() {
-        assertThrows(NullPointerException.class, () -> PlantUmlWriter.supporte(null));
+    void supports_refusesANullName() {
+        assertThrows(NullPointerException.class, () -> PlantUmlWriter.supports(null));
     }
 
-    @UMLClass(name = "Cobaye")
-    static class Cobaye {}
+    @UMLClass(name = "Fixture")
+    static class Fixture {}
 
     @Test
-    void builder_refuseUnNomDeFichierNull(@TempDir Path tmp) {
+    void builder_refusesANullFileName(@TempDir Path tmp) {
         assertThrows(NullPointerException.class,
             () -> UMLGenerator.builder().sourceDirectory(tmp.toString()).outputFile(null));
     }
 
     @Test
-    void builder_refuseUnCheminSourceNull() {
+    void builder_refusesANullSourcePath() {
         assertThrows(NullPointerException.class,
             () -> UMLGenerator.builder().sourceDirectory(null));
     }
 
     @Test
-    void builder_refuseUnFichierCommeDossierSource(@TempDir Path tmp) throws Exception {
-        Path fichier = tmp.resolve("pas-un-dossier.txt");
-        Files.writeString(fichier, "x");
+    void builder_refusesAFileAsSourceDirectory(@TempDir Path tmp) throws Exception {
+        Path file = tmp.resolve("not-un-folder.txt");
+        Files.writeString(file, "x");
 
         assertThrows(IllegalArgumentException.class,
-            () -> UMLGenerator.builder().sourceDirectory(fichier.toString()));
+            () -> UMLGenerator.builder().sourceDirectory(file.toString()));
     }
 
     @Test
-    void builder_accepteLesDeuxFormatsSupportes(@TempDir Path tmp) {
+    void builder_acceptsBothSupportedFormats(@TempDir Path tmp) {
         assertDoesNotThrow(() -> UMLGenerator.builder()
             .sourceDirectory(tmp.toString()).outputFile("a.svg").build());
         assertDoesNotThrow(() -> UMLGenerator.builder()
             .sourceDirectory(tmp.toString()).outputFile("a.png").build());
     }
 
-    // Le builder n'est pas consommé par build() : on peut en tirer plusieurs générateurs, en ne
-    // changeant que le fichier de sortie.
+    // The builder is not consumed by build(): several generators can be drawn from it, by
+    // changing only the output file.
     @Test
-    void builder_estReutilisablePourPlusieursGenerateurs(@TempDir Path tmp) {
+    void builder_isReusableForSeveralGenerators(@TempDir Path tmp) {
         UMLGenerator.Builder builder = UMLGenerator.builder().sourceDirectory(tmp.toString());
 
         assertDoesNotThrow(() -> {

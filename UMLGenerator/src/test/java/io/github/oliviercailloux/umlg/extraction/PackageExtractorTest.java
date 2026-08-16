@@ -10,81 +10,81 @@ import io.github.oliviercailloux.umlg.annotation.UMLPackage;
 import io.github.oliviercailloux.umlg.model.UmlPackage;
 import org.junit.jupiter.api.Test;
 
-// Ce que l'extraction tire de @UMLPackage.
+// What extraction draws from @UMLPackage.
 //
-// À noter : les classes fautives des tests de refus ne portent pas @UMLClass, et les tests
-// appellent PackageExtractor directement. C'est voulu — sans quoi le scan de target/test-classes,
-// dans les tests d'intégration, les rencontrerait et échouerait.
+// Note: the faulty classes of the refusal tests carry no @UMLClass, and the tests
+// call PackageExtractor directly. That is intended — otherwise the scan of target/test-classes,
+// in the integration tests, would meet them and fail.
 class PackageExtractorTest {
 
     @UMLClass
-    @UMLPackage(name = "Module Paiement", color = "#EEEEEE")
-    static class Facture {}
+    @UMLPackage(name = "Module Payment", color = "#EEEEEE")
+    static class Invoice {}
 
     @UMLClass
-    @UMLPackage(name = "Module Paiement")
-    static class Ligne {}
+    @UMLPackage(name = "Module Payment")
+    static class Line {}
 
     @UMLClass
-    static class HorsGroupe {}
+    static class OutsideGroup {}
 
     @UMLPackage(name = "   ")
-    static class NomBlanc {}
+    static class BlankName {}
 
-    // Un hexadécimal impossible : ce que refuse le contrôle de forme, seul à s'appliquer ici.
-    // Un nom de couleur inconnu du moteur — « PasUneCouleur » — a la forme d'une couleur et ne
-    // se voit refuser qu'au rendu, par ColorCodec.
-    @UMLPackage(name = "Groupe", color = "#GGGGGG")
-    static class CouleurMalFormee {}
+    // An impossible hexadecimal: what the form check refuses, the only one applying here.
+    // A colour name unknown to the engine — "NotAColor" — has the form of a colour and does
+    // is refused only at rendering time, by ColorCodec.
+    @UMLPackage(name = "Group", color = "#GGGGGG")
+    static class ColorBadlyFormed {}
 
     @Test
-    void groupeDeclare_estLu() {
-        assertEquals(new UmlPackage("Module Paiement", "#EEEEEE"),
-            EntityExtractor.extract(Facture.class).group());
+    void declaredGroup_isRead() {
+        assertEquals(new UmlPackage("Module Payment", "#EEEEEE"),
+            EntityExtractor.extract(Invoice.class).group());
     }
 
     @Test
-    void groupeSansCouleur_aUneCouleurVide() {
-        UmlPackage groupe = EntityExtractor.extract(Ligne.class).group();
+    void colourlessGroup_hasAnEmptyColour() {
+        UmlPackage group = EntityExtractor.extract(Line.class).group();
 
-        assertEquals("Module Paiement", groupe.name());
-        assertEquals("", groupe.color());
-        assertTrue(groupe.isGrouped());
+        assertEquals("Module Payment", group.name());
+        assertEquals("", group.color());
+        assertTrue(group.isGrouped());
     }
 
     @Test
-    void classeSansAnnotation_nEstDansAucunGroupe() {
-        UmlPackage groupe = EntityExtractor.extract(HorsGroupe.class).group();
+    void classWithoutAnnotation_isInNoGroup() {
+        UmlPackage group = EntityExtractor.extract(OutsideGroup.class).group();
 
-        assertEquals(UmlPackage.none(), groupe);
-        assertFalse(groupe.isGrouped());
+        assertEquals(UmlPackage.none(), group);
+        assertFalse(group.isGrouped());
     }
 
     @Test
-    void nomBlanc_estRefuse() {
+    void blankName_isRefused() {
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
-            () -> PackageExtractor.extraire(NomBlanc.class));
+            () -> PackageExtractor.extract(BlankName.class));
 
         assertTrue(e.getMessage().contains("name()"), e.getMessage());
     }
 
     @Test
-    void couleurMalFormee_estRefusee() {
-        // La même grammaire que pour une boîte, et le message nomme l'annotation réellement
-        // écrite — @UMLPackage, et non @UMLClass.
+    void malformedColour_isRefused() {
+        // The same grammar as for a box, and the message names the annotation actually
+        // written — @UMLPackage, and not @UMLClass.
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
-            () -> PackageExtractor.extraire(CouleurMalFormee.class));
+            () -> PackageExtractor.extract(ColorBadlyFormed.class));
 
         assertTrue(e.getMessage().contains("@UMLPackage"), e.getMessage());
-        // La grammaire est celle du catalogue de PlantUML, la même qu'au dessin et à la
-        // compilation : une seule question posée à un seul juge.
+        // The grammar is that of the PlantUML catalogue, the same as on the drawing and at
+        // compilation: a single question put to a single judge.
         assertTrue(e.getMessage().contains("Color unknown to PlantUML"), e.getMessage());
     }
 
     @Test
-    void groupeSansNomMaisAvecCouleur_estRefuseParLeModele() {
-        // Le cas ne peut pas venir de l'annotation — name() y est obligatoire — mais le modèle
-        // se garde lui-même : une couleur sans groupe ne serait posée sur rien.
+    void groupWithoutNameButWithColour_isRefusedByTheModel() {
+        // The case cannot come from the annotation — name() is mandatory there — but the model
+        // checks itself: a colour without a group would be set on nothing.
         assertThrows(IllegalArgumentException.class, () -> new UmlPackage("", "#EEEEEE"));
     }
 }

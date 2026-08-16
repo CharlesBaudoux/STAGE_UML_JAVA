@@ -10,92 +10,92 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-// Le contrôle des proportions : quelles images sont signalées, et surtout lesquelles ne le sont
-// pas.
+// The proportion check: which images are reported, and above all which are not
+// not.
 //
-// La seconde moitié compte autant que la première. Un avertissement qui se déclenche sur un
-// dessin lisible apprend à ne plus les lire — et celui-ci s'adresse à un utilisateur qui n'a rien
-// fait de faux, puisque son diagramme est exact.
+// The second half counts as much as the first. A warning firing on a
+// a readable drawing teaches one to stop reading them — and this one addresses a user who has
+// wrong, since its diagram is right.
 class ProportionsTest {
 
-    // Un SVG réduit à son en-tête : le contrôle n'a besoin que des dimensions, et les fabriquer
-    // évite de faire tourner le moteur de rendu pour éprouver une règle de trois.
+    // An SVG reduced to its header: the check needs the dimensions only, and making them
+    // avoids running the rendering engine to exercise a rule of three.
     //
-    // L'ordre des attributs imite celui du moteur — hauteur avant largeur, par ordre alphabétique
-    // — et ce détail n'en est pas un : un faux fichier qui les écrirait dans l'ordre attendu par
-    // le code validerait une lecture qui échoue sur tout fichier réel. C'est arrivé.
-    private static Path svg(Path dossier, String nom, int largeur, int hauteur)
+    // The field order imitates the engine's — height before width, in alphabetical order
+    // — and that detail is not one: a fake file writing them in the order expected by
+    // the code would bless a read that fails on every real file. That has happened.
+    private static Path svg(Path folder, String name, int width, int height)
         throws IOException {
-        Path fichier = dossier.resolve(nom + ".svg");
-        Files.writeString(fichier,
+        Path file = folder.resolve(name + ".svg");
+        Files.writeString(file,
             "<?xml version=\"1.0\"?>\n<svg xmlns=\"http://www.w3.org/2000/svg\" height=\""
-                + hauteur + "px\" preserveAspectRatio=\"none\" style=\"width:" + largeur
-                + "px;height:" + hauteur + "px;\" viewBox=\"0 0 " + largeur + " " + hauteur
-                + "\" width=\"" + largeur + "px\"></svg>",
+                + height + "px\" preserveAspectRatio=\"none\" style=\"width:" + width
+                + "px;height:" + height + "px;\" viewBox=\"0 0 " + width + " " + height
+                + "\" width=\"" + width + "px\"></svg>",
             StandardCharsets.UTF_8);
-        return fichier;
+        return file;
     }
 
     @Test
-    void unRubanTresLarge_estSignale(@TempDir Path tmp) throws IOException {
-        // Le cas mesuré qui a motivé ce contrôle : 3570 sur 289, soit 12 pour 1.
-        assertTrue(Proportions.verifier(svg(tmp, "ruban", 3570, 289), "Representable"));
+    void aVeryWideRibbon_isReported(@TempDir Path tmp) throws IOException {
+        // The measured case that motivated this check: 3570 by 289, that is 12 to 1.
+        assertTrue(Proportions.check(svg(tmp, "ribbon", 3570, 289), "Representable"));
     }
 
     @Test
-    void unDessinTresHaut_estSignaleAussi(@TempDir Path tmp) throws IOException {
-        // Le déséquilibre se juge dans les deux sens : une colonne de trois mille pixels de haut
-        // n'est pas plus lisible qu'un ruban de trois mille de large.
-        assertTrue(Proportions.verifier(svg(tmp, "colonne", 300, 3000), "Colonne"));
+    void averyTallDrawing_isReportedToo(@TempDir Path tmp) throws IOException {
+        // Imbalance is judged in both directions: a column three thousand pixels high
+        // is no more readable than a ribbon three thousand wide.
+        assertTrue(Proportions.check(svg(tmp, "colonne", 300, 3000), "Colonne"));
     }
 
     @Test
-    void unDessinEquilibre_neDitRien(@TempDir Path tmp) throws IOException {
-        // Les proportions mesurées sur les vues bien composées d'un projet réel.
-        assertFalse(Proportions.verifier(svg(tmp, "mapping", 1157, 488), "Mapping"));
-        assertFalse(Proportions.verifier(svg(tmp, "mnemonics", 1069, 497), "Mnemonics"));
+    void aBalancedDrawing_saysNothing(@TempDir Path tmp) throws IOException {
+        // Proportions measured on the well-composed views of a real project.
+        assertFalse(Proportions.check(svg(tmp, "mapping", 1157, 488), "Mapping"));
+        assertFalse(Proportions.check(svg(tmp, "mnemonics", 1069, 497), "Mnemonics"));
     }
 
     @Test
-    void unePetiteImage_nEstPasSignaleeMemeAllongee(@TempDir Path tmp) throws IOException {
-        // Une image de quelques centaines de pixels reste lisible même très allongée : la
-        // signaler serait un faux reproche, et c'est ce que le seuil de taille écarte.
-        assertFalse(Proportions.verifier(svg(tmp, "petite", 800, 100), "Petite"));
+    void aSmallImage_isNotReportedEvenWhenElongated(@TempDir Path tmp) throws IOException {
+        // An image of a few hundred pixels stays readable even much elongated: the
+        // reporting would be a false complaint, and that is what the size threshold rules out.
+        assertFalse(Proportions.check(svg(tmp, "petite", 800, 100), "Petite"));
     }
 
     @Test
-    void justeSousLeSeuil_neDitRien(@TempDir Path tmp) throws IOException {
-        // 3,9 pour 1 sur une grande image : déséquilibré, mais pas au point qu'on s'en mêle.
-        assertFalse(Proportions.verifier(svg(tmp, "limite", 2000, 520), "Limite"));
+    void justUnderTheThreshold_saysNothing(@TempDir Path tmp) throws IOException {
+        // 3.9 to 1 on a large image: unbalanced, but not enough to interfere.
+        assertFalse(Proportions.check(svg(tmp, "limite", 2000, 520), "Limite"));
     }
 
     @Test
-    void unPng_estMesureAussi(@TempDir Path tmp) throws IOException {
-        // Les dimensions d'un PNG se lisent dans son bloc IHDR, et non dans un en-tête textuel :
-        // le contrôle doit connaître les deux formats qu'écrit la bibliothèque.
-        Path fichier = tmp.resolve("ruban.png");
+    void aPng_isMeasuredToo(@TempDir Path tmp) throws IOException {
+        // The dimensions of a PNG are read in its IHDR block, and not in a textual header:
+        // the check must know both formats the library writes.
+        Path file = tmp.resolve("ribbon.png");
         byte[] png = new byte[24];
-        // Signature, longueur et type du bloc importent peu ici : seuls comptent les deux entiers
-        // gros-boutistes qui suivent, aux octets 16 et 20.
-        ecrire(png, 16, 3570);
-        ecrire(png, 20, 289);
-        Files.write(fichier, png);
+        // The signature, length and type of the block matter little here: only the two integers count
+        // big-endian ones that follow, at bytes 16 and 20.
+        write(png, 16, 3570);
+        write(png, 20, 289);
+        Files.write(file, png);
 
-        assertTrue(Proportions.verifier(fichier, "Ruban"));
+        assertTrue(Proportions.check(file, "Ribbon"));
     }
 
     @Test
-    void unFormatInconnu_neDeclencheRien(@TempDir Path tmp) throws IOException {
-        Path fichier = tmp.resolve("notes.txt");
-        Files.writeString(fichier, "ceci n'est pas une image", StandardCharsets.UTF_8);
+    void anUnknownFormat_triggersNothing(@TempDir Path tmp) throws IOException {
+        Path file = tmp.resolve("notes.txt");
+        Files.writeString(file, "ceci n'is not one image", StandardCharsets.UTF_8);
 
-        assertFalse(Proportions.verifier(fichier, "Notes"));
+        assertFalse(Proportions.check(file, "Notes"));
     }
 
-    private static void ecrire(byte[] octets, int debut, int valeur) {
-        octets[debut] = (byte) (valeur >>> 24);
-        octets[debut + 1] = (byte) (valeur >>> 16);
-        octets[debut + 2] = (byte) (valeur >>> 8);
-        octets[debut + 3] = (byte) valeur;
+    private static void write(byte[] bytes, int start, int value) {
+        bytes[start] = (byte) (value >>> 24);
+        bytes[start + 1] = (byte) (value >>> 16);
+        bytes[start + 2] = (byte) (value >>> 8);
+        bytes[start + 3] = (byte) value;
     }
 }

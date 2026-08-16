@@ -1,7 +1,6 @@
 package io.github.oliviercailloux.keyboardd.mnemonics;
 
 import io.github.oliviercailloux.umlg.annotation.UMLClass;
-import io.github.oliviercailloux.umlg.annotation.UMLExclude;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -32,7 +31,6 @@ public record CanonicalMnemonic (String mnemonic, int code,
    * @return the relative mnemonics, starting with this one, followed by the non deprecated
    *         aliases and finally by the deprecated aliases.
    */
-  @UMLExclude
   public ImmutableSet<String> mnemonics() {
     return ImmutableSet.<String>builder().add(mnemonic).addAll(nonDeprecatedAliases)
         .addAll(deprecatedAliases).build();
@@ -43,7 +41,6 @@ public record CanonicalMnemonic (String mnemonic, int code,
    *
    * @return the non deprecated aliases followed by the deprecated aliases.
    */
-  @UMLExclude
   public ImmutableSet<String> aliases() {
     return ImmutableSet.<String>builder().addAll(nonDeprecatedAliases).addAll(deprecatedAliases)
         .build();

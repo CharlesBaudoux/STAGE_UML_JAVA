@@ -10,229 +10,229 @@ import io.github.oliviercailloux.umlg.model.UmlEntity;
 import io.github.oliviercailloux.umlg.model.UmlInheritance;
 import org.junit.jupiter.api.Test;
 
-// L'extraction des liens d'héritage : ce que « extends » et « implements » donnent sur le
-// diagramme, et ce que le périmètre @UMLClass en retire.
+// The extraction of inheritance links: what "extends" and "implements" give on the
+// diagram, and what the @UMLClass perimeter takes out of it.
 //
-// Toutes les classes mères de ces cobayes sont annotées quand le lien doit exister, et ne le
-// sont pas quand il doit disparaître : c'est exactement ce que chaque test mesure.
+// Every parent class of these fixtures is annotated when the link must exist, and is not
+// are not when it must vanish: that is exactly what each test measures.
 class InheritanceExtractorTest {
 
-    private static ImmutableList<UmlInheritance> heritagesDe(Class<?> clazz) {
+    private static ImmutableList<UmlInheritance> inheritances(Class<?> clazz) {
         return EntityExtractor.extract(clazz).inheritances();
     }
 
-    // --- Généralisation : extends entre deux classes ---
+    // --- Generalization: extends between two classes ---
 
     @UMLClass
-    static class Vehicule {}
+    static class Vehicle {}
 
     @UMLClass
-    static class Voiture extends Vehicule {}
+    static class Car extends Vehicle {}
 
     @Test
-    void extendsVersUneClasseDuDiagramme_donneUneGeneralisation() {
+    void extendsTowardsADiagramClass_givesAGeneralization() {
         assertEquals(
-            ImmutableList.of(UmlInheritance.generalization(Vehicule.class.getName())),
-            heritagesDe(Voiture.class));
+            ImmutableList.of(UmlInheritance.generalization(Vehicle.class.getName())),
+            inheritances(Car.class));
     }
 
-    // --- Réalisation : implements ---
+    // --- Realization: implements ---
 
     @UMLClass
-    interface Roulant {}
+    interface Rolling {}
 
     @UMLClass
-    interface Immatriculable {}
+    interface Registrable {}
 
     @UMLClass
-    static class Camion implements Roulant {}
+    static class Truck implements Rolling {}
 
     @Test
-    void implementsVersUneInterfaceDuDiagramme_donneUneRealisation() {
+    void implementsTowardsADiagramInterface_givesARealization() {
         assertEquals(
-            ImmutableList.of(UmlInheritance.realization(Roulant.class.getName())),
-            heritagesDe(Camion.class));
-    }
-
-    @UMLClass
-    static class Remorque implements Roulant, Immatriculable {}
-
-    @Test
-    void plusieursInterfaces_donnentAutantDeRealisations() {
-        assertEquals(
-            ImmutableList.of(
-                UmlInheritance.realization(Roulant.class.getName()),
-                UmlInheritance.realization(Immatriculable.class.getName())),
-            heritagesDe(Remorque.class));
+            ImmutableList.of(UmlInheritance.realization(Rolling.class.getName())),
+            inheritances(Truck.class));
     }
 
     @UMLClass
-    static class Bus extends Vehicule implements Roulant {}
+    static class Trailer implements Rolling, Registrable {}
 
     @Test
-    void extendsEtImplements_coexistentSurLaMemeClasse() {
+    void severalInterfaces_giveAsManyRealizations() {
         assertEquals(
             ImmutableList.of(
-                UmlInheritance.generalization(Vehicule.class.getName()),
-                UmlInheritance.realization(Roulant.class.getName())),
-            heritagesDe(Bus.class));
+                UmlInheritance.realization(Rolling.class.getName()),
+                UmlInheritance.realization(Registrable.class.getName())),
+            inheritances(Trailer.class));
     }
 
-    // --- La nuance UML : une interface qui en étend une autre généralise, elle ne réalise pas ---
-
     @UMLClass
-    interface Motorise extends Roulant {}
+    static class Bus extends Vehicle implements Rolling {}
 
     @Test
-    void interfaceEtendantUneInterface_donneUneGeneralisation() {
-        // Java écrit « extends » ici et « implements » sur une classe, mais la réflexion range
-        // les deux dans getInterfaces(). Seule la nature de la source les distingue.
+    void extendsAndImplements_coexistOnTheSameClass() {
         assertEquals(
-            ImmutableList.of(UmlInheritance.generalization(Roulant.class.getName())),
-            heritagesDe(Motorise.class));
+            ImmutableList.of(
+                UmlInheritance.generalization(Vehicle.class.getName()),
+                UmlInheritance.realization(Rolling.class.getName())),
+            inheritances(Bus.class));
     }
 
-    // --- Hiérarchie scellée : les types permis spécialisent, ils ne réalisent pas ---
+    // --- The UML nuance: an interface extending another generalizes, it does not realize ---
 
     @UMLClass
-    sealed interface Signal permits Impulsion, Continu, NonScelle, Mixte {}
-
-    @UMLClass
-    record Impulsion(int duree) implements Signal {}
-
-    @UMLClass
-    static final class Continu implements Signal {}
+    interface Motorized extends Rolling {}
 
     @Test
-    void recordPermisParUneInterfaceScellee_donneUneGeneralisation() {
-        // « permits » n'énumère pas des candidats à un contrat : il énumère les seules formes
-        // qu'un Signal puisse prendre. La liste est fermée, donc c'est une spécialisation — une
-        // réalisation dirait l'inverse, que l'ensemble des implémentations est ouvert.
+    void interfaceExtendingAnInterface_givesAGeneralization() {
+        // Java writes "extends" here and "implements" on a class, but reflection files
+        // both in getInterfaces(). Only the nature of the source tells them apart.
+        assertEquals(
+            ImmutableList.of(UmlInheritance.generalization(Rolling.class.getName())),
+            inheritances(Motorized.class));
+    }
+
+    // --- Sealed hierarchy: the permitted types specialize, they do not realize ---
+
+    @UMLClass
+    sealed interface Signal permits Pulse, Continuous, NotSealed, Mixed {}
+
+    @UMLClass
+    record Pulse(int duration) implements Signal {}
+
+    @UMLClass
+    static final class Continuous implements Signal {}
+
+    @Test
+    void recordPermittedBySealedInterface_givesAGeneralization() {
+        // "permits" does not enumerate candidates for a contract: it enumerates the only shapes
+        // a Signal can take. The list is closed, hence it is a specialization — a
+        // a realization would say the opposite, that the set of implementations is open.
         assertEquals(
             ImmutableList.of(UmlInheritance.generalization(Signal.class.getName())),
-            heritagesDe(Impulsion.class));
+            inheritances(Pulse.class));
     }
 
     @Test
-    void classePermiseParUneInterfaceScellee_donneAussiUneGeneralisation() {
-        // La règle tient à la fermeture de la hiérarchie, pas à la nature du type permis : une
-        // classe ordinaire citée dans « permits » est un cas particulier au même titre.
+    void classPermittedBySealedInterface_alsoGivesAGeneralization() {
+        // The rule holds by the closing of the hierarchy, not by the nature of the permitted type: an
+        // an ordinary class named in "permits" is a special case on the same footing.
         assertEquals(
             ImmutableList.of(UmlInheritance.generalization(Signal.class.getName())),
-            heritagesDe(Continu.class));
+            inheritances(Continuous.class));
     }
 
     @UMLClass
-    non-sealed interface NonScelle extends Signal {}
+    non-sealed interface NotSealed extends Signal {}
 
     @UMLClass
-    static class Bruit implements NonScelle {}
+    static class Noise implements NotSealed {}
 
     @Test
-    void interfaceNonScellee_rendLaHierarchieOuverteEtDoncRealisee() {
-        // « non-sealed » rouvre la hiérarchie : n'importe qui peut désormais implémenter
-        // NonScelle, et le lien redevient une réalisation. C'est le pendant du test précédent, et
-        // il vérifie que la règle suit bien la fermeture et non le simple fait d'être imbriquée
-        // dans une hiérarchie scellée.
+    void unsealedInterface_makesTheHierarchyOpenAndThusRealized() {
+        // "non-sealed" reopens the hierarchy: anyone can now implement
+        // NotSealed, and the link becomes a realization again. It is the counterpart of the previous test, and
+        // it checks that the rule really follows the closing and not the mere fact of being nested
+        // in a sealed hierarchy.
         assertEquals(
-            ImmutableList.of(UmlInheritance.realization(NonScelle.class.getName())),
-            heritagesDe(Bruit.class));
+            ImmutableList.of(UmlInheritance.realization(NotSealed.class.getName())),
+            inheritances(Noise.class));
     }
 
     @UMLClass
-    interface Ouvert {}
+    interface Open {}
 
     @UMLClass
-    record Mixte(int valeur) implements Signal, Ouvert {}
+    record Mixed(int value) implements Signal, Open {}
 
     @Test
-    void memeSource_scelleeEtOuverte_donneUnLienDeChaqueNature() {
-        // Le même record peut spécialiser d'un côté et réaliser de l'autre : la nature se décide
-        // cible par cible, jamais une fois pour la classe.
+    void sameSource_sealedAndOpen_givesOneLinkOfEachNature() {
+        // The same record can specialize on one side and realize on the other: the nature is decided
+        // target by target, never once for the class.
         assertEquals(
             ImmutableList.of(
                 UmlInheritance.generalization(Signal.class.getName()),
-                UmlInheritance.realization(Ouvert.class.getName())),
-            heritagesDe(Mixte.class));
+                UmlInheritance.realization(Open.class.getName())),
+            inheritances(Mixed.class));
     }
 
-    // --- Le périmètre : une cible non annotée ne donne aucun lien ---
+    // --- The perimeter: an unannotated target gives no link ---
 
-    // Volontairement sans @UMLClass : cette classe n'appartient pas au diagramme.
-    static class OutilInterne {}
+    // Deliberately without @UMLClass: this class does not belong to the diagram.
+    static class InternalTool {}
 
-    interface ContratInterne {}
-
-    @UMLClass
-    static class HeriteHorsDiagramme extends OutilInterne implements ContratInterne {}
-
-    @Test
-    void parentHorsDiagramme_estIgnoreSansErreur() {
-        // Contrairement à une association, un héritage n'est pas déclaré par l'utilisateur : il
-        // est lu dans la signature. Une classe mère hors périmètre est donc le cas courant, pas
-        // une faute — d'où le silence, là où AssociationExtractor lèverait une exception.
-        assertTrue(heritagesDe(HeriteHorsDiagramme.class).isEmpty());
-    }
+    interface InternalContract {}
 
     @UMLClass
-    static class Solitaire {}
+    static class InheritedOutsideDiagram extends InternalTool implements InternalContract {}
 
     @Test
-    void objectNestJamaisUnParent() {
-        // getSuperclass() rend Object, qui ne porte pas @UMLClass : le filtre suffit, aucun cas
-        // particulier n'est nécessaire dans l'extracteur.
-        assertTrue(heritagesDe(Solitaire.class).isEmpty());
+    void parentOutsideTheDiagram_isIgnoredWithoutError() {
+        // Unlike an association, an inheritance is not declared by the user: it
+        // is read in the signature. A parent class outside the perimeter is therefore the ordinary case, not
+        // a fault — hence the silence, where AssociationExtractor would raise an exception.
+        assertTrue(inheritances(InheritedOutsideDiagram.class).isEmpty());
     }
 
     @UMLClass
-    enum Etat implements Roulant {
-        ACTIF, INACTIF
+    static class Lone {}
+
+    @Test
+    void objectIsNeverAParent() {
+        // getSuperclass() returns Object, which carries no @UMLClass: the filter is enough, no special
+        // special case is needed in the extractor.
+        assertTrue(inheritances(Lone.class).isEmpty());
+    }
+
+    @UMLClass
+    enum State implements Rolling {
+        Active, Inactive
     }
 
     @Test
-    void enumeration_neRemonteQueSesInterfaces() {
-        // La classe mère d'une énumération est java.lang.Enum, non annotée : seule la réalisation
+    void enumeration_bringsUpItsInterfacesOnly() {
+        // The parent class of an enumeration is java.lang.Enum, unannotated: only the realization
         // subsiste.
         assertEquals(
-            ImmutableList.of(UmlInheritance.realization(Roulant.class.getName())),
-            heritagesDe(Etat.class));
+            ImmutableList.of(UmlInheritance.realization(Rolling.class.getName())),
+            inheritances(State.class));
     }
 
     @UMLClass
-    record Trajet(int distance) implements Roulant {}
+    record Trip(int distance) implements Rolling {}
 
     @Test
-    void record_neRemonteQueSesInterfaces() {
-        // Même raisonnement : la classe mère d'un record est java.lang.Record.
+    void record_bringsUpItsInterfacesOnly() {
+        // The same reasoning: the parent class of a record is java.lang.Record.
         assertEquals(
-            ImmutableList.of(UmlInheritance.realization(Roulant.class.getName())),
-            heritagesDe(Trajet.class));
+            ImmutableList.of(UmlInheritance.realization(Rolling.class.getName())),
+            inheritances(Trip.class));
     }
 
-    // --- Transitivité : seuls les liens directs sont dessinés ---
+    // --- Transitivity: only direct links are drawn ---
 
     @UMLClass
-    static class Berline extends Voiture {}
+    static class Sedan extends Car {}
 
     @Test
-    void grandParent_nEstPasRelieDirectement() {
-        // Voiture est déjà reliée à Vehicule ; redessiner Berline -> Vehicule doublerait
-        // l'information, alors que le lecteur la suit de proche en proche.
-        UmlEntity entity = EntityExtractor.extract(Berline.class);
+    void grandParent_isNotLinkedDirectly() {
+        // Car is already linked to Vehicle; redrawing Sedan -> Vehicle would duplicate
+        // the information, whereas the reader follows it step by step.
+        UmlEntity entity = EntityExtractor.extract(Sedan.class);
 
         assertEquals(
-            ImmutableList.of(UmlInheritance.generalization(Voiture.class.getName())),
+            ImmutableList.of(UmlInheritance.generalization(Car.class.getName())),
             entity.inheritances());
     }
 
     @UMLClass
-    static class CamionMotorise implements Motorise {}
+    static class TruckMotorized implements Motorized {}
 
     @Test
-    void interfaceHeritee_nEstPasRelieeDirectement() {
-        // Motorise étend Roulant : CamionMotorise ne réalise directement que Motorise.
+    void inheritedInterface_isNotLinkedDirectly() {
+        // Motorized extends Rolling: TruckMotorized directly realizes Motorized only.
         assertEquals(
-            ImmutableList.of(UmlInheritance.realization(Motorise.class.getName())),
-            heritagesDe(CamionMotorise.class));
+            ImmutableList.of(UmlInheritance.realization(Motorized.class.getName())),
+            inheritances(TruckMotorized.class));
     }
 }

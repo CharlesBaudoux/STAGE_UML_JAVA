@@ -27,236 +27,236 @@ import net.sourceforge.plantuml.dot.GraphvizUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-// Ce que contient réellement le fichier écrit : le bon format, le bon contenu, et pas une image
-// d'erreur déguisée.
+// What the written file really holds: the right format, the right content, and not an
+// error in disguise.
 //
-// C'est le complément indispensable de PlantUmlWriterTest : PlantUML dessine une image même
-// quand il échoue, si bien qu'un fichier non vide ne prouve rien. Ici, on relit le contenu.
+// It is the indispensable counterpart of PlantUmlWriterTest: PlantUML draws an image even
+// when it fails, so that a non-empty file proves nothing. Here, the content is read back.
 class PlantUmlWriterOutputTest {
 
-    // Le nombre magique d'un fichier PNG : ses huit premiers octets. Sert à vérifier le format
-    // réellement produit, sans se fier au nom du fichier.
-    private static final byte[] ENTETE_PNG = {(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A};
+    // The magic number of a PNG file: its first eight bytes. Used to check the format
+    // actually produced, without trusting the file name.
+    private static final byte[] HEADER_PNG = {(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A};
 
-    @UMLClass(name = "Facture", stereotype = "Entity", strategy = UMLVisibility.PRIVATE)
-    static class Cobaye {
-        private int montant;
+    @UMLClass(name = "Invoice", stereotype = "Entity", strategy = UMLVisibility.PRIVATE)
+    static class Fixture {
+        private int amount;
 
-        public void emettre() {}
+        public void emit() {}
     }
 
-    // Le projet d'essai, refabriqué à chaque appel : aucun test n'hérite de l'état d'un autre.
-    private static UmlProject projetCobaye() {
-        return UmlProject.given(Set.of(EntityExtractor.extract(Cobaye.class)));
-    }
-
-    @Test
-    void titreDeclare_estDessineDansLImage(@TempDir Path tmp) throws Exception {
-        // Le maillon que ni le scan ni le rendu ne couvrent seuls : le writer doit passer au
-        // rendu les réglages que porte le projet. Les oublier ne casserait rien — l'image
-        // resterait valide, simplement sans le titre demandé.
-        Path sortie = tmp.resolve("diagramme.svg");
-        UmlProject projet = UmlProject.given(Set.of(EntityExtractor.extract(Cobaye.class)),
-            new UmlDiagram("Architecture du module Facturation", UMLFlow.TOP_TO_BOTTOM, true));
-
-        PlantUmlWriter.write(projet, sortie.toString());
-
-        assertTrue(Files.readString(sortie, StandardCharsets.UTF_8)
-            .contains("Architecture du module Facturation"),
-            "Le titre déclaré doit se lire dans l'image livrée.");
+    // The trial project, rebuilt on each call: no test inherits the state of another.
+    private static UmlProject projectFixture() {
+        return UmlProject.given(Set.of(EntityExtractor.extract(Fixture.class)));
     }
 
     @Test
-    void svgProduit_contientLesClassesEtLeursMembres(@TempDir Path tmp) throws Exception {
-        // Le vrai contrat de la bibliothèque : ce que le développeur a annoté se retrouve
-        // dans l'image livrée.
-        Path sortie = tmp.resolve("diagramme.svg");
+    void declaredTitle_isDrawnInTheImage(@TempDir Path tmp) throws Exception {
+        // The link neither the scan nor the rendering covers on its own: the writer must pass to the
+        // render the settings the project carries. Forgetting them would break nothing — the image
+        // would stay valid, simply without the requested title.
+        Path output = tmp.resolve("diagram.svg");
+        UmlProject project = UmlProject.given(Set.of(EntityExtractor.extract(Fixture.class)),
+            new UmlDiagram("Architecture of the Billing module", UMLFlow.TOP_TO_BOTTOM, true));
 
-        PlantUmlWriter.write(projetCobaye(), sortie.toString());
-        String svg = Files.readString(sortie, StandardCharsets.UTF_8);
+        PlantUmlWriter.write(project, output.toString());
 
-        assertTrue(svg.contains("Facture"), "Le nom de la classe doit être dessiné.");
-        assertTrue(svg.contains("montant"), "L'attribut doit être dessiné.");
-        assertTrue(svg.contains("emettre"), "La méthode métier doit être dessinée.");
-        assertTrue(svg.contains("Entity"), "Le stéréotype doit être dessiné.");
+        assertTrue(Files.readString(output, StandardCharsets.UTF_8)
+            .contains("Architecture of the Billing module"),
+            "The declared title must be readable in the delivered image.");
     }
 
     @Test
-    void svgProduit_nEstPasUneImageDErreur(@TempDir Path tmp) throws Exception {
-        Path sortie = tmp.resolve("diagramme.svg");
+    void producedSvg_containsTheClassesAndTheirMembers(@TempDir Path tmp) throws Exception {
+        // The real contract of the library: what the developer annotated is found again
+        // in the delivered image.
+        Path output = tmp.resolve("diagram.svg");
 
-        PlantUmlWriter.write(projetCobaye(), sortie.toString());
-        String svg = Files.readString(sortie, StandardCharsets.UTF_8);
+        PlantUmlWriter.write(projectFixture(), output.toString());
+        String svg = Files.readString(output, StandardCharsets.UTF_8);
+
+        assertTrue(svg.contains("Invoice"), "The class name must be drawn.");
+        assertTrue(svg.contains("amount"), "The field must be drawn.");
+        assertTrue(svg.contains("emit"), "The business method must be drawn.");
+        assertTrue(svg.contains("Entity"), "The stereotype must be drawn.");
+    }
+
+    @Test
+    void producedSvg_isNotAnErrorImage(@TempDir Path tmp) throws Exception {
+        Path output = tmp.resolve("diagram.svg");
+
+        PlantUmlWriter.write(projectFixture(), output.toString());
+        String svg = Files.readString(output, StandardCharsets.UTF_8);
 
         assertFalse(svg.toLowerCase().contains("syntax error"),
-            "PlantUML a rendu une image d'erreur au lieu du diagramme :\n" + svg);
+            "PlantUML rendered an error image instead of the diagram:\n" + svg);
     }
 
     @Test
-    void extensionSvg_produitBienDuSvg(@TempDir Path tmp) throws Exception {
-        Path sortie = tmp.resolve("diagramme.svg");
+    void svgExtension_reallyProducesSvg(@TempDir Path tmp) throws Exception {
+        Path output = tmp.resolve("diagram.svg");
 
-        PlantUmlWriter.write(projetCobaye(), sortie.toString());
+        PlantUmlWriter.write(projectFixture(), output.toString());
 
-        assertTrue(Files.readString(sortie, StandardCharsets.UTF_8).contains("<svg"),
-            "Un fichier .svg doit contenir un élément <svg>, pas des octets binaires.");
+        assertTrue(Files.readString(output, StandardCharsets.UTF_8).contains("<svg"),
+            "An .svg file must hold an <svg> element, not binary bytes.");
     }
 
     @Test
-    void extensionPng_produitBienDuPng(@TempDir Path tmp) throws Exception {
-        Path sortie = tmp.resolve("diagramme.png");
+    void pngExtension_reallyProducesPng(@TempDir Path tmp) throws Exception {
+        Path output = tmp.resolve("diagram.png");
 
-        PlantUmlWriter.write(projetCobaye(), sortie.toString());
+        PlantUmlWriter.write(projectFixture(), output.toString());
 
-        byte[] entete = Arrays.copyOf(Files.readAllBytes(sortie), ENTETE_PNG.length);
-        assertArrayEquals(ENTETE_PNG, entete, "Les octets d'en-tête PNG sont attendus.");
+        byte[] header = Arrays.copyOf(Files.readAllBytes(output), HEADER_PNG.length);
+        assertArrayEquals(HEADER_PNG, header, "The PNG header bytes are expected.");
     }
 
-    // Une chaîne de classes reliées vers la droite : le seul moyen sûr d'obtenir un diagramme
-    // plus large que le plafond de PlantUML, qui range sinon les boîtes isolées en grille.
-    private static UmlProject chaineHorizontale(int longueur) {
-        Set<UmlEntity> entites = new LinkedHashSet<>();
-        for (int i = 0; i < longueur; i++) {
-            UmlEntity.Builder boite = UmlEntity.builder("com.exemple.Classe" + i, "Classe" + i);
-            if (i + 1 < longueur) {
-                boite.relations(List.of(
-                    UmlAssociation.builder("suivant", "com.exemple.Classe" + (i + 1))
+    // A chain of classes linked to the right: the only sure way of getting a diagram
+    // wider than PlantUML's ceiling, which otherwise files lone boxes in a grid.
+    private static UmlProject stringHorizontal(int length) {
+        Set<UmlEntity> entities = new LinkedHashSet<>();
+        for (int i = 0; i < length; i++) {
+            UmlEntity.Builder box = UmlEntity.builder("com.example.Item" + i, "Item" + i);
+            if (i + 1 < length) {
+                box.relations(List.of(
+                    UmlAssociation.builder("next", "com.example.Item" + (i + 1))
                         .direction(UMLDirection.RIGHT).build()));
             }
-            entites.add(boite.build());
+            entities.add(box.build());
         }
-        return UmlProject.given(entites);
+        return UmlProject.given(entities);
     }
 
-    // La largeur d'un PNG, lue dans son en-tête IHDR : quatre octets à partir du seizième.
-    private static int largeurPng(Path fichier) throws Exception {
-        byte[] octets = Files.readAllBytes(fichier);
-        return ((octets[16] & 0xFF) << 24) | ((octets[17] & 0xFF) << 16)
-            | ((octets[18] & 0xFF) << 8) | (octets[19] & 0xFF);
-    }
-
-    @Test
-    void pngPlusLargeQueLePlafondDePlantUml_nEstPasRogne(@TempDir Path tmp) throws Exception {
-        // PlantUML plafonne ses images à 4096 pixels et rogne au-delà, sans rien signaler : des
-        // boîtes entières disparaissaient du PNG alors que le SVG, vectoriel, était complet.
-        // Quarante classes en chaîne dépassent largement ce plafond.
-        Path sortie = tmp.resolve("large.png");
-
-        PlantUmlWriter.write(chaineHorizontale(40), sortie.toString());
-
-        assertTrue(largeurPng(sortie) > 4096,
-            "Le PNG a été rogné au plafond de PlantUML : largeur = " + largeurPng(sortie));
+    // The width of a PNG, read in its IHDR header: four bytes from the sixteenth on.
+    private static int widthPng(Path file) throws Exception {
+        byte[] bytes = Files.readAllBytes(file);
+        return ((bytes[16] & 0xFF) << 24) | ((bytes[17] & 0xFF) << 16)
+            | ((bytes[18] & 0xFF) << 8) | (bytes[19] & 0xFF);
     }
 
     @Test
-    void plafondDImage_estRenduAuFilApresUsage(@TempDir Path tmp) throws Exception {
-        // Le réglage est une ThreadLocal de PlantUML : le poser sans le retirer laisserait la
-        // bibliothèque modifier, en douce et durablement, le comportement de son appelant.
-        int avant = GraphvizUtils.getenvImageLimit();
+    void pngWiderThanThePlantUmlCeiling_isNotCropped(@TempDir Path tmp) throws Exception {
+        // PlantUML caps its images at 4096 pixels and crops beyond, reporting nothing:
+        // whole boxes vanished from the PNG while the SVG, being vector, was complete.
+        // Forty chained classes go well beyond that ceiling.
+        Path output = tmp.resolve("large.png");
 
-        PlantUmlWriter.write(projetCobaye(), tmp.resolve("diagramme.svg").toString());
+        PlantUmlWriter.write(stringHorizontal(40), output.toString());
 
-        assertEquals(avant, GraphvizUtils.getenvImageLimit(),
-            "Le plafond posé pour le rendu doit être retiré ensuite.");
+        assertTrue(widthPng(output) > 4096,
+            "The PNG was cropped at PlantUML's ceiling: width = " + widthPng(output));
     }
 
     @Test
-    void extensionEnMajuscules_estReconnue(@TempDir Path tmp) throws Exception {
-        // Le writer normalise la casse avant de choisir le format, et UMLGenerator.Builder
-        // s'appuie désormais sur supporte() plutôt que sur sa propre comparaison : les deux
-        // acceptent le même ensemble de noms (cf. UMLGeneratorIntegrationTest).
-        Path sortie = tmp.resolve("Diagramme.SVG");
+    void imageCeiling_isRestoredAfterUse(@TempDir Path tmp) throws Exception {
+        // The setting is a PlantUML ThreadLocal: setting it without removing it would leave the
+        // library change, quietly and durably, the behaviour of its caller.
+        int before = GraphvizUtils.getenvImageLimit();
 
-        PlantUmlWriter.write(projetCobaye(), sortie.toString());
+        PlantUmlWriter.write(projectFixture(), tmp.resolve("diagram.svg").toString());
 
-        assertTrue(Files.readString(sortie, StandardCharsets.UTF_8).contains("<svg"),
-            "« .SVG » doit produire du SVG, pas du PNG.");
+        assertEquals(before, GraphvizUtils.getenvImageLimit(),
+            "The ceiling set for the rendering must be removed afterwards.");
     }
 
     @Test
-    void extensionInconnue_estRefusee(@TempDir Path tmp) {
-        // Le writer n'est pas protégé par le Builder quand on l'appelle directement, et il ne se
-        // protégeait pas lui-même : writeViews refuse une extension inconnue, celui-ci non. Tout
-        // ce qui n'était pas .svg passait pour du PNG, et un nom sans point du tout levait une
-        // StringIndexOutOfBoundsException « Range [0, -1) » — indéchiffrable pour un appelant.
-        IllegalArgumentException refus = assertThrows(IllegalArgumentException.class,
-            () -> PlantUmlWriter.write(projetCobaye(), tmp.resolve("diagramme.txt").toString()));
+    void uppercaseExtension_isRecognized(@TempDir Path tmp) throws Exception {
+        // The writer normalizes the case before choosing the format, and UMLGenerator.Builder
+        // now relies on supports() rather than on its own comparison: the two
+        // accept the same set of names (see UMLGeneratorIntegrationTest).
+        Path output = tmp.resolve("Diagram.SVG");
 
-        assertTrue(refus.getMessage().contains(".png"), refus.getMessage());
-        assertTrue(refus.getMessage().contains(".svg"), refus.getMessage());
-        assertTrue(refus.getMessage().contains("diagramme.txt"),
-            "Le message doit nommer le fichier fautif : " + refus.getMessage());
+        PlantUmlWriter.write(projectFixture(), output.toString());
+
+        assertTrue(Files.readString(output, StandardCharsets.UTF_8).contains("<svg"),
+            "\".SVG\" must produce SVG, not PNG.");
     }
 
     @Test
-    void nomSansExtension_estRefuseSansExceptionObscure(@TempDir Path tmp) {
+    void unknownExtension_isRefused(@TempDir Path tmp) {
+        // The writer is not protected by the Builder when called directly, and it does not
+        // did not protect itself: writeViews refuses an unknown extension, this one does not. Everything
+        // anything that was not .svg passed for PNG, and a name with no dot at all raised an
+        // a StringIndexOutOfBoundsException "Range [0, -1)" — undecipherable for a caller.
+        IllegalArgumentException refusal = assertThrows(IllegalArgumentException.class,
+            () -> PlantUmlWriter.write(projectFixture(), tmp.resolve("diagram.txt").toString()));
+
+        assertTrue(refusal.getMessage().contains(".png"), refusal.getMessage());
+        assertTrue(refusal.getMessage().contains(".svg"), refusal.getMessage());
+        assertTrue(refusal.getMessage().contains("diagram.txt"),
+            "The message must name the faulty file: " + refusal.getMessage());
+    }
+
+    @Test
+    void nameWithoutExtension_isRefusedWithoutObscureException(@TempDir Path tmp) {
         assertThrows(IllegalArgumentException.class,
-            () -> PlantUmlWriter.write(projetCobaye(), tmp.resolve("diagramme").toString()));
+            () -> PlantUmlWriter.write(projectFixture(), tmp.resolve("diagram").toString()));
     }
 
     @Test
-    void ecritureRefusee_neLaisseRienDerriereElle(@TempDir Path tmp) throws Exception {
-        // Le flux de sortie était ouvert avant toute vérification : le fichier existait déjà,
-        // vide, quand la panne survenait. Un diagramme de zéro octet ne se distingue d'un
-        // diagramme correct qu'en l'ouvrant — c'est le pire des résultats.
-        Path sortie = tmp.resolve("diagramme.txt");
+    void refusedWrite_leavesNothingBehind(@TempDir Path tmp) throws Exception {
+        // The output stream was opened before any check: the file already existed,
+        // empty, when the failure happened. A zero-byte diagram is told from a
+        // a correct diagram only by opening it — that is the worst of outcomes.
+        Path output = tmp.resolve("diagram.txt");
 
         assertThrows(IllegalArgumentException.class,
-            () -> PlantUmlWriter.write(projetCobaye(), sortie.toString()));
+            () -> PlantUmlWriter.write(projectFixture(), output.toString()));
 
-        assertFalse(Files.exists(sortie), "Aucun fichier ne doit rester : " + sortie);
-        assertFalse(Files.exists(tmp.resolve("diagramme.puml")), "Ni la source PlantUML.");
-        try (var contenu = Files.list(tmp)) {
-            assertEquals(List.of(), contenu.toList(), "Le dossier doit être resté vide.");
+        assertFalse(Files.exists(output), "No file must remain: " + output);
+        assertFalse(Files.exists(tmp.resolve("diagram.puml")), "Nor the PlantUML source.");
+        try (var content = Files.list(tmp)) {
+            assertEquals(List.of(), content.toList(), "The directory must have stayed empty.");
         }
     }
 
     @Test
-    void fichierExistant_estEcrase(@TempDir Path tmp) throws Exception {
-        Path sortie = tmp.resolve("diagramme.svg");
-        Files.writeString(sortie, "contenu précédent qui doit disparaître");
+    void existingFile_isOverwritten(@TempDir Path tmp) throws Exception {
+        Path output = tmp.resolve("diagram.svg");
+        Files.writeString(output, "previous content that must vanish");
 
-        PlantUmlWriter.write(projetCobaye(), sortie.toString());
+        PlantUmlWriter.write(projectFixture(), output.toString());
 
-        String svg = Files.readString(sortie, StandardCharsets.UTF_8);
-        assertFalse(svg.contains("contenu précédent"), "L'ancien contenu doit être remplacé.");
-        assertTrue(svg.contains("Facture"));
+        String svg = Files.readString(output, StandardCharsets.UTF_8);
+        assertFalse(svg.contains("previous content"), "The former content must be replaced.");
+        assertTrue(svg.contains("Invoice"));
     }
 
     @Test
-    void dossierParentInexistant_echoue(@TempDir Path tmp) {
-        // Le writer ne crée pas l'arborescence : autant que l'échec soit franc.
+    void missingParentDirectory_fails(@TempDir Path tmp) {
+        // The writer does not create the tree: better that the failure be plain.
         //
-        // L'exception nommée, et non « Exception » : la classe mère accepterait aussi bien un
-        // NullPointerException venu d'ailleurs, et le test ne prouverait plus rien du dossier
+        // The named exception, and not "Exception": the parent class would just as well accept a
+        // a NullPointerException coming from elsewhere, and the test would prove nothing about the directory
         // manquant.
-        Path sortie = tmp.resolve("sous/dossier/absent/diagramme.svg");
+        Path output = tmp.resolve("under/folder/missing/diagram.svg");
 
         assertThrows(IOException.class,
-            () -> PlantUmlWriter.write(projetCobaye(), sortie.toString()));
+            () -> PlantUmlWriter.write(projectFixture(), output.toString()));
     }
 
     @Test
-    void plusieursClasses_apparaissentToutesDansLeSvg(@TempDir Path tmp) throws Exception {
-        UmlProject projet = UmlProject.given(Set.of(
-            EntityExtractor.extract(Cobaye.class),
-            EntityExtractor.extract(AutreCobaye.class)));
-        Path sortie = tmp.resolve("diagramme.svg");
+    void severalClasses_allAppearInTheSvg(@TempDir Path tmp) throws Exception {
+        UmlProject project = UmlProject.given(Set.of(
+            EntityExtractor.extract(Fixture.class),
+            EntityExtractor.extract(OtherFixture.class)));
+        Path output = tmp.resolve("diagram.svg");
 
-        PlantUmlWriter.write(projet, sortie.toString());
-        String svg = Files.readString(sortie, StandardCharsets.UTF_8);
+        PlantUmlWriter.write(project, output.toString());
+        String svg = Files.readString(output, StandardCharsets.UTF_8);
 
-        assertTrue(svg.contains("Facture"), svg);
+        assertTrue(svg.contains("Invoice"), svg);
         assertTrue(svg.contains("Client"), svg);
         assertFalse(svg.toLowerCase().contains("syntax error"), svg);
     }
 
     @UMLClass(name = "Client")
-    static class AutreCobaye {}
+    static class OtherFixture {}
 
     @Test
-    void argumentsNuls_sontRefuses() {
-        assertThrows(NullPointerException.class, () -> PlantUmlWriter.write(null, "sortie.svg"));
-        assertThrows(NullPointerException.class, () -> PlantUmlWriter.write(projetCobaye(), null));
+    void nullArguments_areRefused() {
+        assertThrows(NullPointerException.class, () -> PlantUmlWriter.write(null, "output.svg"));
+        assertThrows(NullPointerException.class, () -> PlantUmlWriter.write(projectFixture(), null));
     }
 }

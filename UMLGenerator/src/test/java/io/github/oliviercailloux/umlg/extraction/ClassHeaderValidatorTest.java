@@ -5,94 +5,94 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.junit.jupiter.api.Test;
 
-// Éprouve la frontière entre les deux régimes de validation de l'en-tête d'une classe : liste
-// blanche pour la couleur, contrainte minimale pour les textes lus par un humain.
+// Exercises the border between the two validation regimes of a class header: allow-list
+// blank for the colour, the minimal constraint for texts read by a human.
 //
-// Le test est dans le même paquetage que ClassHeaderValidator : c'est ce qui lui donne accès à
-// cette classe, qui n'est pas publique.
+// The test is in the same package as ClassHeaderValidator: that is what gives it access to
+// this class, which is not public.
 //
-// getClass() sert de classe fautive dans les messages : peu importe laquelle, seul compte le
-// fait qu'il y en ait une.
+// getClass() serves as the faulty class in the messages: which one does not matter, only the
+// the fact that there is one.
 class ClassHeaderValidatorTest {
 
-    // --- Couleur : vocabulaire fermé, donc liste blanche ---
+    // --- Colour: a closed vocabulary, hence an allow-list ---
 
     @Test
-    void couleurInvalide_estRejetee() {
+    void invalidColour_isRejected() {
         assertThrows(IllegalArgumentException.class,
-            () -> ClassHeaderValidator.validateColor("pas une couleur !", getClass()),
-            "Une valeur qui n'est ni un code hexadécimal ni un nom de couleur doit être rejetée.");
+            () -> ClassHeaderValidator.validateColor("not one color !", getClass()),
+            "A value that is neither a hexadecimal code nor a colour name must be rejected.");
     }
 
     @Test
-    void couleurNommee_estAcceptee() {
-        // Le vocabulaire des couleurs est fermé, mais il ne se limite pas à l'hexadécimal :
-        // « LightBlue » est une couleur PlantUML parfaitement valide, que l'ancienne
-        // expression régulière refusait.
+    void namedColour_isAccepted() {
+        // The colour vocabulary is closed, but it is not limited to hexadecimal:
+        // "LightBlue" is a perfectly valid PlantUML colour, which the old
+        // a regular expression refused.
         assertDoesNotThrow(() -> ClassHeaderValidator.validateColor("LightBlue", getClass()));
     }
 
-    // --- Nom et stéréotype : textes libres, donc contrainte minimale ---
+    // --- Name and stereotype: free texts, hence a minimal constraint ---
 
     @Test
-    void nomAvecCaracteresSpeciaux_estAccepte() {
-        // Ces noms sont légitimes et rendus fidèlement : les refuser serait faire porter à
-        // l'utilisateur une contrainte qui ne regarde que le moteur de rendu.
+    void nameWithSpecialCharacters_isAccepted() {
+        // These names are legitimate and rendered faithfully: refusing them would make
+        // on the user a constraint that concerns the rendering engine only.
         assertDoesNotThrow(() -> {
-            ClassHeaderValidator.validateName("Nom\"Injecte", getClass());
-            ClassHeaderValidator.validateName("Compte (bancaire)", getClass());
-            ClassHeaderValidator.validateName("L'Utilisateur", getClass());
+            ClassHeaderValidator.validateName("Name\"Injected", getClass());
+            ClassHeaderValidator.validateName("Account (bank)", getClass());
+            ClassHeaderValidator.validateName("The User", getClass());
             ClassHeaderValidator.validateName("Client<T>", getClass());
         });
     }
 
     @Test
-    void nomBlanc_estRejete() {
-        // La seule règle qui subsiste, et elle est métier : un nom doit désigner quelque chose.
+    void blankName_isRejected() {
+        // The only rule left, and it is a business one: a name must designate something.
         assertThrows(IllegalArgumentException.class,
             () -> ClassHeaderValidator.validateName("   ", getClass()),
-            "Un nom composé uniquement d'espaces doit être rejeté.");
+            "A name made of spaces only must be rejected.");
     }
 
-    // Les chevrons ne sont pas interdits ici : ils seront encodés au rendu par
-    // PlantUmlEscaper.stereotype, et s'afficheront tels quels.
+    // The angle brackets are not forbidden here: they will be encoded at rendering time by
+    // PlantUmlEscaper.stereotype, and will be displayed as is.
     @Test
-    void stereotypeAvecChevrons_estAccepte() {
+    void stereotypeWithAngleBrackets_isAccepted() {
         assertDoesNotThrow(() -> ClassHeaderValidator.validateStereotype("<<Hack>>", getClass()));
     }
 
     @Test
-    void stereotypeBlanc_estRejete() {
+    void blankStereotype_isRejected() {
         assertThrows(IllegalArgumentException.class,
             () -> ClassHeaderValidator.validateStereotype("   ", getClass()));
     }
 
-    // --- Ce que l'échappement vide, la validation doit le refuser ---
+    // --- What escaping empties, validation must refuse ---
     //
-    // isBlank() ne tient pas les caractères de contrôle pour des blancs, alors que l'échappement
-    // les supprime : un nom fait de ces seuls caractères traversait la validation, puis engendrait
-    // « class "" as C » — que PlantUML refuse. La garde du writer levait alors une
-    // IllegalStateException accusant « un défaut de la bibliothèque », message que l'utilisateur
-    // ne pouvait pas suivre. La question est donc posée au texte échappé, celui qui sera écrit.
+    // isBlank() does not treat control characters as blanks, whereas escaping
+    // removes them: a name made of those characters alone crossed validation, then generated
+    // "class \"\" as C" — which PlantUML refuses. The writer's check then raised an
+    // an IllegalStateException blaming "a defect of the library", a message the user
+    // could not follow. The question is therefore asked of the escaped text, the one that will be written.
 
     @Test
-    void nomFaitDeCaracteresInvisibles_estRejete() {
+    void nameMadeOfInvisibleCharacters_isRejected() {
         assertThrows(IllegalArgumentException.class,
             () -> ClassHeaderValidator.validateName("\1\2", getClass()),
-            "Ce nom se réduit à la chaîne vide dans le fichier engendré.");
+            "This name comes down to the empty string in the generated file.");
     }
 
     @Test
-    void stereotypeFaitDeCaracteresInvisibles_estRejete() {
-        // Sa manifestation propre : « class \"E\" as E <<>> », que le moteur refuse aussi.
+    void stereotypeMadeOfInvisibleCharacters_isRejected() {
+        // Its own manifestation: "class \"E\" as E <<>>", which the engine also refuses.
         assertThrows(IllegalArgumentException.class,
             () -> ClassHeaderValidator.validateStereotype("\1\2", getClass()));
     }
 
     @Test
-    void nomOrdinaireAvecUnCaractereDeControle_resteAccepte() {
-        // La correction ne durcit pas la règle : il suffit qu'il reste quelque chose à dessiner.
-        assertDoesNotThrow(() -> ClassHeaderValidator.validateName("Compte\1", getClass()));
+    void ordinaryNameWithAControlCharacter_staysAccepted() {
+        // The fix does not harden the rule: it is enough that something is left to draw.
+        assertDoesNotThrow(() -> ClassHeaderValidator.validateName("Account\1", getClass()));
         assertDoesNotThrow(() -> ClassHeaderValidator.validateStereotype("entity\1", getClass()));
     }
 }

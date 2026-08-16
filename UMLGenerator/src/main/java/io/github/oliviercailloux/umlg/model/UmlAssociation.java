@@ -9,29 +9,19 @@ import io.github.oliviercailloux.umlg.annotation.UMLRelationType;
 import java.util.List;
 
 /**
- * Un trait entre deux boîtes : la traduction d'un attribut annoté {@code @UMLAssociation}.
+ * A link between two boxes, as the drawing will tell it.
  *
- * <p>L'entité qui porte cette association en est la source ; la cible est désignée par son nom
- * complet, et non par une référence à l'objet {@link UmlEntity} — le modèle reste ainsi
- * constructible dans n'importe quel ordre, sans cycle de dépendance entre entités.
- *
- * @param fieldName le nom de l'attribut qui porte le lien. Ni nul ni vide.
- * @param targetQualifiedName le nom complet de la boîte d'arrivée. Ni nul ni vide.
- * @param type la nature du lien : association simple, agrégation ou composition.
- * @param sourceMultiplicity la multiplicité écrite du côté de la source, ou la chaîne vide.
- * @param targetMultiplicity la multiplicité écrite du côté de la cible, ou la chaîne vide.
- * @param sourceRole le rôle écrit du côté de la source, ou la chaîne vide.
- * @param targetRole le rôle écrit du côté de la cible, ou la chaîne vide.
- * @param label le texte posé au milieu du trait, ou la chaîne vide.
- * @param direction le sens de lecture imposé au trait, ou {@code NONE}.
- * @param derived un lien dérivé : la propriété qu'il porte se calcule au lieu d'être stockée. La
- *     barre oblique se place devant le rôle cible, qui est le nom de cette propriété sur le
- *     dessin.
- * @param constraints les règles formelles portées par le lien, sans leurs accolades —
- *     {@code subset}, {@code ordered}. Une contrainte écrite sur l'attribut atterrit ici dès lors
- *     qu'il porte {@code @UMLAssociation} : c'est le lien qu'elle vise, et non la ligne dans la
- *     boîte, qui n'existe plus. {@code ordered} n'a pas de champ à lui : c'est une contrainte UML
- *     comme une autre.
+ * @param fieldName the name of the field carrying the link.
+ * @param targetQualifiedName the qualified name of the class aimed at.
+ * @param type association, composition or aggregation.
+ * @param sourceMultiplicity the multiplicity at the source endpoint, empty if there is none.
+ * @param targetMultiplicity the multiplicity at the target endpoint.
+ * @param sourceRole the role written at the source endpoint.
+ * @param targetRole the role written at the target endpoint.
+ * @param label the text written along the stroke.
+ * @param direction which side to push the target box to.
+ * @param derived true if the link is computed rather than stored.
+ * @param constraints the rules written between braces on the stroke.
  */
 public record UmlAssociation(
 
@@ -47,17 +37,8 @@ public record UmlAssociation(
     boolean derived,
     ImmutableList<String> constraints
 ) implements UmlRelation {
-
     /**
-     * Toutes les vérifications sont ici : quel que soit le chemin de construction, une
-     * {@code UmlAssociation} qui existe est une association valide.
-     *
-     * @throws NullPointerException si l'une des composantes est nulle ; l'absence d'un texte
-     *     facultatif se dit avec la chaîne vide.
-     * @throws IllegalArgumentException si le nom de l'attribut ou celui de la cible est vide, si
-     *     une multiplicité n'est pas une multiplicité UML — un entier, {@code *}, ou un
-     *     intervalle tel que {@code 0..1} dont la borne basse ne dépasse pas la haute —, ou si un
-     *     texte libre n'est fait que d'espaces.
+     * Checks that nothing is null and that multiplicities and texts are written the way UML writes them.
      */
     public UmlAssociation {
         checkNotNull(fieldName, "The name of the carrying field cannot be null.");
@@ -75,40 +56,34 @@ public record UmlAssociation(
         checkArgument(!fieldName.isBlank(), "The name of the carrying field cannot be empty.");
         checkArgument(!targetQualifiedName.isBlank(), "The target qualified name cannot be empty.");
 
-        Multiplicites.validate(sourceMultiplicity, "sourceMultiplicity");
-        Multiplicites.validate(targetMultiplicity, "targetMultiplicity");
+        Multiplicities.validate(sourceMultiplicity, "sourceMultiplicity");
+        Multiplicities.validate(targetMultiplicity, "targetMultiplicity");
 
-        validateTexteLibre(sourceRole, "sourceRole");
-        validateTexteLibre(targetRole, "targetRole");
-        validateTexteLibre(label, "label");
+        validateFreeText(sourceRole, "sourceRole");
+        validateFreeText(targetRole, "targetRole");
+        validateFreeText(label, "label");
 
-        constraints = Contraintes.validees(constraints);
+        constraints = Constraints.validated(constraints);
     }
 
     /**
-     * Ouvre la construction d'un lien, en donnant les deux seules valeurs obligatoires.
+     * Opens the description of a link.
      *
-     * @param fieldName le nom de l'attribut qui porte le lien.
-     * @param targetQualifiedName le nom complet de la boîte d'arrivée.
-     * @return un builder neuf, dont tout le reste vaut « rien de particulier ».
+     * @param fieldName the name of the field carrying the link.
+     * @param targetQualifiedName the qualified name of the class aimed at.
+     * @return how to describe the link, decoration by decoration.
      */
     public static Builder builder(String fieldName, String targetQualifiedName) {
         return new Builder(fieldName, targetQualifiedName);
     }
 
-    private static void validateTexteLibre(String valeur, String parametre) {
-        checkArgument(valeur.isEmpty() || !valeur.isBlank(),
-            "%s cannot be made of whitespace only.", parametre);
+    private static void validateFreeText(String value, String parameter) {
+        checkArgument(value.isEmpty() || !value.isBlank(),
+            "%s cannot be made of whitespace only.", parameter);
     }
 
-    /**
-     * De quoi construire un lien sans nommer ce qu'il n'a pas.
-     *
-     * <p>Neuf des onze composantes sont optionnelles. Chaque setter rend le builder, ce qui
-     * permet d'enchaîner les appels ; la validation, elle, n'a lieu qu'au {@link #build()}.
-     */
+    /** How to describe a link without counting arguments. */
     public static final class Builder {
-
         private final String fieldName;
         private final String targetQualifiedName;
         private UMLRelationType type = UMLRelationType.ASSOCIATION;
@@ -129,10 +104,10 @@ public record UmlAssociation(
         }
 
         /**
-         * Fixe la nature du lien.
+         * Writes the nature of the link.
          *
-         * @param type association simple, agrégation ou composition.
-         * @return ce builder.
+         * @param type association, composition or aggregation.
+         * @return this builder.
          */
         public Builder type(UMLRelationType type) {
             this.type = checkNotNull(type);
@@ -140,10 +115,10 @@ public record UmlAssociation(
         }
 
         /**
-         * Fixe la multiplicité du côté de la source.
+         * Writes the multiplicity at the source endpoint.
          *
-         * @param multiplicity la multiplicité du côté de la source, par exemple {@code 1}.
-         * @return ce builder.
+         * @param multiplicity the multiplicity at the source endpoint.
+         * @return this builder.
          */
         public Builder sourceMultiplicity(String multiplicity) {
             this.sourceMultiplicity = checkNotNull(multiplicity);
@@ -151,10 +126,10 @@ public record UmlAssociation(
         }
 
         /**
-         * Fixe la multiplicité du côté de la cible.
+         * Writes the multiplicity at the target endpoint.
          *
-         * @param multiplicity la multiplicité du côté de la cible, par exemple {@code 0..*}.
-         * @return ce builder.
+         * @param multiplicity the multiplicity at the target endpoint.
+         * @return this builder.
          */
         public Builder targetMultiplicity(String multiplicity) {
             this.targetMultiplicity = checkNotNull(multiplicity);
@@ -162,10 +137,10 @@ public record UmlAssociation(
         }
 
         /**
-         * Fixe le rôle du côté de la source.
+         * Writes the role at the source endpoint.
          *
-         * @param role le rôle écrit du côté de la source.
-         * @return ce builder.
+         * @param role the role written at the source endpoint.
+         * @return this builder.
          */
         public Builder sourceRole(String role) {
             this.sourceRole = checkNotNull(role);
@@ -173,10 +148,10 @@ public record UmlAssociation(
         }
 
         /**
-         * Fixe le rôle du côté de la cible.
+         * Writes the role at the target endpoint.
          *
-         * @param role le rôle écrit du côté de la cible.
-         * @return ce builder.
+         * @param role the role written at the target endpoint.
+         * @return this builder.
          */
         public Builder targetRole(String role) {
             this.targetRole = checkNotNull(role);
@@ -184,10 +159,10 @@ public record UmlAssociation(
         }
 
         /**
-         * Fixe le texte posé sur le trait.
+         * Writes the text carried by the stroke.
          *
-         * @param label le texte posé au milieu du trait.
-         * @return ce builder.
+         * @param label the text written along the stroke.
+         * @return this builder.
          */
         public Builder label(String label) {
             this.label = checkNotNull(label);
@@ -195,10 +170,10 @@ public record UmlAssociation(
         }
 
         /**
-         * Fixe le sens de lecture du trait.
+         * Constrains the placement of the target box.
          *
-         * @param direction le sens de lecture imposé au trait.
-         * @return ce builder.
+         * @param direction which side to push the target box to.
+         * @return this builder.
          */
         public Builder direction(UMLDirection direction) {
             this.direction = checkNotNull(direction);
@@ -206,10 +181,10 @@ public record UmlAssociation(
         }
 
         /**
-         * Marque le lien comme dérivé.
+         * Says that the link is computed rather than stored.
          *
-         * @param derived vrai si la propriété portée se calcule au lieu d'être stockée.
-         * @return ce builder.
+         * @param derived true if the link is computed rather than stored.
+         * @return this builder.
          */
         public Builder derived(boolean derived) {
             this.derived = derived;
@@ -217,21 +192,17 @@ public record UmlAssociation(
         }
 
         /**
-         * Remplace les contraintes du lien.
+         * Writes the rules carried by the stroke.
          *
-         * @param constraints les règles formelles portées par le lien, sans accolades.
-         * @return ce builder.
+         * @param constraints the rules written between braces on the stroke.
+         * @return this builder.
          */
         public Builder constraints(List<String> constraints) {
             this.constraints = ImmutableList.copyOf(checkNotNull(constraints));
             return this;
         }
 
-        /**
-         * Le figeage : le constructeur compact valide l'ensemble.
-         *
-         * @return le lien, immuable et vérifié.
-         */
+        /** {@return the described link} */
         public UmlAssociation build() {
             return new UmlAssociation(fieldName, targetQualifiedName, type, sourceMultiplicity,
                 targetMultiplicity, sourceRole, targetRole, label, direction, derived, constraints);

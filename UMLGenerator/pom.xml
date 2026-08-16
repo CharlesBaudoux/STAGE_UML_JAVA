@@ -16,17 +16,17 @@
 
     <properties>
         <!--
-            Aucun source/target ici : le pom parent pose maven.compiler.release=21, et « release »
-            l'emporte sur « source » et « target » — les écrire donnerait deux lignes inertes et
-            laisserait croire que ce sont elles qui fixent le palier de langage. Le palier se
-            change donc chez le parent, ou par une propriété maven.compiler.release locale.
+            No source/target here: the parent pom sets maven.compiler.release=21, and "release"
+            wins over "source" and "target" — writing them would give two inert lines and would
+            suggest that they set the language level. The level is therefore changed in the
+            parent, or through a local maven.compiler.release property.
         -->
 
         <!--
-            La propriété, en plus de la configuration du plugin ci-dessous : l'exécution
-            default-testCompile redéfinit sa configuration, et perdait l'option au passage —
-            les cobayes des tests étaient alors compilés sans leurs noms de paramètres. La
-            propriété, elle, vaut pour toutes les exécutions du compilateur.
+            The property, on top of the plugin configuration below: the default-testCompile
+            execution redefines its configuration, and used to lose the option along the way —
+            the test fixtures were then compiled without their parameter names. The property, for
+            its part, holds for every execution of the compiler.
         -->
         <maven.compiler.parameters>true</maven.compiler.parameters>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -35,22 +35,22 @@
     <dependencies>
 
         <!--
-            PlantUML reste en 1.2024.4, et c'est un choix contraint, non un oubli.
+            PlantUML stays at 1.2024.4, and that is a forced choice, not an oversight.
 
-            À partir de 1.2025.0, le jar publié embarque une copie de Guava (environ deux mille
-            entrées com/google/common/) tout en déclarant un module-info. Les deux ensemble
-            rendent la dépendance inutilisable pour un consommateur modulaire : javac refuse la
-            compilation sur « module io.github.oliviercailloux.umlg reads package
-            com.google.common.base from both com.google.common and net.sourceforge.plantuml ».
-            Un paquetage ne peut venir que d'un module, et il n'y a rien à faire de ce côté-ci —
-            sinon renoncer à notre propre Guava, qui est dans la signature de l'API.
+            From 1.2025.0 on, the published jar embeds a copy of Guava (about two thousand
+            com/google/common/ entries) while declaring a module-info. Both together make the
+            dependency unusable for a modular consumer: javac refuses the compilation with
+            "module io.github.oliviercailloux.umlg reads package com.google.common.base from both
+            com.google.common and net.sourceforge.plantuml". A package can come from one module
+            only, and there is nothing to be done on this side — short of giving up our own
+            Guava, which is in the signature of the API.
 
-            La 1.2026.6 change de surcroît la signature de GraphvizUtils.addDotStatus, dont
-            PlantUmlWriter se sert pour détecter un Graphviz absent.
+            1.2026.6 moreover changes the signature of GraphvizUtils.addDotStatus, which
+            PlantUmlWriter uses to detect a missing Graphviz.
 
-            À reprendre si l'amont cesse d'embarquer Guava, ou publie un artefact non ombré. Les
-            appels d'assertCompile de la suite — il y en a des dizaines — et ses rendus SVG
-            diront aussitôt si la syntaxe a bougé.
+            To be revisited if upstream stops embedding Guava, or publishes an unshaded artifact.
+            The assertCompile calls of the suite — there are dozens of them — and its SVG
+            renderings will say at once whether the syntax has moved.
         -->
         <dependency>
             <groupId>net.sourceforge.plantuml</groupId>
@@ -58,18 +58,17 @@
             <version>1.2024.4</version>
         </dependency>
         <!--
-            Jackson, pour lire umlg.json.
+            Jackson, to read umlg.json.
 
-            La bibliothèque n'analysait auparavant aucun format qu'elle n'eût inventé : le
-            fichier de règles s'écrivait ligne à ligne, et son lecteur tenait en une classe sans
-            dépendance. Le format est devenu JSON, et écrire soi-même un analyseur JSON serait
-            recommencer, en moins bien, un travail que tout le monde a déjà fait — avec les
-            échappements, l'UTF-16 et les nombres qu'il faut traiter juste.
+            The library used to parse no format it had not invented itself: the rules file was
+            written line by line, and its reader fitted in one dependency-free class. The format
+            became JSON, and writing a JSON parser oneself would mean redoing, less well, work
+            everybody has already done — with the escapes, the UTF-16 and the numbers that must
+            be handled right.
 
-            jackson-databind seul est déclaré ; jackson-core et jackson-annotations viennent avec
-            lui. Seul l'arbre (JsonNode) est employé, jamais la liaison à des classes : les
-            refus doivent nommer le chemin fautif dans le fichier, ce qu'une liaison
-            automatique ne sait pas faire.
+            jackson-databind alone is declared; jackson-core and jackson-annotations come with
+            it. Only the tree (JsonNode) is used, never binding to classes: refusals must name
+            the faulty path in the file, which automatic binding cannot do.
         -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
@@ -81,11 +80,11 @@
     <build>
         <plugins>
             <!--
-                La version, faute de quoi Maven résout celle de son super-POM : la 3.1, publiée
-                en 2013, antérieure au système de modules. Le pom parent, lui, ne dit rien de ce
-                plugin — ce n'est donc pas chez lui qu'il faudrait aller chercher. La 3.1 place
-                toutes les dépendances sur le classpath, où un « requires » ne peut pas les
-                trouver ; la 3.13 construit le module path dès qu'un module-info.java est présent.
+                The version, without which Maven resolves the one from its super-POM: 3.1,
+                published in 2013, older than the module system. The parent pom says nothing of
+                this plugin — so that is not where to look. 3.1 puts every dependency on the
+                classpath, where a "requires" cannot find them; 3.13 builds the module path as
+                soon as a module-info.java is present.
             -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -93,44 +92,42 @@
                 <version>3.13.0</version>
                 <configuration>
                     <!--
-                        La bibliothèque embarque son propre processeur d'annotations, déclaré
-                        dans META-INF/services. Sans cette ligne, javac le découvrirait en
-                        compilant la bibliothèque elle-même, avec deux conséquences : il
-                        tenterait de s'exécuter avant d'être compilé, et il refuserait les
-                        cobayes délibérément fautifs des tests — ceux-là mêmes qui prouvent que
-                        la validation d'exécution fonctionne toujours.
+                        The library embeds its own annotation processor, declared in
+                        META-INF/services. Without this line, javac would discover it while
+                        compiling the library itself, with two consequences: it would try to run
+                        before being compiled, and it would refuse the deliberately faulty test
+                        fixtures — the very ones proving that run-time validation still works.
 
-                        Le processeur est destiné au code de l'utilisateur, pas au nôtre.
+                        The processor is meant for the user's code, not for ours.
                     -->
                     <proc>none</proc>
                     <!--
-                        Écrit les noms des paramètres dans les .class (attribut MethodParameters).
-                        Sans cette option, la réflexion ne connaît que « arg0 », « arg1 »… et la
-                        bibliothèque n'affiche alors que les types : « representations(String) »
-                        au lieu de « representations(name: String) ».
+                        Writes parameter names in the .class files (MethodParameters attribute).
+                        Without this option, reflection knows only "arg0", "arg1"… and the
+                        library then displays types only: "representations(String)" instead of
+                        "representations(name: String)".
 
-                        Elle est ici pour les cobayes des tests, qui doivent pouvoir exercer les
-                        deux cas. Le projet de l'utilisateur, lui, doit poser la même option chez
-                        lui s'il veut voir les noms de ses paramètres : c'est son compilateur qui
-                        décide de ce que ses .class contiennent, pas le nôtre.
+                        It is here for the test fixtures, which must be able to exercise both
+                        cases. The user's project must set the same option on its side if it
+                        wants to see its parameter names: it is their compiler that decides what
+                        their .class files hold, not ours.
                     -->
                     <parameters>true</parameters>
                 </configuration>
                 <executions>
                     <!--
-                        Les tests vivent dans les mêmes paquetages que le code qu'ils vérifient,
-                        et l'atteignent en boîte blanche. Ils ne franchissent donc aucune
-                        frontière de module, et n'ont rien à gagner à être compilés à
-                        l'intérieur de celui-ci : ils y héritent seulement de ses contraintes,
-                        au prix de deux ennuis. D'abord javax.tools, dont deux tests
-                        d'intégration ont besoin, exigerait un « requires java.compiler » que la
-                        bibliothèque, elle, n'a aucune raison de déclarer. Ensuite javac et le
-                        compilateur d'Eclipse ne s'accordent pas sur ce qu'un module « patché »
-                        peut lire, ce qui laisse l'IDE rouge sur un projet que Maven compile.
+                        The tests live in the same packages as the code they check, and reach it
+                        white-box. They therefore cross no module boundary, and have nothing to
+                        gain from being compiled inside it: there they merely inherit its
+                        constraints, at the price of two annoyances. First javax.tools, which two
+                        integration tests need, would require a "requires java.compiler" that the
+                        library has no reason to declare. Second javac and the Eclipse compiler
+                        do not agree on what a "patched" module may read, which leaves the IDE red
+                        on a project Maven compiles.
 
-                        Les tests sont donc compilés sur le classpath, comme du code ordinaire.
-                        Ce que le module garantit à ses utilisateurs n'en dépend pas : c'est le
-                        module-info.java qui gouverne le jar publié, et lui seul.
+                        The tests are therefore compiled on the classpath, like ordinary code.
+                        What the module guarantees its users does not depend on it: the published
+                        jar is governed by module-info.java, and by it alone.
                     -->
                     <execution>
                         <id>default-testCompile</id>
@@ -151,44 +148,44 @@
             </plugin>
 
             <!--
-                Pas de version : le pom parent en gère une en pluginManagement, et l'écrire ici
-                l'annulerait — c'est ainsi que le projet s'était retrouvé plus d'un an en arrière
-                des correctifs de Surefire. La configuration seule, sans version, s'ajoute à celle
-                du parent au lieu de la remplacer.
+                No version: the parent pom manages one in pluginManagement, and writing it here
+                would cancel it — that is how the project once found itself over a year behind
+                the Surefire fixes. The configuration alone, with no version, adds to the
+                parent's rather than replacing it.
             -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
-                    <!-- Les tests sont compilés sur le classpath : ils y sont aussi exécutés. -->
+                    <!-- The tests are compiled on the classpath: they are run there too. -->
                     <useModulePath>false</useModulePath>
                 </configuration>
             </plugin>
 
             <!--
-                La Javadoc de l'API publique, engendrée par la construction.
+                The Javadoc of the public API, generated by the build.
 
-                Ce que ce bloc répare. Le pom parent configure bien le plugin, mais en
-                pluginManagement seul : rien ne l'exécutait, et la documentation n'existait
-                nulle part. Pire, l'appeler à la main échouait sur un message opaque —
-                « Creating an aggregated report for both named and unnamed modules is not
-                possible » — qui accusait le projet lui-même.
+                What this block repairs. The parent pom does configure the plugin, but in
+                pluginManagement only: nothing ran it, and the documentation existed nowhere.
+                Worse, calling it by hand failed with an opaque message — "Creating an aggregated
+                report for both named and unnamed modules is not possible" — which blamed the
+                project itself.
 
-                La cause. Le goal « javadoc » ne déclenche que la phase generate-sources : il ne
-                compile pas. Sans target/classes/module-info.class, le plugin ne voit pas que
-                cette bibliothèque est un module nommé, la range parmi les modules anonymes, et
-                refuse de mélanger les deux. D'où l'exécution ci-dessous, liée à « package » :
-                la phase implique compile, le descripteur de module est là, et la question ne se
-                pose plus. « mvn verify » produit donc la documentation, et la CI vérifie du même
-                coup qu'elle s'engendre toujours.
+                The cause. The "javadoc" goal triggers the generate-sources phase only: it does
+                not compile. Without target/classes/module-info.class, the plugin does not see
+                that this library is a named module, files it among the unnamed ones, and refuses
+                to mix the two. Hence the execution below, bound to "package": the phase implies
+                compile, the module descriptor is there, and the question no longer arises. "mvn
+                verify" therefore produces the documentation, and CI checks at the same time that
+                it is still generated.
 
-                En ligne de commande, écrire « mvn compile javadoc:javadoc » et non
-                « mvn javadoc:javadoc » : la même raison, et le même message si on l'oublie.
+                On the command line, write "mvn compile javadoc:javadoc" and not "mvn
+                javadoc:javadoc": the same reason, and the same message if it is forgotten.
 
-                Seuls les trois paquetages exportés par module-info.java paraissent — la façade,
-                les annotations, le modèle. Le reste est fermé, donc hors sujet pour qui lit
-                cette documentation : ses commentaires s'adressent au mainteneur, et sont écrits
-                en « // » pour cela.
+                Only the three packages exported by module-info.java appear — the facade, the
+                annotations, the model. The rest is closed, hence off topic for whoever reads
+                this documentation: its comments address the maintainer, and are written with
+                "//" for that reason.
             -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -204,43 +201,42 @@
                 </executions>
                 <configuration>
                     <!--
-                        Le français de la documentation, et l'UTF-8 de bout en bout : sans ces
-                        trois lignes, les accents des commentaires ressortent en mojibake dans le
-                        HTML produit.
+                        The language of the documentation, and UTF-8 end to end: without these
+                        lines, non-ASCII characters of the comments come out as mojibake in the
+                        produced HTML.
                     -->
-                    <locale>fr_FR</locale>
+                    <locale>en_US</locale>
                     <encoding>UTF-8</encoding>
                     <docencoding>UTF-8</docencoding>
                     <charset>UTF-8</charset>
                     <!--
-                        L'horodatage retiré : sans lui, deux générations du même code donnent des
-                        fichiers identiques, et un diff ne montre que ce qui a vraiment changé.
+                        The timestamp removed: without it, two generations of the same code give
+                        identical files, and a diff shows only what really changed.
                     -->
                     <notimestamp>true</notimestamp>
                     <!--
-                        doclint reste entier — « missing » compris. Un membre public sans
-                        commentaire est signalé, ce qui est le seul moyen de voir venir la
-                        prochaine classe publique qu'on oublierait de documenter. Il avertit sans
-                        rompre la construction : failOnWarnings resterait à discuter le jour où
-                        le compte sera durablement à zéro.
+                        doclint stays whole — "missing" included. A public member without a
+                        comment is reported, which is the only way of seeing the next public
+                        class one would forget to document coming. It warns without breaking the
+                        build: failOnWarnings would remain to be discussed the day the count is
+                        durably at zero.
                     -->
                     <doclint>all</doclint>
                 </configuration>
             </plugin>
 
             <!--
-                La couverture, mesurée par la construction plutôt qu'à la main.
+                Coverage, measured by the build rather than by hand.
 
-                Elle dépassait déjà les quatre-vingt-quinze pour cent des instructions, et rien ne
-                la protégeait : aucun outil ne la calculait, aucun seuil ne la défendait. Une
-                couverture haute qu'on ne mesure pas est une couverture qui baisse sans que
-                personne le voie. Le chiffre du jour se lit dans le rapport que la construction
-                engendre (target/site/jacoco/), et n'a donc rien à faire ici.
+                It already exceeded ninety-five percent of the instructions, and nothing
+                protected it: no tool computed it, no threshold defended it. High coverage that
+                is not measured is coverage that drops with nobody seeing it. Today's figure is
+                read in the report the build generates (target/site/jacoco/), and therefore has
+                no business here.
 
-                Le seuil est posé sous la valeur atteinte, et non à la valeur atteinte : il est
-                là pour signaler un décrochage, pas pour interdire d'écrire une ligne difficile à
-                couvrir un jour de refactorisation. « mvn verify » l'applique ; « mvn test » ne
-                fait que mesurer.
+                The threshold is set below the value reached, and not at it: it is there to
+                report a drop, not to forbid writing a line hard to cover on a refactoring day.
+                "mvn verify" applies it; "mvn test" only measures.
             -->
             <plugin>
                 <groupId>org.jacoco</groupId>
@@ -261,7 +257,7 @@
                         </goals>
                     </execution>
                     <execution>
-                        <id>seuil</id>
+                        <id>threshold</id>
                         <phase>verify</phase>
                         <goals>
                             <goal>check</goal>

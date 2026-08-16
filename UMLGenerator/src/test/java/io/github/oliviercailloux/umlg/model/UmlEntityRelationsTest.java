@@ -8,105 +8,105 @@ import io.github.oliviercailloux.umlg.annotation.UMLVisibility;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-// Le stockage des relations dans UmlEntity : une seule liste pour les deux natures, filtrée à
-// la demande. Ces tests fixent le comportement dont dépend le rendu — ordre conservé, ajouts
-// cumulés, liste immuable.
+// The storage of relations in UmlEntity: a single list for both natures, filtered on
+// the request. These tests fix the behaviour the rendering depends on — order kept, additions
+// cumulative, immutable list.
 class UmlEntityRelationsTest {
 
-    // Trois relations témoins, réutilisées partout : une association et deux dépendances, ce qui
-    // suffit à vérifier le filtrage par nature comme l'ordre.
-    private static final UmlAssociation DETENUE =
-        UmlAssociation.builder("champ", "pkg.Cible").build();
-    private static final UmlDependency APPELLE = new UmlDependency("pkg.Service", "appelle");
-    private static final UmlDependency TRACE = new UmlDependency("pkg.Journal", "trace");
+    // Three witness relations, reused everywhere: one association and two dependencies, which
+    // is enough to check filtering by nature as well as the order.
+    private static final UmlAssociation Held =
+        UmlAssociation.builder("field", "pkg.Target").build();
+    private static final UmlDependency Calls = new UmlDependency("pkg.Service", "calls");
+    private static final UmlDependency Trace = new UmlDependency("pkg.Log", "trace");
 
-    // Rend un builder neuf à chaque appel : les tests ne peuvent pas se contaminer entre eux.
-    private static UmlEntity.Builder entite() {
+    // Returns a fresh builder on each call: the tests cannot contaminate each other.
+    private static UmlEntity.Builder entity() {
         return UmlEntity.builder("pkg.Source", "Source");
     }
 
     @Test
-    void entiteNue_nAAucunLien() {
-        assertTrue(entite().build().relations().isEmpty());
+    void bareEntity_hasNoLink() {
+        assertTrue(entity().build().relations().isEmpty());
     }
 
     @Test
-    void lesDeuxNatures_cohabitentDansUneSeuleListe() {
-        UmlEntity entity = entite().relations(List.of(DETENUE, APPELLE)).build();
+    void bothNatures_coexistInASingleList() {
+        UmlEntity entity = entity().relations(List.of(Held, Calls)).build();
 
-        assertEquals(List.of(DETENUE, APPELLE), entity.relations());
+        assertEquals(List.of(Held, Calls), entity.relations());
     }
 
-    // Le filtre de relations(Class) : chaque vue ne rend que sa nature, dans l'ordre d'origine.
+    // The filter of relations(Class): each view returns its nature only, in the original order.
     @Test
-    void vueParNature_neRetientQueLaSienne() {
-        UmlEntity entity = entite().relations(List.of(DETENUE, APPELLE, TRACE)).build();
+    void viewByNature_keepsItsOwnOnly() {
+        UmlEntity entity = entity().relations(List.of(Held, Calls, Trace)).build();
 
-        assertEquals(List.of(DETENUE), entity.relations(UmlAssociation.class));
-        assertEquals(List.of(APPELLE, TRACE), entity.relations(UmlDependency.class));
+        assertEquals(List.of(Held), entity.relations(UmlAssociation.class));
+        assertEquals(List.of(Calls, Trace), entity.relations(UmlDependency.class));
     }
 
-    // associations() et dependencies() ne sont que des raccourcis vers relations(Class) : rien
-    // ne doit diverger entre les deux écritures.
+    // associations() and dependencies() are mere shortcuts to relations(Class): nothing
+    // must diverge between the two writings.
     @Test
-    void vuesNommees_sontDesFiltresEquivalents() {
-        UmlEntity entity = entite().relations(List.of(DETENUE, APPELLE)).build();
+    void namedViews_areEquivalentFilters() {
+        UmlEntity entity = entity().relations(List.of(Held, Calls)).build();
 
         assertEquals(entity.relations(UmlAssociation.class), entity.associations());
         assertEquals(entity.relations(UmlDependency.class), entity.dependencies());
     }
 
     @Test
-    void appelsSuccessifs_sAjoutentAuLieuDeSeRemplacer() {
-        // Les liens d'une entité proviennent d'autant de sources qu'il y a d'annotations
-        // reconnues : aucune ne doit effacer le travail des autres.
-        UmlEntity entity = entite()
-            .associations(List.of(DETENUE))
-            .dependencies(List.of(APPELLE))
+    void successiveCalls_addUpRatherThanReplaceEachOther() {
+        // The links of an entity come from as many sources as there are annotations
+        // recognized: none must erase the work of the others.
+        UmlEntity entity = entity()
+            .associations(List.of(Held))
+            .dependencies(List.of(Calls))
             .build();
 
-        assertEquals(List.of(DETENUE, APPELLE), entity.relations());
+        assertEquals(List.of(Held, Calls), entity.relations());
     }
 
     @Test
-    void ordreDeDeclaration_estConserve() {
-        // C'est cet ordre qui décide de celui des traits dans le document produit.
-        UmlEntity entity = entite().relations(List.of(TRACE, DETENUE, APPELLE)).build();
+    void declarationOrder_isKept() {
+        // It is this order that decides the stroke order in the produced document.
+        UmlEntity entity = entity().relations(List.of(Trace, Held, Calls)).build();
 
-        assertEquals(List.of(TRACE, DETENUE, APPELLE), entity.relations());
+        assertEquals(List.of(Trace, Held, Calls), entity.relations());
     }
 
     @Test
-    void listeDeLiens_estImmuable() {
-        UmlEntity entity = entite().relations(List.of(DETENUE)).build();
+    void linkList_isImmutable() {
+        UmlEntity entity = entity().relations(List.of(Held)).build();
 
         assertThrows(UnsupportedOperationException.class, () -> entity.relations().clear());
     }
 
     @Test
-    void listeRecue_nEstPasSuivieApresConstruction() {
-        // Sans copie défensive, l'appelant pourrait modifier le contenu du diagramme après coup.
-        List<UmlRelation> source = new java.util.ArrayList<>(List.of(DETENUE, APPELLE));
+    void theReceivedList_isNotTrackedAfterConstruction() {
+        // Without a defensive copy, the caller could change the content of the diagram afterwards.
+        List<UmlRelation> source = new java.util.ArrayList<>(List.of(Held, Calls));
 
-        UmlEntity entity = entite().relations(source).build();
+        UmlEntity entity = entity().relations(source).build();
         source.clear();
 
         assertEquals(2, entity.relations().size());
     }
 
     @Test
-    void lienNull_estRefuse() {
-        // singletonList accepte null, contrairement à List.of : c'est le seul moyen de fabriquer
-        // une liste contenant un null pour éprouver la garde.
+    void nullLink_isRefused() {
+        // singletonList accepts null, unlike List.of: it is the only way of building
+        // a list holding a null to exercise the check.
         assertThrows(NullPointerException.class,
-            () -> entite().relations(java.util.Collections.singletonList(null)));
-        assertThrows(NullPointerException.class, () -> entite().relations(null));
+            () -> entity().relations(java.util.Collections.singletonList(null)));
+        assertThrows(NullPointerException.class, () -> entity().relations(null));
     }
 
-    // Le constructeur à six arguments passe ImmutableList.of() pour les relations : une entité
-    // ainsi construite n'a pas de relations, et surtout pas null.
+    // The six-argument constructor passes ImmutableList.of() for the relations: an entity
+    // built this way has no relations, and above all not null.
     @Test
-    void constructeurRaccourci_neDeclareAucunLien() {
+    void shortBuilder_declaresNoLink() {
         UmlEntity entity =
             new UmlEntity("E", "", "", UMLVisibility.NONE, List.of(), List.of());
 

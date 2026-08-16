@@ -4,65 +4,48 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 import com.google.common.collect.ImmutableList;
 import io.github.oliviercailloux.umlg.annotation.UMLDependency;
-import io.github.oliviercailloux.umlg.extraction.rules.Regles;
+import io.github.oliviercailloux.umlg.extraction.rules.Rules;
 import io.github.oliviercailloux.umlg.model.UmlDependency;
 import java.util.HashSet;
 import java.util.Set;
 
-// Relit les @UMLDependency posées sur la classe elle-même.
-//
-// Plus simple que l'extraction des associations : il n'y a rien à déduire. Le seul travail est de
-// détecter les doublons, qu'aucun attribut ne distingue ici — deux dépendances identiques
-// dessineraient deux traits superposés.
 public final class DependencyExtractor implements RelationExtractor {
-
-    // Les règles du projet ne disent rien des dépendances : elles se lisent sur les annotations
-    // de la classe, dans l'ordre où l'utilisateur les a écrites.
     @Override
-    public ImmutableList<UmlDependency> extraire(Class<?> clazz, Regles regles) {
+    public ImmutableList<UmlDependency> extract(Class<?> clazz, Rules rules) {
         ImmutableList.Builder<UmlDependency> result = ImmutableList.builder();
 
-        Set<UmlDependency> deja = new HashSet<>();
+        Set<UmlDependency> already = new HashSet<>();
 
-        // getAnnotationsByType déballe le conteneur @UMLDependencies créé par @Repeatable : que
-        // l'utilisateur en ait posé une ou dix, on récupère un tableau uniforme.
         for (UMLDependency annotation : clazz.getAnnotationsByType(UMLDependency.class)) {
-            Class<?> cible = annotation.target();
-            String contexte = "@UMLDependency sur " + clazz.getName();
+            Class<?> target = annotation.target();
+            String context = "@UMLDependency on " + clazz.getName();
 
-            checkArgument(cible != clazz, messageDependanceReflexive(contexte));
+            checkArgument(target != clazz, messageReflexiveDependency(context));
 
-            // La cible doit exister dans le diagramme, donc porter @UMLClass.
-            TargetResolver.validerCible(cible, contexte, "target()");
+            TargetResolver.validateTarget(target, context, "target()");
 
-            UmlDependency dependance;
+            UmlDependency dependency;
             try {
-                dependance = new UmlDependency(cible.getName(), annotation.label());
+                dependency = new UmlDependency(target.getName(), annotation.label());
             } catch (IllegalArgumentException | NullPointerException e) {
-
-                throw new IllegalArgumentException(contexte + " : " + e.getMessage(), e);
+                throw new IllegalArgumentException(context + " : " + e.getMessage(), e);
             }
 
-            checkArgument(deja.add(dependance),
-                messageDependanceEnDouble(contexte, cible.getName()));
+            checkArgument(already.add(dependency),
+                duplicateDependencyMessage(context, target.getName()));
 
-            result.add(dependance);
+            result.add(dependency);
         }
         return result.build();
     }
 
-    // LES DEUX RÈGLES QUE LE PROCESSEUR D'ANNOTATIONS VIENT LIRE ICI
-    //
-    // VerificateurDependance pose les mêmes questions à la compilation, et recopiait les deux
-    // textes mot pour mot. Ils vivent désormais là où la règle s'applique.
-
-    public static String messageDependanceReflexive(String contexte) {
-        return contexte + ": a class cannot depend on itself; the relation would teach the "
+    public static String messageReflexiveDependency(String context) {
+        return context + ": a class cannot depend on itself; the relation would teach the "
             + "diagram's reader nothing.";
     }
 
-    public static String messageDependanceEnDouble(String contexte, String nomDeLaCible) {
-        return contexte + ": the dependency towards " + nomDeLaCible + " is declared twice with "
+    public static String duplicateDependencyMessage(String context, String targetName) {
+        return context + ": the dependency towards " + targetName + " is declared twice with "
             + "the same label; the two lines would overlap with nothing to show it.";
     }
 }

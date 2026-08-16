@@ -9,154 +9,154 @@ import io.github.oliviercailloux.umlg.annotation.UMLExclude;
 import io.github.oliviercailloux.umlg.annotation.UMLInclude;
 import io.github.oliviercailloux.umlg.annotation.UMLVisibility;
 import io.github.oliviercailloux.umlg.extraction.EntityExtractor;
-import io.github.oliviercailloux.umlg.extraction.rules.Regles;
+import io.github.oliviercailloux.umlg.extraction.rules.Rules;
 import io.github.oliviercailloux.umlg.model.UmlEntity;
 import io.github.oliviercailloux.umlg.model.UmlField;
 import org.junit.jupiter.api.Test;
 
-// Les littéraux d'une énumération.
+// The literals of an enumeration.
 //
-// Pour la réflexion ce sont des attributs publics, statiques et finaux ; pour UML, des
-// EnumerationLiteral, qui ne portent que leur nom. Ces tests vérifient qu'ils quittent le
-// compartiment des attributs sans pour autant emporter les vrais attributs de l'énumération.
+// For reflection they are public static final fields; for UML,
+// EnumerationLiteral, which carry their name only. These tests check that they leave the
+// the field compartment without carrying away the real fields of the enumeration.
 class EnumLiteralTest {
 
     @UMLClass(strategy = UMLVisibility.PUBLIC)
-    enum Devise {
-        EURO, DOLLAR
+    enum Currency {
+        Euro, Dollar
     }
 
     @Test
-    void litteraux_sontExtraitsDansLeurPropreListe() {
-        assertEquals(ImmutableList.of("EURO", "DOLLAR"),
-            EntityExtractor.extract(Devise.class).literals());
+    void literals_areExtractedIntoTheirOwnList() {
+        assertEquals(ImmutableList.of("Euro", "Dollar"),
+            EntityExtractor.extract(Currency.class).literals());
     }
 
     @Test
-    void litteraux_neSontPlusDesAttributs() {
-        // C'est le défaut corrigé : sans ce tri, EURO apparaissait comme « + {static} Devise
-        // EURO », ce qui n'est pas la notation UML d'un littéral.
-        assertTrue(EntityExtractor.extract(Devise.class).fields().isEmpty());
+    void literals_areNoLongerFields() {
+        // This is the fixed defect: without that sorting, Euro appeared as "+ {static} Currency
+        // Euro", which is not the UML notation of a literal.
+        assertTrue(EntityExtractor.extract(Currency.class).fields().isEmpty());
     }
 
     @UMLClass(strategy = UMLVisibility.PRIVATE)
-    enum Planete {
-        TERRE(1.0), MARS(0.5);
+    enum Planet {
+        Earth(1.0), MARCH(0.5);
 
-        private final double masse;
+        private final double mass;
 
-        Planete(double masse) {
-            this.masse = masse;
+        Planet(double mass) {
+            this.mass = mass;
         }
 
-        double masse() {
-            return masse;
+        double mass() {
+            return mass;
         }
     }
 
     @Test
-    void enumerationAvecAttributs_gardeLesDeux() {
-        // Une énumération peut avoir de vrais attributs en plus de ses littéraux : les deux
-        // compartiments doivent coexister, chacun avec sa notation.
-        UmlEntity entity = EntityExtractor.extract(Planete.class);
+    void enumerationWithFields_keepsBoth() {
+        // An enumeration can have real fields on top of its literals: both
+        // compartments must coexist, each with its notation.
+        UmlEntity entity = EntityExtractor.extract(Planet.class);
 
-        assertEquals(ImmutableList.of("TERRE", "MARS"), entity.literals());
-        assertEquals(ImmutableList.of("masse"),
+        assertEquals(ImmutableList.of("Earth", "MARCH"), entity.literals());
+        assertEquals(ImmutableList.of("mass"),
             entity.fields().stream().map(UmlField::name).toList());
     }
 
     @UMLClass
-    enum SansStrategie {
+    enum WithoutStrategy {
         A, B
     }
 
     @Test
-    void strategieNone_neMontreAucunLitteral() {
-        // Un littéral reste soumis à la stratégie de la classe, comme n'importe quel membre :
-        // « aucune stratégie » veut dire une boîte vide, littéraux compris.
-        assertTrue(EntityExtractor.extract(SansStrategie.class).literals().isEmpty());
+    void noneStrategy_showsNoLiteral() {
+        // A literal stays subject to the class strategy, like any member:
+        // "no strategy" means an empty box, literals included.
+        assertTrue(EntityExtractor.extract(WithoutStrategy.class).literals().isEmpty());
     }
 
     @UMLClass(strategy = UMLVisibility.PUBLIC)
-    enum AvecExclusion {
+    enum WithExclusion {
         VISIBLE,
 
         @UMLExclude
-        INTERNE
+        Internal
     }
 
     @Test
-    void exclude_retireUnLitteral() {
+    void exclude_removesALiteral() {
         assertEquals(ImmutableList.of("VISIBLE"),
-            EntityExtractor.extract(AvecExclusion.class).literals());
+            EntityExtractor.extract(WithExclusion.class).literals());
     }
 
     @UMLClass(strategy = UMLVisibility.PUBLIC)
-    enum Operateur {
-        // Une constante à corps engendre une sous-classe anonyme ; le littéral doit rester
-        // reconnu comme tel malgré cela.
+    enum Operator {
+        // A constant with a body generates an anonymous subclass; the literal must stay
+        // recognized as such despite that.
         PLUS {
             @Override
-            int appliquer(int a, int b) {
+            int apply(int a, int b) {
                 return a + b;
             }
         },
-        MOINS {
+        Less {
             @Override
-            int appliquer(int a, int b) {
+            int apply(int a, int b) {
                 return a - b;
             }
         };
 
-        abstract int appliquer(int a, int b);
+        abstract int apply(int a, int b);
     }
 
     @Test
-    void litteralAvecCorps_estReconnu() {
-        assertEquals(ImmutableList.of("PLUS", "MOINS"),
-            EntityExtractor.extract(Operateur.class).literals());
+    void literalWithBody_isRecognized() {
+        assertEquals(ImmutableList.of("PLUS", "Less"),
+            EntityExtractor.extract(Operator.class).literals());
     }
 
     @UMLClass(strategy = UMLVisibility.PUBLIC)
-    enum DeviseNommee {
+    enum NamedCurrency {
         @UMLInclude(name = "Euro")
-        EURO,
+        Euro,
 
-        DOLLAR
+        Dollar
     }
 
     @Test
-    void unLitteralRenomme_paraitSousLeNomDuDiagramme() {
-        // L'annotation était lue pour décider de la visibilité du littéral, puis oubliée pour son
-        // nom : l'auteur écrivait @UMLInclude(name = ...), le processeur l'acceptait, et le
-        // dessin gardait EURO. Un littéral se nomme comme n'importe quel autre membre.
-        assertEquals(ImmutableList.of("Euro", "DOLLAR"),
-            EntityExtractor.extract(DeviseNommee.class).literals());
+    void aRenamedLiteral_appearsUnderTheDiagramName() {
+        // The annotation was read to decide the visibility of the literal, then forgotten for its
+        // name: the author wrote @UMLInclude(name = ...), the processor accepted it, and the
+        // the drawing kept Euro. A literal is named like any other member.
+        assertEquals(ImmutableList.of("Euro", "Dollar"),
+            EntityExtractor.extract(NamedCurrency.class).literals());
     }
 
     @Test
-    void unMotifDuFichierDeRegles_atteintUnLitteral() {
-        // Le seul chemin d'extraction qui ne recevait pas les règles du projet : « hide EU* »
-        // vidait tous les compartiments sauf celui-ci, sans que rien ne le documente.
-        Regles regles = Regles.lues("{ \"hide\": [\"DOL*\"] }", "umlg.json");
+    void aPatternFromTheRulesFile_reachesALiteral() {
+        // The only extraction path that did not receive the project rules: "hide EU*"
+        // emptied every compartment but this one, with nothing documenting it.
+        Rules rules = Rules.read("{ \"hide\": [\"Dol*\"] }", "umlg.json");
 
         assertEquals(ImmutableList.of("Euro"),
-            EntityExtractor.extract(DeviseNommee.class, regles).literals());
+            EntityExtractor.extract(NamedCurrency.class, rules).literals());
     }
 
     @UMLClass(strategy = UMLVisibility.PUBLIC)
-    static class Portefeuille {
-        public Devise devise;
+    static class Wallet {
+        public Currency currency;
     }
 
     @Test
-    void attributDeTypeEnumeration_resteUnAttribut() {
-        // isEnumConstant() ne vaut que pour les constantes déclarées par l'énumération
-        // elle-même : un attribut qui a seulement ce type n'est pas concerné.
-        UmlEntity entity = EntityExtractor.extract(Portefeuille.class);
+    void enumTypedField_staysAField() {
+        // isEnumConstant() holds only for the constants declared by the enumeration
+        // itself: a field merely having that type is not concerned.
+        UmlEntity entity = EntityExtractor.extract(Wallet.class);
 
         assertTrue(entity.literals().isEmpty());
-        assertEquals(ImmutableList.of("devise"),
+        assertEquals(ImmutableList.of("currency"),
             entity.fields().stream().map(UmlField::name).toList());
     }
 }

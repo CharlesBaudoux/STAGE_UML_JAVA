@@ -6,13 +6,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/**
- * Cache un membre que la stratégie de la classe ferait entrer dans la boîte.
- *
- * <p>C'est le veto de plus haute priorité : il l'emporte sur la stratégie comme sur @UMLInclude.
- * Posée sur un attribut annoté @UMLAssociation, elle supprime aussi le lien correspondant
- * (voir AssociationExtractor).
- */
+/** Hides a member that the strategy would bring into the box; wins over everything else. */
 @Documented
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.FIELD, ElementType.METHOD})

@@ -15,42 +15,42 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
-// Le choix d'apparence : ce qu'il change, et surtout ce qu'il ne change pas.
+// The choice of appearance: what it changes, and above all what it does not change.
 //
-// Une apparence ne doit toucher qu'à l'habillage. Le contrat vérifié ici est donc double :
-// chaque style produit bien le rendu qu'il annonce, et les deux disent exactement la même chose
-// — mêmes boîtes, mêmes membres, mêmes traits. Sans cette seconde moitié, « changer le thème »
-// pourrait discrètement changer le diagramme.
+// An appearance must touch styling only. The contract checked here is therefore twofold:
+// each style really produces the rendering it announces, and both say exactly the same thing
+// — same boxes, same members, same strokes. Without this second half, "changing the theme"
+// could quietly change the diagram.
 class PlantUmlStyleTest {
 
-    // Les couleurs que PlantUML applique de lui-même, et que le thème de la bibliothèque
-    // remplace. Lues dans le SVG rendu : c'est le seul endroit où une couleur est observable.
-    private static final String GRIS_PLANTUML = "#F1F1F1";
-    private static final String PASTILLE_CLASSE = "#ADD1B2";
-    private static final String BANDEAU_UMLG = "#DDE7F0";
+    // The colours PlantUML applies of its own accord, and which the library theme
+    // replaced. Read in the rendered SVG: the only place where a colour is observable.
+    private static final String GREY_PLANTUML = "#F1F1F1";
+    private static final String BADGE_CLASS = "#ADD1B2";
+    private static final String BANNER_UMLG = "#DDE7F0";
 
-    private static UmlEntity boite() {
-        return UmlEntity.builder("com.exemple.Client", "Client")
-            .fields(List.of(new UmlField("solde", "double", "-", false))).build();
+    private static UmlEntity box() {
+        return UmlEntity.builder("com.example.Client", "Client")
+            .fields(List.of(new UmlField("balance", "double", "-", false))).build();
     }
 
-    // Deux boîtes reliées par un lien nommé : de quoi observer aussi l'habillage du nom.
-    private static UmlEntity[] paire() {
+    // Two boxes joined by a named link: enough to observe the styling of the name too.
+    private static UmlEntity[] pair() {
         return new UmlEntity[] {
-            UmlEntity.builder("com.exemple.Client", "Client")
-                .associations(ImmutableList.of(UmlAssociation.builder("champ", "com.exemple.Cible")
-                    .targetMultiplicity("0..*").label("détient").build()))
+            UmlEntity.builder("com.example.Client", "Client")
+                .associations(ImmutableList.of(UmlAssociation.builder("field", "com.example.Target")
+                    .targetMultiplicity("0..*").label("holds").build()))
                 .build(),
-            UmlEntity.builder("com.exemple.Cible", "Cible").build()};
+            UmlEntity.builder("com.example.Target", "Target").build()};
     }
 
-    // --- Ce que chaque apparence écrit dans la source ---
+    // --- What each appearance writes in the source ---
 
     @Test
-    void parDefaut_aucuneCouleurNestImposee() {
-        // L'apparence par défaut ne doit rien décider du tout : ni couleur de boîte, ni couleur
-        // de trait. C'est ce qui la rend reconnaissable — un diagramme PlantUML ordinaire.
-        String source = PlantUmlAssert.documentPour(boite());
+    void byDefault_noColourIsImposed() {
+        // The default appearance must decide nothing at all: neither box colour, nor
+        // of stroke. That is what makes it recognizable — an ordinary PlantUML diagram.
+        String source = PlantUmlAssert.documentFor(box());
 
         assertFalse(source.contains("ClassBackgroundColor"), source);
         assertFalse(source.contains("ClassHeaderBackgroundColor"), source);
@@ -59,27 +59,27 @@ class PlantUmlStyleTest {
     }
 
     @Test
-    void parDefaut_lapastilleNestPasMasquee() {
-        // « hide circle » supprimerait le C/I/E accolé au nom. Le laisser est précisément ce qui
-        // fait ressembler le défaut à un diagramme dessiné à la main.
-        assertFalse(PlantUmlAssert.documentPour(boite()).contains("hide circle"));
+    void byDefault_theBadgeIsNotHidden() {
+        // "hide circle" would remove the C/I/E next to the name. Leaving it is precisely what
+        // makes the defect look like a hand-drawn diagram.
+        assertFalse(PlantUmlAssert.documentFor(box()).contains("hide circle"));
     }
 
     @Test
-    void themeUmlg_imposeSesCouleursEtMasqueLaPastille() {
-        String source = PlantUmlAssert.documentPour(UmlStyle.UMLG, boite());
+    void umlgTheme_imposesItsColoursAndHidesTheBadge() {
+        String source = PlantUmlAssert.documentFor(UmlStyle.UMLG, box());
 
-        assertTrue(source.contains("ClassHeaderBackgroundColor " + BANDEAU_UMLG), source);
+        assertTrue(source.contains("ClassHeaderBackgroundColor " + BANNER_UMLG), source);
         assertTrue(source.contains("hide circle"), source);
     }
 
     @ParameterizedTest
     @EnumSource(UmlStyle.class)
-    void touteApparence_conserveCeQuiTientAuSens(UmlStyle style) {
-        // Trois réglages échappent au choix. Les visibilités s'écrivent « + » et « - », la
-        // notation d'UML, et non en pastilles colorées ; une boîte sans membre ne montre pas de
-        // compartiment vide ; l'espacement reste calculé sur les étiquettes.
-        String source = PlantUmlAssert.documentPour(style, boite());
+    void everyAppearance_keepsWhatBelongsToMeaning(UmlStyle style) {
+        // Three settings escape the choice. Visibilities are written "+" and "-", the
+        // UML's notation, and not as coloured badges; a box without members shows no
+        // an empty compartment; the spacing stays computed on the labels.
+        String source = PlantUmlAssert.documentFor(style, box());
 
         assertTrue(source.contains("skinparam classAttributeIconSize 0"), source);
         assertTrue(source.contains("hide empty members"), source);
@@ -89,69 +89,69 @@ class PlantUmlStyleTest {
 
     @ParameterizedTest
     @EnumSource(UmlStyle.class)
-    void touteApparence_estAccepteeParPlantUml(UmlStyle style) {
-        PlantUmlAssert.assertCompile(PlantUmlAssert.documentPour(style, paire()));
+    void everyAppearance_isAcceptedByPlantUml(UmlStyle style) {
+        PlantUmlAssert.assertCompile(PlantUmlAssert.documentFor(style, pair()));
     }
 
-    // --- Ce que le lecteur voit ---
+    // --- What the reader sees ---
 
     @Test
-    void parDefaut_leRenduEstCeluiDePlantUml() throws Exception {
-        String svg = PlantUmlAssert.svg(boite());
+    void byDefault_theRenderingIsPlantUmlOwn() throws Exception {
+        String svg = PlantUmlAssert.svg(box());
 
-        assertTrue(svg.contains(GRIS_PLANTUML),
-            () -> "Le fond gris de PlantUML est attendu :\n" + svg);
-        assertTrue(svg.contains(PASTILLE_CLASSE),
-            () -> "La pastille « C » verte est attendue :\n" + svg);
+        assertTrue(svg.contains(GREY_PLANTUML),
+            () -> "PlantUML's grey background is expected:\n" + svg);
+        assertTrue(svg.contains(BADGE_CLASS),
+            () -> "The green \u00ab C \u00bb badge is expected:\n" + svg);
     }
 
     @Test
-    void themeUmlg_remplaceLeRenduDePlantUml() throws Exception {
-        String svg = PlantUmlAssert.svg(UmlStyle.UMLG, boite());
+    void umlgTheme_replacesThePlantUmlRendering() throws Exception {
+        String svg = PlantUmlAssert.svg(UmlStyle.UMLG, box());
 
-        assertTrue(svg.contains(BANDEAU_UMLG), () -> "Le bandeau bleu est attendu :\n" + svg);
-        assertFalse(svg.contains(PASTILLE_CLASSE),
-            () -> "La pastille doit être masquée sous ce thème :\n" + svg);
+        assertTrue(svg.contains(BANNER_UMLG), () -> "The blue banner is expected:\n" + svg);
+        assertFalse(svg.contains(BADGE_CLASS),
+            () -> "The badge must be hidden under this theme:\n" + svg);
     }
 
-    // --- Le nom d'un lien ---
+    // --- Le name d'un link ---
 
     @Test
-    void nomDeLien_estColoreParLeThemeSeulement() {
-        // La couleur relève du goût, elle suit donc le thème.
-        assertFalse(PlantUmlAssert.documentPour(paire()).contains("<color:"),
-            "L'apparence par défaut ne colore rien.");
-        assertTrue(PlantUmlAssert.documentPour(UmlStyle.UMLG, paire()).contains("<color:"),
-            "Le thème de la bibliothèque colore le nom des liens.");
+    void linkName_isColouredByTheThemeOnly() {
+        // Colour is a matter of taste, so it follows the theme.
+        assertFalse(PlantUmlAssert.documentFor(pair()).contains("<color:"),
+            "The default appearance colours nothing.");
+        assertTrue(PlantUmlAssert.documentFor(UmlStyle.UMLG, pair()).contains("<color:"),
+            "The library theme colours the link names.");
     }
 
     @ParameterizedTest
     @EnumSource(UmlStyle.class)
-    void nomDeLien_resteEnItaliqueDansLesDeuxCas(UmlStyle style) {
-        // L'italique n'est pas une coquetterie : la multiplicité se pose au même endroit que le
-        // nom du lien, et rien d'autre ne permet au lecteur de savoir lequel nomme le trait.
-        // Il est donc commun aux deux apparences.
-        assertTrue(PlantUmlAssert.documentPour(style, paire()).contains("<i>détient</i>"));
+    void linkName_staysItalicInBothCases(UmlStyle style) {
+        // The italics are no affectation: the multiplicity sits in the same place as the
+        // the link name, and nothing else lets the reader know which one names the stroke.
+        // It is therefore shared by both appearances.
+        assertTrue(PlantUmlAssert.documentFor(style, pair()).contains("<i>holds</i>"));
     }
 
-    // --- L'invariant : l'apparence ne change pas ce qui est dit ---
+    // --- The invariant: the appearance does not change what is said ---
 
     @Test
-    void lesDeuxApparences_disentExactementLaMemeChose() {
-        // Comparaison de tout ce qui n'est pas du style : les déclarations de boîte et les
-        // lignes de lien, habillage retiré. Elles doivent coïncider mot pour mot.
-        assertEquals(PlantUmlAssert.nomsDeclares(PlantUmlAssert.documentPour(paire())),
-            PlantUmlAssert.nomsDeclares(PlantUmlAssert.documentPour(UmlStyle.UMLG, paire())));
+    void bothAppearances_sayExactlyTheSameThing() {
+        // Comparison of everything that is not style: the box declarations and the
+        // link lines, styling removed. They must match word for word.
+        assertEquals(PlantUmlAssert.namesDeclared(PlantUmlAssert.documentFor(pair())),
+            PlantUmlAssert.namesDeclared(PlantUmlAssert.documentFor(UmlStyle.UMLG, pair())));
 
-        assertEquals(PlantUmlAssert.lignesDeLien(PlantUmlAssert.documentPour(paire())),
-            PlantUmlAssert.lignesDeLien(PlantUmlAssert.documentPour(UmlStyle.UMLG, paire())));
+        assertEquals(PlantUmlAssert.linkLines(PlantUmlAssert.documentFor(pair())),
+            PlantUmlAssert.linkLines(PlantUmlAssert.documentFor(UmlStyle.UMLG, pair())));
     }
 
     @Test
-    void lesDeuxApparences_neProduisentPasLeMemeDocument() {
-        // Le pendant du test précédent : elles disent la même chose, mais elles ne l'écrivent
-        // pas pareil. Sans cette assertion, un style qui ne ferait rien passerait inaperçu.
-        assertNotEquals(PlantUmlAssert.documentPour(paire()),
-            PlantUmlAssert.documentPour(UmlStyle.UMLG, paire()));
+    void bothAppearances_doNotProduceTheSameDocument() {
+        // The counterpart of the previous test: they say the same thing, but they do not write it
+        // not alike. Without this assertion, a style doing nothing would go unnoticed.
+        assertNotEquals(PlantUmlAssert.documentFor(pair()),
+            PlantUmlAssert.documentFor(UmlStyle.UMLG, pair()));
     }
 }

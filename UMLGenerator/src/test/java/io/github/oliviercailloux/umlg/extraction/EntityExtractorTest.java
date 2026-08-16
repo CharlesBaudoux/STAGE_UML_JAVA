@@ -15,136 +15,136 @@ import io.github.oliviercailloux.umlg.model.UmlRelation;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-// Le contrat propre de l'orchestrateur : lire l'en-tête @UMLClass, et appeler tous les
-// extracteurs de relations.
+// The orchestrator's own contract: read the @UMLClass header, and call every
+// relation extractors.
 //
-// Les classes de démonstration sont déclarées ici même, en static nested : elles sont annotées
-// comme le ferait un utilisateur, et l'extraction travaillant par réflexion, cela suffit. Aucun
-// fichier d'exemple séparé n'est nécessaire, et chaque test a sous les yeux le code qu'il lit.
+// The demonstration classes are declared right here, as static nested ones: they are annotated
+// as a user would, and extraction working by reflection, that is enough. No
+// separate sample file is needed, and each test has the code it reads before its eyes.
 class EntityExtractorTest {
 
     @UMLClass(name = "NomPersonnalise", stereotype = "Entity", color = "AABBCC")
-    static class ClasseSansMembres {}
+    static class ClassWithoutMembers {}
 
     @UMLClass(color = "#ABC")
-    static class CouleurHexCourte {}
+    static class ColorShortHex {}
 
-    // Sans strategy : le défaut est NONE, donc champPublic n'apparaîtra pas dans la boîte.
+    // Without strategy: the default is NONE, so publicField will not appear in the box.
     @UMLClass
-    static class SansMetadonnees {
-        public String champPublic;
+    static class WithoutMetadata {
+        public String publicField;
     }
 
     @UMLClass(strategy = UMLVisibility.PUBLIC)
-    static class ClasseAvecMembres {
-        public String champPublic;
+    static class ClassWithMembers {
+        public String publicField;
     }
 
-    static class ClasseNonAnnotee {}
+    static class ClassNotAnnotated {}
 
-    // --- Métadonnées de la classe ---
+    // --- Class metadata ---
 
     @Test
-    void nomStereotypeEtCouleur_sontRepercutesSurLEntite() {
-        UmlEntity entity = EntityExtractor.extract(ClasseSansMembres.class);
+    void nameStereotypeAndColour_areCarriedOverToTheEntity() {
+        UmlEntity entity = EntityExtractor.extract(ClassWithoutMembers.class);
 
         assertEquals("NomPersonnalise", entity.name());
         assertEquals("Entity", entity.stereotype());
-        // La couleur est reprise telle quelle, sans le '#' : l'ajouter est l'affaire du rendu.
+        // The colour is taken as is, without the '#': adding it is the rendering's business.
         assertEquals("AABBCC", entity.color());
-        // Aucune stratégie déclarée, donc aucun membre — même si la classe en avait.
+        // No strategy declared, hence no member — even if the class had some.
         assertTrue(entity.fields().isEmpty());
         assertTrue(entity.methods().isEmpty());
     }
 
     @Test
-    void nomParDefaut_estLeSimpleNameQuandNonSurcharge() {
-        UmlEntity entity = EntityExtractor.extract(SansMetadonnees.class);
+    void defaultName_isTheSimpleNameWhenNotOverridden() {
+        UmlEntity entity = EntityExtractor.extract(WithoutMetadata.class);
 
-        assertEquals("SansMetadonnees", entity.name());
+        assertEquals("WithoutMetadata", entity.name());
     }
 
     @Test
-    void nomQualifie_estLIdentiteDeLEntite() {
-        // L'étiquette est libre, donc ni unique ni reliée au code ; c'est le nom qualifié qui
-        // permet à un lien de désigner sa cible sans ambiguïté.
-        UmlEntity entity = EntityExtractor.extract(ClasseSansMembres.class);
+    void qualifiedName_isTheIdentityOfTheEntity() {
+        // The label is free, hence neither unique nor tied to the code; it is the qualified name that
+        // lets a link designate its target unambiguously.
+        UmlEntity entity = EntityExtractor.extract(ClassWithoutMembers.class);
 
-        assertEquals(ClasseSansMembres.class.getName(), entity.qualifiedName());
+        assertEquals(ClassWithoutMembers.class.getName(), entity.qualifiedName());
     }
 
     @Test
-    void couleurHexCourte_estAcceptee() {
-        UmlEntity entity = EntityExtractor.extract(CouleurHexCourte.class);
+    void shortHexColour_isAccepted() {
+        UmlEntity entity = EntityExtractor.extract(ColorShortHex.class);
         assertEquals("#ABC", entity.color(),
-            "Le format hexadécimal à 3 chiffres doit être accepté.");
+            "The 3-digit hexadecimal format must be accepted.");
     }
 
-    // --- Le catalogue d'extracteurs de liens ---
+    // --- The catalogue of link extractors ---
 
-    // Cible d'une association et d'une dépendance ; elle doit porter @UMLClass, sinon
-    // TargetResolver refuserait de la viser.
+    // Target of an association and of a dependency; it must carry @UMLClass, otherwise
+    // TargetResolver would refuse to aim at it.
     @UMLClass
-    static class Cible {}
+    static class Target {}
 
     @UMLClass
-    @UMLDependency(target = Cible.class, label = "appelle")
-    static class PorteLesDeuxNaturesDeLiens {
-        @UMLAssociation(target = Cible.class)
-        private Cible detenue;
+    @UMLDependency(target = Target.class, label = "calls")
+    static class CarriesBothLinkNatures {
+        @UMLAssociation(target = Target.class)
+        private Target held;
     }
 
     @Test
-    void toutesLesNaturesDeLiens_arriventDansLaMemeListe() {
-        // Le contrat propre de l'orchestrateur : chaque extracteur du catalogue est appelé, et
-        // ses liens rejoignent les autres. Un extracteur oublié se verrait ici, et nulle part
-        // ailleurs — chacun des tests spécialisés ne connaît que sa propre nature.
+    void everyLinkNature_arrivesInTheSameList() {
+        // The orchestrator's own contract: each extractor of the catalogue is called, and
+        // its links join the others. A forgotten extractor would show here, and nowhere
+        // elsewhere — each of the specialized tests knows its own nature only.
         List<UmlRelation> relations =
-            EntityExtractor.extract(PorteLesDeuxNaturesDeLiens.class).relations();
+            EntityExtractor.extract(CarriesBothLinkNatures.class).relations();
 
-        // Message sous forme de lambda : la chaîne n'est construite que si le test échoue.
-        assertEquals(2, relations.size(), () -> "Les deux liens sont attendus : " + relations);
+        // Message as a lambda: the string is built only if the test fails.
+        assertEquals(2, relations.size(), () -> "Both links are expected: " + relations);
         assertEquals(1, relations.stream().filter(r -> r instanceof UmlAssociation).count());
         assertEquals(1, relations.stream().filter(r -> r instanceof UmlDependency).count());
     }
 
     @Test
-    void lOrdreDesLiens_suitCeluiDuCatalogue() {
-        // Les associations avant les dépendances : l'ordre du catalogue est celui dans lequel
-        // les traits seront écrits, donc une décision de rendu reproductible.
+    void linkOrder_followsTheCatalogueOrder() {
+        // Associations before dependencies: the catalogue order is the one in which
+        // the strokes will be written, hence a reproducible rendering decision.
         List<UmlRelation> relations =
-            EntityExtractor.extract(PorteLesDeuxNaturesDeLiens.class).relations();
+            EntityExtractor.extract(CarriesBothLinkNatures.class).relations();
 
         assertTrue(relations.get(0) instanceof UmlAssociation, relations.toString());
         assertTrue(relations.get(1) instanceof UmlDependency, relations.toString());
     }
 
-    // --- Garde-fous ---
+    // --- Guards ---
 
     @Test
-    void extractionEchoueSiLaClasseNEstPasAnnotee() {
+    void extractionFailsIfTheClassIsNotAnnotated() {
         assertThrows(IllegalArgumentException.class,
-            () -> EntityExtractor.extract(ClasseNonAnnotee.class));
+            () -> EntityExtractor.extract(ClassNotAnnotated.class));
     }
 
     @Test
-    void extractionEchoueSurNull() {
+    void extractionFailsOnNull() {
         assertThrows(NullPointerException.class, () -> EntityExtractor.extract(null));
     }
 
-    // add(null) plutôt qu'un vrai UmlField : la liste immuable refuse l'ajout avant même de
-    // regarder ce qu'on lui donne.
+    // add(null) rather than a real UmlField: the immutable list refuses the addition even before
+    // looking at what it is given.
     @Test
-    void champsSontListesImmuables() {
-        UmlEntity entity = EntityExtractor.extract(ClasseAvecMembres.class);
+    void fieldsAreImmutableLists() {
+        UmlEntity entity = EntityExtractor.extract(ClassWithMembers.class);
 
         assertThrows(UnsupportedOperationException.class, () -> entity.fields().add(null));
     }
 
     @Test
-    void deuxExtractionsDeLaMemeClasse_sontEgales() {
-        assertEquals(EntityExtractor.extract(ClasseAvecMembres.class),
-            EntityExtractor.extract(ClasseAvecMembres.class),
-            "UmlEntity est un record : deux extractions identiques doivent être égales.");
+    void twoExtractionsOfTheSameClass_areEqual() {
+        assertEquals(EntityExtractor.extract(ClassWithMembers.class),
+            EntityExtractor.extract(ClassWithMembers.class),
+            "UmlEntity is a record: two identical extractions must be equal.");
     }
 }

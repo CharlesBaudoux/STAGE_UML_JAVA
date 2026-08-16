@@ -17,77 +17,77 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-// L'écriture du fichier : le format choisi d'après l'extension, et les refus d'entrée.
+// Writing the file: the format chosen from the extension, and the refusals at the door.
 //
-// Ces tests ne regardent que l'existence et la taille du fichier — ce qu'il contient est
-// l'affaire de PlantUmlWriterOutputTest, qui en relit le texte.
+// These tests look only at the existence and size of the file — what it holds is
+// the business of PlantUmlWriterOutputTest, which reads its text back.
 class PlantUmlWriterTest {
 
-    // On crée un vrai cobaye valide pour tromper la sécurité de UmlEntity
+    // A real valid fixture is built to fool UmlEntity's safety check
     @UMLClass
-    static class ClasseCobaye {}
+    static class ClassFixture {}
 
     @Test
-    void testGenerationFichierSvg(@TempDir Path dossierTemporaire) throws Exception {
-        UmlEntity fausseEntite = EntityExtractor.extract(ClasseCobaye.class);
-        UmlProject projet = UmlProject.given(Set.of(fausseEntite));
+    void testGenerationFileSvg(@TempDir Path temporaryFolder) throws Exception {
+        UmlEntity fakeEntity = EntityExtractor.extract(ClassFixture.class);
+        UmlProject project = UmlProject.given(Set.of(fakeEntity));
 
-        Path cheminFichierSortie = dossierTemporaire.resolve("diagramme_test.svg");
-        PlantUmlWriter.write(projet, cheminFichierSortie.toString());
+        Path pathFileOutput = temporaryFolder.resolve("diagram_test.svg");
+        PlantUmlWriter.write(project, pathFileOutput.toString());
 
-        // Vérification volontairement faible : PlantUML écrit aussi une image quand il échoue,
-        // si bien qu'un fichier non vide ne prouve pas que le diagramme soit correct.
-        assertTrue(Files.exists(cheminFichierSortie));
-        assertTrue(Files.size(cheminFichierSortie) > 0);
+        // A deliberately weak check: PlantUML also writes an image when it fails,
+        // so that a non-empty file does not prove the diagram is correct.
+        assertTrue(Files.exists(pathFileOutput));
+        assertTrue(Files.size(pathFileOutput) > 0);
     }
 
     @Test
-    void testGenerationFichierPng(@TempDir Path dossierTemporaire) throws Exception {
-        UmlEntity fausseEntite = EntityExtractor.extract(ClasseCobaye.class);
-        UmlProject projet = UmlProject.given(Set.of(fausseEntite));
+    void testGenerationFilePng(@TempDir Path temporaryFolder) throws Exception {
+        UmlEntity fakeEntity = EntityExtractor.extract(ClassFixture.class);
+        UmlProject project = UmlProject.given(Set.of(fakeEntity));
 
-        Path cheminFichierSortie = dossierTemporaire.resolve("diagramme_test.png");
-        PlantUmlWriter.write(projet, cheminFichierSortie.toString());
+        Path pathFileOutput = temporaryFolder.resolve("diagram_test.png");
+        PlantUmlWriter.write(project, pathFileOutput.toString());
 
-        assertTrue(Files.exists(cheminFichierSortie));
-        assertTrue(Files.size(cheminFichierSortie) > 0);
+        assertTrue(Files.exists(pathFileOutput));
+        assertTrue(Files.size(pathFileOutput) > 0);
     }
 
     @Test
-    void unFichierUniqueEnRuban_estSignaleAussi(@TempDir Path dossierTemporaire)
+    void aSingleRibbonShapedFile_isReportedToo(@TempDir Path temporaryFolder)
         throws Exception {
-        // Le contrôle des proportions n'existait qu'en mode dossier ; or le fichier unique est
-        // précisément le mode de qui n'a rien configuré — celui où le ruban surprenait le plus.
-        // Quatorze boîtes que rien ne relie s'alignent sur une seule rangée : un ruban assuré.
-        Set<UmlEntity> boites = new LinkedHashSet<>();
+        // The proportion check existed in directory mode only; yet the single file is
+        // precisely the mode of whoever configured nothing — the one where the ribbon surprised most.
+        // Fourteen boxes nothing links line up in a single row: a ribbon for sure.
+        Set<UmlEntity> boxes = new LinkedHashSet<>();
         for (int i = 0; i < 14; i++) {
-            String nom = "UneClasseAuNomDeliberementTresLongNumero" + i;
-            boites.add(UmlEntity.builder("com.exemple." + nom, nom).build());
+            String name = "UneClasseAuNomDeliberementTresLongNumero" + i;
+            boxes.add(UmlEntity.builder("com.example." + name, name).build());
         }
-        Path fichier = dossierTemporaire.resolve("ruban.svg");
+        Path file = temporaryFolder.resolve("ribbon.svg");
 
-        PrintStream avant = System.err;
-        ByteArrayOutputStream tampon = new ByteArrayOutputStream();
+        PrintStream before = System.err;
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
         try {
-            System.setErr(new PrintStream(tampon, true, StandardCharsets.UTF_8));
-            PlantUmlWriter.write(UmlProject.given(boites), fichier.toString());
+            System.setErr(new PrintStream(buffer, true, StandardCharsets.UTF_8));
+            PlantUmlWriter.write(UmlProject.given(boxes), file.toString());
         } finally {
-            System.setErr(avant);
+            System.setErr(before);
         }
-        assertTrue(tampon.toString(StandardCharsets.UTF_8).contains("hard to read"),
-            "Le ruban doit être signalé : " + tampon.toString(StandardCharsets.UTF_8));
+        assertTrue(buffer.toString(StandardCharsets.UTF_8).contains("hard to read"),
+            "The ribbon must be reported: " + buffer.toString(StandardCharsets.UTF_8));
     }
 
     @Test
-    void testEchecRapideSiArgumentsNuls() {
+    void testFailsFastOnNullArguments() {
         assertThrows(NullPointerException.class, () -> {
             PlantUmlWriter.write(null, "output.svg");
         });
 
         assertThrows(NullPointerException.class, () -> {
-            UmlEntity fausseEntite = EntityExtractor.extract(ClasseCobaye.class);
-            UmlProject projetValide = UmlProject.given(Set.of(fausseEntite));
-            PlantUmlWriter.write(projetValide, null);
+            UmlEntity fakeEntity = EntityExtractor.extract(ClassFixture.class);
+            UmlProject validProject = UmlProject.given(Set.of(fakeEntity));
+            PlantUmlWriter.write(validProject, null);
         });
     }
 }

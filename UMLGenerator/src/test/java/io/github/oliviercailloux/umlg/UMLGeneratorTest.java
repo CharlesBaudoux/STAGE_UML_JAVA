@@ -19,88 +19,88 @@ import java.util.jar.JarOutputStream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-// La façade vue de l'extérieur : ce que le builder accepte, ce qu'il refuse, et ce qu'une
-// génération dépose réellement sur le disque.
+// The facade seen from outside: what the builder accepts, what it refuses, and what a
+// the generation really leaves on disk.
 //
-// Chaque refus est vérifié au bon appel : le dossier invalide échoue dès sourceDirectory(),
-// l'extension invalide dès outputFile(), l'absence de dossier source et les incohérences entre
-// deux réglages seulement à build(). Ce n'est pas un détail : c'est ce qui donne un message
-// pointant sur la ligne fautive.
+// Each refusal is checked at the right call: the invalid directory fails as early as sourceDirectory(),
+// the invalid extension as early as outputFile(), the missing source directory and the inconsistencies between
+// two settings only at build(). That is no detail: it is what gives a message
+// pointing at the faulty line.
 //
-// POURQUOI CE FICHIER NE SCANNE PLUS target/test-classes
+// WHY THIS FILE NO LONGER SCANS target/test-classes
 //
-// Il le faisait quatre fois, et pesait à lui seul un tiers du temps de la suite pour vérifier
-// qu'une façade transmet bien ses paramètres. Les centaines de cobayes des autres tests ne
-// prouvaient rien de plus ici qu'une seule classe annotée, copiée dans un répertoire à elle. Ce
-// que target/test-classes protège — qu'aucun cobaye ajouté demain ne casse le rendu de
-// l'ensemble — est l'affaire d'UMLGeneratorIntegrationTest, qui le fait une fois pour toutes.
+// It did so four times, and alone weighed a third of the suite's time to check
+// that a facade really passes its parameters on. The hundreds of fixtures of the other tests
+// proved nothing more here than a single annotated class, copied into a directory of its own. This
+// which target/test-classes protects — that no fixture added tomorrow breaks the rendering of
+// the whole — is the business of UMLGeneratorIntegrationTest, which does it once and for all.
 class UMLGeneratorTest {
 
-    // Le marqueur du thème de la bibliothèque dans la source engendrée : il n'y figure que sous
-    // UmlStyle.UMLG. C'est ce qui permet de vérifier que le style demandé est bien appliqué, et
-    // pas seulement accepté.
-    private static final String MARQUEUR_DU_THEME_UMLG = "skinparam ClassBorderColor #33526E";
+    // The marker of the library theme in the generated source: it appears there only under
+    // UmlStyle.UMLG. That is what makes it possible to check that the requested style is really applied, and
+    // not merely accepted.
+    private static final String THEME_UMLG_MARKER = "skinparam ClassBorderColor #33526E";
 
-    // La seule classe que les générations de ce fichier ont à lire.
-    @UMLClass(name = "CobayeDeLaFacade", strategy = UMLVisibility.PUBLIC)
-    static class CobayeDeLaFacade {
-        public String nom;
+    // The only class the generations of this file have to read.
+    @UMLClass(name = "FacadeFixture", strategy = UMLVisibility.PUBLIC)
+    static class FacadeFixture {
+        public String name;
     }
 
-    // Un répertoire de classes compilées qui ne contient que le cobaye ci-dessus : son .class est
-    // recopié depuis target/test-classes, à sa place dans l'arborescence des paquetages. Le scan y
-    // trouve une classe et une seule, ce qui rend chaque génération de ce fichier quasi
-    // instantanée.
-    private static Path unRepertoireDUneClasse(Path tmp) throws IOException {
-        String chemin = CobayeDeLaFacade.class.getName().replace('.', '/') + ".class";
-        Path racine = tmp.resolve("classes");
-        Path destination = racine.resolve(chemin);
+    // A directory of compiled classes holding only the fixture above: its .class is
+    // copied from target/test-classes, in its place in the package tree. The scan
+    // finds one class and one only, which makes each generation of this file almost
+    // instantaneous.
+    private static Path aDirectoryOfOneClass(Path tmp) throws IOException {
+        String path = FacadeFixture.class.getName().replace('.', '/') + ".class";
+        Path root = tmp.resolve("classes");
+        Path destination = root.resolve(path);
         Files.createDirectories(destination.getParent());
-        Files.copy(Path.of("target", "test-classes").resolve(chemin), destination);
-        return racine;
+        Files.copy(Path.of("target", "test-classes").resolve(path), destination);
+        return root;
     }
 
-    // Le builder d'une génération sur ce répertoire.
-    private static UMLGenerator.Builder surLeCobaye(Path tmp) throws IOException {
-        return UMLGenerator.builder().sourceDirectory(unRepertoireDUneClasse(tmp).toString());
+    // The builder of a generation over this directory.
+    private static UMLGenerator.Builder onFixture(Path tmp) throws IOException {
+        return UMLGenerator.builder().sourceDirectory(aDirectoryOfOneClass(tmp).toString());
     }
 
-    // --- Ce que le builder refuse, et quand ---
+    // --- What the builder refuses, and when ---
 
     @Test
-    void sansDossierSource_leBuilderRefuseDeConstruire() {
+    void withoutSourceDirectory_theBuilderRefusesToBuild() {
         assertThrows(NullPointerException.class,
             () -> UMLGenerator.builder().outputFile("test.png").build(),
-            "Le dossier source n'a pas de défaut raisonnable.");
+            "The source directory has no reasonable default.");
     }
 
     @Test
-    void unDossierSourceInexistant_estRefuseDesLAppel() {
+    void aMissingSourceDirectory_isRefusedRightAtTheCall() {
         assertThrows(IllegalArgumentException.class,
-            () -> UMLGenerator.builder().sourceDirectory("/un/chemin/totalement/invente"));
+            () -> UMLGenerator.builder().sourceDirectory("/un/path/totalement/invente"));
     }
 
     @Test
-    void uneExtensionInconnue_estRefuseeDesLAppel(@TempDir Path tmp) {
+    void anUnknownExtension_isRefusedRightAtTheCall(@TempDir Path tmp) {
         assertThrows(IllegalArgumentException.class,
             () -> UMLGenerator.builder().sourceDirectory(tmp.toString()).outputFile("d.jpg"));
     }
 
     @Test
-    void unStyleNull_estRefuse(@TempDir Path tmp) {
-        // Le style a un défaut, mais « null » n'en est pas un : ce serait un oubli, et le laisser
-        // passer ferait échouer le rendu bien plus loin, sans dire pourquoi.
+    void aNullStyle_isRefused(@TempDir Path tmp) {
+        // The style has a defect, but "null" is not one: it would be an oversight, and leaving it
+        // letting it through would fail the rendering much later, without saying why.
         assertThrows(NullPointerException.class,
             () -> UMLGenerator.builder().sourceDirectory(tmp.toString()).style(null));
     }
 
-    // --- Les réglages qui se contredisaient en silence ---
+    // --- The settings that silently contradicted each other ---
 
     @Test
-    void unFichierEtUnDossierDeSortie_sontRefusesEnsemble(@TempDir Path tmp) {
-        // generate() tranchait par « if (outputDirectory != null) » : le fichier nommé n'était
-        // jamais écrit, et rien ne le disait. L'utilisateur cherchait « archi.png » là où il
-        // l'avait demandé, et ne l'y trouvait pas.
+    void anOutputFileAndDirectory_areRefusedTogether(@TempDir Path tmp) {
+        // generate() decided by "if (outputDirectory != null)": the named file was
+        // never written, and nothing said so. The user looked for "archi.png" where it
+        // had asked for it, and did not find it there.
         IllegalStateException e = assertThrows(IllegalStateException.class,
             () -> UMLGenerator.builder()
                 .sourceDirectory(tmp.toString())
@@ -109,13 +109,13 @@ class UMLGeneratorTest {
                 .build());
 
         assertTrue(e.getMessage().contains("archi.png") && e.getMessage().contains("docs"),
-            "Le message doit nommer les deux sorties demandées : " + e.getMessage());
+            "The message must name both requested outputs: " + e.getMessage());
     }
 
     @Test
-    void unFormatDemandeSansDossier_estRefuse(@TempDir Path tmp) {
-        // outputFormat n'est lu que dans la branche dossier : « .outputFile("a.png") » suivi de
-        // « .outputFormat("svg") » livrait du PNG à qui venait de demander du SVG.
+    void aFormatRequestedWithoutDirectory_isRefused(@TempDir Path tmp) {
+        // outputFormat is read only in the directory branch: ".outputFile(\"a.png\")" followed by
+        // ".outputFormat(\"svg\")" delivered PNG to someone who had just asked for SVG.
         IllegalStateException e = assertThrows(IllegalStateException.class,
             () -> UMLGenerator.builder()
                 .sourceDirectory(tmp.toString())
@@ -127,10 +127,10 @@ class UMLGeneratorTest {
     }
 
     @Test
-    void conserverLaGenerationPrecedenteSansDossier_estRefuse(@TempDir Path tmp) {
-        // Le troisième réglage qui se contredisait en silence : keepPrevious n'est lu que dans la
-        // branche dossier, si bien qu'en mode fichier unique la génération précédente était
-        // écrasée par celle-là même qui demandait de la garder.
+    void keepingThePreviousGenerationWithoutDirectory_isRefused(@TempDir Path tmp) {
+        // The third setting that silently contradicted itself: keepPrevious is read only in the
+        // directory branch, so that in single-file mode the previous generation was
+        // overwritten by the very one asking to keep it.
         IllegalStateException e = assertThrows(IllegalStateException.class,
             () -> UMLGenerator.builder()
                 .sourceDirectory(tmp.toString())
@@ -142,9 +142,9 @@ class UMLGeneratorTest {
     }
 
     @Test
-    void nePasConserverLaGenerationPrecedente_resteLiciteSansDossier(@TempDir Path tmp) {
-        // keepPrevious(false) demande ce que le mode fichier unique fait déjà : ce n'est pas une
-        // contradiction, et le contrôle ne doit pas se refermer dessus.
+    void notKeepingThePreviousGeneration_staysValidWithoutDirectory(@TempDir Path tmp) {
+        // keepPrevious(false) asks for what single-file mode already does: it is not a
+        // contradiction, and the check must not close on it.
         assertDoesNotThrow(() -> UMLGenerator.builder()
             .sourceDirectory(tmp.toString())
             .outputFile("archi.svg")
@@ -153,157 +153,157 @@ class UMLGeneratorTest {
     }
 
     @Test
-    void unFormatDemandeAvecUnDossier_estApplique(@TempDir Path tmp) throws IOException {
-        // Le contrôle ne doit pas se refermer sur l'usage légitime, qui est celui du plugin Maven :
-        // un dossier, et le format des images qu'on y dépose.
-        Path dossier = tmp.resolve("diagrammes");
+    void aFormatRequestedWithADirectory_isApplied(@TempDir Path tmp) throws IOException {
+        // The check must not close on the legitimate use, which is the Maven plugin's:
+        // a directory, and the format of the images dropped in it.
+        Path folder = tmp.resolve("diagrams");
 
-        RapportDeGeneration rapport = surLeCobaye(tmp)
-            .outputDirectory(dossier.toString())
+        GenerationReport report = onFixture(tmp)
+            .outputDirectory(folder.toString())
             .outputFormat("png")
             .build()
             .generate();
 
-        assertEquals(List.of(dossier.resolve("projet.png")), rapport.fichiers());
+        assertEquals(List.of(folder.resolve("project.png")), report.files());
     }
 
     @Test
-    void leFichierParDefaut_neCompteJamaisPourUneDemande(@TempDir Path tmp) throws IOException {
-        // outputFileName porte un défaut — « diagramme_architecture.svg » —, et deux défauts ne se
-        // contredisent pas. Seule une demande explicite entre en conflit avec une autre, faute de
-        // quoi le mode dossier serait devenu inutilisable.
-        Path dossier = tmp.resolve("diagrammes");
+    void theDefaultFile_neverCountsAsARequest(@TempDir Path tmp) throws IOException {
+        // outputFileName carries a default — "diagram_architecture.svg" — and two defaults do not
+        // do not contradict each other. Only an explicit request conflicts with another, for lack of
+        // which would have made directory mode unusable.
+        Path folder = tmp.resolve("diagrams");
 
-        RapportDeGeneration rapport = surLeCobaye(tmp)
-            .outputDirectory(dossier.toString())
+        GenerationReport report = onFixture(tmp)
+            .outputDirectory(folder.toString())
             .build()
             .generate();
 
-        assertEquals(List.of(dossier.resolve("projet.svg")), rapport.fichiers());
+        assertEquals(List.of(folder.resolve("project.svg")), report.files());
     }
 
     @Test
-    void desVuesEnModeFichierUnique_sontSignalees(@TempDir Path tmp) throws IOException {
-        // Un projet qui déclare des vues et sort en fichier unique les perd toutes, sans un mot.
-        // Rien, dans « .outputFile("archi.svg") », ne dit ce que le fichier de règles a demandé
-        // par ailleurs : l'avertissement est le seul endroit où les deux se rencontrent.
-        Path source = unRepertoireDUneClasse(tmp);
+    void viewsInSingleFileMode_areReported(@TempDir Path tmp) throws IOException {
+        // A project declaring views and writing a single file loses them all, without a word.
+        // Nothing, in ".outputFile(\"archi.svg\")", says what the rules file asked for
+        // from elsewhere: the warning is the only place where the two meet.
+        Path source = aDirectoryOfOneClass(tmp);
         Files.writeString(source.resolve("umlg.json"), "{ \"viewsByPackage\": true }",
             StandardCharsets.UTF_8);
 
-        RapportDeGeneration rapport = UMLGenerator.builder()
+        GenerationReport report = UMLGenerator.builder()
             .sourceDirectory(source.toString())
             .outputFile(tmp.resolve("archi.svg").toString())
             .build()
             .generate();
 
-        assertTrue(rapport.avertissements().stream().anyMatch(a -> a.contains("partial view")),
-            "Les vues perdues doivent être dites : " + rapport.avertissements());
+        assertTrue(report.warnings().stream().anyMatch(a -> a.contains("partial view")),
+            "The lost views must be said: " + report.warnings());
     }
 
     @Test
-    void desVuesEnModeDossier_neSontPasSignalees(@TempDir Path tmp) throws IOException {
-        // Le pendant du test précédent : en mode dossier, elles sont toutes écrites, et il n'y a
-        // rien à signaler.
-        Path source = unRepertoireDUneClasse(tmp);
+    void viewsInDirectoryMode_areNotReported(@TempDir Path tmp) throws IOException {
+        // The counterpart of the previous test: in directory mode, they are all written, and there is
+        // nothing to report.
+        Path source = aDirectoryOfOneClass(tmp);
         Files.writeString(source.resolve("umlg.json"), "{ \"viewsByPackage\": true }",
             StandardCharsets.UTF_8);
 
-        RapportDeGeneration rapport = UMLGenerator.builder()
+        GenerationReport report = UMLGenerator.builder()
             .sourceDirectory(source.toString())
-            .outputDirectory(tmp.resolve("diagrammes").toString())
+            .outputDirectory(tmp.resolve("diagrams").toString())
             .build()
             .generate();
 
-        assertEquals(List.of(), rapport.avertissements(),
-            "Rien n'est perdu, donc rien n'est à dire.");
-        assertEquals(2, rapport.fichiers().size(), "L'intégrale et la vue de paquetage.");
+        assertEquals(List.of(), report.warnings(),
+            "Nothing is lost, so there is nothing to say.");
+        assertEquals(2, report.files().size(), "The full view and the package view.");
     }
 
-    // --- Ce qu'une génération dépose vraiment ---
+    // --- What a generation really leaves behind ---
 
     @Test
-    void generate_ecritLeFichierDemandeEtSaSource(@TempDir Path tmp) throws IOException {
-        Path sortie = tmp.resolve("resultat.svg");
+    void generate_writesTheRequestedFileAndItsSource(@TempDir Path tmp) throws IOException {
+        Path output = tmp.resolve("result.svg");
 
-        RapportDeGeneration rapport =
-            surLeCobaye(tmp).outputFile(sortie.toString()).build().generate();
+        GenerationReport report =
+            onFixture(tmp).outputFile(output.toString()).build().generate();
 
-        assertTrue(Files.exists(sortie), "L'image demandée doit être écrite.");
-        assertEquals(1, rapport.classesLues());
-        assertTrue(Files.readString(tmp.resolve("resultat.puml"), StandardCharsets.UTF_8)
-            .contains("CobayeDeLaFacade"), "La boîte du cobaye doit être dans la source.");
+        assertTrue(Files.exists(output), "The requested image must be written.");
+        assertEquals(1, report.classesRead());
+        assertTrue(Files.readString(tmp.resolve("result.puml"), StandardCharsets.UTF_8)
+            .contains("FacadeFixture"), "The box of the fixture must be in the source.");
     }
 
     @Test
-    void styleUmlg_poseLeThemeDeLaBibliothequeDansLaSource(@TempDir Path tmp) throws IOException {
-        // Le test qui existait ne vérifiait que l'acceptation du paramètre : passer UmlStyle.UMLG
-        // au builder ne prouvait rien de ce qui est dessiné. Le style ne se voit que dans le
-        // document engendré, et c'est là qu'il faut le lire.
-        surLeCobaye(tmp)
+    void umlgStyle_setsTheLibraryThemeInTheSource(@TempDir Path tmp) throws IOException {
+        // The existing test checked only that the parameter was accepted: passing UmlStyle.UMLG
+        // to the builder proved nothing about what is drawn. The style shows only in the
+        // the generated document, and that is where it must be read.
+        onFixture(tmp)
             .outputFile(tmp.resolve("theme.svg").toString())
             .style(UmlStyle.UMLG)
             .build()
             .generate();
 
         assertTrue(Files.readString(tmp.resolve("theme.puml"), StandardCharsets.UTF_8)
-            .contains(MARQUEUR_DU_THEME_UMLG));
+            .contains(THEME_UMLG_MARKER));
     }
 
     @Test
-    void styleParDefaut_laisseLApparenceDePlantUml(@TempDir Path tmp) throws IOException {
-        surLeCobaye(tmp).outputFile(tmp.resolve("nu.svg").toString()).build().generate();
+    void defaultStyle_leavesThePlantUmlAppearance(@TempDir Path tmp) throws IOException {
+        onFixture(tmp).outputFile(tmp.resolve("nu.svg").toString()).build().generate();
 
         assertFalse(Files.readString(tmp.resolve("nu.puml"), StandardCharsets.UTF_8)
-            .contains(MARQUEUR_DU_THEME_UMLG), "Ne rien demander, c'est ne rien imposer.");
+            .contains(THEME_UMLG_MARKER), "Asking for nothing is imposing nothing.");
     }
 
-    // --- keepPrevious, du builder jusqu'au disque ---
+    // --- keepPrevious, from the builder to the disk ---
 
     @Test
-    void keepPrevious_ecritLaGenerationSuivanteACote(@TempDir Path tmp) throws IOException {
-        // Le comportement était testé un étage plus bas, mais son câblage builder → generate() ne
-        // l'était pas : inverser le booléen en chemin n'aurait fait échouer aucun test.
-        Path dossier = tmp.resolve("diagrammes");
-        UMLGenerator generateur = surLeCobaye(tmp)
-            .outputDirectory(dossier.toString())
+    void keepPrevious_writesTheNextGenerationAlongside(@TempDir Path tmp) throws IOException {
+        // The behaviour was tested one floor below, but its builder → generate() wiring was
+        // was not: flipping the boolean along the way would have failed no test.
+        Path folder = tmp.resolve("diagrams");
+        UMLGenerator generator = onFixture(tmp)
+            .outputDirectory(folder.toString())
             .keepPrevious(true)
             .build();
 
-        generateur.generate();
-        RapportDeGeneration second = generateur.generate();
+        generator.generate();
+        GenerationReport second = generator.generate();
 
-        assertTrue(Files.exists(dossier.resolve("projet.svg")),
-            "La première génération doit rester intacte.");
-        assertEquals(List.of(tmp.resolve("diagrammes-2").resolve("projet.svg")),
-            second.fichiers(), "La seconde doit aller dans le dossier voisin numéroté.");
+        assertTrue(Files.exists(folder.resolve("project.svg")),
+            "The first generation must stay intact.");
+        assertEquals(List.of(tmp.resolve("diagrams-2").resolve("project.svg")),
+            second.files(), "The second must go to the numbered neighbouring directory.");
     }
 
     @Test
-    void sansKeepPrevious_laGenerationSuivanteRemplaceLaPrecedente(@TempDir Path tmp)
+    void withoutKeepPrevious_theNextGenerationReplacesThePrevious(@TempDir Path tmp)
         throws IOException {
-        Path dossier = tmp.resolve("diagrammes");
-        UMLGenerator generateur =
-            surLeCobaye(tmp).outputDirectory(dossier.toString()).build();
+        Path folder = tmp.resolve("diagrams");
+        UMLGenerator generator =
+            onFixture(tmp).outputDirectory(folder.toString()).build();
 
-        generateur.generate();
-        RapportDeGeneration second = generateur.generate();
+        generator.generate();
+        GenerationReport second = generator.generate();
 
-        assertEquals(List.of(dossier.resolve("projet.svg")), second.fichiers());
-        assertFalse(Files.exists(tmp.resolve("diagrammes-2")),
-            "Le dossier décrit l'état courant du code, et rien ne s'accumule à côté.");
+        assertEquals(List.of(folder.resolve("project.svg")), second.files());
+        assertFalse(Files.exists(tmp.resolve("diagrams-2")),
+            "The directory describes the current state of the code, and nothing piles up alongside.");
     }
 
-    // --- classpath : l'API dont se sert le plugin Maven ---
+    // --- classpath: the API the Maven plugin uses ---
 
     @Test
-    void sansClasspath_uneClasseDontLeParentVitDansUnJar_estIllisible(@TempDir Path tmp)
+    void withoutClasspath_aClassWhoseParentLivesInAJar_isUnreadable(@TempDir Path tmp)
         throws Exception {
-        Path classes = unProjetDontLeParentEstDansUnJar(tmp);
-        List<String> dits = new ArrayList<>();
+        Path classes = aProjectWhoseParentIsInAJar(tmp);
+        List<String> said = new ArrayList<>();
 
         RuntimeException e;
-        try (Avertissements.Canal canal = Avertissements.redirectTo(dits::add)) {
+        try (Warnings.Channel channel = Warnings.redirectTo(said::add)) {
             e = assertThrows(RuntimeException.class, () -> UMLGenerator.builder()
                 .sourceDirectory(classes.toString())
                 .outputFile(tmp.resolve("archi.svg").toString())
@@ -311,145 +311,145 @@ class UMLGeneratorTest {
                 .generate());
         }
 
-        // La classe n'a pas pu être liée : elle n'entre pas dans le modèle, et le projet se
-        // retrouve sans aucune boîte. C'est le scénario exact que le classpath répare.
-        assertTrue(dits.stream().anyMatch(a -> a.contains("appli.Fille")),
-            "L'échec de chargement doit être dit, et nommer la classe : " + dits);
+        // The class could not be linked: it does not enter the model, and the project
+        // finds itself with no box. That is the exact scenario the classpath repairs.
+        assertTrue(said.stream().anyMatch(a -> a.contains("appli.Child")),
+            "The loading failure must be said, and name the class: " + said);
         assertTrue(e.getMessage().contains("nothing to draw"), e.getMessage());
     }
 
     @Test
-    void avecLeClasspath_uneClasseDontLeParentVitDansUnJar_estDessinee(@TempDir Path tmp)
+    void withTheClasspath_aClassWhoseParentLivesInAJar_isDrawn(@TempDir Path tmp)
         throws Exception {
-        // C'est l'API que le plugin Maven emploie, et que personne n'exerçait : il tourne dans la
-        // JVM de Maven, et sans elle toute classe héritant d'une bibliothèque tierce disparaîtrait
-        // du diagramme des projets réels — ceux dont le diagramme sert le plus.
-        Path classes = unProjetDontLeParentEstDansUnJar(tmp);
+        // It is the API the Maven plugin uses, and that nobody exercised: it runs in the
+        // Maven's JVM, and without it every class inheriting from a third-party library would vanish
+        // of the diagram of real projects — the ones whose diagram is most useful.
+        Path classes = aProjectWhoseParentIsInAJar(tmp);
 
-        RapportDeGeneration rapport = UMLGenerator.builder()
+        GenerationReport report = UMLGenerator.builder()
             .sourceDirectory(classes.toString())
             .classpath(List.of(tmp.resolve("lib").resolve("tiers.jar").toString()))
             .outputFile(tmp.resolve("archi.svg").toString())
             .build()
             .generate();
 
-        assertEquals(1, rapport.classesLues());
+        assertEquals(1, report.classesRead());
         assertTrue(Files.readString(tmp.resolve("archi.puml"), StandardCharsets.UTF_8)
-            .contains("Fille"), "La boîte de la classe héritière doit être dessinée.");
+            .contains("Child"), "The box of the inheriting class must be drawn.");
     }
 
     @Test
-    void unClasspathNull_estRefuse(@TempDir Path tmp) {
+    void aNullClasspath_isRefused(@TempDir Path tmp) {
         assertThrows(NullPointerException.class,
             () -> UMLGenerator.builder().sourceDirectory(tmp.toString()).classpath(null));
     }
 
-    // Un projet d'une classe annotée dont le parent est ailleurs : compilé d'un bloc, puis le
-    // parent est déplacé dans un jar posé à côté. Le répertoire analysé ne contient donc plus que
-    // la fille, exactement comme le target/classes d'un projet qui dépend d'une bibliothèque.
-    private static Path unProjetDontLeParentEstDansUnJar(Path tmp) throws Exception {
+    // A project with one annotated class whose parent is elsewhere: compiled in one go, then the
+    // the parent is moved into a jar set alongside. The analysed directory therefore holds only
+    // the child, exactly like the target/classes of a project depending on a library.
+    private static Path aProjectWhoseParentIsInAJar(Path tmp) throws Exception {
         Path classes = tmp.resolve("compilees");
-        // Les deux dans une seule tâche javac : Fille nomme Base, et l'une ne compilerait pas
-        // sans l'autre.
-        CompilationSansProcesseur.compiler(tmp.resolve("src"), classes,
+        // Both in a single javac task: Child names Base, and one would not compile
+        // without l'other.
+        CompilationWithoutProcessor.compiler(tmp.resolve("src"), classes,
             "tiers/Base.java", """
                 package tiers;
 
                 public class Base {}
                 """,
-            "appli/Fille.java", """
+            "appli/Child.java", """
                 package appli;
 
                 import io.github.oliviercailloux.umlg.annotation.UMLClass;
                 import io.github.oliviercailloux.umlg.annotation.UMLVisibility;
 
                 @UMLClass(strategy = UMLVisibility.PUBLIC)
-                public class Fille extends tiers.Base {
-                    public String nom;
+                public class Child extends tiers.Base {
+                    public String name;
                 }
                 """);
 
         Path jar = tmp.resolve("lib").resolve("tiers.jar");
         Files.createDirectories(jar.getParent());
-        String entree = "tiers/Base.class";
-        try (JarOutputStream sortie = new JarOutputStream(Files.newOutputStream(jar))) {
-            sortie.putNextEntry(new JarEntry(entree));
-            sortie.write(Files.readAllBytes(classes.resolve(entree)));
-            sortie.closeEntry();
+        String entry = "tiers/Base.class";
+        try (JarOutputStream output = new JarOutputStream(Files.newOutputStream(jar))) {
+            output.putNextEntry(new JarEntry(entry));
+            output.write(Files.readAllBytes(classes.resolve(entry)));
+            output.closeEntry();
         }
-        Files.delete(classes.resolve(entree));
+        Files.delete(classes.resolve(entry));
         Files.delete(classes.resolve("tiers"));
         return classes;
     }
 
-    // --- La ligne de commande ---
+    // --- The command line ---
 
     @Test
-    void ligneDeCommande_avecUnNomSansExtension_ecritUnDossierDeVues(@TempDir Path tmp)
+    void commandLine_withANameWithoutExtension_writesAViewDirectory(@TempDir Path tmp)
         throws Exception {
-        // Le trou que ce test protège : outputDirectory existait dans le builder, et la ligne de
-        // commande n'y donnait pas accès — la fonctionnalité principale était inatteignable pour
-        // qui n'écrivait pas sa propre classe de lancement.
-        Path sortie = tmp.resolve("diagrammes");
+        // The gap this test guards: outputDirectory existed in the builder, and the command
+        // command line gave no access to it — the main feature was unreachable for
+        // which did not write its own launch class.
+        Path output = tmp.resolve("diagrams");
 
         UMLGenerator.main(
-            new String[] {unRepertoireDUneClasse(tmp).toString(), sortie.toString()});
+            new String[] {aDirectoryOfOneClass(tmp).toString(), output.toString()});
 
-        assertTrue(Files.isDirectory(sortie), "Un nom sans extension demande un dossier.");
-        assertTrue(Files.exists(sortie.resolve("projet.svg")), "La vue intégrale y est écrite.");
+        assertTrue(Files.isDirectory(output), "One name without extension requested un folder.");
+        assertTrue(Files.exists(output.resolve("project.svg")), "The full view is written there.");
     }
 
     @Test
-    void ligneDeCommande_avecUneExtension_ecritCeSeulFichier(@TempDir Path tmp) throws Exception {
-        // Personne n'appelle « architecture.svg » un répertoire : l'extension suffit à dire ce
-        // qu'on veut, et évite une option de plus.
-        Path fichier = tmp.resolve("architecture.svg");
+    void commandLine_withAnExtension_writesThatSingleFile(@TempDir Path tmp) throws Exception {
+        // Nobody calls a directory "architecture.svg": the extension is enough to say what
+        // that one wants, and avoids one more option.
+        Path file = tmp.resolve("architecture.svg");
 
         UMLGenerator.main(
-            new String[] {unRepertoireDUneClasse(tmp).toString(), fichier.toString()});
+            new String[] {aDirectoryOfOneClass(tmp).toString(), file.toString()});
 
-        assertTrue(Files.isRegularFile(fichier));
+        assertTrue(Files.isRegularFile(file));
     }
 
     @Test
-    void ligneDeCommande_accepteLeFormatPng(@TempDir Path tmp) throws Exception {
-        Path sortie = tmp.resolve("diagrammes");
+    void commandLine_acceptsThePngFormat(@TempDir Path tmp) throws Exception {
+        Path output = tmp.resolve("diagrams");
 
         UMLGenerator.main(
-            new String[] {unRepertoireDUneClasse(tmp).toString(), sortie.toString(), "png"});
+            new String[] {aDirectoryOfOneClass(tmp).toString(), output.toString(), "png"});
 
-        assertTrue(Files.exists(sortie.resolve("projet.png")));
+        assertTrue(Files.exists(output.resolve("project.png")));
     }
 
-    // OÙ DÉPOSER LA LISTE DES CLASSES IGNORÉES
+    // WHERE TO DROP THE LIST OF IGNORED CLASSES
     //
-    // Un nom de fichier nu n'a pas de parent, et ce n'est pas la même chose que n'avoir pas de
-    // destination : c'est le répertoire courant. Confondre les deux privait de sa liste
-    // l'invocation par défaut — « umlg target/classes » — ainsi que toute sortie nommée sans
-    // dossier, tandis que le même appel préfixé de « ./ » l'obtenait. Deux commandes qui
-    // déposent le fichier au même endroit doivent se comporter pareil.
+    // A bare file name has no parent, and that is not the same as having no
+    // destination: it is the current directory. Confusing the two deprived it of its list
+    // the default invocation — "umlg target/classes" — as well as any output named without
+    // directory, whereas the same call prefixed with "./" got it. Two commands that
+    // drop the file in the same place must behave alike.
 
     @Test
-    void unNomDeFichierNu_designeLeRepertoireCourant() {
-        Path dossier = UMLGenerator.dossierDeSortie(Path.of("diagramme.svg"));
+    void aBareFileName_meansTheCurrentDirectory() {
+        Path folder = UMLGenerator.outputFolder(Path.of("diagram.svg"));
 
-        assertEquals(Path.of(""), dossier);
-        assertEquals(Path.of(UMLGenerator.FICHIER_DES_CLASSES_IGNOREES),
-            dossier.resolve(UMLGenerator.FICHIER_DES_CLASSES_IGNOREES));
+        assertEquals(Path.of(""), folder);
+        assertEquals(Path.of(UMLGenerator.CLASSES_IGNORED_FILE),
+            folder.resolve(UMLGenerator.CLASSES_IGNORED_FILE));
     }
 
     @Test
-    void unNomNuEtLeMemeEnPointSlash_menentAuMemeFichier() {
-        Path nu = UMLGenerator.dossierDeSortie(Path.of("diagramme.svg"))
-            .resolve(UMLGenerator.FICHIER_DES_CLASSES_IGNOREES);
-        Path pointSlash = UMLGenerator.dossierDeSortie(Path.of("./diagramme.svg"))
-            .resolve(UMLGenerator.FICHIER_DES_CLASSES_IGNOREES);
+    void aBareNameAndTheSameAsDotSlash_leadToTheSameFile() {
+        Path nu = UMLGenerator.outputFolder(Path.of("diagram.svg"))
+            .resolve(UMLGenerator.CLASSES_IGNORED_FILE);
+        Path pointSlash = UMLGenerator.outputFolder(Path.of("./diagram.svg"))
+            .resolve(UMLGenerator.CLASSES_IGNORED_FILE);
 
         assertEquals(nu.toAbsolutePath().normalize(), pointSlash.toAbsolutePath().normalize());
     }
 
     @Test
-    void unCheminAvecDossier_gardeSonDossier() {
-        assertEquals(Path.of("docs"), UMLGenerator.dossierDeSortie(Path.of("docs", "archi.svg")));
+    void aPathWithDirectory_keepsItsDirectory() {
+        assertEquals(Path.of("docs"), UMLGenerator.outputFolder(Path.of("docs", "archi.svg")));
     }
 }

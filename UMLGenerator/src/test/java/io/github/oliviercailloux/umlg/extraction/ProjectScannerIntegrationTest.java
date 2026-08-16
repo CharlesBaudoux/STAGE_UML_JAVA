@@ -1,12 +1,12 @@
 package io.github.oliviercailloux.umlg.extraction;
 
-import static io.github.oliviercailloux.umlg.CompilationSansProcesseur.compiler;
+import static io.github.oliviercailloux.umlg.CompilationWithoutProcessor.compiler;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import io.github.oliviercailloux.umlg.Avertissements;
+import io.github.oliviercailloux.umlg.Warnings;
 import io.github.oliviercailloux.umlg.annotation.UMLFlow;
 import io.github.oliviercailloux.umlg.model.UmlDiagram;
 import io.github.oliviercailloux.umlg.model.UmlEntity;
@@ -27,354 +27,354 @@ import javax.tools.ToolProvider;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-// Le scan sur de vraies classes compilées, et non sur celles du test.
+// The scan on real compiled classes, and not on those of the test.
 //
-// Le procédé est le même dans chaque test : on écrit un fichier .java dans un répertoire
-// temporaire, on le compile pour de bon avec javac, puis on scanne le répertoire de sortie.
-// C'est le seul moyen d'éprouver ce qui n'existe qu'à ce niveau — la traduction chemin → nom
-// qualifié, les paquetages imbriqués, les fichiers illisibles, les ressources non .class.
+// The procedure is the same in each test: a .java file is written in a
+// temporary, it is compiled for real with javac, then the output directory is scanned.
+// It is the only way of exercising what exists at that level only — the path → name translation
+// qualified name, nested packages, unreadable files, non-.class resources.
 class ProjectScannerIntegrationTest {
 
-    // Le harnais javac — écrire, compiler, scanner — vit dans CompilationSansProcesseur, qui
-    // explique au passage pourquoi ces cobayes-là sont compilés sans le processeur.
+    // The javac harness — write, compile, scan — lives in CompilationWithoutProcessor, which
+    // explains along the way why those fixtures are compiled without the processor.
 
-    // Raccourci de lecture : les noms affichés des entités, pour comparer d'un coup avec Set.of.
-    private static Set<String> noms(UmlProject projet) {
-        return projet.entities().stream().map(UmlEntity::name).collect(Collectors.toSet());
+    // Reading shortcut: the displayed names of the entities, to compare at once with Set.of.
+    private static Set<String> names(UmlProject project) {
+        return project.entities().stream().map(UmlEntity::name).collect(Collectors.toSet());
     }
 
     @Test
-    void classeDansPackageImbrique_estDetecteeAvecSonNomSimple(@TempDir Path tmp) throws Exception {
-        // Vérifie la traduction « chemin de fichier → nom qualifié » : sans elle, le
-        // classLoader ne retrouverait pas la classe et le scan lèverait IllegalStateException.
-        Path sortie = tmp.resolve("classes");
-        compiler(tmp.resolve("src"), sortie, "com/exemple/domaine/Facture.java", """
-            package com.exemple.domaine;
+    void classInANestedPackage_isDetectedWithItsSimpleName(@TempDir Path tmp) throws Exception {
+        // Checks the "file path → qualified name" translation: without it, the
+        // classLoader would not find the class again and the scan would raise IllegalStateException.
+        Path output = tmp.resolve("classes");
+        compiler(tmp.resolve("src"), output, "com/example/domain/Invoice.java", """
+            package com.example.domain;
 
             import io.github.oliviercailloux.umlg.annotation.UMLClass;
             import io.github.oliviercailloux.umlg.annotation.UMLVisibility;
 
             @UMLClass(strategy = UMLVisibility.PUBLIC)
-            public class Facture {
-                public int montant;
-                public void emettre() {}
+            public class Invoice {
+                public int amount;
+                public void emit() {}
             }
             """);
 
-        UmlProject projet = ProjectScanner.scan(sortie).projet();
+        UmlProject project = ProjectScanner.scan(output).project();
 
-        assertEquals(Set.of("Facture"), noms(projet));
-        UmlEntity facture = projet.entities().iterator().next();
-        assertTrue(facture.fields().stream().anyMatch(f -> f.name().equals("montant")));
-        assertTrue(facture.methods().stream().anyMatch(m -> m.name().equals("emettre")));
+        assertEquals(Set.of("Invoice"), names(project));
+        UmlEntity invoice = project.entities().iterator().next();
+        assertTrue(invoice.fields().stream().anyMatch(f -> f.name().equals("amount")));
+        assertTrue(invoice.methods().stream().anyMatch(m -> m.name().equals("emit")));
     }
 
     @Test
-    void classeNonAnnotee_estIgnoree(@TempDir Path tmp) throws Exception {
-        Path sortie = tmp.resolve("classes");
-        compiler(tmp.resolve("src"), sortie, "com/exemple/Annotee.java", """
-            package com.exemple;
+    void unannotatedClass_isIgnored(@TempDir Path tmp) throws Exception {
+        Path output = tmp.resolve("classes");
+        compiler(tmp.resolve("src"), output, "com/example/Annotated.java", """
+            package com.example;
 
             import io.github.oliviercailloux.umlg.annotation.UMLClass;
 
             @UMLClass
-            public class Annotee {}
+            public class Annotated {}
             """);
-        compiler(tmp.resolve("src"), sortie, "com/exemple/Ordinaire.java", """
-            package com.exemple;
+        compiler(tmp.resolve("src"), output, "com/example/Ordinary.java", """
+            package com.example;
 
-            public class Ordinaire {
-                public int champ;
+            public class Ordinary {
+                public int field;
             }
             """);
 
-        UmlProject projet = ProjectScanner.scan(sortie).projet();
+        UmlProject project = ProjectScanner.scan(output).project();
 
-        assertEquals(Set.of("Annotee"), noms(projet),
-            "Seules les classes portant @UMLClass entrent dans le diagramme.");
+        assertEquals(Set.of("Annotated"), names(project),
+            "Only classes carrying @UMLClass enter the diagram.");
     }
 
     @Test
-    void classeInterneAnnotee_estDetectee(@TempDir Path tmp) throws Exception {
-        // Les classes internes produisent un fichier « Externe$Interne.class » : le nom
-        // qualifié doit conserver le '$' pour rester chargeable.
-        Path sortie = tmp.resolve("classes");
-        compiler(tmp.resolve("src"), sortie, "com/exemple/Externe.java", """
-            package com.exemple;
+    void annotatedInnerClass_isDetected(@TempDir Path tmp) throws Exception {
+        // Inner classes produce an "Outer$Inner.class" file: the name
+        // the qualified name must keep the '$' to stay loadable.
+        Path output = tmp.resolve("classes");
+        compiler(tmp.resolve("src"), output, "com/example/External.java", """
+            package com.example;
 
             import io.github.oliviercailloux.umlg.annotation.UMLClass;
 
-            public class Externe {
-                @UMLClass(name = "Interne")
-                public static class Interne {}
+            public class External {
+                @UMLClass(name = "Internal")
+                public static class Internal {}
             }
             """);
 
-        UmlProject projet = ProjectScanner.scan(sortie).projet();
+        UmlProject project = ProjectScanner.scan(output).project();
 
-        assertEquals(Set.of("Interne"), noms(projet));
+        assertEquals(Set.of("Internal"), names(project));
     }
 
     @Test
-    void fichiersNonClasse_sontIgnores(@TempDir Path tmp) throws Exception {
-        // Un dossier de build réel contient aussi des ressources (.properties, .txt, .xml).
-        Path sortie = tmp.resolve("classes");
-        compiler(tmp.resolve("src"), sortie, "com/exemple/Seule.java", """
-            package com.exemple;
+    void nonClassFiles_areIgnored(@TempDir Path tmp) throws Exception {
+        // A real build directory also holds resources (.properties, .txt, .xml).
+        Path output = tmp.resolve("classes");
+        compiler(tmp.resolve("src"), output, "com/example/Only.java", """
+            package com.example;
 
             import io.github.oliviercailloux.umlg.annotation.UMLClass;
 
             @UMLClass
-            public class Seule {}
+            public class Only {}
             """);
-        Files.writeString(sortie.resolve("application.properties"), "cle=valeur");
-        Files.createDirectories(sortie.resolve("META-INF"));
-        Files.writeString(sortie.resolve("META-INF/MANIFEST.MF"), "Manifest-Version : 1.0");
+        Files.writeString(output.resolve("application.properties"), "key=value");
+        Files.createDirectories(output.resolve("META-INF"));
+        Files.writeString(output.resolve("META-INF/MANIFEST.MF"), "Manifest-Version : 1.0");
 
-        UmlProject projet = ProjectScanner.scan(sortie).projet();
+        UmlProject project = ProjectScanner.scan(output).project();
 
-        assertEquals(Set.of("Seule"), noms(projet));
+        assertEquals(Set.of("Only"), names(project));
     }
 
     @Test
-    void dossierSansClasseAnnotee_estRefuseAvecUnMessageExplicite(@TempDir Path tmp)
+    void directoryWithoutAnnotatedClass_isRefusedWithAnExplicitMessage(@TempDir Path tmp)
         throws Exception {
-        // UmlProject exige au moins une entité : scanner un projet où personne n'a annoté
-        // doit produire une erreur compréhensible, pas un diagramme vide.
-        Path sortie = tmp.resolve("classes");
-        compiler(tmp.resolve("src"), sortie, "com/exemple/Rien.java", """
-            package com.exemple;
+        // UmlProject requires at least one entity: scanning a project where nobody annotated
+        // must produce an understandable error, not an empty diagram.
+        Path output = tmp.resolve("classes");
+        compiler(tmp.resolve("src"), output, "com/example/Nothing.java", """
+            package com.example;
 
-            public class Rien {}
+            public class Nothing {}
             """);
 
         IllegalArgumentException e =
-            assertThrows(IllegalArgumentException.class, () -> ProjectScanner.scan(sortie).projet());
+            assertThrows(IllegalArgumentException.class, () -> ProjectScanner.scan(output).project());
 
-        // Le message ne se contente pas de constater : le scan vient de lire cette classe, il
-        // connaît son nom, et c'est celui-là qu'il faut annoter.
+        // The message does not merely state the fact: the scan has just read this class, it
+        // knows its name, and that is the one to annotate.
         assertTrue(e.getMessage().contains("No class carries @UMLClass"), e.getMessage());
-        assertTrue(e.getMessage().contains("Rien"),
-            "Le message doit nommer les classes lues : " + e.getMessage());
+        assertTrue(e.getMessage().contains("Nothing"),
+            "The message must name the classes read: " + e.getMessage());
     }
 
-    // Répertoire existant mais vide : le refus vient d'UmlProject, non du scan lui-même.
+    // An existing but empty directory: the refusal comes from UmlProject, not from the scan itself.
     @Test
-    void dossierVide_estRefuse(@TempDir Path tmp) {
-        assertThrows(IllegalArgumentException.class, () -> ProjectScanner.scan(tmp).projet());
+    void emptyDirectory_isRefused(@TempDir Path tmp) {
+        assertThrows(IllegalArgumentException.class, () -> ProjectScanner.scan(tmp).project());
     }
 
     @Test
-    void fichierClasseIllisible_estIgnoreSansArreterLeScan(@TempDir Path tmp)
+    void unreadableClassFile_isIgnoredWithoutStoppingTheScan(@TempDir Path tmp)
         throws Exception {
-        // Un .class corrompu, compilé pour une JVM plus récente, ou dont une dépendance manque au
-        // classpath, lève une LinkageError au chargement. Le scan doit passer son chemin plutôt
-        // que d'avorter : la classe illisible n'est très probablement pas celle que le diagramme
-        // décrit, et faire échouer toute la génération pour elle rendait l'outil inutilisable sur
-        // un projet réel où une dépendance « provided » manque.
-        Path sortie = tmp.resolve("classes");
-        compiler(tmp.resolve("src"), sortie, "com/exemple/Bonne.java", """
-            package com.exemple;
+        // A corrupt .class, compiled for a newer JVM, or one of whose dependencies is missing from the
+        // classpath, raises a LinkageError on loading. The scan must go its way rather
+        // than aborting: the unreadable class is very probably not the one the diagram
+        // describes, and failing the whole generation over it made the tool unusable on
+        // a real project where a "provided" dependency is missing.
+        Path output = tmp.resolve("classes");
+        compiler(tmp.resolve("src"), output, "com/example/Bonne.java", """
+            package com.example;
 
             import io.github.oliviercailloux.umlg.annotation.UMLClass;
 
             @UMLClass
             public class Bonne {}
             """);
-        Files.createDirectories(sortie.resolve("com/exemple"));
-        // Les quatre premiers octets sont le nombre magique d'un .class (0xCAFEBABE) : le
-        // fichier est donc reconnu comme tel, mais la suite ne veut rien dire.
-        Files.write(sortie.resolve("com/exemple/Corrompue.class"),
+        Files.createDirectories(output.resolve("com/example"));
+        // The first four bytes are the magic number of a .class (0xCAFEBABE): the
+        // the file is therefore recognized as such, but what follows means nothing.
+        Files.write(output.resolve("com/example/Corrompue.class"),
             new byte[] {(byte) 0xCA, (byte) 0xFE, (byte) 0xBA, (byte) 0xBE, 0, 0, 0, 0, 1, 2, 3});
 
-        UmlProject projet = ProjectScanner.scan(sortie).projet();
+        UmlProject project = ProjectScanner.scan(output).project();
 
-        assertEquals(1, projet.entities().size());
-        assertEquals("com.exemple.Bonne",
-            projet.entities().iterator().next().qualifiedName());
+        assertEquals(1, project.entities().size());
+        assertEquals("com.example.Bonne",
+            project.entities().iterator().next().qualifiedName());
     }
 
     @Test
-    void toutesLesClassesIllisibles_neDonnentPasUnDiagrammeVideEnSilence(@TempDir Path tmp)
+    void allClassesUnreadable_doNotSilentlyGiveAnEmptyDiagram(@TempDir Path tmp)
         throws Exception {
-        // Le cas limite du précédent : si la seule classe du répertoire est illisible, il ne
-        // reste rien à dessiner. Le refus doit rester, sans quoi l'utilisateur recevrait un
-        // diagramme vide sans savoir pourquoi.
-        Path sortie = tmp.resolve("classes");
-        Files.createDirectories(sortie.resolve("com/exemple"));
-        Files.write(sortie.resolve("com/exemple/Corrompue.class"),
+        // The edge case of the previous one: if the only class of the directory is unreadable, there is
+        // nothing is left to draw. The refusal must stay, otherwise the user would receive a
+        // diagram empty without savoir why.
+        Path output = tmp.resolve("classes");
+        Files.createDirectories(output.resolve("com/example"));
+        Files.write(output.resolve("com/example/Corrompue.class"),
             new byte[] {(byte) 0xCA, (byte) 0xFE, (byte) 0xBA, (byte) 0xBE, 0, 0, 0, 0, 1, 2, 3});
 
-        assertThrows(IllegalArgumentException.class, () -> ProjectScanner.scan(sortie).projet());
+        assertThrows(IllegalArgumentException.class, () -> ProjectScanner.scan(output).project());
     }
 
-    // --- Une dépendance absente du classpath analysé ---
+    // --- A dependency missing from the analysed classpath ---
 
-    // Compile une classe annotée qui nomme un type déclaré dans le même fichier, puis retire le
-    // .class de ce type : ce qui reste est exactement un projet dont une dépendance manque au
-    // classpath analysé — le cas d'une dépendance « provided » oubliée. Une seconde classe, saine
-    // et indépendante, sert à constater que le scan est allé jusqu'au bout.
-    private static Path dependanceRetiree(Path tmp, String declarationDuChamp) throws IOException {
-        Path sortie = tmp.resolve("classes");
-        compiler(tmp.resolve("src"), sortie, "com/exemple/Porteuse.java", """
-            package com.exemple;
+    // Compiles an annotated class naming a type declared in the same file, then removes the
+    // .class of that type: what remains is exactly a project whose dependency is missing from the
+    // analysed classpath — the case of a forgotten "provided" dependency. A second class, sound
+    // and independent, serves to check that the scan went all the way.
+    private static Path dependencyRemoved(Path tmp, String fieldDeclaration) throws IOException {
+        Path output = tmp.resolve("classes");
+        compiler(tmp.resolve("src"), output, "com/example/Holder.java", """
+            package com.example;
 
             import io.github.oliviercailloux.umlg.annotation.UMLClass;
             import io.github.oliviercailloux.umlg.annotation.UMLVisibility;
 
-            class Absente {}
+            class Missing {}
 
             @UMLClass(strategy = UMLVisibility.PUBLIC)
-            public class Porteuse {
-                public CHAMP
+            public class Holder {
+                public Field
             }
-            """.replace("CHAMP", declarationDuChamp));
-        compiler(tmp.resolve("src"), sortie, "com/exemple/Saine.java", """
-            package com.exemple;
+            """.replace("Field", fieldDeclaration));
+        compiler(tmp.resolve("src"), output, "com/example/Saine.java", """
+            package com.example;
 
             import io.github.oliviercailloux.umlg.annotation.UMLClass;
 
             @UMLClass
             public class Saine {}
             """);
-        Files.delete(sortie.resolve("com/exemple/Absente.class"));
-        return sortie;
+        Files.delete(output.resolve("com/example/Missing.class"));
+        return output;
     }
 
-    // Ce que le scan a dit en chemin. Le canal est rétabli dans un finally : laissé en place, il
-    // capterait les avertissements du test suivant, qui tourne sur le même fil.
-    private static List<String> avertissementsDuScan(Path sortie) throws IOException {
-        List<String> dits = new ArrayList<>();
-        try (Avertissements.Canal canal = Avertissements.redirectTo(dits::add)) {
-            ProjectScanner.scan(sortie);
+    // What the scan said along the way. The channel is restored in a finally: left in place, it
+    // would capture the warnings of the next test, which runs on the same thread.
+    private static List<String> scanWarnings(Path output) throws IOException {
+        List<String> said = new ArrayList<>();
+        try (Warnings.Channel channel = Warnings.redirectTo(said::add)) {
+            ProjectScanner.scan(output);
         }
-        return dits;
+        return said;
     }
 
-    // L'unique avertissement qui nomme la classe donnée.
-    private static String avertissementSur(List<String> dits, String classe) {
-        List<String> retenus = dits.stream().filter(m -> m.contains(classe)).toList();
-        assertEquals(1, retenus.size(), "Un seul avertissement doit nommer " + classe + " : "
-            + dits);
-        return retenus.get(0);
+    // The single warning naming the given class.
+    private static String warningOn(List<String> said, String clazz) {
+        List<String> kept = said.stream().filter(m -> m.contains(clazz)).toList();
+        assertEquals(1, kept.size(), "One only warning must nommer " + clazz + " : "
+            + said);
+        return kept.get(0);
     }
 
     @Test
-    void typeAbsentDansUneSignatureGenerique_neFaitPasEchouerLeScan(@TempDir Path tmp)
+    void typeAbsentFromAGenericSignature_doesNotFailTheScan(@TempDir Path tmp)
         throws Exception {
-        // getGenericType() sur « List<Absente> » ne lève pas NoClassDefFoundError mais
-        // TypeNotPresentException, une RuntimeException qui échappait à la clause de capture : le
-        // scan entier avortait, et le message ne nommait ni la classe, ni le fichier, ni le
-        // remède. Le même répertoire avec un champ non générique passait, lui — la forme de la
-        // signature décidait du sort du scan.
-        Path sortie = dependanceRetiree(tmp, "java.util.List<Absente> liste;");
+        // getGenericType() on "List<Missing>" does not raise NoClassDefFoundError but
+        // a TypeNotPresentException, a RuntimeException escaping the catch clause: the
+        // the whole scan aborted, and the message named neither the class, nor the file, nor the
+        // remedy. The same directory with a non-generic field did pass — the shape of the
+        // the signature decided the fate of the scan.
+        Path output = dependencyRemoved(tmp, "java.util.List<Missing> list;");
 
-        UmlProject projet = ProjectScanner.scan(sortie).projet();
+        UmlProject project = ProjectScanner.scan(output).project();
 
-        assertEquals(Set.of("Saine"), noms(projet),
-            "Le scan doit livrer les boîtes qu'il a su lire, et se passer de l'autre.");
+        assertEquals(Set.of("Saine"), names(project),
+            "The scan must deliver the boxes it could read, and do without the other.");
     }
 
     @Test
-    void typeAbsentDansUneSignatureNue_neFaitPasEchouerLeScan(@TempDir Path tmp) throws Exception {
-        // Le pendant du précédent : ici la réflexion lève une LinkageError, déjà rattrapée.
-        // Les deux formes doivent avoir le même sort, faute de quoi rien ne permet de prévoir
-        // lequel des deux répertoires se dessinera.
-        Path sortie = dependanceRetiree(tmp, "Absente champ;");
+    void typeAbsentFromABareSignature_doesNotFailTheScan(@TempDir Path tmp) throws Exception {
+        // The counterpart of the previous one: here reflection raises a LinkageError, already caught.
+        // Both forms must share the same fate, otherwise nothing lets one predict
+        // which of the two directories will be drawn.
+        Path output = dependencyRemoved(tmp, "Missing field;");
 
-        UmlProject projet = ProjectScanner.scan(sortie).projet();
+        UmlProject project = ProjectScanner.scan(output).project();
 
-        assertEquals(Set.of("Saine"), noms(projet));
+        assertEquals(Set.of("Saine"), names(project));
     }
 
     @Test
-    void uneClasseChargeeMaisIllisible_estSignaleeSansPretendreQuElleNAPasCharge(@TempDir Path tmp)
+    void aLoadedButUnreadableClass_isReportedWithoutClaimingItDidNotLoad(@TempDir Path tmp)
         throws Exception {
-        // Le message des classes illisibles dit « on ne peut pas savoir si elles portaient
-        // @UMLClass, l'annotation ne se lit que sur une classe chargée ». Sur Porteuse, il serait
-        // faux mot pour mot : elle s'est chargée, l'annotation a été lue, elle y était, et c'est
-        // sa boîte qui est perdue. Le message doit donc être l'autre.
-        Path sortie = dependanceRetiree(tmp, "java.util.List<Absente> liste;");
+        // The message for unreadable classes says "we cannot know whether they carried
+        // @UMLClass, the annotation is read only on a loaded class". On Holder, it would be
+        // wrong word for word: it loaded, the annotation was read, it was there, and that is
+        // its box that is lost. The message must therefore be the other one.
+        Path output = dependencyRemoved(tmp, "java.util.List<Missing> list;");
 
-        String dit = avertissementSur(avertissementsDuScan(sortie), "com.exemple.Porteuse");
+        String says = warningOn(scanWarnings(output), "com.example.Holder");
 
-        assertTrue(dit.contains("loaded but could not be read"), dit);
-        assertTrue(dit.contains("a type it names"), dit);
-        assertFalse(dit.contains("only readable on a loaded class"),
-            "La classe s'est chargée : ce reproche-là ne la concerne pas — " + dit);
+        assertTrue(says.contains("loaded but could not be read"), says);
+        assertTrue(says.contains("a type it names"), says);
+        assertFalse(says.contains("only readable on a loaded class"),
+            "The class did load: that complaint does not concern it — " + says);
     }
 
     @Test
-    void uneClasseQuiNeChargePas_gardeLeMessageDesClassesIllisibles(@TempDir Path tmp)
+    void aClassThatDoesNotLoad_keepsTheUnreadableClassesMessage(@TempDir Path tmp)
         throws Exception {
-        // L'autre moitié de la séparation : un .class que le chargeur refuse garde bien le
-        // message qui nomme le doute sur @UMLClass, seul cas où ce doute existe.
-        Path sortie = tmp.resolve("classes");
-        compiler(tmp.resolve("src"), sortie, "com/exemple/Saine.java", """
-            package com.exemple;
+        // The other half of the split: a .class the loader refuses does keep the
+        // a message naming the doubt about @UMLClass, the only case where that doubt exists.
+        Path output = tmp.resolve("classes");
+        compiler(tmp.resolve("src"), output, "com/example/Saine.java", """
+            package com.example;
 
             import io.github.oliviercailloux.umlg.annotation.UMLClass;
 
             @UMLClass
             public class Saine {}
             """);
-        Files.write(sortie.resolve("com/exemple/Corrompue.class"),
+        Files.write(output.resolve("com/example/Corrompue.class"),
             new byte[] {(byte) 0xCA, (byte) 0xFE, (byte) 0xBA, (byte) 0xBE, 0, 0, 0, 0, 1, 2, 3});
 
-        String dit = avertissementSur(avertissementsDuScan(sortie), "com.exemple.Corrompue");
+        String says = warningOn(scanWarnings(output), "com.example.Corrompue");
 
-        assertTrue(dit.contains("could not be loaded"), dit);
-        assertTrue(dit.contains("only readable on a loaded class"), dit);
+        assertTrue(says.contains("could not be loaded"), says);
+        assertTrue(says.contains("only readable on a loaded class"), says);
     }
 
     @Test
-    void toutesLesBoitesPerdues_neDonnentPasUnDiagrammeVideEnSilence(@TempDir Path tmp)
+    void allBoxesLost_doNotSilentlyGiveAnEmptyDiagram(@TempDir Path tmp)
         throws Exception {
-        // Le cas limite : si la seule classe annotée du répertoire est illisible à l'extraction,
-        // il ne reste rien à dessiner. Le refus doit rester — mais précédé de l'avertissement qui
-        // en donne la cause, sans quoi l'utilisateur ne lirait qu'un « aucune classe annotée »
-        // incompréhensible sur un répertoire où il vient d'en écrire une.
-        Path sortie = tmp.resolve("classes");
-        compiler(tmp.resolve("src"), sortie, "com/exemple/Porteuse.java", """
-            package com.exemple;
+        // The edge case: if the only annotated class of the directory is unreadable at extraction,
+        // there is nothing left to draw. The refusal must stay — but preceded by the warning that
+        // gives the cause, otherwise the user would read only a "no annotated class"
+        // unreadable on a directory where it has just written one.
+        Path output = tmp.resolve("classes");
+        compiler(tmp.resolve("src"), output, "com/example/Holder.java", """
+            package com.example;
 
             import io.github.oliviercailloux.umlg.annotation.UMLClass;
             import io.github.oliviercailloux.umlg.annotation.UMLVisibility;
 
-            class Absente {}
+            class Missing {}
 
             @UMLClass(strategy = UMLVisibility.PUBLIC)
-            public class Porteuse {
-                public java.util.List<Absente> liste;
+            public class Holder {
+                public java.util.List<Missing> list;
             }
             """);
-        Files.delete(sortie.resolve("com/exemple/Absente.class"));
+        Files.delete(output.resolve("com/example/Missing.class"));
 
-        List<String> dits = new ArrayList<>();
-        try (Avertissements.Canal canal = Avertissements.redirectTo(dits::add)) {
+        List<String> said = new ArrayList<>();
+        try (Warnings.Channel channel = Warnings.redirectTo(said::add)) {
             IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
-                () -> ProjectScanner.scan(sortie).projet());
+                () -> ProjectScanner.scan(output).project());
             assertTrue(e.getMessage().contains("No class carries @UMLClass"), e.getMessage());
         }
 
-        assertTrue(avertissementSur(dits, "com.exemple.Porteuse")
-            .contains("loaded but could not be read"), dits.toString());
+        assertTrue(warningOn(said, "com.example.Holder")
+            .contains("loaded but could not be read"), said.toString());
     }
 
     @Test
-    void scanRepete_donneLeMemeResultat(@TempDir Path tmp) throws Exception {
-        // Le diagramme ne doit pas dépendre de l'ordre de parcours du système de fichiers.
-        Path sortie = tmp.resolve("classes");
-        compiler(tmp.resolve("src"), sortie, "com/exemple/A.java", """
-            package com.exemple;
+    void repeatedScan_givesTheSameResult(@TempDir Path tmp) throws Exception {
+        // The diagram must not depend on the traversal order of the file system.
+        Path output = tmp.resolve("classes");
+        compiler(tmp.resolve("src"), output, "com/example/A.java", """
+            package com.example;
 
             import io.github.oliviercailloux.umlg.annotation.UMLClass;
 
             @UMLClass
             public class A {}
             """);
-        compiler(tmp.resolve("src"), sortie, "com/exemple/B.java", """
-            package com.exemple;
+        compiler(tmp.resolve("src"), output, "com/example/B.java", """
+            package com.example;
 
             import io.github.oliviercailloux.umlg.annotation.UMLClass;
 
@@ -382,221 +382,221 @@ class ProjectScannerIntegrationTest {
             public class B {}
             """);
 
-        assertEquals(ProjectScanner.scan(sortie).projet().entities(),
-            ProjectScanner.scan(sortie).projet().entities());
-        assertEquals(Set.of("A", "B"), noms(ProjectScanner.scan(sortie).projet()));
+        assertEquals(ProjectScanner.scan(output).project().entities(),
+            ProjectScanner.scan(output).project().entities());
+        assertEquals(Set.of("A", "B"), names(ProjectScanner.scan(output).project()));
     }
 
     @Test
-    void annotationInvalideSurUneClasseScannee_remonteAuScan(@TempDir Path tmp) throws Exception {
-        // La validation de @UMLClass (couleur hexadécimale) doit s'appliquer aussi quand la
-        // classe est découverte par le scan, et pas seulement en appel direct à extract().
-        Path sortie = tmp.resolve("classes");
-        compiler(tmp.resolve("src"), sortie, "com/exemple/MauvaiseCouleur.java", """
-            package com.exemple;
+    void invalidAnnotationOnAScannedClass_reachesTheScan(@TempDir Path tmp) throws Exception {
+        // The validation of @UMLClass (hexadecimal colour) must also apply when the
+        // class is discovered by the scan, and not only on a direct call to extract().
+        Path output = tmp.resolve("classes");
+        compiler(tmp.resolve("src"), output, "com/example/MauvaiseCouleur.java", """
+            package com.example;
 
             import io.github.oliviercailloux.umlg.annotation.UMLClass;
 
-            @UMLClass(color = "rouge-vif")
+            @UMLClass(color = "red-bright")
             public class MauvaiseCouleur {}
             """);
 
         IllegalArgumentException e =
-            assertThrows(IllegalArgumentException.class, () -> ProjectScanner.scan(sortie).projet());
+            assertThrows(IllegalArgumentException.class, () -> ProjectScanner.scan(output).project());
 
-        assertTrue(e.getMessage().contains("rouge-vif"), e.getMessage());
+        assertTrue(e.getMessage().contains("red-bright"), e.getMessage());
     }
 
-    // --- Le fichier de règles du projet ---
+    // --- The project rules file ---
 
     @Test
-    void fichierDeRegles_estAppliqueAuProjetScanne(@TempDir Path tmp) throws Exception {
-        // Le fichier vit à la racine du répertoire analysé, à côté des .class — c'est-à-dire, pour
-        // un projet Maven, dans src/main/resources, que la construction y recopie.
-        Path sortie = tmp.resolve("classes");
-        compiler(tmp.resolve("src"), sortie, "com/exemple/Clavier.java", """
-            package com.exemple;
+    void rulesFile_isAppliedToTheScannedProject(@TempDir Path tmp) throws Exception {
+        // The file lives at the root of the analysed directory, next to the .class files — that is, for
+        // a Maven project, in src/main/resources, which the build copies there.
+        Path output = tmp.resolve("classes");
+        compiler(tmp.resolve("src"), output, "com/example/Keyboard.java", """
+            package com.example;
 
             import com.google.common.collect.ImmutableList;
             import io.github.oliviercailloux.umlg.annotation.UMLClass;
             import io.github.oliviercailloux.umlg.annotation.UMLVisibility;
 
             @UMLClass(strategy = UMLVisibility.PUBLIC)
-            public class Clavier {
-                public ImmutableList<String> touches;
+            public class Keyboard {
+                public ImmutableList<String> keys;
             }
             """);
-        Files.writeString(sortie.resolve("umlg.json"), """
+        Files.writeString(output.resolve("umlg.json"), """
             {
-              "_": "Guava n'apprend rien au lecteur du diagramme.",
+              "_": "Guava teaches the diagram reader nothing.",
               "types": { "ImmutableList": "List" }
             }
             """, StandardCharsets.UTF_8);
 
-        UmlEntity clavier = ProjectScanner.scan(sortie).projet().entities().iterator().next();
+        UmlEntity keyboard = ProjectScanner.scan(output).project().entities().iterator().next();
 
-        assertEquals("List<String>", clavier.fields().get(0).type(),
-            "La règle du projet doit atteindre les boîtes : " + clavier.fields());
+        assertEquals("List<String>", keyboard.fields().get(0).type(),
+            "The project rule must reach the boxes: " + keyboard.fields());
     }
 
     @Test
-    void sansFichierDeRegles_leScanDecritLeCodeTelQuilEst(@TempDir Path tmp) throws Exception {
-        Path sortie = tmp.resolve("classes");
-        compiler(tmp.resolve("src"), sortie, "com/exemple/Clavier.java", """
-            package com.exemple;
+    void withoutRulesFile_theScanDescribesTheCodeAsItIs(@TempDir Path tmp) throws Exception {
+        Path output = tmp.resolve("classes");
+        compiler(tmp.resolve("src"), output, "com/example/Keyboard.java", """
+            package com.example;
 
             import com.google.common.collect.ImmutableList;
             import io.github.oliviercailloux.umlg.annotation.UMLClass;
             import io.github.oliviercailloux.umlg.annotation.UMLVisibility;
 
             @UMLClass(strategy = UMLVisibility.PUBLIC)
-            public class Clavier {
-                public ImmutableList<String> touches;
+            public class Keyboard {
+                public ImmutableList<String> keys;
             }
             """);
 
-        UmlEntity clavier = ProjectScanner.scan(sortie).projet().entities().iterator().next();
+        UmlEntity keyboard = ProjectScanner.scan(output).project().entities().iterator().next();
 
-        assertEquals("ImmutableList<String>", clavier.fields().get(0).type());
+        assertEquals("ImmutableList<String>", keyboard.fields().get(0).type());
     }
 
-    // --- Les noms des paramètres, quand le projet n'a pas été compilé pour les garder ---
+    // --- Parameter names, when the project was not compiled to keep them ---
 
     @Test
-    void projetCompileSansParameters_neMontreQueLesTypes(@TempDir Path tmp) throws Exception {
-        // Les cobayes de ce test sont compilés sans l'option « -parameters » (voir compiler),
-        // c'est-à-dire comme la plupart des projets. La réflexion ne rend alors que « arg0 »,
-        // « arg1 »… et la bibliothèque doit s'en tenir aux types plutôt que d'écrire sur le
-        // dessin des noms que personne n'a choisis.
-        Path sortie = tmp.resolve("classes");
-        compiler(tmp.resolve("src"), sortie, "com/exemple/Vol.java", """
-            package com.exemple;
+    void projectCompiledWithoutParameters_showsTypesOnly(@TempDir Path tmp) throws Exception {
+        // The fixtures of this test are compiled without the "-parameters" option (see compiler),
+        // that is, like most projects. Reflection then returns only "arg0",
+        // "arg1"… and the library must stick to the types rather than writing on the
+        // on the drawing names nobody chose.
+        Path output = tmp.resolve("classes");
+        compiler(tmp.resolve("src"), output, "com/example/Flight.java", """
+            package com.example;
 
             import io.github.oliviercailloux.umlg.annotation.UMLClass;
             import io.github.oliviercailloux.umlg.annotation.UMLVisibility;
 
             @UMLClass(strategy = UMLVisibility.PUBLIC)
-            public class Vol {
-                public void reporter(String nouvelleHeure, int minutes) {}
+            public class Flight {
+                public void reporter(String newTime, int minutes) {}
             }
             """);
 
-        UmlEntity vol = ProjectScanner.scan(sortie).projet().entities().iterator().next();
-        UmlMethod reporter = vol.methods().get(0);
+        UmlEntity flight = ProjectScanner.scan(output).project().entities().iterator().next();
+        UmlMethod reporter = flight.methods().get(0);
 
         assertEquals(List.of("String", "int"),
             reporter.parameters().stream().map(UmlParameter::type).toList());
         assertTrue(reporter.parameters().stream().noneMatch(UmlParameter::isNamed),
-            "Aucun « arg0 » ne doit atteindre le dessin : " + reporter.parameters());
+            "No \"arg0\" must reach the drawing: " + reporter.parameters());
     }
 
     @Test
-    void sansFichierDeRegles_lesReglagesSontCeuxParDefaut(@TempDir Path tmp) throws Exception {
-        Path sortie = tmp.resolve("classes");
-        compiler(tmp.resolve("src"), sortie, "com/exemple/Facture.java", UNE_BOITE);
+    void withoutRulesFile_theSettingsAreTheDefaultOnes(@TempDir Path tmp) throws Exception {
+        Path output = tmp.resolve("classes");
+        compiler(tmp.resolve("src"), output, "com/example/Invoice.java", ONE_BOX);
 
-        assertEquals(UmlDiagram.defaults(), ProjectScanner.scan(sortie).projet().diagram());
+        assertEquals(UmlDiagram.defaults(), ProjectScanner.scan(output).project().diagram());
     }
 
     @Test
-    void titreEtSensDeLecture_sontLusDansLeFichierDeRegles(@TempDir Path tmp) throws Exception {
-        Path sortie = tmp.resolve("classes");
-        compiler(tmp.resolve("src"), sortie, "com/exemple/Facture.java", UNE_BOITE);
-        Files.writeString(sortie.resolve("umlg.json"), """
+    void titleAndReadingDirection_areReadInTheRulesFile(@TempDir Path tmp) throws Exception {
+        Path output = tmp.resolve("classes");
+        compiler(tmp.resolve("src"), output, "com/example/Invoice.java", ONE_BOX);
+        Files.writeString(output.resolve("umlg.json"), """
             {
-              "title": "Architecture du module Facturation",
+              "title": "Architecture of the Billing module",
               "direction": "left-to-right",
               "showEmptyMembers": true
             }
             """, StandardCharsets.UTF_8);
 
-        UmlDiagram diagramme = ProjectScanner.scan(sortie).projet().diagram();
+        UmlDiagram diagram = ProjectScanner.scan(output).project().diagram();
 
-        assertEquals("Architecture du module Facturation", diagramme.title());
-        assertEquals(UMLFlow.LEFT_TO_RIGHT, diagramme.direction());
-        assertFalse(diagramme.hideEmptyMembers());
+        assertEquals("Architecture of the Billing module", diagram.title());
+        assertEquals(UMLFlow.LEFT_TO_RIGHT, diagram.direction());
+        assertFalse(diagram.hideEmptyMembers());
     }
 
     @Test
-    void fichierDeReglesFautif_arreteLeScan(@TempDir Path tmp) throws Exception {
-        Path sortie = tmp.resolve("classes");
-        compiler(tmp.resolve("src"), sortie, "com/exemple/Facture.java", UNE_BOITE);
-        Files.writeString(sortie.resolve("umlg.json"), "{ \"title\": \"\" }\n",
+    void faultyRulesFile_stopsTheScan(@TempDir Path tmp) throws Exception {
+        Path output = tmp.resolve("classes");
+        compiler(tmp.resolve("src"), output, "com/example/Invoice.java", ONE_BOX);
+        Files.writeString(output.resolve("umlg.json"), "{ \"title\": \"\" }\n",
             StandardCharsets.UTF_8);
 
         IllegalArgumentException e =
-            assertThrows(IllegalArgumentException.class, () -> ProjectScanner.scan(sortie).projet());
+            assertThrows(IllegalArgumentException.class, () -> ProjectScanner.scan(output).project());
 
         assertTrue(e.getMessage().contains("the title cannot be empty"), e.getMessage());
     }
 
     @Test
-    void unProjetModulaire_neFaitPasEchouerLeScan(@TempDir Path tmp) throws Exception {
-        // Un module-info.class n'est pas une classe : le charger lève « access_flag ACC_MODULE
-        // is set », et le scan entier échouait sur le premier projet modulaire rencontré. Aucun
-        // cobaye n'en portait, et le défaut n'est apparu qu'en analysant un vrai projet.
+    void aModularProject_doesNotFailTheScan(@TempDir Path tmp) throws Exception {
+        // A module-info.class is not a class: loading it raises "access_flag ACC_MODULE
+        // is set", and the whole scan failed on the first modular project met. No
+        // fixture carried one, and the defect appeared only when analysing a real project.
         Path sources = tmp.resolve("src");
-        Path sortie = tmp.resolve("classes");
-        compiler(sources, sortie, "com/exemple/Facture.java", UNE_BOITE);
+        Path output = tmp.resolve("classes");
+        compiler(sources, output, "com/example/Invoice.java", ONE_BOX);
 
-        // Le descripteur de module est compilé à part : il n'a besoin de rien, et sa seule
-        // présence dans le répertoire suffit à reproduire le cas.
-        Path descripteur = sources.resolve("module-info.java");
-        Files.writeString(descripteur, "module cobaye {\n}\n", StandardCharsets.UTF_8);
-        JavaCompiler compilateur = ToolProvider.getSystemJavaCompiler();
-        try (StandardJavaFileManager gestionnaire =
-            compilateur.getStandardFileManager(null, null, StandardCharsets.UTF_8)) {
-            assertTrue(compilateur.getTask(null, gestionnaire, null,
-                List.of("-proc:none", "-d", sortie.toString()), null,
-                gestionnaire.getJavaFileObjects(descripteur.toFile())).call(),
-                "Le descripteur de module doit compiler.");
+        // The module descriptor is compiled apart: it needs nothing, and its only
+        // its presence in the directory is enough to reproduce the case.
+        Path descriptor = sources.resolve("module-info.java");
+        Files.writeString(descriptor, "module fixture {\n}\n", StandardCharsets.UTF_8);
+        JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+        try (StandardJavaFileManager manager =
+            compiler.getStandardFileManager(null, null, StandardCharsets.UTF_8)) {
+            assertTrue(compiler.getTask(null, manager, null,
+                List.of("-proc:none", "-d", output.toString()), null,
+                manager.getJavaFileObjects(descriptor.toFile())).call(),
+                "The module descriptor must compile.");
         }
-        assertTrue(Files.exists(sortie.resolve("module-info.class")),
-            "Le cas n'est pas reproduit si le descripteur n'est pas là.");
+        assertTrue(Files.exists(output.resolve("module-info.class")),
+            "The case is not reproduced if the descriptor is not there.");
 
-        UmlProject projet = ProjectScanner.scan(sortie).projet();
+        UmlProject project = ProjectScanner.scan(output).project();
 
-        assertEquals(Set.of("Facture"), noms(projet),
-            "Le module-info est ignoré, et les classes annotées sont bien lues.");
+        assertEquals(Set.of("Invoice"), names(project),
+            "The module-info is ignored, and the annotated classes are indeed read.");
     }
 
     @Test
-    void lOrdreDesBoites_neDependPasDuSystemeDeFichiers(@TempDir Path tmp) throws Exception {
-        // Files.walk rend les fichiers dans l'ordre du système de fichiers, qu'aucune norme ne
-        // définit : sans tri, deux machines produiraient deux diagrammes différents. L'ordre des
-        // boîtes gouverne la mise en page, et les vues y puisent l'ordre de leurs liens
-        // invisibles — ce n'est donc pas une gêne théorique.
+    void boxOrder_doesNotDependOnTheFileSystem(@TempDir Path tmp) throws Exception {
+        // Files.walk returns files in file-system order, which no standard
+        // defines: without sorting, two machines would produce two different diagrams. The order of the
+        // boxes governs the layout, and the views draw the order of their links from it
+        // invisible — so this is no theoretical nuisance.
         Path sources = tmp.resolve("src");
-        Path sortie = tmp.resolve("classes");
-        for (String nom : List.of("Zebre", "Alpha", "Milieu")) {
-            compiler(sources, sortie, "com/exemple/" + nom + ".java", """
-                package com.exemple;
+        Path output = tmp.resolve("classes");
+        for (String name : List.of("Zebra", "Alpha", "Middle")) {
+            compiler(sources, output, "com/example/" + name + ".java", """
+                package com.example;
 
                 import io.github.oliviercailloux.umlg.annotation.UMLClass;
 
                 @UMLClass
-                public class NOM {}
-                """.replace("NOM", nom));
+                public class Name {}
+                """.replace("Name", name));
         }
 
-        List<String> lus = ProjectScanner.scan(sortie).projet().entities().stream()
+        List<String> read = ProjectScanner.scan(output).project().entities().stream()
             .map(UmlEntity::name).toList();
 
-        assertEquals(List.of("Alpha", "Milieu", "Zebre"), lus,
-            "Les boîtes doivent être rendues dans un ordre stable, ici l'alphabétique.");
+        assertEquals(List.of("Alpha", "Middle", "Zebra"), read,
+            "The boxes must be rendered in a stable order, here the alphabetical one.");
     }
 
-    // --- Les réglages d'ensemble, lus dans le fichier de règles ---
+    // --- The overall settings, read in the rules file ---
 
-    // Une classe annotée, pour que le projet ne soit pas vide : les réglages d'ensemble règlent
-    // le dessin, ils ne le peuplent pas.
-    private static final String UNE_BOITE = """
-        package com.exemple;
+    // An annotated class, so that the project is not empty: the overall settings set
+    // the drawing, they do not populate it.
+    private static final String ONE_BOX = """
+        package com.example;
 
         import io.github.oliviercailloux.umlg.annotation.UMLClass;
 
         @UMLClass
-        public class Facture {}
+        public class Invoice {}
         """;
 
 }

@@ -1,7 +1,6 @@
 package io.github.oliviercailloux.keyboardd.mapping;
 
 import io.github.oliviercailloux.umlg.annotation.UMLClass;
-import io.github.oliviercailloux.umlg.annotation.UMLExclude;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -53,6 +52,5 @@ public sealed interface KeysymEntry
     }
   }
 
-  @UMLExclude
   String asString();
 }

@@ -7,41 +7,41 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-// Vérifie les gardes du record UmlDependency : ce qu'il accepte, ce qu'il refuse.
+// Checks the guards of the UmlDependency record: what it accepts, what it refuses.
 class UmlDependencyTest {
 
-    // @ParameterizedTest + @ValueSource : le test est rejoué une fois par chaîne de la liste,
-    // celle-ci arrivant dans le paramètre de la méthode. Chaque valeur compte comme un test.
+    // @ParameterizedTest + @ValueSource: the test is replayed once per string of the list,
+    // the latter arriving in the method parameter. Each value counts as one test.
     @ParameterizedTest
-    @ValueSource(strings = {"facture via", "n'utilise qu'en lecture", "appelle <b>souvent</b>",
-        "a\"b", "Réf. n°42"})
-    void labelQuelconque_estAccepte(String label) {
-        // Un motif est un texte destiné à être lu : interdire les caractères qui gênent le
-        // moteur de rendu placerait le défaut au mauvais endroit. Sa sûreté est obtenue par
-        // encodage à la sortie.
-        assertEquals(label, new UmlDependency("Cible", label).label());
+    @ValueSource(strings = {"invoice via", "reads only", "calls <b>often</b>",
+        "a\"b", "Ref. no.42"})
+    void anyLabel_isAccepted(String label) {
+        // A pattern is a text meant to be read: forbidding the characters that hamper the
+        // the rendering engine would put the defect in the wrong place. Its safety is obtained by
+        // encoding on output.
+        assertEquals(label, new UmlDependency("Target", label).label());
     }
 
-    // La contrepartie : un label fait uniquement d'espaces n'est pas un texte, c'est un oubli.
+    // The counterpart: a label made of spaces only is not a text, it is an oversight.
     @ParameterizedTest
     @ValueSource(strings = {" ", "\t", "\n"})
-    void labelBlanc_estRefuse(String label) {
-        assertThrows(IllegalArgumentException.class, () -> new UmlDependency("Cible", label));
+    void blankLabel_isRefused(String label) {
+        assertThrows(IllegalArgumentException.class, () -> new UmlDependency("Target", label));
     }
 
     @Test
-    void cibleVideOuNulle_estRefusee() {
-        // Deux types d'exception distincts, et c'est voulu : null est une faute de programmation
-        // (NullPointerException, via checkNotNull), une chaîne blanche une valeur invalide
+    void emptyOrNullTarget_isRefused() {
+        // Two distinct exception types, and that is intended: null is a programming fault
+        // (NullPointerException, through checkNotNull), a blank string an invalid value
         // (IllegalArgumentException, via checkArgument).
         assertThrows(NullPointerException.class, () -> new UmlDependency(null, ""));
-        assertThrows(NullPointerException.class, () -> new UmlDependency("Cible", null));
+        assertThrows(NullPointerException.class, () -> new UmlDependency("Target", null));
         assertThrows(IllegalArgumentException.class, () -> new UmlDependency("  ", ""));
     }
 
-    // La fabrique raccourcie doit produire un label vide, et non null.
+    // The short factory must produce an empty label, and not null.
     @Test
-    void dependanceSansMotif_aUnLabelVide() {
-        assertEquals("", UmlDependency.toTarget("Cible").label());
+    void dependencyWithoutReason_hasAnEmptyLabel() {
+        assertEquals("", UmlDependency.toTarget("Target").label());
     }
 }
