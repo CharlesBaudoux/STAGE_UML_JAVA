@@ -13,24 +13,13 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
-// The readability of the produced diagram — what the other tests do not look at.
-//
-// Two subjects: telling the name of a link apart visually from its multiplicities (they sit
-// at the same spot, and PlantUML alone decides where), and reserve enough room between the boxes
-// so that the labels do not overlap.
-//
-// These tests read the rendered SVG, the only place where colour and italics are observable.
 class PlantUmlReadabilityTest {
 
-    // Captures an SVG text with its appearance: group 1 the colour, group 2 the other
-    // fields (where the italics are), group 3 the content.
     private static final Pattern TEXT_SVG =
         Pattern.compile("<text[^>]*fill=\"(#[0-9A-Fa-f]{6})\"([^>]*)>([^<]*)</text>");
 
     private static final Pattern NODESEP = Pattern.compile("skinparam nodesep (\\d+)");
 
-    // Factory for the minimal source + target pair: a relation needs both its endpoints
-    // declared, otherwise AliasRegistry refuses the target.
     private static UmlEntity[] pair(UmlAssociation association) {
         return new UmlEntity[] {
             UmlEntity.builder("Source", "Source")
@@ -38,7 +27,6 @@ class PlantUmlReadabilityTest {
             UmlEntity.builder(association.targetQualifiedName(), "Target").build()};
     }
 
-    // The horizontal spacing actually asked of PlantUML, extracted from the style block.
     private static int nodesep(String source) {
         Matcher m = NODESEP.matcher(source);
         assertTrue(m.find(), () -> "No separation declared:\n" + source);
@@ -55,9 +43,6 @@ class PlantUmlReadabilityTest {
         return m.appendTail(output).toString();
     }
 
-    // Returns the appearance of a given text, in the form "#RRGGBB italic" or "#RRGGBB upright".
-    // It is this string the tests compare: the exact colour does not matter, only the
-    // makes two texts look alike or not.
     private static String appearance(String svg, String content) {
         Matcher m = TEXT_SVG.matcher(svg);
         while (m.find()) {
@@ -68,16 +53,11 @@ class PlantUmlReadabilityTest {
         throw new AssertionError("Text \"" + content + "\" missing from the rendering:\n" + svg);
     }
 
-    // --- Telling the link name from its multiplicities ---
-
     @Test
     void linkName_andMultiplicity_doNotLookAlike() throws Exception {
         String svg = PlantUmlAssert.svg(pair(UmlAssociation.builder("field", "Target")
             .targetMultiplicity("0..*").label("holds").build()));
 
-        // The multiplicity is regularly set on the stroke, even crossed by it: that is
-        // PlantUML decides it, and no setting changes anything. Only the appearance remains
-        // so that the reader knows which of the two texts names the link.
         assertNotEquals(appearance(svg, "0..*"), appearance(svg, "holds"),
             "The link name and the multiplicity must be told apart at a glance.");
     }
@@ -97,16 +77,12 @@ class PlantUmlReadabilityTest {
 
     @Test
     void linkName_survivesADoubleSlashInTheText() throws Exception {
-        // "//" opens italics in Creole. If the styling relied on that paired marker,
-        // such a text would close it in the middle and would rub off on the rest of the diagram.
         String svg = PlantUmlAssert.svg(pair(UmlAssociation.builder("field", "Target")
             .label("reads//writes").build()));
 
         assertTrue(decode(svg).contains("reads//writes"),
             () -> "Le text must s'display tel which, « // » compris :\n" + svg);
     }
-
-    // --- Reserving room for the labels ---
 
     @Test
     void longLabel_pushesTheBoxesFurtherApart() {

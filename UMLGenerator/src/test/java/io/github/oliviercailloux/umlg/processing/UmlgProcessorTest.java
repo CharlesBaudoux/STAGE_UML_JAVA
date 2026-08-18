@@ -9,22 +9,11 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-// What the processor refuses to let compile.
-//
-// Each test compiles a real file with a real javac: what is measured is therefore exactly
-// what the user would get in their terminal, and not a simulation.
-//
-// The fixtures are written here as strings, and not as nested classes as
-// elsewhere in the suite: faulty classes would not compile, and the test module with
-// them. That is the accepted price of a processor doing its job well.
 class UmlgProcessorTest {
 
-    // The header every fixture shares lives in CompilationFixture, with the harness.
     private static Verdict compiler(Path tmp, String body) throws IOException {
         return CompilationFixture.compileBody(tmp, body);
     }
-
-    // --- Le cas nominal : un code correct must passer ---
 
     @Test
     void correctCode_compilesWithoutError(@TempDir Path tmp) throws IOException {
@@ -48,12 +37,8 @@ class UmlgProcessorTest {
             """);
 
         assertTrue(verdict.successful(), verdict.report());
-        // Correct code is silent code: not only without an error, but with nothing to
-        // reporting. That is what keeps the warnings audible when there is one.
         assertTrue(verdict.warnings().isEmpty(), verdict.report());
     }
-
-    // --- The multiplicity of a member ---
 
     @Test
     void unreadableMultiplicity_stopsCompilation(@TempDir Path tmp) throws IOException {
@@ -72,8 +57,6 @@ class UmlgProcessorTest {
     @Test
     void multiplicityAndAssociationOnTheSameField_stopCompilation(@TempDir Path tmp)
         throws IOException {
-        // Two multiplicities on the same property: the library could choose one, but
-        // doing so silently would amount to deciding in place of the author.
         Verdict verdict = compiler(tmp, """
             @UMLClass
             class Order {}
@@ -104,8 +87,6 @@ class UmlgProcessorTest {
         assertTrue(verdict.errorContains("does not carry @UMLClass"), verdict.report());
     }
 
-    // --- La target d'one relation ---
-
     @Test
     void targetWithoutUmlClass_stopsCompilation(@TempDir Path tmp) throws IOException {
         Verdict verdict = compiler(tmp, """
@@ -120,14 +101,11 @@ class UmlgProcessorTest {
 
         assertFalse(verdict.successful(), "The target is not in the diagram.");
         assertTrue(verdict.errorContains("does not carry @UMLClass"), verdict.report());
-        // The message must say what to do, not merely what is wrong.
         assertTrue(verdict.errorContains("Annotate it"), verdict.report());
     }
 
     @Test
     void primitiveTarget_stopsCompilation(@TempDir Path tmp) throws IOException {
-        // int.class is legal Java: its type is Class<Integer>. Only the processor can
-        // refusing what, for javac alone, is a perfectly valid expression.
         Verdict verdict = compiler(tmp, """
             @UMLClass
             class Client {
@@ -139,8 +117,6 @@ class UmlgProcessorTest {
         assertFalse(verdict.successful(), verdict.report());
         assertTrue(verdict.errorContains("primitive type"), verdict.report());
     }
-
-    // --- Multiplicities ---
 
     @Test
     void reversedMultiplicity_stopsCompilation(@TempDir Path tmp) throws IOException {
@@ -175,17 +151,11 @@ class UmlgProcessorTest {
 
         assertFalse(verdict.successful(), verdict.report());
         assertTrue(verdict.errorContains("valid UML multiplicity"), verdict.report());
-        // The message comes from the model: it names the faulty parameter, which positioning
-        // on the whole annotation would not say.
         assertTrue(verdict.errorContains("sourceMultiplicity"), verdict.report());
     }
 
-    // --- La color ---
-
     @Test
     void colourUnknownToPlantUml_stopsCompilation(@TempDir Path tmp) throws IOException {
-        // The form is valid — it is a word — only querying the real catalogue of
-        // PlantUML may refuse it.
         Verdict verdict = compiler(tmp, """
             @UMLClass(color = "NotAColor")
             class Client {}
@@ -208,8 +178,6 @@ class UmlgProcessorTest {
         assertTrue(verdict.successful(), verdict.report());
     }
 
-    // --- Dependencies ---
-
     @Test
     void dependencyOnItself_stopsCompilation(@TempDir Path tmp) throws IOException {
         Verdict verdict = compiler(tmp, """
@@ -224,8 +192,6 @@ class UmlgProcessorTest {
 
     @Test
     void duplicateDependency_stopsCompilation(@TempDir Path tmp) throws IOException {
-        // The repeatable case: the compiler wraps both in @UMLDependencies, and the
-        // the processor must be able to unwrap the container to see them.
         Verdict verdict = compiler(tmp, """
             @UMLClass
             class Service {}
@@ -258,12 +224,8 @@ class UmlgProcessorTest {
         assertTrue(verdict.successful(), verdict.report());
     }
 
-    // --- Les contradictions ---
-
     @Test
     void includeAndExcludeTogether_stopCompilation(@TempDir Path tmp) throws IOException {
-        // The library could decide — @UMLExclude wins — but applying a rule
-        // silently would amount to choosing in place of the author of contradictory code.
         Verdict verdict = compiler(tmp, """
             @UMLClass
             class Client {
@@ -277,12 +239,9 @@ class UmlgProcessorTest {
         assertTrue(verdict.errorContains("contradictory"), verdict.report());
     }
 
-    // --- Annotations without effect ---
-
     @Test
     void associationOnAClassWithoutUmlClass_stopsCompilation(@TempDir Path tmp)
         throws IOException {
-        // The forgotten @UMLClass: the annotation is correct in itself, but would produce nothing.
         Verdict verdict = compiler(tmp, """
             @UMLClass
             class Order {}
@@ -324,8 +283,6 @@ class UmlgProcessorTest {
 
     @Test
     void constraintOnAMethod_isRefusedByJavacAlone(@TempDir Path tmp) throws IOException {
-        // A constraint bears on a state, not on a call: @Target forbids it, and it is the
-        // the compiler that says so.
         Verdict verdict = compiler(tmp, """
             @UMLClass
             class Account {
@@ -375,8 +332,6 @@ class UmlgProcessorTest {
 
     @Test
     void derivedOnAClass_isRefusedByJavacAlone(@TempDir Path tmp) throws IOException {
-        // The notion of a derived class does not exist in UML: @Target forbids it, and it is the
-        // the compiler that says so, without the processor having to step in.
         Verdict verdict = compiler(tmp, """
             @UMLDerived
             @UMLClass
@@ -400,8 +355,6 @@ class UmlgProcessorTest {
         assertFalse(verdict.successful(), verdict.report());
         assertTrue(verdict.errorContains("drawn from nowhere"), verdict.report());
     }
-
-    // --- Les texts empty ---
 
     @Test
     void nameMadeOfSpaces_stopsCompilation(@TempDir Path tmp) throws IOException {
@@ -431,22 +384,9 @@ class UmlgProcessorTest {
         assertTrue(verdict.errorContains("whitespace only"), verdict.report());
     }
 
-    // --- The target inferred from the field type: the processor must say what the
-    // generation, no more and no less ---
-
     @Test
     void associationWithoutTarget_towardsATypeOutsideTheDiagram_stopsCompilation(@TempDir Path tmp)
         throws IOException {
-        // This test locked a design choice that no longer exists: target() had no
-        // a default value, and it was javac alone that refused the annotation omitting it. The
-        // the parameter now carries "default void.class" — the "nothing written" sentinel, which
-        // triggers inference from the field type. The test went on passing, but
-        // on a pattern altogether different from the one it announced.
-        //
-        // What it now keeps: inference does not loosen the check. "private String
-        // name" does give a target — String — and that target is refused like any
-        // another class outside the diagram. The sentinel opens the door to the field type, not
-        // to the first type that comes.
         Verdict verdict = compiler(tmp, """
             @UMLClass
             class Client {
@@ -458,16 +398,11 @@ class UmlgProcessorTest {
         assertFalse(verdict.successful(), verdict.report());
         assertTrue(verdict.errorContains("target java.lang.String does not carry @UMLClass"),
             verdict.report());
-        // And the remedy names the parameter to write, rather than merely stating the fact.
         assertTrue(verdict.errorContains("point target() at a class that is"), verdict.report());
     }
 
     @Test
     void associationOnATypeVariableField_compiles(@TempDir Path tmp) throws IOException {
-        // The processor stopped the compilation of code the generation drew without
-        // flinching: it held "T" as undetermined, where reflection reads the erasure,
-        // that is, the bound. It is the costliest gap of the two halves, since it blocks
-        // the user rather than letting them see a questionable drawing.
         Verdict verdict = compiler(tmp, """
             @UMLClass
             class Order {}
@@ -485,9 +420,6 @@ class UmlgProcessorTest {
 
     @Test
     void rawCollectionWithoutTarget_namesTheFaultyType(@TempDir Path tmp) throws IOException {
-        // The message now comes from InferredTarget, to which the rule belongs: the one from
-        // the processor did not name the type, and a project with several associations left its
-        // author to find which one was meant.
         Verdict verdict = compiler(tmp, """
             @UMLClass
             class Client {
@@ -519,8 +451,6 @@ class UmlgProcessorTest {
 
     @Test
     void emptyConstraint_reusesTheModelMessage(@TempDir Path tmp) throws IOException {
-        // The rule is no longer rewritten here: javac's refusal is word for word the one the
-        // the generation would have produced. The two texts had already diverged.
         Verdict verdict = compiler(tmp, """
             @UMLClass
             @UMLConstraint(rule = " ")

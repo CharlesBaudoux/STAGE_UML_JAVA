@@ -14,11 +14,6 @@ import io.github.oliviercailloux.umlg.model.UmlNote;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-// What extraction keeps of @UMLNote.
-//
-// The thread running through: a bubble is drawn only when hung on something. Every note
-// aiming at a member the box does not show must vanish here, otherwise the rendering
-// would ask PlantUML to hang a bubble on a member it does not know.
 class NoteExtractorTest {
 
     private static List<String> texts(UmlEntity entity) {
@@ -81,8 +76,6 @@ class NoteExtractorTest {
 
     @Test
     void noteAimingAtAHiddenMember_isDropped() {
-        // The strategy is PUBLIC: password does not enter the box, and its note no longer has
-        // nothing to hang on. The annotation processor, for its part, will have said so at compile time.
         UmlEntity entity = EntityExtractor.extract(Account.class);
 
         assertTrue(texts(entity).stream().noneMatch(t -> t.contains("lost")),
@@ -99,16 +92,11 @@ class NoteExtractorTest {
 
     @Test
     void noteOnAFieldPromotedToLink_isDropped() {
-        // The field became a stroke: it is no longer in the box, and a note cannot
-        // does not hang on a stroke.
         UmlEntity entity = EntityExtractor.extract(Client.class);
 
         assertEquals(List.of(), texts(entity));
     }
 
-    // Deliberately without @UMLClass, and the extractor is called directly: a faulty fixture that
-    // carrying the annotation would be picked up by ProjectScanner, and would fail the tests
-    // integration tests sweeping the whole test-class directory.
     @UMLNote(text = "   ")
     static class EmptyNote {}
 

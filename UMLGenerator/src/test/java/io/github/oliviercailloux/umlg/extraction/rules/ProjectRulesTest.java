@@ -16,13 +16,6 @@ import io.github.oliviercailloux.umlg.model.UmlMethod;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-// The three settings the rules file brings to the whole project: the default
-// the default, the noise filter, and the filing of a package in a rectangle.
-//
-// What they have in common is what warrants testing them together: each replaces a
-// annotation that would otherwise have to be repeated on every class, and each yields to
-// the annotation when it is written. It is this second half — the rule loses against the
-// special case — which counts most, and which is checked every time.
 class ProjectRulesTest {
 
     private static Rules rules(String json) {
@@ -36,8 +29,6 @@ class ProjectRulesTest {
     private static List<String> fieldsNames(UmlEntity entity) {
         return entity.fields().stream().map(UmlField::name).toList();
     }
-
-    // --- The project strategy ---
 
     @UMLClass
     static class WithoutStrategy {
@@ -60,8 +51,6 @@ class ProjectRulesTest {
 
     @Test
     void withoutFile_aClassSayingNothingStaysEmpty() {
-        // The historical behaviour, preserved: a project without a rules file behaves
-        // exactly as before the setting existed.
         UmlEntity entity = EntityExtractor.extract(WithoutStrategy.class);
 
         assertTrue(entity.fields().isEmpty(), entity.fields().toString());
@@ -80,9 +69,6 @@ class ProjectRulesTest {
 
     @Test
     void classAskingForNone_staysEmptyDespiteTheProject() {
-        // The case alone warranting the existence of UMLVisibility.PROJECT: without it, "the
-        // the class said nothing" and "the class asked for NONE" would be indistinguishable, and this
-        // box would fill up against the will of its author.
         UmlEntity entity = EntityExtractor.extract(EmptyBoxWanted.class, rules("""
             { "strategy": "public" }
             """));
@@ -112,8 +98,6 @@ class ProjectRulesTest {
 
     @Test
     void projectStrategy_isRefused() {
-        // "project" is what a class writes to refer to this key: the key cannot
-        // point to itself.
         assertThrows(IllegalArgumentException.class, () -> rules("""
             { "strategy": "project" }
             """));
@@ -131,8 +115,6 @@ class ProjectRulesTest {
         assertTrue(e.getMessage().contains("strategy"), e.getMessage());
         assertTrue(e.getMessage().contains("the rules of the test"), e.getMessage());
     }
-
-    // --- The noise filter ---
 
     @UMLClass(strategy = UMLVisibility.PRIVATE)
     static class Verbose {
@@ -153,8 +135,6 @@ class ProjectRulesTest {
 
     @Test
     void withoutRule_nothingIsHiddenAnyMore() {
-        // The deep change: the library no longer decides what deserves to be drawn.
-        // A project saying nothing sees everything its strategy allows, accessors included.
         List<String> methods = methodsNames(EntityExtractor.extract(Verbose.class));
 
         assertTrue(methods.contains("getName"), methods.toString());
@@ -163,8 +143,6 @@ class ProjectRulesTest {
 
     @Test
     void accessorPattern_hidesGettersAndSetters() {
-        // Accessors are designated like everything else, by their names: the file has no
-        // a key reserved for them. Each pattern is independent — "get*" says nothing about "set*".
         List<String> methods = methodsNames(EntityExtractor.extract(Verbose.class, rules("""
             { "hide": ["get*", "set*"] }
             """)));
@@ -178,8 +156,6 @@ class ProjectRulesTest {
 
     @Test
     void exactPattern_hidesTheWrittenNameOnly() {
-        // With no star, the pattern holds for the exact name only: hide "toString" does not touch
-        // not at the accessors.
         List<String> methods = methodsNames(EntityExtractor.extract(Verbose.class, rules("""
             { "hide": ["toString"] }
             """)));
@@ -190,8 +166,6 @@ class ProjectRulesTest {
 
     @Test
     void methodPattern_hidesTheProjectConventions() {
-        // "withName" follows no convention the library would know: it is
-        // exactly what the patterns are there to cover — the project's own conventions.
         List<String> methods = methodsNames(EntityExtractor.extract(Verbose.class, rules("""
             { "hide": ["with*"] }
             """)));
@@ -212,9 +186,6 @@ class ProjectRulesTest {
 
     @Test
     void fieldPattern_hidesAField() {
-        // The most glaring gap of the old filter: it looked at methods only, so that
-        // than a logger could be hidden only with an @UMLExclude written by hand on each class. The
-        // the pattern is the same as for a method: the file does not tell the two kinds apart.
         List<String> fields = fieldsNames(EntityExtractor.extract(Verbose.class, rules("""
             { "hide": ["log*"] }
             """)));
@@ -234,7 +205,6 @@ class ProjectRulesTest {
 
     @Test
     void includeWinsOverTheRule() {
-        // The precedence rule: the special case written on the member beats the general setting.
         UmlEntity entity = EntityExtractor.extract(RecoveredByHand.class, rules("""
             { "hide": ["get*", "log*"] }
             """));
@@ -245,10 +215,6 @@ class ProjectRulesTest {
 
     @Test
     void patternAimingAtNothing_isReportedAtTheEndOfTheScan() {
-        // "hide" takes patterns only, and every member name is one: nothing tells
-        // a typo from an intention, and refusal is therefore impossible. It is the report
-        // dead rules takes over — the same net as for "LOGGR" or the lone
-        // forgotten from a "get".
         Rules read = rules("""
             { "hide": ["accessors"] }
             """);
@@ -258,8 +224,6 @@ class ProjectRulesTest {
 
     @Test
     void hideWithoutPattern_hidesNothing() {
-        // The empty array asks for nothing, and can no longer be the typo that an
-        // "hide" without a pattern: it is now the parser that refuses a badly written list.
         Rules read = rules("""
             { "hide": [] }
             """);
@@ -270,8 +234,6 @@ class ProjectRulesTest {
 
     @Test
     void patternOnItsOwn_isRefused() {
-        // "*" would hide the whole compartment: valid in theory, unexpected enough that
-        // refuses to guess it.
         assertThrows(IllegalArgumentException.class, () -> rules("""
             { "hide": ["*"] }
             """));
@@ -284,19 +246,14 @@ class ProjectRulesTest {
             """));
     }
 
-    // --- The visibility symbols ---
-
     @Test
     void byDefault_theVisibilitiesAreWritten() {
-        // UML asks for them, and they say something no other mark says.
         assertEquals("-", EntityExtractor.extract(Verbose.class).fields().stream()
             .filter(f -> f.name().equals("name")).findFirst().orElseThrow().visibility());
     }
 
     @Test
     void omitVisibility_silencesThem() {
-        // Many hand-kept diagrams omit them, because they show a
-        // a structure rather than an API. The project must be able to do the same.
         UmlEntity entity = EntityExtractor.extract(Verbose.class, rules("""
             { "omit": ["visibility"] }
             """));
@@ -309,8 +266,6 @@ class ProjectRulesTest {
 
     @Test
     void omitVisibility_leavesNoSpaceInTheDrawing() {
-        // The symbol vanishes, and the space that followed it with it: otherwise each line
-        // would start with a blank nothing justifies.
         String source = io.github.oliviercailloux.umlg.rendering.PlantUmlAssert.documentFor(
             EntityExtractor.extract(Verbose.class, rules("""
                 { "omit": ["visibility"] }
@@ -327,8 +282,6 @@ class ProjectRulesTest {
             """));
     }
 
-    // --- Filing a package: @UMLPackage, and it alone ---
-
     @UMLClass
     static class Filed {}
 
@@ -340,8 +293,6 @@ class ProjectRulesTest {
 
     @Test
     void groupPackage_noLongerExists() {
-        // A package is a name, and a rectangle set over named classes is a
-        // a special case, not a project setting: it is @UMLPackage that says it, on the element.
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
             () -> rules("{ \"group\": { \"" + Package + "\": \"Rules\" } }"));
 
@@ -365,8 +316,6 @@ class ProjectRulesTest {
 
         assertEquals("Written by hand", entity.group().name());
     }
-
-    // --- The file as a whole ---
 
     @Test
     void completeFile_isReadWithoutError() {

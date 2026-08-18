@@ -13,7 +13,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
-// The invisible link a view sets between two blocks: present in the source, absent from the drawing.
 class PlantUmlLayoutTest {
 
     private static UmlEntity target() {
@@ -40,22 +39,18 @@ class PlantUmlLayoutTest {
 
     @Test
     void withoutDirection_theLinkStaysBare() {
-        // The link exists all the same: it brings the two boxes together without saying on which side.
         assertTrue(lineUnique(UMLDirection.NONE).contains("-[hidden]->"),
             lineUnique(UMLDirection.NONE));
     }
 
     @Test
     void theLink_carriesNoLabel() {
-        // Nothing could read it: the line is not drawn.
         assertEquals(-1, lineUnique(UMLDirection.DOWN).indexOf(" : "),
             lineUnique(UMLDirection.DOWN));
     }
 
     @Test
     void theTarget_mustHaveBeenDeclared() {
-        // An invisible link stays a link: its endpoint is a box of the diagram, and its
-        // absence is reported as for any other relation.
         assertThrows(IllegalArgumentException.class,
             () -> PlantUmlAssert.documentFor(source(UMLDirection.DOWN)));
     }

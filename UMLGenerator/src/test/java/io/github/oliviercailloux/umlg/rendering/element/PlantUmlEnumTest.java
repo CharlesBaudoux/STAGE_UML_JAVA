@@ -13,8 +13,6 @@ import io.github.oliviercailloux.umlg.rendering.PlantUmlAssert;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-// The rendering of the literal compartment, and the placing of separating lines when a box
-// counts up to three compartments.
 class PlantUmlEnumTest {
 
     private static UmlEntity.Builder enumeration(String name) {
@@ -34,7 +32,6 @@ class PlantUmlEnumTest {
 
     @Test
     void literal_neverHasVisibilityTypeOrStatic() {
-        // The regression this test locks: "+ {static} Currency Euro" instead of "Euro".
         String source = PlantUmlAssert.documentFor(
             enumeration("Currency").literals(List.of("Euro")).build());
 
@@ -79,8 +76,6 @@ class PlantUmlEnumTest {
 
     @Test
     void ordinaryClass_keepsItsSingleNet() {
-        // Non-regression: a class without a literal must produce exactly what it
-        // produced before the third compartment was added.
         String source = PlantUmlAssert.documentFor(
             UmlEntity.builder("pkg.Account", "Account")
                      .fields(List.of(new UmlField("balance", "double", "-", false)))
@@ -101,8 +96,6 @@ class PlantUmlEnumTest {
                 .build()));
     }
 
-    // The inner lines of the single box of the document: those starting with an
-    // indentation, filets compris.
     private static List<String> boxBody(String source) {
         return source.lines().filter(l -> l.startsWith("  ")).toList();
     }

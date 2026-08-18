@@ -8,11 +8,6 @@ import java.nio.file.Path;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
 
-// The report returned at the end of the generation.
-//
-// It replaced a "Success" line per image, which was right only back when one wrote
-// wrote only one: twelve views gave twelve nearly identical lines, and the only information
-// useful was lost in it.
 class GenerationReportTest {
 
     private static GenerationReport report(int read, int ignored, int files) {
@@ -33,9 +28,6 @@ class GenerationReportTest {
 
     @Test
     void aFileWithoutDirectory_isNamedAfterItself() {
-        // The default single-file case, "diagram_architecture.svg": a path of a
-        // single segment has no parent, and the report wrote "written to null" — the
-        // the very first message a user having configured nothing would see.
         String summary = new GenerationReport(5, ImmutableList.of(),
             ImmutableList.of(Path.of("diagram_architecture.svg"))).summary();
 
@@ -45,9 +37,6 @@ class GenerationReportTest {
 
     @Test
     void aSingleFileInADirectory_isNamedToo() {
-        // The returned report named the directory whatever the file count: "written to
-        // docs" for "docs/archi.svg". It therefore silenced the name the user had just
-        // give, and did not say where to look.
         String summary = new GenerationReport(5, ImmutableList.of(),
             ImmutableList.of(Path.of("docs", "archi.svg"))).summary();
 
@@ -56,8 +45,6 @@ class GenerationReportTest {
 
     @Test
     void aSingleFilePrefixedByDotSlash_isNamedToo() {
-        // The variant that gave "written to ." — the worst case, since the message
-        // meant the whole current directory.
         String summary = new GenerationReport(5, ImmutableList.of(),
             ImmutableList.of(Path.of("./diagram.svg"))).summary();
 
@@ -66,7 +53,6 @@ class GenerationReportTest {
 
     @Test
     void severalFiles_areSummarizedByTheirDirectory() {
-        // The other half of the rule: twenty views are not listed, their directory is enough.
         String summary = report(21, 0, 12).summary();
 
         assertTrue(summary.contains("diagrams"), summary);
@@ -75,8 +61,6 @@ class GenerationReportTest {
 
     @Test
     void theReport_saysWhatWasIgnored() {
-        // The information nobody had: a class without @UMLClass is out of the diagram,
-        // and nothing told the one dropped on purpose from the one forgotten.
         String summary = report(21, 23, 12).summary();
 
         assertTrue(summary.contains("21 class(es) drawn"), summary);
@@ -93,8 +77,6 @@ class GenerationReportTest {
 
     @Test
     void manyIgnoredClasses_areCountedWithoutBeingNamed() {
-        // Beyond a dozen, the list would drown the rest; the count is enough to know there
-        // must go and look.
         String summary = report(5, 40, 1).summary();
 
         assertTrue(summary.contains("40 ignored"), summary);

@@ -9,16 +9,11 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-// What the processor says of @UMLPackage and @UMLAssociationClass.
 class UmlgGroupsAndAssociationClassesTest {
-
-    // The header every fixture shares lives in CompilationFixture, with the harness.
 
     private static Verdict compiler(Path tmp, String body) throws IOException {
         return CompilationFixture.compileBody(tmp, body);
     }
-
-    // --- Le cas nominal ---
 
     @Test
     void correctCode_compilesWithoutReportingAnything(@TempDir Path tmp) throws IOException {
@@ -42,8 +37,6 @@ class UmlgGroupsAndAssociationClassesTest {
         assertTrue(verdict.successful(), verdict.report());
         assertTrue(verdict.warnings().isEmpty(), verdict.report());
     }
-
-    // --- @UMLPackage ---
 
     @Test
     void groupOnAnUnannotatedClass_stopsCompilation(@TempDir Path tmp) throws IOException {
@@ -77,15 +70,11 @@ class UmlgGroupsAndAssociationClassesTest {
             """);
 
         assertFalse(verdict.successful(), verdict.report());
-        // The message is ColorCodec's, which queries the real catalogue of the engine: the
-        // the question asked is "does PlantUML know this colour?", and not "does it have the
-        // form?" — "NotAColor" has exactly that form.
         assertTrue(verdict.errorContains("unknown to PlantUML"), verdict.report());
     }
 
     @Test
     void twoColoursForOneGroup_areReported(@TempDir Path tmp) throws IOException {
-        // A rectangle has only one colour: the author wrote the second one for nothing.
         Verdict verdict = compiler(tmp, """
             @UMLClass
             @UMLPackage(name = "Billing", color = "#EEEEEE")
@@ -99,8 +88,6 @@ class UmlgGroupsAndAssociationClassesTest {
         assertTrue(verdict.successful(), "The diagram stays right, only the colour changes.");
         assertTrue(verdict.warningContains("already coloured"), verdict.report());
     }
-
-    // --- @UMLAssociationClass ---
 
     @Test
     void endpointOutsideTheDiagram_stopsCompilation(@TempDir Path tmp) throws IOException {
@@ -132,9 +119,6 @@ class UmlgGroupsAndAssociationClassesTest {
             """);
 
         assertFalse(verdict.successful(), verdict.report());
-        // The message names the faulty endpoint, and it is AssociationClassExtractor's: the
-        // the rule now exists in one place only, and both halves check it in the same
-        // order — reflexivity before membership of the diagram.
         assertTrue(verdict.errorContains("source() is the association class itself"),
             verdict.report());
         assertTrue(verdict.errorContains("Point source() at one of the two classes"),
@@ -160,7 +144,6 @@ class UmlgGroupsAndAssociationClassesTest {
 
     @Test
     void bothFaultyEndpoints_areReportedTogether(@TempDir Path tmp) throws IOException {
-        // Recompiling to discover the second fault would be an avoidable waste of time.
         Verdict verdict = compiler(tmp, """
             class Etudiant {}
 

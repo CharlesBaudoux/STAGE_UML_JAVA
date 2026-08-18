@@ -16,13 +16,6 @@ import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
-// The "multiplicity brackets" rule: the shape of containers is translated into multiplicities.
-//
-// "Set<String> aliases" is then written "aliases : String [0..*]", "Optional<Integer> ucp"
-// is written "ucp : int [0..1]". Nothing is guessed there — the container is how Java writes
-// those multiplicities — but the rule stays opt-in: it changes the notation of every line
-// per collection, and it is up to the project to choose its own. @UMLMultiplicity, a decision
-// individual, wins over the translation, as everywhere.
 class InferredMultiplicitiesTest {
 
     private static final Rules BRACKETS =
@@ -57,15 +50,12 @@ class InferredMultiplicitiesTest {
 
     @Test
     void anOptional_isWrittenUnwrappedElementAndZeroOrOne() {
-        // Unwrapping also returns the primitive: Java forbids "Optional<int>", the wrapper
-        // Integer is a constraint of the language, not a choice of the author.
         assertEquals("int", field("ucp").type());
         assertEquals("0..1", field("ucp").multiplicity());
     }
 
     @Test
     void aMap_staysWrittenInFull() {
-        // Two type parameters: nothing would say which one is the property.
         assertEquals("Map<String, Integer>", field("table").type());
         assertEquals("", field("table").multiplicity());
     }
@@ -78,8 +68,6 @@ class InferredMultiplicitiesTest {
 
     @Test
     void aDeclaredMultiplicity_winsOverInference() {
-        // "1..*" says more than the type — a Set does not forbid being empty — and that is
-        // the annotation that knows it.
         assertEquals("1..*", field("mandatory").multiplicity());
         assertEquals("String", field("mandatory").type());
     }
@@ -105,8 +93,6 @@ class InferredMultiplicitiesTest {
         assertEquals("String", names.returnType());
         assertEquals("0..*", names.multiplicity());
     }
-
-    // --- Reading the rule ---
 
     @Test
     void aFormOtherThanBrackets_isRefusedNamingTheKey() {

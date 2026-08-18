@@ -12,10 +12,6 @@ import io.github.oliviercailloux.umlg.model.UmlEntity;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-// @UMLDerived set on a field that already carries @UMLAssociation.
-//
-// The arbitration rule is that of the specification: it is the link that becomes derived, and not
-// the field — which has in any case left the box to become a stroke.
 class DerivedAssociationTest {
 
     @UMLClass
@@ -54,9 +50,6 @@ class DerivedAssociationTest {
 
     @Test
     void theFieldDoesNotComeBackIntoTheBox() {
-        // The strategy is PRIVATE — everything would be displayed — and yet the field promoted to a link
-        // has nothing to do in the compartment: a property is written on one side or the other,
-        // never both. @UMLDerived does not change that rule.
         UmlEntity entity = client();
 
         assertTrue(entity.fields().stream()

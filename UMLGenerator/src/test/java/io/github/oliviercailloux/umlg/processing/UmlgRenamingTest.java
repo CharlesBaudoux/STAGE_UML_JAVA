@@ -9,15 +9,8 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-// The renaming of a member — @UMLInclude(name = ...) — seen from the processor.
-//
-// Three deviations, three answers. A name made of spaces describes no diagram: an error. Two
-// names for the same line — targetRole and name — contradict each other: an error. A name identical to
-// the code order is valid but changes nothing: a warning, so that the author does not go
-// look on the image for a renaming that did not take place.
 class UmlgRenamingTest {
 
-    // The header every fixture shares lives in CompilationFixture, with the harness.
     private static Verdict compiler(Path tmp, String code) throws IOException {
         return CompilationFixture.compileBody(tmp, code);
     }
@@ -85,9 +78,6 @@ class UmlgRenamingTest {
 
     @Test
     void aRenaming_silencesTheEffectlessWarning(@TempDir Path tmp) throws IOException {
-        // Under "strategy public", a bare @UMLInclude exempts nothing and would be reported. The
-        // the same @UMLInclude carrying a name does something — it renames — and the report
-        // deviendrait un contresens.
         Path rules = tmp.resolve("umlg.json");
         java.nio.file.Files.writeString(rules, "{ \"strategy\": \"public\" }\n");
 

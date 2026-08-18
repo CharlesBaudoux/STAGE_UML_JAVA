@@ -14,10 +14,6 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
-// Where the @UMLConstraint annotations land.
-//
-// Three destinations depending on what the annotation aims at, and the third is an arbitration rule:
-// on a field carrying @UMLAssociation, the constraint follows the link, not the field.
 class ConstraintExtractorTest {
 
     private static Optional<UmlField> field(UmlEntity e, String name) {
@@ -66,13 +62,9 @@ class ConstraintExtractorTest {
 
     @Test
     void constraintOnAFieldPromotedToLink_followsTheLink() {
-        // The arbitration rule: the field is no longer in the box, it is the stroke that the
-        // constraint vise.
         assertEquals(List.of("subset"), account().associations().get(0).constraints());
     }
 
-    // Without @UMLClass, and the extractor is called directly: an annotated faulty fixture would be
-    // picked up by ProjectScanner and would fail the integration tests.
     static class EmptyRule {
 
         @UMLConstraint(rule = "  ")

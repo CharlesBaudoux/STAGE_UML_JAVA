@@ -11,17 +11,11 @@ import io.github.oliviercailloux.umlg.model.UmlAssociation;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-// "Is the class at the other end of the stroke allowed to be there?"
-//
-// target() being mandatory (with no default, javac already refuses an annotation missing it),
-// there is nothing left to infer: these tests check validation only — the declared target
-// is accepted as is, or refused with a message naming the fault.
 class TargetResolverTest {
 
     @UMLClass
     static class Order {}
 
-    // Without @UMLClass: serves as a forbidden target.
     static class OutsideDiagram {}
 
     private static UmlAssociation onlyAssociation(Class<?> clazz) {
@@ -31,8 +25,6 @@ class TargetResolverTest {
                 + ", obtenu : " + associations);
         return associations.get(0);
     }
-
-    // --- Valid target ---
 
     @UMLClass
     static class FieldSimple {
@@ -48,7 +40,6 @@ class TargetResolverTest {
 
     @UMLClass
     static class FieldTargetIndependentOfTheType {
-        // The declared target prevails, regardless of the field type: nothing is inferred.
         @UMLAssociation(target = Order.class)
         private List<Object> blackBox;
     }
@@ -59,11 +50,6 @@ class TargetResolverTest {
             onlyAssociation(FieldTargetIndependentOfTheType.class).targetQualifiedName());
     }
 
-    // --- Refused target: the error names the faulty field ---
-    //
-    // These fixtures deliberately carry no @UMLClass: the sweep of target/test-classes
-    // by the integration tests would extract them, and would fail.
-
     static class FieldOutsideDiagram {
         @UMLAssociation(target = OutsideDiagram.class)
         private OutsideDiagram dependency;
@@ -71,8 +57,6 @@ class TargetResolverTest {
 
     @Test
     void targetWithoutUmlClass_isRefused() {
-        // Without this refusal, PlantUML would invent an empty box carrying that name: a diagram
-        // wrong, indistinguishable from a class really without members.
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
             () -> new AssociationExtractor().extract(FieldOutsideDiagram.class));
 

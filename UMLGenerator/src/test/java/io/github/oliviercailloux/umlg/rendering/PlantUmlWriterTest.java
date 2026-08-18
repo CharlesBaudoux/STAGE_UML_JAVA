@@ -17,13 +17,8 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-// Writing the file: the format chosen from the extension, and the refusals at the door.
-//
-// These tests look only at the existence and size of the file — what it holds is
-// the business of PlantUmlWriterOutputTest, which reads its text back.
 class PlantUmlWriterTest {
 
-    // A real valid fixture is built to fool UmlEntity's safety check
     @UMLClass
     static class ClassFixture {}
 
@@ -35,8 +30,6 @@ class PlantUmlWriterTest {
         Path pathFileOutput = temporaryFolder.resolve("diagram_test.svg");
         PlantUmlWriter.write(project, pathFileOutput.toString());
 
-        // A deliberately weak check: PlantUML also writes an image when it fails,
-        // so that a non-empty file does not prove the diagram is correct.
         assertTrue(Files.exists(pathFileOutput));
         assertTrue(Files.size(pathFileOutput) > 0);
     }
@@ -56,9 +49,6 @@ class PlantUmlWriterTest {
     @Test
     void aSingleRibbonShapedFile_isReportedToo(@TempDir Path temporaryFolder)
         throws Exception {
-        // The proportion check existed in directory mode only; yet the single file is
-        // precisely the mode of whoever configured nothing — the one where the ribbon surprised most.
-        // Fourteen boxes nothing links line up in a single row: a ribbon for sure.
         Set<UmlEntity> boxes = new LinkedHashSet<>();
         for (int i = 0; i < 14; i++) {
             String name = "UneClasseAuNomDeliberementTresLongNumero" + i;

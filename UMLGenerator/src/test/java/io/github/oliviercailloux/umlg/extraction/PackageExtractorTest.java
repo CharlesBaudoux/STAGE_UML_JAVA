@@ -10,11 +10,6 @@ import io.github.oliviercailloux.umlg.annotation.UMLPackage;
 import io.github.oliviercailloux.umlg.model.UmlPackage;
 import org.junit.jupiter.api.Test;
 
-// What extraction draws from @UMLPackage.
-//
-// Note: the faulty classes of the refusal tests carry no @UMLClass, and the tests
-// call PackageExtractor directly. That is intended — otherwise the scan of target/test-classes,
-// in the integration tests, would meet them and fail.
 class PackageExtractorTest {
 
     @UMLClass
@@ -31,9 +26,6 @@ class PackageExtractorTest {
     @UMLPackage(name = "   ")
     static class BlankName {}
 
-    // An impossible hexadecimal: what the form check refuses, the only one applying here.
-    // A colour name unknown to the engine — "NotAColor" — has the form of a colour and does
-    // is refused only at rendering time, by ColorCodec.
     @UMLPackage(name = "Group", color = "#GGGGGG")
     static class ColorBadlyFormed {}
 
@@ -70,21 +62,15 @@ class PackageExtractorTest {
 
     @Test
     void malformedColour_isRefused() {
-        // The same grammar as for a box, and the message names the annotation actually
-        // written — @UMLPackage, and not @UMLClass.
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
             () -> PackageExtractor.extract(ColorBadlyFormed.class));
 
         assertTrue(e.getMessage().contains("@UMLPackage"), e.getMessage());
-        // The grammar is that of the PlantUML catalogue, the same as on the drawing and at
-        // compilation: a single question put to a single judge.
         assertTrue(e.getMessage().contains("Color unknown to PlantUML"), e.getMessage());
     }
 
     @Test
     void groupWithoutNameButWithColour_isRefusedByTheModel() {
-        // The case cannot come from the annotation — name() is mandatory there — but the model
-        // checks itself: a colour without a group would be set on nothing.
         assertThrows(IllegalArgumentException.class, () -> new UmlPackage("", "#EEEEEE"));
     }
 }

@@ -10,10 +10,6 @@ import java.nio.file.Path;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
-// The two components the report gained, and the absence it no longer says with a null.
-//
-// GenerationReportTest, next door, bears on what summary() displays. This file bears on the
-// the record form: what it refuses, and what a legitimate absence is allowed to mean.
 class GenerationReportInvariantsTest {
 
     private static final ImmutableList<Path> ONE_FILE =
@@ -21,8 +17,6 @@ class GenerationReportInvariantsTest {
 
     @Test
     void aNullIgnoredClassesFile_isRefused() {
-        // It was the only null of the whole exported area: nothing, in the signature, warned
-        // the caller that it had to be expected. Absence is now said with an empty Optional.
         assertThrows(NullPointerException.class, () -> new GenerationReport(1,
             ImmutableList.of(), ONE_FILE, null, ImmutableList.of()));
     }
@@ -35,8 +29,6 @@ class GenerationReportInvariantsTest {
 
     @Test
     void theShortForm_mentionsNeitherIgnoredFileNorWarning() {
-        // The convenience constructor, that of a report built by hand: the two
-        // added components mean "nothing to say" there, and not "we do not know".
         GenerationReport report =
             new GenerationReport(3, ImmutableList.of(), ONE_FILE);
 
@@ -53,9 +45,6 @@ class GenerationReportInvariantsTest {
 
     @Test
     void withAnIgnoredClassesFile_theSummaryNamesIt() {
-        // The line saying where to find the list belongs to the returned report, and not to the output
-        // standard: a caller relaying it elsewhere — the Maven plugin in its log —
-        // was losing along the way.
         Path list = Path.of("diagrams", UMLGenerator.CLASSES_IGNORED_FILE);
 
         String summary = new GenerationReport(3, ImmutableList.of("Forgotten"), ONE_FILE,

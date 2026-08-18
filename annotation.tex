@@ -524,6 +524,15 @@ Un \textbf{objet JSON}, dont chaque clé dit une nature de règle, encodé en \t
 
 \paragraph{Les commentaires.} JSON n'en a pas : une clé dont le nom commence par \texttt{\_} n'est pas une règle et n'est \textbf{pas lue}, dans l'objet de tête comme dans une vue.
 
+\paragraph{Le schéma, et l'aide de l'éditeur.} Une douzième clé, \texttt{"\$schema"}, n'est pas une règle non plus : elle n'est pas lue, et sert à désigner le \textbf{schéma JSON} livré avec la bibliothèque (\texttt{umlg-schema.json}). L'éditeur qui la voit complète les clés, propose les valeurs des énumérations et souligne une faute avant même la génération --- ce que le refus à la lecture ne peut faire qu'après coup.
+
+\begin{lstlisting}[language=]
+{
+  "$schema": "https://raw.githubusercontent.com/CharlesBaudoux/STAGE_UML_JAVA/main/UMLGenerator/src/main/resources/umlg-schema.json",
+  "strategy": "public"
+}
+\end{lstlisting}
+
 \begin{lstlisting}[language=]
 {
   "_": "Les types de Guava n'apprennent rien au lecteur du diagramme.",
@@ -630,7 +639,7 @@ Trois clés suffisent au cas nominal :
 \end{lstlisting}
 
 \subsection{Ce qui est refusé}
-Chaque refus nomme le fichier, le \textbf{chemin fautif} --- \texttt{views[1].direction}, \texttt{omit[0]} --- et la forme attendue, et \textbf{arrête la génération} plutôt que d'appliquer le fichier à moitié ; les fautes de syntaxe gardent le numéro de ligne. Sont refusés : un JSON mal formé (virgule finale, accolade oubliée) ou un fichier qui n'est pas en UTF-8 --- un \texttt{\#} de commentaire échoue ici, une note s'écrivant dans une clé \texttt{\_} ; une valeur qui n'est pas de la sorte attendue, \texttt{"hide": "get*"} au lieu d'un tableau ; une clé inconnue (\texttt{"couleur"}), une valeur inconnue d'un \texttt{omit}, \texttt{order}, \texttt{direction} ou \texttt{multiplicity}, une stratégie inconnue ou \texttt{"strategy": "project"} ; une clé écrite deux fois, ou deux fois la même valeur dans \texttt{omit} ; un \texttt{title} vide, un motif vide ou réduit à \texttt{*}, une moitié vide d'un \texttt{types} ; un motif contenant un point (\texttt{"Representation.string"}), pour lequel \texttt{@UMLExclude} est fait ; une espace au milieu d'un motif, d'un nom de type ou d'un sélecteur ; une vue sans \texttt{name} ou sans \texttt{retain}, un \texttt{retain} vide, une vue déclarée deux fois, une clé inconnue dans une vue ; un sélecteur ne désignant aucune classe.
+Chaque refus nomme le fichier, le \textbf{chemin fautif} --- \texttt{views[1].direction}, \texttt{omit[0]} --- et la forme attendue, et \textbf{arrête la génération} plutôt que d'appliquer le fichier à moitié ; les fautes de syntaxe gardent le numéro de ligne. Sont refusés : un JSON mal formé (virgule finale, accolade oubliée) ou un fichier qui n'est pas en UTF-8 --- un \texttt{\#} de commentaire échoue ici, une note s'écrivant dans une clé \texttt{\_} ; un fichier commençant par une \textbf{marque d'ordre des octets} (BOM), qu'un éditeur pose sans le dire et qu'aucun regard ne rattrape, refusé par un message qui la nomme ; une valeur qui n'est pas de la sorte attendue, \texttt{"hide": "get*"} au lieu d'un tableau ; une clé inconnue (\texttt{"couleur"}), une valeur inconnue d'un \texttt{omit}, \texttt{order}, \texttt{direction} ou \texttt{multiplicity}, une stratégie inconnue ou \texttt{"strategy": "project"} ; une clé écrite deux fois, ou deux fois la même valeur dans \texttt{omit} ; un \texttt{title} vide, un motif vide ou réduit à \texttt{*}, une moitié vide d'un \texttt{types} ; un motif contenant un point (\texttt{"Representation.string"}), pour lequel \texttt{@UMLExclude} est fait ; une espace au milieu d'un motif, d'un nom de type ou d'un sélecteur ; une vue sans \texttt{name} ou sans \texttt{retain}, un \texttt{retain} vide, une vue déclarée deux fois, une clé inconnue dans une vue ; un sélecteur ne désignant aucune classe.
 
 Une entrée syntaxiquement correcte dont le nom ne correspond à rien --- \texttt{"ImutableList": "List"}, le motif \texttt{"LOGGR"}, l'étoile oubliée d'un \texttt{"get"} --- n'est pas refusée : la génération relève en fin de scan les entrées restées sans effet et les signale (section \ref{sec:avertissements-generation}).
 
@@ -721,7 +730,7 @@ Une vue dont les boîtes s'alignent sur une seule rangée donne un ruban illisib
   21 class(es) drawn, 23 ignored (no @UMLClass)
 \end{lstlisting}
 
-Sous une douzaine, les classes ignorées sont nommées ; au-delà, la génération écrit \texttt{ignored-classes.txt} à la racine de la sortie. Le compte rendu est \textbf{rendu, non imprimé} : \texttt{generate()} rend le \texttt{RapportDeGeneration}, que la ligne de commande écrit sur la sortie standard et le plugin Maven passe à son log --- les avertissements de même. Chaque image est enfin accompagnée de sa \textbf{source PlantUML}, sous le même nom et l'extension \texttt{.puml}.
+Sous une douzaine, les classes ignorées sont nommées ; au-delà, la génération écrit \texttt{ignored-classes.txt} à la racine de la sortie. Le compte rendu est \textbf{rendu, non imprimé} : \texttt{generate()} rend le \texttt{GenerationReport}, que la ligne de commande écrit sur la sortie standard et le plugin Maven passe à son log --- les avertissements de même. Chaque image est enfin accompagnée de sa \textbf{source PlantUML}, sous le même nom et l'extension \texttt{.puml}.
 
 \subsection{Ce que la génération signale}
 \label{sec:avertissements-generation}

@@ -15,10 +15,6 @@ import java.time.LocalDate;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
-// What @UMLDerived brings into the model.
-//
-// The annotation says nothing but "this element is computed". The whole question is therefore
-// that it reaches the model intact, and that it does not spill over the neighbouring members.
 class DerivationTest {
 
     private static Optional<UmlField> field(UmlEntity e, String name) {
@@ -54,8 +50,6 @@ class DerivationTest {
 
     @Test
     void neighbouringField_staysStored() {
-        // Derivation is set member by member: nothing must rub off on the neighbouring
-        // side, even one declared just before.
         UmlEntity entity = EntityExtractor.extract(Person.class);
 
         assertFalse(field(entity, "dateBirth").orElseThrow().derived());
@@ -79,8 +73,6 @@ class DerivationTest {
 
     @Test
     void derivationAndInclusion_combine() {
-        // The two annotations answer two distinct questions — "do we show it?" and
-        // "is it computed?" —, and must be able to coexist on the same field.
         UmlEntity entity = EntityExtractor.extract(Cart.class);
 
         assertTrue(field(entity, "total").orElseThrow().derived());

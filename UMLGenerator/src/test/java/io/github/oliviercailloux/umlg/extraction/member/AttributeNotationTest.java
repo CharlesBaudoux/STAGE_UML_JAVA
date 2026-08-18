@@ -14,16 +14,8 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
-// The attribute notation of an accessor: @UMLInclude(asAttribute = true).
-//
-// An accessor without parameter exposes a property; diagrams showing a structure
-// write it "xKeycodeByXKeyName : Map<String, Short>", without parentheses. The decision is
-// individual — the same reference diagram keeps "latest(): Xkeys", because a factory
-// is not a property — hence an annotation, and not a project rule.
 class AttributeNotationTest {
 
-    // Without @UMLClass: see MemberDisplayTest — the integration tests scan the whole of
-    // target/test-classes, and MemberExtractor n'en a not besoin.
     interface Keyboard {
         @UMLInclude(asAttribute = true, name = "xKeycodeByXKeyName")
         Map<String, Short> codeByName();
@@ -53,7 +45,6 @@ class AttributeNotationTest {
             methods.toString());
         assertTrue(methods.stream().noneMatch(m -> m.name().equals("codeByName")),
             methods.toString());
-        // The other methods, included or not, stay where they were.
         assertTrue(methods.stream().anyMatch(m -> m.name().equals("withoutAliases")),
             methods.toString());
     }
@@ -114,8 +105,6 @@ class AttributeNotationTest {
 
     @Test
     void onlyUmlExcludeWinsOverTheNotation() {
-        // No rule can empty this box: a rule never designates an element by its
-        // name. The veto is therefore written on the member, where it reads next to what it cancels.
         Rules rules = Rules.read("""
             { "hide": ["*tat"] }
             """, "umlg.json");

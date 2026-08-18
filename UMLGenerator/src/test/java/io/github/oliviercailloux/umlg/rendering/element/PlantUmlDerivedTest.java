@@ -13,10 +13,6 @@ import io.github.oliviercailloux.umlg.rendering.PlantUmlAssert;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-// The rendering of a derived element: UML's slash.
-//
-// What these tests watch above all is where the slash is placed. It belongs to the name of
-// the property, and to it alone: neither the type, nor the visibility, nor the multiplicity carries it.
 class PlantUmlDerivedTest {
 
     private static UmlEntity box(List<UmlField> fields, List<UmlMethod> methods) {
@@ -46,8 +42,6 @@ class PlantUmlDerivedTest {
 
     @Test
     void derivedAndStaticField_keepsBothNotations() {
-        // {static} belongs to PlantUML and sits before the type; the slash belongs to UML and
-        // sits before the name. Both must coexist without stepping on each other.
         String source = PlantUmlAssert.documentFor(
             box(List.of(new UmlField("total", "double", "", "+", true, true, ImmutableList.of())),
                 List.of()));
@@ -80,8 +74,6 @@ class PlantUmlDerivedTest {
 
     @Test
     void derivedLinkWithoutRole_marksNothing() {
-        // Nothing to name, hence nothing to mark. The rendering must above all not invent a holder
-        // for the slash — the annotation processor, for its part, warns at compile time.
         UmlAssociation association = UmlAssociation.builder("orders", "com.example.Order")
             .targetMultiplicity("0..*").derived(true).build();
 
@@ -94,8 +86,6 @@ class PlantUmlDerivedTest {
 
     @Test
     void readerSeesBar() throws Exception {
-        // The "what the reader really sees" level: the slash must survive the drawing, and
-        // not stay a subtlety of the source file.
         String text = PlantUmlAssert.textRendered(
             box(List.of(new UmlField("age", "int", "", "-", false, true, ImmutableList.of())),
                 List.of()));

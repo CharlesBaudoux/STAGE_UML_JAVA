@@ -10,37 +10,20 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-// What the processor lets compile, but not silently.
-//
-// The border with UmlgProcessorTest is that of severity, and it has one rule: an error
-// says "this code describes no diagram", a warning says "this code describes a diagram,
-// but probably not the one you think". Hence the assertion shared by all these tests:
-// compilation succeeds. A warning that stopped javac would be a badly named error.
 class UmlgWarningTest {
 
-    // The header every fixture shares lives in CompilationFixture, with the harness.
     private static Verdict compiler(Path tmp, String body) throws IOException {
         return CompilationFixture.compileBody(tmp, body);
     }
 
-    // Checks the severity together with the message: that is half of what each test says.
     private static void assertWarns(Verdict verdict, String fragment) {
         assertTrue(verdict.successful(), "A warning must not stop javac: "
             + verdict.report());
         assertTrue(verdict.warningContains(fragment), verdict.report());
     }
 
-    // --- Exemptions that exempt nothing ---
-
     @Test
     void includeOnAnAlreadyVisibleField_staysSilentWithoutTheRules(@TempDir Path tmp) throws IOException {
-        // The complaint "@UMLInclude is useless, the strategy already shows this field" depends on
-        // two axes, not one: the strategy, which the class declares here in full, and the
-        // the "hide" patterns of the rules file, which javac does not read without -Aumlg.rules. Under
-        // "hide name", this @UMLInclude would be the only way of keeping the line, and removing it
-        // as the processor advised erased the field from the diagram.
-        //
-        // The same code, with the option given, finds its warning again: see UmlgRulesOptionTest.
         Verdict verdict = compiler(tmp, """
             @UMLClass(strategy = UMLVisibility.PUBLIC)
             class Client {
@@ -68,9 +51,6 @@ class UmlgWarningTest {
 
     @Test
     void usefulExemption_saysNothing(@TempDir Path tmp) throws IOException {
-        // The very case of the "Inclusion exemption" section: a private member made visible under a
-        // a strategy that would have hidden it. Nothing to report here, on pain of making the
-        // warnings inaudibles.
         Verdict verdict = compiler(tmp, """
             @UMLClass(strategy = UMLVisibility.PUBLIC)
             class MoteurDeRecherche {
@@ -87,9 +67,6 @@ class UmlgWarningTest {
 
     @Test
     void includeOnAPublicMethod_saysNothing(@TempDir Path tmp) throws IOException {
-        // A public method can be dropped by the noise filter — a getter — in which
-        // case @UMLInclude is useful. The processor does not have that filter at hand: it stays silent rather
-        // than complaining wrongly.
         Verdict verdict = compiler(tmp, """
             @UMLClass(strategy = UMLVisibility.PUBLIC)
             class Client {
@@ -100,8 +77,6 @@ class UmlgWarningTest {
 
         assertTrue(verdict.warnings().isEmpty(), verdict.report());
     }
-
-    // --- Exemptions set on an association ---
 
     @Test
     void excludeOnAnAssociation_warnsThatTheLinkVanishes(@TempDir Path tmp) throws IOException {
@@ -138,13 +113,9 @@ class UmlgWarningTest {
         assertWarns(verdict, "never inside one");
     }
 
-    // --- The association written in the box ---
-
     @Test
     void strokeParametersUnderAttributeNotation_warn(@TempDir Path tmp)
         throws IOException {
-        // A field line has only a type and a multiplicity: the diamond, the role and the
-        // label have nowhere to be written, and would vanish without a word.
         Verdict verdict = compiler(tmp, """
             @UMLClass
             class Order {}
@@ -159,21 +130,12 @@ class UmlgWarningTest {
             """);
 
         assertWarns(verdict, "decorate a path between two boxes");
-        // The faulty parameters are named, and only they: targetMultiplicity, which is indeed
-        // and rightly so, must not appear in the list.
         assertWarns(verdict, "type, label");
     }
 
     @Test
     void faultyStrokeParameterUnderAttributeNotation_isRefusedAndReported(@TempDir Path tmp)
         throws IOException {
-        // The processor said two contrary things about the same parameter: "3..1" was refused there
-        // as everywhere, and the next line announced that sourceMultiplicity would in any case
-        // a way that is not drawn. The author fixed one value only to be told next to
-        // l'effacer.
-        //
-        // It now says both together, and in that order: an impossible value stays
-        // impossible — the generation refuses it too — and it is moreover useless here.
         Verdict verdict = compiler(tmp, """
             @UMLClass
             class Order {}
@@ -214,8 +176,6 @@ class UmlgWarningTest {
     @Test
     void excludeOnAnInBoxAssociation_warnsThatTheLineVanishes(@TempDir Path tmp)
         throws IOException {
-        // The message of the ARROW notation — "@UMLExclude removes the stroke" — would be wrong here:
-        // there is no stroke, it is the line of the box that goes away.
         Verdict verdict = compiler(tmp, """
             @UMLClass
             class Order {}
@@ -234,9 +194,6 @@ class UmlgWarningTest {
     @Test
     void includeOnAnInBoxAssociation_staysSilentWithoutTheRules(@TempDir Path tmp)
         throws IOException {
-        // "Already shown, whatever the strategy" was true of the strategy and false of the
-        // the rules file: the noise filter drops that line too. Without the file,
-        // the processor cannot know, and stays silent.
         Verdict verdict = compiler(tmp, """
             @UMLClass
             class Order {}
@@ -255,9 +212,6 @@ class UmlgWarningTest {
 
     @Test
     void derivedOnAnInBoxAssociation_saysNothing(@TempDir Path tmp) throws IOException {
-        // Under the ARROW notation, @UMLDerived without a targetRole has nothing to mark and the
-        // the processor reports it. Here the slash sits before the name of the field, which
-        // is written: there is nothing to complain about.
         Verdict verdict = compiler(tmp, """
             @UMLClass
             class Order {}
@@ -276,8 +230,6 @@ class UmlgWarningTest {
     @Test
     void dependencyDuplicatingAnInBoxAssociation_saysNothing(@TempDir Path tmp)
         throws IOException {
-        // The association draws no stroke: the dependency is the only link of the drawing, it
-        // n'encombre nothing.
         Verdict verdict = compiler(tmp, """
             @UMLClass
             class Order {}
@@ -294,11 +246,8 @@ class UmlgWarningTest {
         assertTrue(verdict.warnings().isEmpty(), verdict.report());
     }
 
-    // --- The multiplicity that will not be seen ---
-
     @Test
     void multiplicityOnAHiddenMember_warns(@TempDir Path tmp) throws IOException {
-        // Brackets show only if the member they follow is drawn.
         Verdict verdict = compiler(tmp, """
             @UMLClass(strategy = UMLVisibility.PUBLIC)
             class Mnemonic {
@@ -339,12 +288,8 @@ class UmlgWarningTest {
         assertTrue(verdict.warnings().isEmpty(), verdict.report());
     }
 
-    // --- The stereotype ---
-
     @Test
     void alreadyFramedStereotype_warns(@TempDir Path tmp) throws IOException {
-        // The fault is invisible otherwise: nothing fails, the box merely displays four
-        // angle brackets on each side.
         Verdict verdict = compiler(tmp, """
             @UMLClass(stereotype = "<<Service>>")
             class Payment {}
@@ -363,8 +308,6 @@ class UmlgWarningTest {
         assertTrue(verdict.warnings().isEmpty(), verdict.report());
     }
 
-    // --- Two indistinguishable boxes ---
-
     @Test
     void twoClassesWithTheSameDisplayedName_warn(@TempDir Path tmp) throws IOException {
         Verdict verdict = compiler(tmp, """
@@ -377,8 +320,6 @@ class UmlgWarningTest {
 
         assertWarns(verdict, "the reader cannot tell apart");
     }
-
-    // --- The dependency duplicating an association ---
 
     @Test
     void dependencyDuplicatingAnAssociation_warns(@TempDir Path tmp) throws IOException {
@@ -416,8 +357,6 @@ class UmlgWarningTest {
 
         assertTrue(verdict.warnings().isEmpty(), verdict.report());
     }
-
-    // --- The multiplicity checked against the type ---
 
     @Test
     void collectionWithoutMultiplicity_warns(@TempDir Path tmp) throws IOException {
@@ -502,8 +441,6 @@ class UmlgWarningTest {
         assertTrue(verdict.warnings().isEmpty(), verdict.report());
     }
 
-    // --- The target checked against the type ---
-
     @Test
     void targetAbsentFromTheFieldType_warns(@TempDir Path tmp) throws IOException {
         Verdict verdict = compiler(tmp, """
@@ -525,8 +462,6 @@ class UmlgWarningTest {
 
     @Test
     void targetFoundDeepInAGeneric_saysNothing(@TempDir Path tmp) throws IOException {
-        // Map<String, List<Order>>: the target is two levels deep, and the
-        // the search must go down that far rather than concluding too fast.
         Verdict verdict = compiler(tmp, """
             @UMLClass
             class Order {}
@@ -546,8 +481,6 @@ class UmlgWarningTest {
 
     @Test
     void rawCollection_doesNotComplainAboutTheTarget(@TempDir Path tmp) throws IOException {
-        // A bare "List" says nothing of what it holds: that is the exact gap
-        // target() comes to fill, and complaining about it would amount to condemning the remedy.
         Verdict verdict = compiler(tmp, """
             @UMLClass
             class Order {}
@@ -563,11 +496,8 @@ class UmlgWarningTest {
             .noneMatch(message -> message.contains("does not appear anywhere")), verdict.report());
     }
 
-    // --- Derived elements ---
-
     @Test
     void derivedOnAnUndisplayedMember_warns(@TempDir Path tmp) throws IOException {
-        // The slash shows only if the member shows.
         Verdict verdict = compiler(tmp, """
             @UMLClass(strategy = UMLVisibility.PUBLIC)
             class Person {
@@ -581,9 +511,6 @@ class UmlgWarningTest {
 
     @Test
     void derivedOnAnExcludedMember_warns(@TempDir Path tmp) throws IOException {
-        // The counterpart of derivedCaughtUpByAnInclude: the question "will this member be drawn?"
-        // consults both exemptions, and @UMLExclude removes a member the strategy
-        // would show. The slash goes away with it.
         Verdict verdict = compiler(tmp, """
             @UMLClass(strategy = UMLVisibility.PUBLIC)
             class Person {
@@ -614,8 +541,6 @@ class UmlgWarningTest {
 
     @Test
     void derivedCaughtUpByAnInclude_saysNothing(@TempDir Path tmp) throws IOException {
-        // @UMLInclude makes the member visible: the derivation finds a holder again, and the check
-        // must take it into account rather than looking at the strategy only.
         Verdict verdict = compiler(tmp, """
             @UMLClass(strategy = UMLVisibility.PUBLIC)
             class Person {
@@ -630,8 +555,6 @@ class UmlgWarningTest {
 
     @Test
     void derivedLinkWithoutTargetRole_warns(@TempDir Path tmp) throws IOException {
-        // On an association, the slash sits before the target role. With no role, the property
-        // is named nowhere and nothing can carry it.
         Verdict verdict = compiler(tmp, """
             @UMLClass
             class Order {}
@@ -665,12 +588,8 @@ class UmlgWarningTest {
         assertTrue(verdict.warnings().isEmpty(), verdict.report());
     }
 
-    // --- Les notes ---
-
     @Test
     void noteOnAnUndisplayedMember_warns(@TempDir Path tmp) throws IOException {
-        // The bubble would be drawn into the void: extraction drops it, and this is where it must
-        // say it.
         Verdict verdict = compiler(tmp, """
             @UMLClass(strategy = UMLVisibility.PUBLIC)
             class Account {
@@ -701,9 +620,6 @@ class UmlgWarningTest {
 
     @Test
     void verticalDirectionOnAMemberNote_warns(@TempDir Path tmp) throws IOException {
-        // PlantUML places a member note on the left or on the right only. The rendering falls back on the
-        // the right rather than writing a syntax that would get the whole document rejected; it remains to
-        // tell the author that their direction was lost, where they wrote it.
         Verdict verdict = compiler(tmp, """
             @UMLClass(strategy = UMLVisibility.PUBLIC)
             class Account {
@@ -718,8 +634,6 @@ class UmlgWarningTest {
 
     @Test
     void verticalDirectionOnAClassNote_saysNothing(@TempDir Path tmp) throws IOException {
-        // All four sides do exist for a class: the warning must not
-        // spill over onto it.
         Verdict verdict = compiler(tmp, """
             @UMLClass(strategy = UMLVisibility.PUBLIC)
             @UMLNote(text = "Core of the domain", direction = UMLDirection.UP)
@@ -749,12 +663,8 @@ class UmlgWarningTest {
         assertTrue(verdict.warnings().isEmpty(), verdict.report());
     }
 
-    // --- Les constraints ---
-
     @Test
     void ruleAlreadyBetweenBraces_warns(@TempDir Path tmp) throws IOException {
-        // The same mistake as the stereotype quotes: UML's notation is so tied to the
-        // braces that one writes them without thinking.
         Verdict verdict = compiler(tmp, """
             @UMLClass
             @UMLConstraint(rule = "{holder major}")
@@ -779,8 +689,6 @@ class UmlgWarningTest {
 
     @Test
     void constraintOnAFieldPromotedToLink_saysNothing(@TempDir Path tmp) throws IOException {
-        // The field is not drawn, but the link is: the constraint leaves with it. That is
-        // the arbitration rule of the specification, and the majority case.
         Verdict verdict = compiler(tmp, """
             @UMLClass
             class Order {}
@@ -811,8 +719,6 @@ class UmlgWarningTest {
         assertTrue(verdict.warnings().isEmpty(), verdict.report());
     }
 
-    // --- Le silence on requested ---
-
     @Test
     void optionNone_silencesTheWarnings(@TempDir Path tmp) throws IOException {
         String body = """
@@ -832,8 +738,6 @@ class UmlgWarningTest {
 
     @Test
     void optionNone_doesNotSilenceTheErrors(@TempDir Path tmp) throws IOException {
-        // An error says that no diagram can be produced: nobody can want to
-        // be waived, and the option must not offer to do it by mistake.
         Verdict verdict = CompilationFixture.compileBody(tmp, """
             @UMLClass(color = "NotAColor")
             class Client {}
@@ -856,11 +760,6 @@ class UmlgWarningTest {
 
     @Test
     void optionWithoutValue_isRefused(@TempDir Path tmp) throws IOException {
-        // "-Aumlg.warnings" on its own is the very typo that checking the values
-        // claims to have fixed, and it went through the same hole: javac then files the key with
-        // a null value, which the test "is the option missing?" confused with absence.
-        // The user believed they had silenced the processor, and wondered why it
-        // parlait encore.
         Verdict verdict = CompilationFixture.compileBody(tmp, """
             @UMLClass(stereotype = "<<Service>>")
             class Payment {}
@@ -868,7 +767,6 @@ class UmlgWarningTest {
 
         assertFalse(verdict.successful(), verdict.report());
         assertTrue(verdict.errorContains("no value"), verdict.report());
-        // The message says what to write, and not merely what is wrong.
         assertTrue(verdict.errorContains("-Aumlg.warnings=none"), verdict.report());
     }
 }

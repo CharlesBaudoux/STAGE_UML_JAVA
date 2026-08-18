@@ -15,16 +15,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
-// The choice of appearance: what it changes, and above all what it does not change.
-//
-// An appearance must touch styling only. The contract checked here is therefore twofold:
-// each style really produces the rendering it announces, and both say exactly the same thing
-// — same boxes, same members, same strokes. Without this second half, "changing the theme"
-// could quietly change the diagram.
 class PlantUmlStyleTest {
 
-    // The colours PlantUML applies of its own accord, and which the library theme
-    // replaced. Read in the rendered SVG: the only place where a colour is observable.
     private static final String GREY_PLANTUML = "#F1F1F1";
     private static final String BADGE_CLASS = "#ADD1B2";
     private static final String BANNER_UMLG = "#DDE7F0";
@@ -34,7 +26,6 @@ class PlantUmlStyleTest {
             .fields(List.of(new UmlField("balance", "double", "-", false))).build();
     }
 
-    // Two boxes joined by a named link: enough to observe the styling of the name too.
     private static UmlEntity[] pair() {
         return new UmlEntity[] {
             UmlEntity.builder("com.example.Client", "Client")
@@ -44,12 +35,8 @@ class PlantUmlStyleTest {
             UmlEntity.builder("com.example.Target", "Target").build()};
     }
 
-    // --- What each appearance writes in the source ---
-
     @Test
     void byDefault_noColourIsImposed() {
-        // The default appearance must decide nothing at all: neither box colour, nor
-        // of stroke. That is what makes it recognizable — an ordinary PlantUML diagram.
         String source = PlantUmlAssert.documentFor(box());
 
         assertFalse(source.contains("ClassBackgroundColor"), source);
@@ -60,8 +47,6 @@ class PlantUmlStyleTest {
 
     @Test
     void byDefault_theBadgeIsNotHidden() {
-        // "hide circle" would remove the C/I/E next to the name. Leaving it is precisely what
-        // makes the defect look like a hand-drawn diagram.
         assertFalse(PlantUmlAssert.documentFor(box()).contains("hide circle"));
     }
 
@@ -76,9 +61,6 @@ class PlantUmlStyleTest {
     @ParameterizedTest
     @EnumSource(UmlStyle.class)
     void everyAppearance_keepsWhatBelongsToMeaning(UmlStyle style) {
-        // Three settings escape the choice. Visibilities are written "+" and "-", the
-        // UML's notation, and not as coloured badges; a box without members shows no
-        // an empty compartment; the spacing stays computed on the labels.
         String source = PlantUmlAssert.documentFor(style, box());
 
         assertTrue(source.contains("skinparam classAttributeIconSize 0"), source);
@@ -92,8 +74,6 @@ class PlantUmlStyleTest {
     void everyAppearance_isAcceptedByPlantUml(UmlStyle style) {
         PlantUmlAssert.assertCompile(PlantUmlAssert.documentFor(style, pair()));
     }
-
-    // --- What the reader sees ---
 
     @Test
     void byDefault_theRenderingIsPlantUmlOwn() throws Exception {
@@ -114,11 +94,8 @@ class PlantUmlStyleTest {
             () -> "The badge must be hidden under this theme:\n" + svg);
     }
 
-    // --- Le name d'un link ---
-
     @Test
     void linkName_isColouredByTheThemeOnly() {
-        // Colour is a matter of taste, so it follows the theme.
         assertFalse(PlantUmlAssert.documentFor(pair()).contains("<color:"),
             "The default appearance colours nothing.");
         assertTrue(PlantUmlAssert.documentFor(UmlStyle.UMLG, pair()).contains("<color:"),
@@ -128,18 +105,11 @@ class PlantUmlStyleTest {
     @ParameterizedTest
     @EnumSource(UmlStyle.class)
     void linkName_staysItalicInBothCases(UmlStyle style) {
-        // The italics are no affectation: the multiplicity sits in the same place as the
-        // the link name, and nothing else lets the reader know which one names the stroke.
-        // It is therefore shared by both appearances.
         assertTrue(PlantUmlAssert.documentFor(style, pair()).contains("<i>holds</i>"));
     }
 
-    // --- The invariant: the appearance does not change what is said ---
-
     @Test
     void bothAppearances_sayExactlyTheSameThing() {
-        // Comparison of everything that is not style: the box declarations and the
-        // link lines, styling removed. They must match word for word.
         assertEquals(PlantUmlAssert.namesDeclared(PlantUmlAssert.documentFor(pair())),
             PlantUmlAssert.namesDeclared(PlantUmlAssert.documentFor(UmlStyle.UMLG, pair())));
 
@@ -149,8 +119,6 @@ class PlantUmlStyleTest {
 
     @Test
     void bothAppearances_doNotProduceTheSameDocument() {
-        // The counterpart of the previous test: they say the same thing, but they do not write it
-        // not alike. Without this assertion, a style doing nothing would go unnoticed.
         assertNotEquals(PlantUmlAssert.documentFor(pair()),
             PlantUmlAssert.documentFor(UmlStyle.UMLG, pair()));
     }

@@ -18,12 +18,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
-// The rendering of dependencies, built on the same plan as PlantUmlAssociationTest: notation,
-// acceptance by the engine, injection through the label, target resolution, then a round
-// complete, from the annotations on.
-//
-// The point specific to this file: dependency and association must stay visually
-// distinct (dotted against solid) even though they join the same two boxes.
 class PlantUmlDependencyTest {
 
     @UMLClass
@@ -43,19 +37,14 @@ class PlantUmlDependencyTest {
         return PlantUmlAssert.linkLines(source);
     }
 
-    // Isolates the single expected link line, with a telling message if the count differs.
     private static String lineUnique(String source) {
         List<String> lines = linkLines(source);
         assertEquals(1, lines.size(), () -> "Expected a single link in:\n" + source);
         return lines.get(0);
     }
 
-    // --- Notation ---
-
     @Test
     void dependency_isADottedArrow() {
-        // The dotted line is what tells apart, on reading, a mere use from a
-        // structurel : « ..> » and not « --> ».
         assertEquals("Source ..> Target",
             lineUnique(PlantUmlAssert.documentFor(pair(UmlDependency.toTarget("Target")))));
     }
@@ -69,8 +58,6 @@ class PlantUmlDependencyTest {
 
     @Test
     void dependencyAndAssociation_coexistWithoutMerging() {
-        // Both link natures leave the same class: they must produce two
-        // distinct strokes, one solid, the other dotted.
         UmlEntity source = UmlEntity.builder("Source", "Source")
             .associations(ImmutableList.of(UmlAssociation.builder("field", "Target").build()))
             .dependencies(ImmutableList.of(UmlDependency.toTarget("Target")))
@@ -96,8 +83,6 @@ class PlantUmlDependencyTest {
         PlantUmlAssert.assertCompile(rendered);
     }
 
-    // --- Does the engine really accept this? ---
-
     static List<UmlDependency> dependenciesVaried() {
         return List.of(
             UmlDependency.toTarget("Target"),
@@ -115,8 +100,6 @@ class PlantUmlDependencyTest {
         assertEquals(2, PlantUmlAssert.aliasDeclared(source).size(),
             () -> "The link made a box appear or vanish:\n" + source);
     }
-
-    // --- Injection through the label ---
 
     static List<String> labelsHostile() {
         return List.of(
@@ -151,8 +134,6 @@ class PlantUmlDependencyTest {
             () -> "The label is not rendered faithfully. Drawn text:\n" + rendered);
     }
 
-    // --- Target resolution ---
-
     @Test
     void targetAbsentFromTheDiagram_isAPlainError() {
         UmlEntity lone = UmlEntity.builder("Source", "Source")
@@ -175,13 +156,9 @@ class PlantUmlDependencyTest {
         String rendered = PlantUmlAssert.documentFor(homonym, targeted, source);
         List<String> alias = PlantUmlAssert.aliasDeclared(rendered);
 
-        // "homonym" is declared first, so it keeps the unsuffixed alias; the link
-        // must viser l'other.
         assertEquals("Source ..> " + alias.get(1), lineUnique(rendered));
         PlantUmlAssert.assertCompile(rendered);
     }
-
-    // --- End to end, from the annotations on ---
 
     @UMLClass
     @UMLDependency(target = ServiceBank.class, label = "invoice via")

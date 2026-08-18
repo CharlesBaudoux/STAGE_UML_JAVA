@@ -16,18 +16,11 @@ import io.github.oliviercailloux.umlg.model.UmlNote;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-// Where a bubble hangs, and in which order the bubbles come out.
-//
-// NoteExtractorTest already holds the general rule — a note is drawn only when hung on a
-// a drawn member. Two points remain where the extractor did not hold it: a method that changes
-// of compartment, and the order asked for by the project.
 class NoteAnchoringAndOrderTest {
 
     private static List<String> texts(UmlEntity entity) {
         return entity.notes().stream().map(UmlNote::text).toList();
     }
-
-    // --- A method written in attribute notation stays anchorable ---
 
     @UMLClass(strategy = UMLVisibility.PUBLIC)
     static class Person {
@@ -35,8 +28,6 @@ class NoteAnchoringAndOrderTest {
         @UMLNote(text = "the note of an ordinary field")
         public int age;
 
-        // asAttribute = true: the method leaves the method compartment for the
-        // fields. It is drawn — its note must be too.
         @UMLInclude(asAttribute = true)
         @UMLNote(text = "the note of a method in attribute form")
         public String name() {
@@ -49,8 +40,6 @@ class NoteAnchoringAndOrderTest {
 
     @Test
     void noteOnAMethodInAttributeNotation_isKept() {
-        // The member appears in the field compartment, never in the method one:
-        // looking for its name among the visible methods only silently threw its bubble away.
         UmlEntity entity = EntityExtractor.extract(Person.class);
 
         assertEquals(List.of("the note of an ordinary field",
@@ -82,14 +71,10 @@ class NoteAnchoringAndOrderTest {
 
     @Test
     void noteOnARenamedMethod_hangsOnTheDiagramName() {
-        // PlantUML hangs a bubble only on a name it has seen go by: that of the drawing,
-        // not the code order.
         UmlEntity entity = EntityExtractor.extract(Renamed.class);
 
         assertEquals("identifier", entity.notes().get(0).anchor());
     }
-
-    // --- The requested order holds for the bubbles too ---
 
     @UMLClass(strategy = UMLVisibility.PUBLIC)
     static class Unordered {
@@ -124,8 +109,6 @@ class NoteAnchoringAndOrderTest {
 
     @Test
     void onRequest_theBubblesFollowTheCodeOrder() {
-        // Fields filed in code order and bubbles filed by alphabet
-        // would designate the same members in two different orders on the same drawing.
         Rules rules = Rules.read("{ \"order\": \"declaration\" }", "umlg.json");
 
         assertEquals(List.of("zebra", "ostrich", "zoo", "arch"), notesUnder(rules));

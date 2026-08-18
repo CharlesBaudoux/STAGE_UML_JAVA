@@ -16,12 +16,6 @@ import io.github.oliviercailloux.umlg.rendering.PlantUmlAssert;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-// @UMLMultiplicity: the number of objects a property holds, on a field as on a
-// method.
-//
-// It takes over from @UMLAssociation where the latter can do nothing: a collection of strings
-// or an optional integer has no class at the other end, and is therefore no link. The
-// the drawing itself is the same — brackets next to the name.
 class PlantUmlMultiplicityTest {
 
     @UMLClass(name = "CanonicalMnemonic", strategy = UMLVisibility.PRIVATE)
@@ -56,8 +50,6 @@ class PlantUmlMultiplicityTest {
 
     @Test
     void onAMethod_theBracketsFollowTheReturnType() {
-        // The form of hand-kept diagrams: "names() : String [0..*]" reads "returns
-        // zero, one or more strings".
         assertTrue(source().contains("+ names() : String [0..*]"), source());
         PlantUmlAssert.assertCompile(source());
     }
@@ -77,8 +69,6 @@ class PlantUmlMultiplicityTest {
         assertTrue(text.contains("names() : String [0..*]"), text);
     }
 
-    // --- What it combines with ---
-
     @UMLClass(strategy = UMLVisibility.PRIVATE)
     static class Decorated {
         @UMLDerived
@@ -89,18 +79,11 @@ class PlantUmlMultiplicityTest {
 
     @Test
     void slashAndConstraints_frameTheMultiplicity() {
-        // UML's order: the name, the type, the multiplicity, then the rules.
         String source = PlantUmlAssert.documentFor(EntityExtractor.extract(Decorated.class));
 
         assertTrue(source.contains("- /labels : String [1..*] {without duplicate}"), source);
         PlantUmlAssert.assertCompile(source);
     }
-
-    // --- Ce qu'it refuse ---
-    //
-    // These fixtures deliberately carry no @UMLClass, and extraction is called
-    // directly: the sweep of target/test-classes by the integration tests
-    // would otherwise extract, and would fail on faults that are here the object of the test.
 
     static class MultiplicityFaulty {
         @UMLMultiplicity("3..1")
@@ -143,8 +126,6 @@ class PlantUmlMultiplicityTest {
 
     @Test
     void withAnAssociation_isRefused() {
-        // Two multiplicities on the same property: one of the two would be wrong, and nothing
-        // dirait laquelle.
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
             () -> MemberExtractor.extractFields(TwoMultiplicities.class, UMLVisibility.PRIVATE));
 

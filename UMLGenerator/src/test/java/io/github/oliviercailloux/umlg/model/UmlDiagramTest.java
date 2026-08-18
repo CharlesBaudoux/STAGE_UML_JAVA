@@ -10,23 +10,18 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-// Checks the guards of the UmlDiagram record, and what a project declaring nothing is worth.
 class UmlDiagramTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"Architecture of the Billing module", "Overview", "Ref. no.42",
         "a\"b"})
     void anyTitle_isAccepted(String title) {
-        // A title is a text meant to be read: its safety is obtained by encoding on
-        // output, and not by forbidding characters here.
         assertEquals(title, new UmlDiagram(title, UMLFlow.TOP_TO_BOTTOM, true).title());
     }
 
     @ParameterizedTest
     @ValueSource(strings = {" ", "\t", "   "})
     void blankTitle_isRefused(String title) {
-        // The empty string says "no title"; a string of spaces would reserve the height of a
-        // a title nobody would read.
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
             () -> new UmlDiagram(title, UMLFlow.TOP_TO_BOTTOM, true));
 
@@ -52,9 +47,6 @@ class UmlDiagramTest {
 
     @Test
     void defaultSettings_hideEmptyMembers() {
-        // The default decides the nominal case, that of a project setting nothing: the default
-        // the default of @UMLClass showing no member, not hiding would draw
-        // empty rectangles under each name.
         assertTrue(UmlDiagram.defaults().hideEmptyMembers());
     }
 

@@ -27,15 +27,8 @@ import net.sourceforge.plantuml.dot.GraphvizUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-// What the written file really holds: the right format, the right content, and not an
-// error in disguise.
-//
-// It is the indispensable counterpart of PlantUmlWriterTest: PlantUML draws an image even
-// when it fails, so that a non-empty file proves nothing. Here, the content is read back.
 class PlantUmlWriterOutputTest {
 
-    // The magic number of a PNG file: its first eight bytes. Used to check the format
-    // actually produced, without trusting the file name.
     private static final byte[] HEADER_PNG = {(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A};
 
     @UMLClass(name = "Invoice", stereotype = "Entity", strategy = UMLVisibility.PRIVATE)
@@ -45,16 +38,12 @@ class PlantUmlWriterOutputTest {
         public void emit() {}
     }
 
-    // The trial project, rebuilt on each call: no test inherits the state of another.
     private static UmlProject projectFixture() {
         return UmlProject.given(Set.of(EntityExtractor.extract(Fixture.class)));
     }
 
     @Test
     void declaredTitle_isDrawnInTheImage(@TempDir Path tmp) throws Exception {
-        // The link neither the scan nor the rendering covers on its own: the writer must pass to the
-        // render the settings the project carries. Forgetting them would break nothing — the image
-        // would stay valid, simply without the requested title.
         Path output = tmp.resolve("diagram.svg");
         UmlProject project = UmlProject.given(Set.of(EntityExtractor.extract(Fixture.class)),
             new UmlDiagram("Architecture of the Billing module", UMLFlow.TOP_TO_BOTTOM, true));
@@ -68,8 +57,6 @@ class PlantUmlWriterOutputTest {
 
     @Test
     void producedSvg_containsTheClassesAndTheirMembers(@TempDir Path tmp) throws Exception {
-        // The real contract of the library: what the developer annotated is found again
-        // in the delivered image.
         Path output = tmp.resolve("diagram.svg");
 
         PlantUmlWriter.write(projectFixture(), output.toString());
@@ -112,8 +99,6 @@ class PlantUmlWriterOutputTest {
         assertArrayEquals(HEADER_PNG, header, "The PNG header bytes are expected.");
     }
 
-    // A chain of classes linked to the right: the only sure way of getting a diagram
-    // wider than PlantUML's ceiling, which otherwise files lone boxes in a grid.
     private static UmlProject stringHorizontal(int length) {
         Set<UmlEntity> entities = new LinkedHashSet<>();
         for (int i = 0; i < length; i++) {
@@ -128,7 +113,6 @@ class PlantUmlWriterOutputTest {
         return UmlProject.given(entities);
     }
 
-    // The width of a PNG, read in its IHDR header: four bytes from the sixteenth on.
     private static int widthPng(Path file) throws Exception {
         byte[] bytes = Files.readAllBytes(file);
         return ((bytes[16] & 0xFF) << 24) | ((bytes[17] & 0xFF) << 16)
@@ -137,9 +121,6 @@ class PlantUmlWriterOutputTest {
 
     @Test
     void pngWiderThanThePlantUmlCeiling_isNotCropped(@TempDir Path tmp) throws Exception {
-        // PlantUML caps its images at 4096 pixels and crops beyond, reporting nothing:
-        // whole boxes vanished from the PNG while the SVG, being vector, was complete.
-        // Forty chained classes go well beyond that ceiling.
         Path output = tmp.resolve("large.png");
 
         PlantUmlWriter.write(stringHorizontal(40), output.toString());
@@ -150,8 +131,6 @@ class PlantUmlWriterOutputTest {
 
     @Test
     void imageCeiling_isRestoredAfterUse(@TempDir Path tmp) throws Exception {
-        // The setting is a PlantUML ThreadLocal: setting it without removing it would leave the
-        // library change, quietly and durably, the behaviour of its caller.
         int before = GraphvizUtils.getenvImageLimit();
 
         PlantUmlWriter.write(projectFixture(), tmp.resolve("diagram.svg").toString());
@@ -162,9 +141,6 @@ class PlantUmlWriterOutputTest {
 
     @Test
     void uppercaseExtension_isRecognized(@TempDir Path tmp) throws Exception {
-        // The writer normalizes the case before choosing the format, and UMLGenerator.Builder
-        // now relies on supports() rather than on its own comparison: the two
-        // accept the same set of names (see UMLGeneratorIntegrationTest).
         Path output = tmp.resolve("Diagram.SVG");
 
         PlantUmlWriter.write(projectFixture(), output.toString());
@@ -175,10 +151,6 @@ class PlantUmlWriterOutputTest {
 
     @Test
     void unknownExtension_isRefused(@TempDir Path tmp) {
-        // The writer is not protected by the Builder when called directly, and it does not
-        // did not protect itself: writeViews refuses an unknown extension, this one does not. Everything
-        // anything that was not .svg passed for PNG, and a name with no dot at all raised an
-        // a StringIndexOutOfBoundsException "Range [0, -1)" — undecipherable for a caller.
         IllegalArgumentException refusal = assertThrows(IllegalArgumentException.class,
             () -> PlantUmlWriter.write(projectFixture(), tmp.resolve("diagram.txt").toString()));
 
@@ -196,9 +168,6 @@ class PlantUmlWriterOutputTest {
 
     @Test
     void refusedWrite_leavesNothingBehind(@TempDir Path tmp) throws Exception {
-        // The output stream was opened before any check: the file already existed,
-        // empty, when the failure happened. A zero-byte diagram is told from a
-        // a correct diagram only by opening it — that is the worst of outcomes.
         Path output = tmp.resolve("diagram.txt");
 
         assertThrows(IllegalArgumentException.class,
@@ -225,11 +194,6 @@ class PlantUmlWriterOutputTest {
 
     @Test
     void missingParentDirectory_fails(@TempDir Path tmp) {
-        // The writer does not create the tree: better that the failure be plain.
-        //
-        // The named exception, and not "Exception": the parent class would just as well accept a
-        // a NullPointerException coming from elsewhere, and the test would prove nothing about the directory
-        // manquant.
         Path output = tmp.resolve("under/folder/missing/diagram.svg");
 
         assertThrows(IOException.class,

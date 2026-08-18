@@ -13,15 +13,8 @@ import io.github.oliviercailloux.umlg.model.UmlMethod;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
-// The complete array of the five strategies, and the precedence of the two exemption annotations.
-//
-// Each strategy has its fixture class, carrying the four Java visibilities: the test can then
-// check at once what enters and what stays out. The tests go through
-// EntityExtractor.extract rather than through VisibilityPolicy directly — that is the behaviour
-// visible end to end that is fixed here, not the detail of the implementation.
 class VisibilityPolicyTest {
 
-    // Without strategy: the NONE default.
     @UMLClass
     static class MissingStrategy {
         public String publicField;
@@ -88,15 +81,11 @@ class VisibilityPolicyTest {
 
     @UMLClass(strategy = UMLVisibility.PRIVATE)
     static class ExcludeWinsOnInclude {
-        // Edge case: both annotations are present -> @UMLExclude must win.
         @UMLInclude
         @UMLExclude
         private String fieldAmbiguous;
     }
 
-    // Two reading helpers: "is this member in the box?". The Optional makes the assertion
-    // readable in both directions — isPresent() for "must be there", isEmpty() for "must
-    // not be there".
     private static Optional<UmlField> field(UmlEntity entity, String name) {
         return entity.fields().stream().filter(f -> f.name().equals(name)).findFirst();
     }
@@ -104,8 +93,6 @@ class VisibilityPolicyTest {
     private static Optional<UmlMethod> method(UmlEntity entity, String name) {
         return entity.methods().stream().filter(m -> m.name().equals(name)).findFirst();
     }
-
-    // --- NONE strategy (the default): an empty shell ---
 
     @Test
     void noStrategy_producesAnEmptyShell() {
@@ -116,8 +103,6 @@ class VisibilityPolicyTest {
         assertTrue(entity.methods().isEmpty(),
             "Without a strategy, no method must be extracted.");
     }
-
-    // --- PUBLIC strategy ---
 
     @Test
     void publicStrategy_keepsPublicMembersOnly() {
@@ -134,8 +119,6 @@ class VisibilityPolicyTest {
         assertTrue(method(entity, "privateMethod").isEmpty());
     }
 
-    // --- PROTECTED strategy ---
-
     @Test
     void protectedStrategy_keepsPublicAndProtected() {
         UmlEntity entity = EntityExtractor.extract(ProtectedStrategy.class);
@@ -146,10 +129,6 @@ class VisibilityPolicyTest {
             "PROTECTED must not include package-private members.");
         assertTrue(field(entity, "privateField").isEmpty());
     }
-
-    // --- PACKAGE strategy: the trickiest point of the specification ---
-    // In Java, a protected member is visible from the package; the specification
-    // nevertheless decides otherwise, and it is this test that freezes that choice.
 
     @Test
     void packageStrategy_keepsPublicAndPackagePrivateButNotProtected() {
@@ -162,8 +141,6 @@ class VisibilityPolicyTest {
         assertTrue(field(entity, "privateField").isEmpty());
     }
 
-    // --- PRIVATE strategy: everything ---
-
     @Test
     void privateStrategy_keepsEveryField() {
         UmlEntity entity = EntityExtractor.extract(PrivateStrategy.class);
@@ -174,8 +151,6 @@ class VisibilityPolicyTest {
         assertTrue(field(entity, "privateField").isPresent());
     }
 
-    // --- @UMLInclude: positive exemption ---
-
     @Test
     void umlInclude_forcesAPrivateFieldDespiteThePublicStrategy() {
         UmlEntity entity = EntityExtractor.extract(ExemptionInclude.class);
@@ -185,8 +160,6 @@ class VisibilityPolicyTest {
         assertTrue(field(entity, "secretIgnorable").isEmpty(),
             "Without @UMLInclude, a private field must stay hidden under strategy PUBLIC.");
     }
-
-    // --- @UMLExclude: negative exemption ---
 
     @Test
     void umlExclude_hidesAFieldAllowedByTheStrategy() {

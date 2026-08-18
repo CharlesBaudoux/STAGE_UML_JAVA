@@ -13,26 +13,6 @@ import javax.tools.JavaCompiler;
 import javax.tools.StandardJavaFileManager;
 import javax.tools.ToolProvider;
 
-// The javac harness of the tests starting from real compiled classes. This is not a test
-// test: it holds no @Test.
-//
-// The procedure is the same everywhere — write a .java in a temporary directory, compile it for
-// sound, then scan the output directory. It is the only way of exercising what exists
-// than at that level: the path → qualified name translation, nested packages, unreadable
-// unreadable, a parent living in a jar. It was copied into four files, with as many
-// variants as there were copies — one joined the module path to the classpath, the other did not;
-// one raised on failure, the other asserted. It lives here once.
-//
-// WHY -proc:none
-//
-// The test classpath holds our own classes, hence the META-INF/services declaring
-// UmlgProcessor: without this option, javac would install it and would refuse the deliberately
-// faulty. Yet those tests measure the "scan then render" chain, and with it the validation
-// at run time — the second line of defence, the one protecting the user compiling without the
-// the processor, and the one building the model programmatically. The processor is the business of
-// CompilationFixture and of the tests of the processing package.
-//
-// The class is public because its callers live in three packages.
 public final class CompilationWithoutProcessor {
 
     private CompilationWithoutProcessor() {}
@@ -58,14 +38,11 @@ public final class CompilationWithoutProcessor {
         List<File> files = new ArrayList<>();
         for (int i = 0; i < pathsAndCodes.length; i += 2) {
             Path file = rootSources.resolve(pathsAndCodes[i]);
-            // The package directories do not exist yet: to be created before writing.
             Files.createDirectories(file.getParent());
             Files.writeString(file, pathsAndCodes[i + 1], StandardCharsets.UTF_8);
             files.add(file.toFile());
         }
 
-        // The JDK compiler, reachable from the program itself. Absent from a plain JRE,
-        // hence the check that follows.
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
         if (compiler == null) {
             throw new IllegalStateException("Ces tests exigent un JDK (javac absent).");
@@ -75,8 +52,6 @@ public final class CompilationWithoutProcessor {
         try (StandardJavaFileManager manager =
             compiler.getStandardFileManager(null, null, StandardCharsets.UTF_8)) {
 
-            // -classpath: the fixture imports our annotations, so they must be given back to it
-            // visible. -d: where to drop the .class files.
             boolean ok = compiler.getTask(null, manager, null,
                 List.of("-proc:none", "-classpath", compilationPath(), "-d",
                     output.toString()),

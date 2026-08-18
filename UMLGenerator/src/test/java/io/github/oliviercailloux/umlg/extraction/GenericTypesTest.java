@@ -21,18 +21,6 @@ import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
-// What reflection knows of type parameters, and what the diagram makes of it.
-//
-// WHAT THIS FILE PROTECTS
-//
-// The library long displayed "List" where the code writes "List<Order>", on the pattern
-// that compilation erases type parameters. That is true of what lives at run time, and
-// wrong about declared signatures: the compiler keeps them in the "Signature" attribute of the
-// the .class file, and reflection returns them through getGenericType().
-//
-// The difference is not cosmetic. "Map<String, Short>" says what the table maps;
-// "Map" says nothing. And that is what makes it possible to declare the target of an association only
-// the type already names.
 class GenericTypesTest {
 
     @UMLClass
@@ -61,8 +49,6 @@ class GenericTypesTest {
     private static UmlEntity extracted() {
         return EntityExtractor.extract(Library.class);
     }
-
-    // --- Types as they are written ---
 
     @Test
     void aTypeParameter_isDisplayed() {
@@ -102,7 +88,6 @@ class GenericTypesTest {
 
     @Test
     void theRenamingRules_enterTheAngleBrackets() {
-        // "ImmutableList" is renamed "List" wherever it appears, including as a parameter.
         Rules rules = Rules.read("""
             { "types": { "ImmutableList": "List" } }
             """,
@@ -116,8 +101,6 @@ class GenericTypesTest {
         return EntityExtractor.extract(Library.class, rules).fields().stream()
             .filter(f -> f.name().equals(name)).findFirst().orElseThrow().type();
     }
-
-    // --- The element type when a multiplicity is written ---
 
     @UMLClass(strategy = UMLVisibility.PRIVATE)
     static class WithMultiplicities {
@@ -138,8 +121,6 @@ class GenericTypesTest {
 
     @Test
     void withAMultiplicity_theElementTypeIsWritten() {
-        // "alias : Set [0..*]" would read "zero or more sets", which is wrong: there
-        // there is a set, holding zero or more strings. UML wants the element type here.
         UmlEntity entity = EntityExtractor.extract(WithMultiplicities.class);
 
         assertEquals("String", field(entity, "alias").type());
@@ -148,10 +129,6 @@ class GenericTypesTest {
 
     @Test
     void optional_isAWrapperLikeAnyOther() {
-        // And its element becomes primitive again: Java forbids "Optional<int>", the wrapper
-        // Integer is a constraint of the language, not a choice of the author. "int [0..1]" is what
-        // what the diagram must say — "Integer [0..1]" would keep the trace of a constraint
-        // which the reader need not know.
         assertEquals("int", field(EntityExtractor.extract(WithMultiplicities.class), "ucp")
             .type());
     }
@@ -176,40 +153,27 @@ class GenericTypesTest {
 
     @Test
     void anArray_beforeAMultiplicity_losesItsBrackets() {
-        // "names : String[] [1..*]" reads "one or more arrays of strings", whereas the
-        // the code declares only one. An array is the oldest way Java has of writing
-        // "several": before multiplicity brackets, it is the wrapper, like a Set.
         assertEquals("String", field(EntityExtractor.extract(WithWrappers.class), "names").type());
     }
 
     @Test
     void aWildcard_beforeAMultiplicity_comesDownToItsBound() {
-        // "? extends CharSequence [0..*]" says "zero or more things extending
-        // CharSequence"; the bound is all the wildcard brought.
         UmlEntity entity = EntityExtractor.extract(WithWrappers.class);
 
         assertEquals("CharSequence", field(entity, "texts").type());
-        // With no upper bound, the wildcard has nothing more to say and is written as is — "Object"
-        // would be a claim the code does not make.
         assertEquals("?", field(entity, "receptacles").type());
     }
 
     @Test
     void asingleWrapper_isRemoved() {
-        // "zero or more arrays of strings" is exactly what the code declares here:
-        // the array is inside, and it is the list that carries the multiplicity.
         UmlEntity entity = EntityExtractor.extract(WithWrappers.class);
 
         assertEquals("String[]", field(entity, "batches").type());
-        // And unwrapping down to the primitive stays reserved for containers: "Integer[]" is an
-        // the author's choice, which "int[]" already offered.
         assertEquals("Integer", field(entity, "counters").type());
     }
 
     @Test
     void aMapIsNotUnwrapped() {
-        // Two parameters: nothing would say which one is the property. The type stays written in
-        // as a whole, which remains accurate.
         assertEquals("Map<String, Integer>",
             field(EntityExtractor.extract(WithMultiplicities.class), "table").type());
     }
@@ -225,12 +189,8 @@ class GenericTypesTest {
 
     @Test
     void withoutMultiplicity_theContainerStaysWritten() {
-        // Without brackets, "List<Order>" is the type of the property, and writing it in full
-        // is the only right thing.
         assertEquals("List<String>", field(extracted(), "titles").type());
     }
-
-    // --- The target of an association, inferred from the type ---
 
     @UMLClass
     static class InferredClient {
@@ -270,8 +230,6 @@ class GenericTypesTest {
         assertEquals(Order.class.getName(), links.get(0).targetQualifiedName());
     }
 
-    // The faulty fixtures carry no @UMLClass: the scan of target/test-classes
-    // would meet them and would fail.
     static class CollectionRaw {
         @SuppressWarnings("rawtypes")
         @UMLAssociation(notation = UMLNotation.ATTRIBUTE)
@@ -280,8 +238,6 @@ class GenericTypesTest {
 
     @Test
     void aCollectionWithoutParameter_requiresTheTargetToBeWritten() {
-        // This is exactly the gap target() is there to fill: a raw list says
-        // nothing of what it holds.
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
             () -> MemberExtractor.extractFields(CollectionRaw.class, UMLVisibility.PRIVATE));
 

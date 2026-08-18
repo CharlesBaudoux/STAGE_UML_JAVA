@@ -13,20 +13,10 @@ import io.github.oliviercailloux.umlg.rendering.PlantUmlWriter;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-// Alias making, exercised on the names a naive cleanup would break:
-// ideograms, punctuation only, purely numeric name, spaces, accents.
-//
-// The danger aimed at is silence. PlantUML complains neither of an empty alias nor of two classes
-// sharing an alias: in the first case it returns an error image, in the second it
-// merges two boxes — while the program announces "Success". Hence the call to
-// assertCompile in each test.
 class AliasRegistryTest {
 
     @Test
     void twoHomonyms_receiveDistinctAliases() {
-        // The aliases do not step on each other — that is what guarantees each stroke lands on
-        // the right box. But the alias is not read on the drawing: that is why
-        // registration warns on top, both boxes being visually identical.
         AliasRegistry registry = new AliasRegistry();
 
         String first = registry.register("a.Client", "Client");
@@ -35,7 +25,6 @@ class AliasRegistryTest {
         org.junit.jupiter.api.Assertions.assertNotEquals(first, second);
     }
 
-    // Two names which, once cleaned, both give "MyClient".
     @UMLClass(name = "Mon.Client")
     static class NameWithPoint {}
 
@@ -60,13 +49,8 @@ class AliasRegistryTest {
     @UMLClass(name = "Service Payment Handler")
     static class NameWithSpaces {}
 
-    // --- An alias must always be a usable PlantUML identifier ---
-
     @Test
     void nameInIdeograms_producesAUsableAlias() {
-        // "客户" holds no [a-zA-Z0-9] character: the naive cleanup reduced it to
-        // l'alias empty, PlantUML recevait « clazz "客户" as  { » and rendait one image d'error,
-        // while PlantUmlWriter displayed "Success".
         String source = PlantUmlAssert.documentFor(EntityExtractor.extract(NameIdeograms.class));
 
         assertEquals(List.of("客户"), PlantUmlAssert.namesDeclared(source),
@@ -96,7 +80,6 @@ class AliasRegistryTest {
 
     @Test
     void nameWithSpaces_producesAnAliasWithoutSpace() {
-        // A space in the alias would cut the declaration in two for the PlantUML parser.
         String source = PlantUmlAssert.documentFor(EntityExtractor.extract(NameWithSpaces.class));
 
         String alias = PlantUmlAssert.aliasDeclared(source).get(0);
@@ -115,13 +98,8 @@ class AliasRegistryTest {
         PlantUmlAssert.assertCompile(source);
     }
 
-    // --- Two distinct entities must never share an alias ---
-
     @Test
     void twoDifferentNamesReducingToTheSameAlias_stayTwoDistinctClasses() {
-        // "My.Client" and "MyClient" both clean up to "MyClient". PlantUML does not
-        // reports no error in that case: it takes the second declaration as the
-        // the same class and merges the two boxes. The diagram silently loses a class.
         String source = PlantUmlAssert.documentFor(
             EntityExtractor.extract(NameWithPoint.class),
             EntityExtractor.extract(NameWithoutPoint.class));
@@ -137,8 +115,6 @@ class AliasRegistryTest {
 
     @Test
     void sameDisplayedNameForTwoEntities_staysTwoDistinctClasses() {
-        // Real case: two homonymous classes in two different packages, both
-        // annotated. They must appear as two boxes.
         UmlEntity a = EntityExtractor.extract(NameWithoutPoint.class);
         UmlEntity b = EntityExtractor.extract(NameWithoutPointBis.class);
 
@@ -153,15 +129,12 @@ class AliasRegistryTest {
 
     @Test
     void aliasOfAnAlreadyCleanName_staysTheNameItself() {
-        // Non-regression guard: the ordinary case must not be disfigured by the
-        // the hardening above (no stray suffix or prefix).
         String source = PlantUmlAssert.documentFor(EntityExtractor.extract(NameWithoutPoint.class));
 
         assertEquals(List.of("MonClient"), PlantUmlAssert.aliasDeclared(source));
         PlantUmlAssert.assertCompile(source);
     }
 
-    // Shared assertion: a single declared class, and its alias is not empty.
     private static void assertAliasNotEmpty(String source) {
         List<String> alias = PlantUmlAssert.aliasDeclared(source);
         assertEquals(1, alias.size(), "One only class expected in :\n" + source);

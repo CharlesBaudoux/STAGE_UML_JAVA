@@ -11,12 +11,6 @@ import io.github.oliviercailloux.umlg.model.UmlMethod;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-// The header of a generic box, and the italics of abstract operations.
-//
-// Two gaps that looked alike: reflection knows both things, and the model had
-// no component to say them. A "Box<T>" was displayed as "Box", with a field of
-// a type T nothing defined any more; and in an abstract class, a contract was drawn
-// exactly like an implementation.
 class GenericHeaderTest {
 
     @UMLClass
@@ -63,15 +57,11 @@ class GenericHeaderTest {
 
     @Test
     void anOrdinaryClass_carriesNone() {
-        // The empty string, and not null: the header must gain nothing over a class that is
-        // not generic.
         assertEquals("", extracted(Ordinary.class).typeParameters());
     }
 
     @Test
     void theTypeParameter_doesNotChangeTheBoxName() {
-        // The name serves to designate the box — a view names it so, the alias follows. Sticking
-        // the angle brackets inside would make "view \"X\" = Box" unfindable.
         assertEquals("Box", extracted(Box.class).name());
     }
 
@@ -98,15 +88,11 @@ class GenericHeaderTest {
 
     @Test
     void aDefaultMethod_isNot() {
-        // "default" is precisely what tells apart, in an interface, the contract from what
-        // is provided: the modifier does not lie, unlike the missing keyword.
         assertFalse(method(Signature.class, "provided").isAbstract());
     }
 
     @Test
     void theOrdinaryModel_buildsConcreteMethods() {
-        // The seven-argument shortcut, the one the rendering tests use: abstraction
-        // is the exception, and not saying it means there is none.
         UmlMethod method = new UmlMethod("do", "void", "+", false, List.of());
 
         assertFalse(method.isAbstract());

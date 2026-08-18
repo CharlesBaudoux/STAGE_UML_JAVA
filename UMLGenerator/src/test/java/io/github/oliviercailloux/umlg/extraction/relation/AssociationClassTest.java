@@ -11,11 +11,6 @@ import io.github.oliviercailloux.umlg.model.UmlAssociationClass;
 import io.github.oliviercailloux.umlg.model.UmlEntity;
 import org.junit.jupiter.api.Test;
 
-// What extraction draws from @UMLAssociationClass, backed by real fixtures.
-//
-// Note: the faulty classes of the refusal tests carry no @UMLClass, and the tests
-// call the extractor directly. That is intended — otherwise the scan of target/test-classes,
-// in the integration tests, would meet them and fail.
 class AssociationClassTest {
 
     @UMLClass
@@ -28,8 +23,6 @@ class AssociationClassTest {
     @UMLAssociationClass(source = Engine.class, target = Wheel.class)
     static class Assembly {}
 
-    // The faulty fixtures, which the processor would refuse if it ran on this module: they are
-    // here to exercise the second line of defence, that of extraction.
     static class OutsideDiagram {}
 
     @UMLAssociationClass(source = Engine.class, target = OutsideDiagram.class)
@@ -63,8 +56,6 @@ class AssociationClassTest {
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
             () -> new AssociationClassExtractor().extract(Self.class));
 
-        // The assertion bears on the named endpoint: that is what the author must fix, and what
-        // than a message merely saying "an endpoint is faulty" would leave them looking for.
         assertTrue(e.getMessage().contains("source() is the association class itself"),
             e.getMessage());
     }

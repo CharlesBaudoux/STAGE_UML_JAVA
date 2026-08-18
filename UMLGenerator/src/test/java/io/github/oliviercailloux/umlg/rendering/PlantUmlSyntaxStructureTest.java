@@ -13,13 +13,6 @@ import io.github.oliviercailloux.umlg.model.UmlMethod;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-// The exact form of the PlantUML text generated for a box: order of the chunks, markers,
-// compartment separator, header and end of document.
-//
-// The assertions bear on literal excerpts ("+ int age"): this is deliberately
-// rigid, because it is precisely this form that is the contract with PlantUML. Each test
-// ends with assertCompile, to check not only that the text is the expected one, but
-// that PlantUML accepts it.
 class PlantUmlSyntaxStructureTest {
 
     private static UmlEntity entity(List<UmlField> fields, List<UmlMethod> methods) {
@@ -32,8 +25,6 @@ class PlantUmlSyntaxStructureTest {
     private static String rendered(UmlEntity entity) {
         return PlantUmlAssert.documentFor(entity);
     }
-
-    // --- The fields / methods separator ---
 
     @Test
     void separator_presentOnlyIfFieldsAndMethods() {
@@ -69,11 +60,8 @@ class PlantUmlSyntaxStructureTest {
         PlantUmlAssert.assertCompile(source);
     }
 
-    // --- Fields ---
-
     @Test
     void field_isRenderedTypeThenName() {
-        // UML order "visibility type name", and not "name : type".
         String source = rendered(entity(List.of(new UmlField("age", "int", "+", false)), List.of()));
 
         assertTrue(source.contains("  + age : int\n"), source);
@@ -102,8 +90,6 @@ class PlantUmlSyntaxStructureTest {
         assertTrue(source.contains("~ d : int"), source);
         PlantUmlAssert.assertCompile(source);
     }
-
-    // --- Methods ---
 
     @Test
     void methodWithoutParameter_renderedWithEmptyParentheses() {
@@ -134,15 +120,12 @@ class PlantUmlSyntaxStructureTest {
 
     @Test
     void genericType_doesNotBreakTheSyntax() {
-        // getSimpleName() erases type parameters, but an array gives "String[]".
         UmlField field = new UmlField("elements", "String[]", "-", false);
         String source = rendered(entity(List.of(field), List.of()));
 
         assertTrue(source.contains("- elements : String[]"), source);
         PlantUmlAssert.assertCompile(source);
     }
-
-    // --- Stereotype and colour ---
 
     @Test
     void emptyStereotype_isNotRendered() {
@@ -164,7 +147,6 @@ class PlantUmlSyntaxStructureTest {
 
     @Test
     void colourWithoutHash_isNormalizedAsWithHash() {
-        // Both writings are accepted by @UMLClass: they must produce the same rendering.
         String without =
             rendered(new UmlEntity("E", "", "AABBCC", UMLVisibility.PUBLIC, List.of(), List.of()));
         String with =
@@ -180,8 +162,6 @@ class PlantUmlSyntaxStructureTest {
         String source =
             rendered(new UmlEntity("E", "", "", UMLVisibility.PUBLIC, List.of(), List.of()));
 
-        // The declaration, and not the document: the style block also carries "#", and
-        // forbidding them there would amount to forbidding any default colour.
         assertTrue(source.contains("class \"E\" as E {"),
             () -> "An empty colour must not produce an orphan \"#\":\n" + source);
         PlantUmlAssert.assertCompile(source);
@@ -195,8 +175,6 @@ class PlantUmlSyntaxStructureTest {
         assertTrue(source.contains("class \"E\" as E <<Entity>> #FF0000 {"), source);
         PlantUmlAssert.assertCompile(source);
     }
-
-    // --- Document ---
 
     @Test
     void wholeDocument_opensAndClosesTheDiagram() {
@@ -227,8 +205,6 @@ class PlantUmlSyntaxStructureTest {
             "addClass declares it returns this: chaining must work.");
     }
 
-    // The rendering must depend on no residual state: two calls on the same entity give
-    // the same text, otherwise the generated file would change without the code changing.
     @Test
     void rendering_isDeterministic() {
         UmlEntity e = entity(List.of(Field), List.of(Method));

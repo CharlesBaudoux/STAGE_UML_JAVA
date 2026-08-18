@@ -13,12 +13,6 @@ import io.github.oliviercailloux.umlg.model.UmlEntity;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-// The extraction of dependencies: the repeatability of the annotation, and the faults
-// the extractor refuses to let through silently.
-//
-// Note: the faulty classes of the refusal tests carry no @UMLClass, and the tests
-// call DependencyExtractor directly. That is intended — otherwise the scan of
-// target/test-classes, in the integration tests, would meet them and would fail.
 class DependencyExtractorTest {
 
     @UMLClass
@@ -27,10 +21,7 @@ class DependencyExtractorTest {
     @UMLClass
     static class Log {}
 
-    // Forbidden target: no @UMLClass, hence not in the diagram.
     static class OutsideDiagram {}
-
-    // --- Cas nominal ---
 
     @UMLClass
     @UMLDependency(target = ServiceBank.class, label = "invoice via")
@@ -61,8 +52,6 @@ class DependencyExtractorTest {
 
     @Test
     void repeatedAnnotation_producesAsManyLinks() {
-        // A class almost never depends on a single other: the annotation must be
-        // repeatable, otherwise one would have to choose which dependency to show.
         List<UmlDependency> dependencies =
             EntityExtractor.extract(TwoDependencies.class).dependencies();
 
@@ -79,8 +68,6 @@ class DependencyExtractorTest {
 
     @Test
     void sameTargetWithDifferentReasons_isAccepted() {
-        // Two parallel strokes carrying two distinct labels: the reader sees them, and
-        // each of them says something.
         assertEquals(2, EntityExtractor.extract(SameTargetTwoPatterns.class).dependencies().size());
     }
 
@@ -92,16 +79,12 @@ class DependencyExtractorTest {
         assertTrue(EntityExtractor.extract(NoDependency.class).dependencies().isEmpty());
     }
 
-    // --- Fautes silencieuses ---
-
     @UMLDependency(target = ServiceBank.class, label = "pays")
     @UMLDependency(target = ServiceBank.class, label = "pays")
     static class ExactDuplicate {}
 
     @Test
     void dependencyDeclaredTwiceIdentically_isRefused() {
-        // Two strictly superimposed strokes: nothing shows on the diagram, and that is
-        // always the sign of a copy-paste rather than of an intention.
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
             () -> new DependencyExtractor().extract(ExactDuplicate.class));
 
@@ -126,8 +109,6 @@ class DependencyExtractorTest {
 
     @Test
     void targetWithoutUmlClass_isRefused() {
-        // Without this refusal, PlantUML would invent an empty box carrying that name: a diagram
-        // wrong, indistinguishable from a class really without members.
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
             () -> new DependencyExtractor().extract(TargetNotAnnotated.class));
 
@@ -136,7 +117,6 @@ class DependencyExtractorTest {
                 + e.getMessage());
     }
 
-    // int.class is a valid Class on the Java side, but names no possible box.
     @UMLDependency(target = int.class)
     static class PrimitiveTarget {}
 
@@ -151,7 +131,6 @@ class DependencyExtractorTest {
 
     @Test
     void blankLabel_isRefusedNamingTheClass() {
-        // The "what" comes from the model, the "where" from extraction.
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
             () -> new DependencyExtractor().extract(BlankLabel.class));
 

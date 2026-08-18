@@ -20,8 +20,6 @@ import io.github.oliviercailloux.umlg.model.UmlView;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-// Splitting the project into views: what each keeps, and what it does with the strokes
-// come out.
 class ViewBuilderTest {
 
     private static final String PAQ = "com.example";
@@ -36,7 +34,6 @@ class ViewBuilderTest {
     }
 
     private static ImmutableSet<UmlEntity> project() {
-        // Invoice -> Client, Client -> Address, and Log alone in another package.
         return ImmutableSet.of(
             box(PAQ, "Invoice", PAQ + ".Client"),
             box(PAQ, "Client", PAQ + ".Address"),
@@ -49,11 +46,6 @@ class ViewBuilderTest {
             Rules.read(json, "the rules of the test"));
     }
 
-    // The rules file declaring a single view.
-    //
-    // These tests exercise the building of views, not the reading of the file (see
-    // RulesTest): writing the top-level object on each call would drown what changes from one test to
-    // the other, which is the content of the view.
     private static ImmutableList<UmlView> oneView(String view) {
         return views("{ \"views\": [" + view + "] }");
     }
@@ -66,8 +58,6 @@ class ViewBuilderTest {
         return all.stream().filter(v -> v.name().equals(name)).findFirst().orElseThrow();
     }
 
-    // --- The full view ---
-
     @Test
     void withoutAnyRule_onlyTheFullViewIsProduced() {
         ImmutableList<UmlView> all = views("{}");
@@ -79,8 +69,6 @@ class ViewBuilderTest {
 
     @Test
     void theFullView_alwaysComesFirst() {
-        // PlantUmlWriter counts on this order: the first view goes to the root of the directory, the
-        // others in the subdirectory.
         assertEquals(ViewBuilder.FULL_VIEW,
             oneView("""
                 { "name": "Billing", "retain": ["Invoice"] }
@@ -96,8 +84,6 @@ class ViewBuilderTest {
         assertEquals("Mon architecture", all.get(0).name());
         assertEquals(UMLFlow.LEFT_TO_RIGHT, all.get(0).direction());
     }
-
-    // --- The declared views ---
 
     @Test
     void declaredView_keepsOnlyWhatItNames() {
@@ -129,7 +115,6 @@ class ViewBuilderTest {
 
     @Test
     void view_keepsTheWritingOrder() {
-        // The written order is that of the exposition accompanying the drawing: it must be kept.
         assertEquals(List.of("Address", "Invoice", "Client"),
             names(view(oneView("""
                 { "name": "À l'towards", "retain": ["Address", "Invoice", "Client"] }
@@ -146,8 +131,6 @@ class ViewBuilderTest {
 
     @Test
     void view_carriesItsOwnReadingDirection() {
-        // The content and the reading direction are two fields of the same object: the view is not
-        // no longer declares in two steps.
         ImmutableList<UmlView> all = oneView("""
             {
               "name": "Billing",
@@ -163,8 +146,6 @@ class ViewBuilderTest {
 
     @Test
     void unknownName_isRefused() {
-        // The file has no compiler: a renamed class would leave a dead name in it, and the
-        // the diagram would be drawn truncated with nobody knowing.
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
             () -> oneView("""
                 { "name": "Fault", "retain": ["Biller"] }
@@ -181,11 +162,8 @@ class ViewBuilderTest {
                 """));
     }
 
-    // --- Le neighborhood ---
-
     @Test
     void neighbourhood_takesTheClassAndWhatTouchesIt() {
-        // Client aims at Address, and Invoice aims at Client: the three of them, and not Log.
         assertEquals(List.of("Invoice", "Client", "Address"),
             names(view(oneView("""
                 { "name": "Around of Client", "retain": [{ "around": "Client" }] }
@@ -194,14 +172,11 @@ class ViewBuilderTest {
 
     @Test
     void neighbourhood_doesNotGoBeyond() {
-        // Around of Address: Client aims at it, but Invoice is two steps away and stays out.
         assertEquals(List.of("Client", "Address"),
             names(view(oneView("""
                 { "name": "Around d'Address", "retain": [{ "around": "Address" }] }
                 """), "Around d'Address")));
     }
-
-    // --- The views computed per package ---
 
     @Test
     void viewsByPackage_givesOneViewPerPackage() {
@@ -214,12 +189,8 @@ class ViewBuilderTest {
         assertEquals(3, view(all, PAQ).entities().size());
     }
 
-    // --- Pruning the outgoing strokes ---
-
     @Test
     void aLinkTowardsAMissingBox_isRemoved() {
-        // Invoice aims at Client, which is not in the view: the stroke cannot be drawn, and
-        // leaving it would fail the rendering on an unknown alias.
         UmlView only = view(oneView("""
             { "name": "Only", "retain": ["Invoice"] }
             """), "Only");
@@ -239,9 +210,6 @@ class ViewBuilderTest {
 
     @Test
     void aBoxNoLinkLeaves_isNotCopied() {
-        // Rebuilding the fourteen components was written twice, by hand, and nothing
-        // would have said which one had been forgotten: it now lives in
-        // UmlEntity.withRelations, which returns the entity even when there is nothing to change.
         ImmutableSet<UmlEntity> project = project();
         UmlEntity address = project.stream().filter(e -> e.name().equals("Address"))
             .findFirst().orElseThrow();
@@ -259,11 +227,8 @@ class ViewBuilderTest {
         assertEquals(1, views("{}").get(0).entities().iterator().next().associations().size());
     }
 
-    // --- The order imposed by invisible links ---
-
     @Test
     void twoBoxesNothingLinks_areChained() {
-        // The engine would place them side by side, at random. The written order is that of the exposition.
         UmlView ordered = view(oneView("""
             { "name": "Order", "retain": ["Address", "Log"] }
             """), "Order");
@@ -275,8 +240,6 @@ class ViewBuilderTest {
 
     @Test
     void twoAlreadyLinkedBoxes_areNotChained() {
-        // A stroke already exists between them: adding an invisible one would constrain twice the
-        // the same pair, and would freeze a drawing the engine composes better than we do.
         UmlView two = view(oneView("""
             { "name": "Two", "retain": ["Invoice", "Client"] }
             """), "Two");
@@ -285,8 +248,6 @@ class ViewBuilderTest {
             two.entities().get(0).relations().toString());
     }
 
-    // A family — one parent, three children — then two lone boxes: the exact shape of the
-    // the "Mapping" diagram written by hand by the teacher.
     private static ImmutableSet<UmlEntity> family() {
         return ImmutableSet.of(
             UmlEntity.builder(PAQ + ".KeysymEntry", "KeysymEntry").build(),
@@ -302,7 +263,6 @@ class ViewBuilderTest {
             .build();
     }
 
-    // The invisible links of the view, in the form "source -> target", in simple names.
     private static List<String> chains(UmlView view) {
         return view.entities().stream()
             .flatMap(e -> e.layouts().stream()
@@ -314,9 +274,6 @@ class ViewBuilderTest {
 
     @Test
     void siblings_areNotStackedUnderEachOther() {
-        // The trap this test guards: Mnemonic, Ucp and Code are not linked to each other,
-        // but they belong to the same block — the engine fans them out under their
-        // parent, and chaining them would break the very shape of the inheritance.
         UmlView view = ViewBuilder.build(family(), UmlDiagram.defaults(),
             Rules.read("""
                 { "views": [ { "name": "Mapping", "retain": ["KeysymEntry", "Mnemonic",
@@ -342,8 +299,6 @@ class ViewBuilderTest {
 
     @Test
     void theRepresentativeOfABlock_isItsFirstWrittenBox() {
-        // The writing order also decides which box carries the link: it is the one that
-        // the user named first in their block.
         UmlView view = ViewBuilder.build(family(), UmlDiagram.defaults(),
             Rules.read("""
                 { "views": [ { "name": "Mapping", "retain": ["Mnemonic", "KeysymEntry",
@@ -362,15 +317,8 @@ class ViewBuilderTest {
         assertTrue(ordered.entities().get(1).layouts().isEmpty());
     }
 
-    // --- The file name ---
-
     @Test
     void twoViewsComingDownToTheSameFile_areRefused() {
-        // The file reader refuses two views with identical names, and "Model" is not
-        // "Model!". But the identity that counts downstream is the file name, where the
-        // punctuation is removed: both views were written to "views/model.svg", the second
-        // erased the first without a word, the report announced two files one of which did not
-        // exist, and the clickable links of the lost view led to the diagram of the other.
         IllegalArgumentException refusal =
             assertThrows(IllegalArgumentException.class, () -> views("""
                 {
@@ -388,8 +336,6 @@ class ViewBuilderTest {
 
     @Test
     void twoViewsDifferingOnlyByPunctuation_areRefused() {
-        // The reduction keeps neither case, nor punctuation, nor spaces: "The mapping",
-        // "The Mapping" and "The-mapping" both give "the-mapping".
         assertThrows(IllegalArgumentException.class, () -> views("""
             {
               "views": [
@@ -402,8 +348,6 @@ class ViewBuilderTest {
 
     @Test
     void aDeclaredViewAndAPackageView_doNotSilentlyOverlap() {
-        // "viewsByPackage" adds names the author never wrote, hence never proofread:
-        // this is the case where the collision is hardest to see from the file.
         assertThrows(IllegalArgumentException.class, () -> views("""
             {
               "viewsByPackage": true,
@@ -426,20 +370,13 @@ class ViewBuilderTest {
 
     @Test
     void aViewNamedAfterTheFullView_staysAccepted() {
-        // The full view alone does not draw its file name from its name: it is always written under
-        // the same, and at the root rather than in the views subdirectory. It can therefore neither
-        // overwrite nor be overwritten, and accusing it of a collision would be a groundless refusal.
         assertEquals(2, views("""
             { "views": [ { "name": "Project", "retain": ["Invoice"] } ] }
             """).size());
     }
 
-    // --- The default package ---
-
     @Test
     void theDefaultPackageName_isInEnglish() {
-        // This label is not a message: it becomes a view name, hence a diagram title,
-        // hence a file name. It was the only French string the library showed.
         ImmutableList<UmlView> all = ViewBuilder.build(
             ImmutableSet.of(UmlEntity.builder("SansPaquetage", "SansPaquetage").build()),
             UmlDiagram.defaults(), Rules.read("{ \"viewsByPackage\": true }", "test"));
@@ -460,8 +397,6 @@ class ViewBuilderTest {
 
     @Test
     void emptyProject_givesNoView() {
-        // It is UmlProject that refuses a project with no class, with a useful message; failing
-        // before it would put the user on a false trail.
         assertTrue(ViewBuilder.build(ImmutableSet.of(), UmlDiagram.defaults(),
             Rules.no()).isEmpty());
     }

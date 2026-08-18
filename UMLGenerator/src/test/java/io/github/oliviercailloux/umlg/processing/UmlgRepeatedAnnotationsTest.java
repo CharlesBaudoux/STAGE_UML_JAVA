@@ -9,22 +9,7 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-// A diagnostic on a repeated annotation says which one.
-//
-// WHAT THESE TESTS PROTECT
-//
-// When the user writes several @UMLNote on the same class, javac wraps them in a
-// container it builds itself — @UMLNotes — and which exists nowhere in the file
-// source. This container therefore has no position: the diagnostic sits on the declaration of
-// whole class, and out of five notes of which only one is faulty, nothing says which. The API of
-// processors gives no way of finding the lost place again.
-//
-// The text is the only place left to say it. The rank is written only when there is
-// several: on a single annotation, javac locates it perfectly, and "the 1st"
-// would be nothing but noise — that is half of what these tests check.
 class UmlgRepeatedAnnotationsTest {
-
-    // The header every fixture shares lives in CompilationFixture, with the harness.
 
     private static Verdict compiler(Path tmp, String body) throws IOException {
         return CompilationFixture.compileBody(tmp, body);
@@ -46,8 +31,6 @@ class UmlgRepeatedAnnotationsTest {
 
     @Test
     void theThirdFaultyNote_isDesignatedByItsRank(@TempDir Path tmp) throws IOException {
-        // The ordinal suffix is not "nd" for everyone: the English rule is checked
-        // beyond the second.
         Verdict verdict = compiler(tmp, """
             @UMLClass
             @UMLNote(text = "One")
@@ -62,8 +45,6 @@ class UmlgRepeatedAnnotationsTest {
 
     @Test
     void theFirstOfSeveral_isDesignatedByItsRank(@TempDir Path tmp) throws IOException {
-        // It lost its position like the others, once wrapped: the rank
-        // is therefore due, "the 1st" included.
         Verdict verdict = compiler(tmp, """
             @UMLClass
             @UMLNote(text = " ")
@@ -77,8 +58,6 @@ class UmlgRepeatedAnnotationsTest {
 
     @Test
     void beyondTheTenth_theEnglishSuffixStaysRight(@TempDir Path tmp) throws IOException {
-        // "11st" does not exist: the English rule makes an exception of eleven, twelve and thirteen, and
-        // a message the user reads has no right to mangle its own language.
         StringBuilder fixture = new StringBuilder("@UMLClass\n");
         for (int rank = 1; rank <= 10; rank++) {
             fixture.append("@UMLNote(text = \"note ").append(rank).append("\")\n");
@@ -93,8 +72,6 @@ class UmlgRepeatedAnnotationsTest {
 
     @Test
     void aLoneNote_isGivenNoRank(@TempDir Path tmp) throws IOException {
-        // It is perfectly located by javac: a rank would teach nothing, and would weigh down
-        // every message of the current case.
         Verdict verdict = compiler(tmp, """
             @UMLClass
             @UMLNote(text = "  ")
